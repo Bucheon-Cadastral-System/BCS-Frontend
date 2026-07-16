@@ -1,0 +1,229 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 14px;
+  background: #1f2937;
+  color: #f9fafb;
+  flex-wrap: wrap;
+}
+.toolbar__title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  white-space: nowrap;
+}
+.toolbar__controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ctl {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #d1d5db;
+}
+.ctl select {
+  font-size: 13px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid #4b5563;
+  background: #111827;
+  color: #f9fafb;
+}
+.ctl--check {
+  gap: 4px;
+}
+.toolbar__count {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.btn {
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #4b5563;
+  background: #374151;
+  color: #f9fafb;
+  cursor: pointer;
+}
+.btn:hover {
+  background: #4b5563;
+}
+.btn--on {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+.btn--danger {
+  background: #7f1d1d;
+  border-color: #991b1b;
+}
+.btn--danger:hover {
+  background: #991b1b;
+}
+
+/* Banners */
+.warn,
+.hint {
+  padding: 6px 14px;
+  font-size: 13px;
+}
+.warn {
+  background: #fef3c7;
+  color: #92400e;
+}
+.hint {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.warn code {
+  background: rgba(0, 0, 0, 0.08);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+/* Body / map */
+.body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.map {
+  position: absolute;
+  inset: 0;
+}
+.map--add {
+  cursor: crosshair;
+}
+
+/* Detail panel: desktop = right card, mobile = bottom sheet */
+.detail {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 300px;
+  max-width: calc(100% - 24px);
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: 14px;
+  z-index: 5;
+}
+.detail__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.detail__type {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #6b7280;
+  white-space: nowrap;
+}
+.detail__type[data-type='지적삼각점'] {
+  background: #111827;
+}
+.detail__type[data-type='지적삼각보조점'] {
+  background: #6b7280;
+}
+.detail__type[data-type='지적도근점'] {
+  background: #374151;
+}
+.detail__name {
+  flex: 1;
+  font-size: 15px;
+  color: #111827;
+}
+.detail__close {
+  border: none;
+  background: none;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: #6b7280;
+}
+.detail__grid {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 4px 10px;
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+.detail__grid dt {
+  color: #6b7280;
+}
+.detail__grid dd {
+  margin: 0;
+  color: #111827;
+  font-variant-numeric: tabular-nums;
+}
+.detail__actions {
+  display: flex;
+  gap: 8px;
+}
+.detail__actions .btn {
+  flex: 1;
+  text-align: center;
+}
+
+/* OpenLayers 컨트롤: 줌(+/-)·축척 막대를 우하단으로 배치 */
+.ol-zoom {
+  top: auto;
+  left: auto;
+  right: 0.5em;
+  bottom: 0.5em;
+}
+.ol-scale-line {
+  left: auto;
+  right: 3.6em;
+  bottom: 0.9em;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+.ol-scale-line-inner {
+  color: #111827;
+  border-color: #111827;
+  border-top: none;
+}
+.ol-attribution {
+  right: auto;
+  left: 0.5em;
+  bottom: 0.5em;
+}
+
+@media (max-width: 640px) {
+  .toolbar {
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .toolbar__title {
+    font-size: 14px;
+    width: 100%;
+  }
+  .detail {
+    top: auto;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    width: auto;
+    max-width: none;
+    border-radius: 14px 14px 0 0;
+  }
+}
