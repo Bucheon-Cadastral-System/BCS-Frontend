@@ -21,7 +21,12 @@ import {
 } from '@/entities/survey-record'
 import type { SurveyRecord } from '@/entities/survey-record'
 
-export function MapPage() {
+interface MapPageProps {
+  role: string
+  onOpenUserManagement: () => void
+}
+
+export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const [points, setPoints] = useState<ControlPoint[]>(() => loadPoints())
   const [projects, setProjects] = useState<SurveyProject[]>(() => loadProjects())
   const [records, setRecords] = useState<SurveyRecord[]>(() => loadRecords())
@@ -118,6 +123,8 @@ export function MapPage() {
         count={points.length}
         onImportCsv={importCsv}
         onClearAll={clearAll}
+        isAdmin={role === 'ADMIN'}
+        onOpenUserManagement={onOpenUserManagement}
       />
 
       <SurveyProjectBar

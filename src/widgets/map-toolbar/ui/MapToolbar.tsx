@@ -16,6 +16,8 @@ interface MapToolbarProps {
   count: number
   onImportCsv: (file: File) => void
   onClearAll: () => void
+  isAdmin: boolean
+  onOpenUserManagement: () => void
 }
 
 export function MapToolbar(props: MapToolbarProps) {
@@ -74,6 +76,11 @@ export function MapToolbar(props: MapToolbarProps) {
         <button type="button" className="btn btn--danger" onClick={props.onClearAll}>
           전체 삭제
         </button>
+        {props.isAdmin && (
+          <button type="button" className="btn toolbar__admin" onClick={props.onOpenUserManagement}>
+            사용자 관리
+          </button>
+        )}
       </div>
     </header>
   )
