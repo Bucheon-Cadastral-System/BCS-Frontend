@@ -157,6 +157,193 @@
   color: #36516e;
 }
 
+/* Registration */
+.registration,
+.waiting {
+  min-height: 100%;
+  background: #f2f6f8;
+  color: #162b45;
+}
+.registration__header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 74px;
+  padding: 0 max(24px, calc((100vw - 1040px) / 2));
+  background: #fff;
+  border-bottom: 1px solid #e2e9ee;
+}
+.registration__header img {
+  width: auto;
+  height: 35px;
+}
+.registration__header span {
+  padding-left: 16px;
+  border-left: 1px solid #d9e1e7;
+  color: #516477;
+  font-size: 14px;
+  font-weight: 700;
+}
+.registration__card {
+  width: min(calc(100% - 40px), 760px);
+  margin: 54px auto;
+  padding: 44px 50px 46px;
+  background: #fff;
+  border: 1px solid #e0e8ed;
+  border-radius: 20px;
+  box-shadow: 0 16px 45px rgba(25, 52, 78, 0.08);
+}
+.registration__intro {
+  padding-bottom: 28px;
+  border-bottom: 1px solid #e6ecef;
+}
+.registration__step {
+  margin: 0 0 8px;
+  color: #249b8b;
+  font-size: 12px;
+  font-weight: 800;
+}
+.registration__intro h1 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.04em;
+}
+.registration__intro > p:last-child {
+  margin: 10px 0 0;
+  color: #748494;
+  font-size: 14px;
+}
+.registration__form {
+  margin-top: 30px;
+}
+.registration__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 23px 18px;
+}
+.registration__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.registration__field--wide {
+  grid-column: 1 / -1;
+}
+.registration__field > span {
+  color: #354b61;
+  font-size: 13px;
+  font-weight: 700;
+}
+.registration__field b {
+  color: #e45a55;
+}
+.registration__field input,
+.registration__field select {
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid #d7e0e6;
+  border-radius: 10px;
+  outline: 0;
+  background: #fff;
+  color: #23394f;
+  font: inherit;
+  font-size: 14px;
+}
+.registration__field input:focus,
+.registration__field select:focus {
+  border-color: #299e8e;
+  box-shadow: 0 0 0 3px rgba(41, 158, 142, 0.12);
+}
+.registration__field input[readonly] {
+  background: #f4f7f9;
+  color: #607386;
+}
+.registration__field small {
+  color: #8a98a6;
+  font-size: 11px;
+}
+.registration__privacy {
+  margin: 28px 0 0;
+  padding: 13px 15px;
+  border-radius: 9px;
+  background: #f4f8fa;
+  color: #778797;
+  font-size: 12px;
+}
+.registration__actions {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 12px;
+  margin-top: 28px;
+}
+.registration__actions button,
+.waiting__button {
+  min-height: 50px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+.registration__cancel {
+  border: 1px solid #d6dfe6;
+  background: #fff;
+  color: #66798c;
+}
+.registration__submit,
+.waiting__button {
+  border: 1px solid #163d70;
+  background: #163d70;
+  color: #fff;
+}
+.registration__submit:hover,
+.waiting__button:hover {
+  background: #0f315d;
+}
+.waiting {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.waiting__card {
+  width: min(100%, 520px);
+  padding: 54px 40px;
+  text-align: center;
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 16px 45px rgba(25, 52, 78, 0.1);
+}
+.waiting__icon {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 22px;
+  place-items: center;
+  border-radius: 50%;
+  background: #e7f7f3;
+  color: #209987;
+  font-size: 28px;
+}
+.waiting__eyebrow {
+  margin: 0 0 9px;
+  color: #209987;
+  font-size: 12px;
+  font-weight: 800;
+}
+.waiting__card h1 {
+  margin: 0;
+  font-size: 25px;
+}
+.waiting__description {
+  margin: 17px 0 30px;
+  color: #738394;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.waiting__button {
+  width: 100%;
+}
+
 /* Toolbar */
 .toolbar {
   display: flex;
@@ -469,6 +656,34 @@
   }
   .login__heading h1 {
     font-size: 22px;
+  }
+  .registration__header {
+    height: 64px;
+    padding: 0 16px;
+  }
+  .registration__header img {
+    height: 29px;
+  }
+  .registration__header span {
+    font-size: 12px;
+  }
+  .registration__card {
+    width: calc(100% - 24px);
+    margin: 20px auto;
+    padding: 30px 20px;
+    border-radius: 16px;
+  }
+  .registration__intro h1 {
+    font-size: 24px;
+  }
+  .registration__fields {
+    grid-template-columns: 1fr;
+  }
+  .registration__field--wide {
+    grid-column: auto;
+  }
+  .waiting__card {
+    padding: 42px 24px;
   }
   .toolbar {
     gap: 8px;
