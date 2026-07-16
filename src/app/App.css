@@ -4,6 +4,159 @@
   height: 100%;
 }
 
+/* Login */
+.login {
+  position: relative;
+  display: grid;
+  min-height: 100%;
+  place-items: center;
+  overflow: hidden;
+  padding: 48px 20px 80px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(42, 183, 159, 0.14), transparent 35%),
+    linear-gradient(145deg, #f7fafc 0%, #edf4f7 52%, #e7eff4 100%);
+}
+.login::before {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(15, 44, 80, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 44, 80, 0.035) 1px, transparent 1px);
+  background-size: 38px 38px;
+  content: '';
+  mask-image: linear-gradient(to bottom, black, transparent 70%);
+}
+.login__decor {
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  border: 1px solid rgba(21, 67, 125, 0.08);
+  border-radius: 42%;
+  transform: rotate(28deg);
+}
+.login__decor--top {
+  top: -290px;
+  right: -80px;
+}
+.login__decor--bottom {
+  bottom: -320px;
+  left: -100px;
+}
+.login__card {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 440px);
+  padding: 46px 46px 38px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 24px;
+  box-shadow: 0 24px 70px rgba(20, 47, 78, 0.14);
+  backdrop-filter: blur(12px);
+}
+.login__logo {
+  display: block;
+  width: min(100%, 230px);
+  height: auto;
+  margin: 0 auto 34px;
+}
+.login__heading {
+  color: #10233f;
+}
+.login__heading h1 {
+  margin: 0;
+  font-size: 25px;
+  line-height: 1.35;
+  letter-spacing: -0.04em;
+}
+.login__heading > p:last-child {
+  margin: 15px 0 0;
+  color: #718096;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.login__actions {
+  display: grid;
+  gap: 12px;
+  margin-top: 32px;
+}
+.login__kakao,
+.login__development {
+  width: 100%;
+  min-height: 52px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+.login__kakao {
+  position: relative;
+  border: 0;
+  background: #fee500;
+  color: rgba(0, 0, 0, 0.85);
+}
+.login__kakao-symbol {
+  position: absolute;
+  top: 50%;
+  left: 20px;
+  width: 23px;
+  height: 23px;
+  transform: translateY(-50%);
+}
+.login__kakao-symbol svg {
+  width: 100%;
+  fill: #191919;
+}
+.login__development {
+  border: 1px solid #d8e1e8;
+  background: #fff;
+  color: #526579;
+}
+.login__development span {
+  color: #8b9aaa;
+  font-size: 12px;
+  font-weight: 600;
+}
+.login__kakao:hover,
+.login__development:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(16, 35, 63, 0.1);
+}
+.login__kakao:hover {
+  background: #f6de00;
+}
+.login__development:hover {
+  border-color: #aebdca;
+  background: #f8fafb;
+}
+.login__notice {
+  margin: 26px 0 0;
+  color: #96a3b0;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.login__footer {
+  position: absolute;
+  z-index: 1;
+  bottom: 24px;
+  width: calc(100% - 32px);
+  text-align: center;
+  color: #93a1af;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.login__footer p {
+  margin: 0;
+}
+.login__footer a {
+  color: #718296;
+  text-underline-offset: 2px;
+}
+.login__footer a:hover {
+  color: #36516e;
+}
+
 /* Toolbar */
 .toolbar {
   display: flex;
@@ -13,6 +166,16 @@
   background: #1f2937;
   color: #f9fafb;
   flex-wrap: wrap;
+}
+.toolbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.toolbar__logo {
+  width: auto;
+  height: 44px;
+  flex-shrink: 0;
 }
 .toolbar__title {
   font-size: 16px;
@@ -293,13 +456,32 @@
 }
 
 @media (max-width: 640px) {
+  .login {
+    padding: 24px 16px 68px;
+  }
+  .login__card {
+    padding: 38px 24px 30px;
+    border-radius: 20px;
+  }
+  .login__logo {
+    width: min(100%, 205px);
+    margin-bottom: 28px;
+  }
+  .login__heading h1 {
+    font-size: 22px;
+  }
   .toolbar {
     gap: 8px;
     padding: 8px 10px;
   }
+  .toolbar__brand {
+    width: 100%;
+  }
+  .toolbar__logo {
+    height: 36px;
+  }
   .toolbar__title {
     font-size: 14px;
-    width: 100%;
   }
   .detail {
     top: auto;

@@ -23,7 +23,10 @@ export function MapToolbar(props: MapToolbarProps) {
 
   return (
     <header className="toolbar">
-      <h1 className="toolbar__title">부천시 지적기준점 관리 프로그램</h1>
+      <div className="toolbar__brand">
+        <img className="toolbar__logo" src="/logo2.png" alt="" />
+        <h1 className="toolbar__title">지적기준점 관리 프로그램</h1>
+      </div>
       <div className="toolbar__controls">
         <label className="ctl">
           종류
