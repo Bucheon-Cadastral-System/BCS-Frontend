@@ -1,25 +1,46 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { MapToolbar } from '@/widgets/map-toolbar'
 import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
+import { SurveyProjectBar } from '@/widgets/survey-project-bar'
 import { loadPoints, savePoints, createControlPoint, POINT_TYPES } from '@/entities/control-point'
 import type { ControlPoint, PointType } from '@/entities/control-point'
 import type { TmEpsg } from '@/shared/lib/crs'
 import { controlPointsFromCsv } from '@/features/import-control-points'
 import { VWORLD_KEY } from '@/shared/config/map'
+import { loadProjects, saveProjects, createSurveyProject } from '@/entities/survey-project'
+import type { SurveyProject } from '@/entities/survey-project'
+import {
+  loadRecords,
+  saveRecords,
+  toggleSurvey,
+  isSurveyed,
+  surveyedPointIds,
+  removeProjectRecords,
+  removePointRecords,
+} from '@/entities/survey-record'
+import type { SurveyRecord } from '@/entities/survey-record'
 
 export function MapPage() {
   const [points, setPoints] = useState<ControlPoint[]>(() => loadPoints())
+  const [projects, setProjects] = useState<SurveyProject[]>(() => loadProjects())
+  const [records, setRecords] = useState<SurveyRecord[]>(() => loadRecords())
   const [addMode, setAddMode] = useState(false)
   const [addType, setAddType] = useState<PointType>(POINT_TYPES[0])
   const [tmEpsg, setTmEpsg] = useState<TmEpsg>('EPSG:5186')
   const [showCadastral, setShowCadastral] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
 
-  // points 변경 시 localStorage 영속
-  useEffect(() => {
-    savePoints(points)
-  }, [points])
+  // localStorage 영속
+  useEffect(() => { savePoints(points) }, [points])
+  useEffect(() => { saveProjects(projects) }, [projects])
+  useEffect(() => { saveRecords(records) }, [records])
+
+  const surveyedIds = useMemo(
+    () => (activeProjectId ? new Set(surveyedPointIds(records, activeProjectId)) : new Set<string>()),
+    [records, activeProjectId],
+  )
 
   function addPoint(lng: number, lat: number) {
     const fallback = `${addType}-${points.length + 1}`
@@ -48,18 +69,40 @@ export function MapPage() {
 
   function deletePoint(id: string) {
     setPoints((prev) => prev.filter((p) => p.id !== id))
+    setRecords((prev) => removePointRecords(prev, id))
     setSelectedId((cur) => (cur === id ? null : cur))
   }
 
   function clearAll() {
     if (points.length === 0) return
-    if (window.confirm('저장된 기준점을 모두 삭제할까요?')) {
+    if (window.confirm('저장된 기준점을 모두 삭제할까요? (조사기록도 함께 삭제됩니다)')) {
       setPoints([])
+      setRecords([])
       setSelectedId(null)
     }
   }
 
+  function createProject(name: string) {
+    const project = createSurveyProject(name)
+    setProjects((prev) => [...prev, project])
+    setActiveProjectId(project.id)
+  }
+
+  function deleteActiveProject() {
+    if (!activeProjectId) return
+    if (!window.confirm('이 조사 프로젝트와 조사기록을 삭제할까요?')) return
+    setRecords((prev) => removeProjectRecords(prev, activeProjectId))
+    setProjects((prev) => prev.filter((p) => p.id !== activeProjectId))
+    setActiveProjectId(null)
+  }
+
+  function handleToggleSurvey(pointId: string) {
+    if (!activeProjectId) return
+    setRecords((prev) => toggleSurvey(prev, activeProjectId, pointId))
+  }
+
   const selected = points.find((p) => p.id === selectedId) ?? null
+  const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
 
   return (
     <div className="app">
@@ -75,6 +118,16 @@ export function MapPage() {
         count={points.length}
         onImportCsv={importCsv}
         onClearAll={clearAll}
+      />
+
+      <SurveyProjectBar
+        projects={projects}
+        activeProjectId={activeProjectId}
+        onChangeActive={setActiveProjectId}
+        onCreate={createProject}
+        onDeleteActive={deleteActiveProject}
+        surveyedCount={surveyedIds.size}
+        totalCount={points.length}
       />
 
       {!VWORLD_KEY && (
@@ -95,11 +148,16 @@ export function MapPage() {
           addMode={addMode}
           showCadastral={showCadastral}
           selectedId={selectedId}
+          surveyMode={activeProjectId !== null}
+          surveyedIds={surveyedIds}
           onAddPoint={addPoint}
           onSelect={setSelectedId}
         />
         <ControlPointDetail
           point={selected}
+          activeProjectName={activeProject?.name ?? null}
+          surveyed={selected !== null && activeProjectId !== null && isSurveyed(records, activeProjectId, selected.id)}
+          onToggleSurvey={handleToggleSurvey}
           onClose={() => setSelectedId(null)}
           onToggleLost={toggleLost}
           onDelete={deletePoint}

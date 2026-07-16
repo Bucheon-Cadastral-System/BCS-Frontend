@@ -21,6 +21,8 @@ interface ControlPointMapProps {
   addMode: boolean
   showCadastral: boolean
   selectedId: string | null
+  surveyMode: boolean
+  surveyedIds: Set<string>
   onAddPoint: (lng: number, lat: number) => void
   onSelect: (id: string | null) => void
 }
@@ -99,7 +101,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     }
   }, [])
 
-  // 마커 갱신 (points / 선택 변경 시)
+  // 마커 갱신 (points / 선택 / 조사상태 변경 시)
   useEffect(() => {
     const source = sourceRef.current
     if (!source) return
@@ -107,10 +109,11 @@ export function ControlPointMap(props: ControlPointMapProps) {
     for (const p of props.points) {
       const f = new Feature({ geometry: new Point(fromLonLat([p.lng, p.lat])) })
       f.set('id', p.id)
-      f.setStyle(controlPointStyle(p, p.id === props.selectedId))
+      const survey = !props.surveyMode ? 'none' : props.surveyedIds.has(p.id) ? 'done' : 'todo'
+      f.setStyle(controlPointStyle(p, p.id === props.selectedId, survey))
       source.addFeature(f)
     }
-  }, [props.points, props.selectedId])
+  }, [props.points, props.selectedId, props.surveyMode, props.surveyedIds])
 
   // 지적도 레이어 토글
   useEffect(() => {

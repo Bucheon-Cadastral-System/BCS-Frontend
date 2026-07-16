@@ -3,6 +3,9 @@ import type { ControlPoint } from '@/entities/control-point'
 
 interface ControlPointDetailProps {
   point: ControlPoint | null
+  activeProjectName: string | null
+  surveyed: boolean
+  onToggleSurvey: (id: string) => void
   onClose: () => void
   onToggleLost: (id: string) => void
   onDelete: (id: string) => void
@@ -33,6 +36,24 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
         <dt>등록</dt><dd>{new Date(p.createdAt).toLocaleString('ko-KR')}</dd>
         <dt>상태</dt><dd>{p.lost ? '망실' : '정상'}</dd>
       </dl>
+
+      {props.activeProjectName && (
+        <div className="detail__survey">
+          <div className="detail__survey-row">
+            <span className="detail__survey-proj">{props.activeProjectName}</span>
+            <span className={`badge ${props.surveyed ? 'badge--done' : 'badge--todo'}`}>
+              {props.surveyed ? '조사완료' : '미조사'}
+            </span>
+          </div>
+          <button
+            type="button"
+            className={`btn ${props.surveyed ? '' : 'btn--on'}`}
+            onClick={() => props.onToggleSurvey(p.id)}
+          >
+            {props.surveyed ? '조사 취소' : '조사 완료 표시'}
+          </button>
+        </div>
+      )}
 
       <div className="detail__actions">
         <button type="button" className={`btn ${p.lost ? 'btn--on' : ''}`} onClick={() => props.onToggleLost(p.id)}>
