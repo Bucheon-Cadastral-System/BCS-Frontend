@@ -48,7 +48,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
         <div className="mb-3 flex flex-col gap-2 border-t border-gray-200 pt-2.5">
           <div className="flex items-center gap-2">
             <span className="flex-1 text-[13px] text-gray-700">{props.activeProjectName}</span>
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${props.surveyed ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'}`}>
+            <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${props.surveyed ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
               {props.surveyed ? '조사완료' : '미조사'}
             </span>
           </div>

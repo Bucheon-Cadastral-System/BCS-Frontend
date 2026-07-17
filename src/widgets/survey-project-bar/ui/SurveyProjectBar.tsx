@@ -48,7 +48,7 @@ export function SurveyProjectBar(props: SurveyProjectBarProps) {
 
       <span className="ml-auto inline-flex items-center gap-3 text-gray-400">
         <span className="inline-flex items-center gap-1.5">
-          <i className="inline-block h-3 w-3 rounded-full border border-green-600 bg-green-500" />조사완료
+          <i className="inline-block h-3 w-3 rounded-full border border-blue-600 bg-blue-500" />조사완료
         </span>
         <span className="inline-flex items-center gap-1.5">
           <i className="inline-block h-3 w-3 rounded-full bg-gray-400 opacity-50" />미조사

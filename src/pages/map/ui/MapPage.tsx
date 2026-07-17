@@ -3,8 +3,9 @@ import { MapToolbar } from '@/widgets/map-toolbar'
 import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
 import { SurveyProjectBar } from '@/widgets/survey-project-bar'
+import { ClusterList } from '@/widgets/cluster-list'
 import { loadPoints, savePoints, createControlPoint, POINT_TYPES } from '@/entities/control-point'
-import type { ControlPoint, PointType } from '@/entities/control-point'
+import type { ControlPoint, PointType, MapTheme } from '@/entities/control-point'
 import type { TmEpsg } from '@/shared/lib/crs'
 import { controlPointsFromCsv } from '@/features/import-control-points'
 import { VWORLD_KEY } from '@/shared/config/map'
@@ -37,11 +38,15 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const [showCadastral, setShowCadastral] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
+  const [theme, setTheme] = useState<MapTheme>(() => (localStorage.getItem('bcs.theme') as MapTheme | null) ?? 'light')
+  const [clusterPopup, setClusterPopup] = useState<{ points: ControlPoint[]; x: number; y: number; w: number; h: number } | null>(null)
+  const [focusNonce, setFocusNonce] = useState(0)
 
   // localStorage 영속
   useEffect(() => { savePoints(points) }, [points])
   useEffect(() => { saveProjects(projects) }, [projects])
   useEffect(() => { saveRecords(records) }, [records])
+  useEffect(() => { localStorage.setItem('bcs.theme', theme) }, [theme])
 
   const surveyedIds = useMemo(
     () => (activeProjectId ? new Set(surveyedPointIds(records, activeProjectId)) : new Set<string>()),
@@ -107,6 +112,12 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     setRecords((prev) => toggleSurvey(prev, activeProjectId, pointId))
   }
 
+  function focusPoint(cp: ControlPoint) {
+    setSelectedId(cp.id)
+    setClusterPopup(null)
+    setFocusNonce((n) => n + 1)
+  }
+
   const selected = points.find((p) => p.id === selectedId) ?? null
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
 
@@ -126,6 +137,8 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
         onClearAll={clearAll}
         isAdmin={role === 'ADMIN'}
         onOpenUserManagement={onOpenUserManagement}
+        theme={theme}
+        onToggleTheme={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
       />
 
       <SurveyProjectBar
@@ -158,8 +171,18 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           selectedId={selectedId}
           surveyMode={activeProjectId !== null}
           surveyedIds={surveyedIds}
+          theme={theme}
+          focusNonce={focusNonce}
           onAddPoint={addPoint}
-          onSelect={setSelectedId}
+          onSelect={(id) => { setSelectedId(id); setClusterPopup(null) }}
+          onClusterClick={(members, x, y, w, h) => { setSelectedId(null); setClusterPopup({ points: members, x, y, w, h }) }}
+        />
+        <ClusterList
+          popup={clusterPopup}
+          surveyedIds={surveyedIds}
+          surveyMode={activeProjectId !== null}
+          onFocus={focusPoint}
+          onClose={() => setClusterPopup(null)}
         />
         <ControlPointDetail
           point={selected}

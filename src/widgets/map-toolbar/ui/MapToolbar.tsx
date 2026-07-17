@@ -1,9 +1,10 @@
 import { useRef } from 'react'
 import { POINT_TYPES } from '@/entities/control-point'
-import type { PointType } from '@/entities/control-point'
+import type { PointType, MapTheme } from '@/entities/control-point'
 import { TM_ORIGINS } from '@/shared/lib/crs'
 import type { TmEpsg } from '@/shared/lib/crs'
 import { btn, selectCls, ctlLabel } from '@/shared/ui/classes'
+import { ThemeToggle } from '@/shared/ui/ThemeToggle'
 
 interface MapToolbarProps {
   addMode: boolean
@@ -19,6 +20,8 @@ interface MapToolbarProps {
   onClearAll: () => void
   isAdmin: boolean
   onOpenUserManagement: () => void
+  theme: MapTheme
+  onToggleTheme: () => void
 }
 
 export function MapToolbar(props: MapToolbarProps) {
@@ -83,6 +86,9 @@ export function MapToolbar(props: MapToolbarProps) {
             사용자 관리
           </button>
         )}
+      </div>
+      <div className="ml-auto shrink-0">
+        <ThemeToggle dark={props.theme === 'dark'} onToggle={props.onToggleTheme} />
       </div>
     </header>
   )
