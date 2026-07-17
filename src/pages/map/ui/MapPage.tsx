@@ -111,7 +111,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
 
   return (
-    <div className="app">
+    <div className="flex h-full flex-col">
       <MapToolbar
         addMode={addMode}
         onToggleAdd={() => setAddMode((v) => !v)}
@@ -139,18 +139,18 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
       />
 
       {!VWORLD_KEY && (
-        <div className="warn">
+        <div className="bg-amber-100 px-3.5 py-1.5 text-[13px] text-amber-800 [&_code]:rounded [&_code]:bg-black/10 [&_code]:px-1 [&_code]:py-px">
           VWorld API 키가 없어 배경지도를 OSM으로 대체합니다. <code>.env</code>에 <code>VITE_VWORLD_KEY</code>를 넣으면 VWorld 배경지도·지적도가 표시됩니다.
         </div>
       )}
 
       {addMode && (
-        <div className="hint">
+        <div className="bg-blue-100 px-3.5 py-1.5 text-[13px] text-blue-800">
           지도를 클릭해 <b>{addType}</b> 추가 (원점: {tmEpsg})
         </div>
       )}
 
-      <div className="body">
+      <div className="relative min-h-0 flex-1">
         <ControlPointMap
           points={points}
           addMode={addMode}

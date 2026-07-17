@@ -3,6 +3,7 @@ import { POINT_TYPES } from '@/entities/control-point'
 import type { PointType } from '@/entities/control-point'
 import { TM_ORIGINS } from '@/shared/lib/crs'
 import type { TmEpsg } from '@/shared/lib/crs'
+import { btn, selectCls, ctlLabel } from '@/shared/ui/classes'
 
 interface MapToolbarProps {
   addMode: boolean
@@ -24,40 +25,41 @@ export function MapToolbar(props: MapToolbarProps) {
   const fileRef = useRef<HTMLInputElement | null>(null)
 
   return (
-    <header className="toolbar">
-      <div className="toolbar__brand">
-        <img className="toolbar__logo" src="/logo2.png" alt="" />
-        <h1 className="toolbar__title">지적기준점 관리 프로그램</h1>
+    <header className="flex flex-wrap items-center gap-4 bg-gray-800 px-3.5 py-2 text-gray-50">
+      <div className="flex items-center gap-2">
+        <img className="h-7 w-auto" src="/logo2.png" alt="" />
+        <h1 className="whitespace-nowrap text-base font-bold max-sm:text-sm">지적기준점 관리 프로그램</h1>
       </div>
-      <div className="toolbar__controls">
-        <label className="ctl">
+
+      <div className="flex flex-wrap items-center gap-2.5">
+        <label className={ctlLabel}>
           종류
-          <select value={props.addType} onChange={(e) => props.onChangeType(e.target.value as PointType)}>
+          <select className={selectCls} value={props.addType} onChange={(e) => props.onChangeType(e.target.value as PointType)}>
             {POINT_TYPES.map((t) => (
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
         </label>
 
-        <label className="ctl">
+        <label className={ctlLabel}>
           원점
-          <select value={props.tmEpsg} onChange={(e) => props.onChangeEpsg(e.target.value as TmEpsg)}>
+          <select className={selectCls} value={props.tmEpsg} onChange={(e) => props.onChangeEpsg(e.target.value as TmEpsg)}>
             {TM_ORIGINS.map((o) => (
               <option key={o.epsg} value={o.epsg}>{o.label}</option>
             ))}
           </select>
         </label>
 
-        <button type="button" className={`btn ${props.addMode ? 'btn--on' : ''}`} onClick={props.onToggleAdd}>
+        <button type="button" className={btn(props.addMode ? 'on' : undefined)} onClick={props.onToggleAdd}>
           {props.addMode ? '추가 모드 ON' : '지도 클릭으로 추가'}
         </button>
 
-        <label className="ctl ctl--check">
+        <label className="inline-flex items-center gap-1 text-[13px] text-gray-300">
           <input type="checkbox" checked={props.showCadastral} onChange={props.onToggleCadastral} />
           지적도
         </label>
 
-        <button type="button" className="btn" onClick={() => fileRef.current?.click()}>
+        <button type="button" className={btn()} onClick={() => fileRef.current?.click()}>
           CSV 불러오기
         </button>
         <input
@@ -72,12 +74,12 @@ export function MapToolbar(props: MapToolbarProps) {
           }}
         />
 
-        <span className="toolbar__count">{props.count}점</span>
-        <button type="button" className="btn btn--danger" onClick={props.onClearAll}>
+        <span className="text-[13px] text-gray-400">{props.count}점</span>
+        <button type="button" className={btn('danger')} onClick={props.onClearAll}>
           전체 삭제
         </button>
         {props.isAdmin && (
-          <button type="button" className="btn toolbar__admin" onClick={props.onOpenUserManagement}>
+          <button type="button" className={btn()} onClick={props.onOpenUserManagement}>
             사용자 관리
           </button>
         )}

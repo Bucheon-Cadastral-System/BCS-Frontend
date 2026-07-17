@@ -128,5 +128,5 @@ export function ControlPointMap(props: ControlPointMapProps) {
     mapRef.current.getView().animate({ center: fromLonLat([p.lng, p.lat]), duration: 300 })
   }, [props.selectedId])
 
-  return <div ref={containerRef} className={`map ${props.addMode ? 'map--add' : ''}`} />
+  return <div ref={containerRef} className={`absolute inset-0 ${props.addMode ? 'cursor-crosshair' : ''}`} />
 }
