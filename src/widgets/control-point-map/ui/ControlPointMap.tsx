@@ -69,14 +69,18 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const surveyModeRef = useRef(props.surveyMode)
   const surveyedIdsRef = useRef(props.surveyedIds)
   const themeRef = useRef(props.theme)
-  addModeRef.current = props.addMode
-  onAddPointRef.current = props.onAddPoint
-  onSelectRef.current = props.onSelect
-  onClusterClickRef.current = props.onClusterClick
-  selectedIdRef.current = props.selectedId
-  surveyModeRef.current = props.surveyMode
-  surveyedIdsRef.current = props.surveyedIds
-  themeRef.current = props.theme
+  // 렌더 중 ref 대입은 순수하지 않음(버려지는 렌더가 미커밋 값을 남길 수 있음) → 커밋 후 effect에서 동기화.
+  // OL 콜백/스타일은 커밋 뒤(비동기 상호작용·재렌더)에만 refs를 읽으므로, 이 effect를 먼저 선언해 항상 최신값을 보게 함.
+  useEffect(() => {
+    addModeRef.current = props.addMode
+    onAddPointRef.current = props.onAddPoint
+    onSelectRef.current = props.onSelect
+    onClusterClickRef.current = props.onClusterClick
+    selectedIdRef.current = props.selectedId
+    surveyModeRef.current = props.surveyMode
+    surveyedIdsRef.current = props.surveyedIds
+    themeRef.current = props.theme
+  })
 
   // 초기화 (마운트 시 1회)
   useEffect(() => {
@@ -103,7 +107,8 @@ export function ControlPointMap(props: ControlPointMapProps) {
         TRANSPARENT: true,
       },
     })
-    const cadastralLayer = new ImageLayer({ visible: props.showCadastral, source: cadastralSource })
+    // VWORLD_KEY 없으면 지적도 WMS가 KEY='' 로 매 이동마다 실패 요청 → 아예 끔
+    const cadastralLayer = new ImageLayer({ visible: Boolean(VWORLD_KEY) && props.showCadastral, source: cadastralSource })
     cadastralRef.current = cadastralLayer
 
     const rawSource = new VectorSource()
@@ -214,9 +219,9 @@ export function ControlPointMap(props: ControlPointMapProps) {
     layer.setSource(src)
   }, [props.theme])
 
-  // 지적도 레이어 토글
+  // 지적도 레이어 토글 (VWORLD_KEY 없으면 항상 off)
   useEffect(() => {
-    cadastralRef.current?.setVisible(props.showCadastral)
+    cadastralRef.current?.setVisible(Boolean(VWORLD_KEY) && props.showCadastral)
   }, [props.showCadastral])
 
   // 선택된 점으로 이동 (부드러운 팬)

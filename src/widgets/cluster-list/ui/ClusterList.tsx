@@ -58,10 +58,24 @@ export function ClusterList({ popup, surveyedIds, surveyMode, onFocus, onClose }
     return () => clearTimeout(t)
   }, [popup])
 
+  // 비모달 팝오버라 focus-trap은 넣지 않되(지도 위 임시 UI), Esc 로는 닫히게. (항목은 이미 <button>이라 Tab/Enter 가능)
+  useEffect(() => {
+    if (!popup) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [popup, onClose])
+
   if (!data) return null
 
+  const width = Math.min(WIDTH, data.w - 16) // 좁은 화면에선 뷰포트에 맞춰 축소
   const gap = badgeRadius(data.points.length) + 12
-  const placeLeft = data.x + gap + WIDTH > data.w
+  const placeLeft = data.x + gap + width > data.w
+  // 뱃지 오른쪽(기본)/왼쪽 배치 후, 최종 left를 뷰포트 [8, w-width-8]로 클램프(좁은 화면서 화면 밖 방지)
+  const rawLeft = placeLeft ? data.x - gap - width : data.x + gap
+  const left = Math.min(Math.max(rawLeft, 8), Math.max(8, data.w - width - 8))
   const top = Math.min(Math.max(data.y - 24, 8), Math.max(8, data.h - 200))
 
   return (
@@ -69,9 +83,9 @@ export function ClusterList({ popup, surveyedIds, surveyMode, onFocus, onClose }
       className="absolute z-10 flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl"
       style={{
         top,
-        width: WIDTH,
+        left,
+        width,
         maxHeight: data.h - top - 8,
-        ...(placeLeft ? { right: data.w - data.x + gap } : { left: data.x + gap }),
         transformOrigin: placeLeft ? 'right center' : 'left center',
         transform: shown ? 'scale(1)' : 'scale(0.85)',
         opacity: shown ? 1 : 0,

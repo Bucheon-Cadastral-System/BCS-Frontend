@@ -38,7 +38,8 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const [showCadastral, setShowCadastral] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
-  const [theme, setTheme] = useState<MapTheme>(() => (localStorage.getItem('bcs.theme') as MapTheme | null) ?? 'light')
+  // 저장값 검증: light/dark 이외 문자열이면 PALETTE[theme]가 undefined가 되므로 명시 비교로 폴백.
+  const [theme, setTheme] = useState<MapTheme>(() => (localStorage.getItem('bcs.theme') === 'dark' ? 'dark' : 'light'))
   const [clusterPopup, setClusterPopup] = useState<{ points: ControlPoint[]; x: number; y: number; w: number; h: number } | null>(null)
   const [focusNonce, setFocusNonce] = useState(0)
 
