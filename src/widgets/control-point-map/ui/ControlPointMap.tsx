@@ -2,9 +2,10 @@ import { useEffect, useRef } from 'react'
 import Map from 'ol/Map'
 import View from 'ol/View'
 import TileLayer from 'ol/layer/Tile'
+import ImageLayer from 'ol/layer/Image'
 import XYZ from 'ol/source/XYZ'
 import OSM from 'ol/source/OSM'
-import TileWMS from 'ol/source/TileWMS'
+import ImageWMS from 'ol/source/ImageWMS'
 import VectorSource from 'ol/source/Vector'
 import Feature from 'ol/Feature'
 import Point from 'ol/geom/Point'
@@ -19,15 +20,21 @@ import { controlPointStyle, clusterStyle } from '@/entities/control-point'
 import type { ControlPoint, MapTheme } from '@/entities/control-point'
 import { createClusterSource, clusterMembers, computeClusterInfo } from '../lib/pointClustering'
 
-/** 테마별 배경지도 소스 (VWorld Base/midnight, 키 없으면 OSM / CARTO dark) */
+/**
+ * 테마별 배경지도 소스 (VWorld Base/midnight, 키 없으면 OSM / CARTO dark).
+ * ⚠️ VWorld 배경 타일 네이티브 최대 줌: **midnight=18, Base=19** (그 위 레벨은 타일이 없어 503).
+ * maxZoom 을 반드시 지정 → 그 이상 줌에선 OL 이 마지막 레벨 타일을 확대(overzoom)해 화면을 채움.
+ * 미지정 시 OL 기본 maxZoom(42)이라 존재하지 않는 상위 타일을 요청 → 503 → **부분 공백(까만 패치)** 렌더.
+ * (리스트 클릭→z19 포커스가 midnight(캡18)에 착지해 화면 일부만 갱신되던 버그의 원인.)
+ */
 function makeBaseSource(theme: MapTheme): XYZ {
   if (theme === 'dark') {
     return VWORLD_KEY
-      ? new XYZ({ url: `https://api.vworld.kr/req/wmts/1.0.0/${VWORLD_KEY}/midnight/{z}/{y}/{x}.png` })
-      : new XYZ({ url: 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', attributions: '© OpenStreetMap, © CARTO' })
+      ? new XYZ({ url: `https://api.vworld.kr/req/wmts/1.0.0/${VWORLD_KEY}/midnight/{z}/{y}/{x}.png`, maxZoom: 18 })
+      : new XYZ({ url: 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', attributions: '© OpenStreetMap, © CARTO', maxZoom: 20 })
   }
   return VWORLD_KEY
-    ? new XYZ({ url: `https://api.vworld.kr/req/wmts/1.0.0/${VWORLD_KEY}/Base/{z}/{y}/{x}.png` })
+    ? new XYZ({ url: `https://api.vworld.kr/req/wmts/1.0.0/${VWORLD_KEY}/Base/{z}/{y}/{x}.png`, maxZoom: 19 })
     : new OSM()
 }
 
@@ -50,7 +57,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const mapRef = useRef<Map | null>(null)
   const rawSourceRef = useRef<VectorSource | null>(null)
   const clusterLayerRef = useRef<AnimatedCluster | null>(null)
-  const cadastralRef = useRef<TileLayer<TileWMS> | null>(null)
+  const cadastralRef = useRef<ImageLayer<ImageWMS> | null>(null)
   const baseLayerRef = useRef<TileLayer<XYZ> | null>(null)
 
   // 지도는 1회만 생성 → 최신 props/콜백을 ref 로 유지
@@ -76,23 +83,27 @@ export function ControlPointMap(props: ControlPointMapProps) {
     const container = containerRef.current
     if (!container) return
 
-    const baseLayer = new TileLayer({ source: makeBaseSource(props.theme) })
+    const baseSource = makeBaseSource(props.theme)
+    const baseLayer = new TileLayer({ source: baseSource })
     baseLayerRef.current = baseLayer
 
-    const cadastralLayer = new TileLayer({
-      visible: props.showCadastral,
-      source: new TileWMS({
-        url: 'https://api.vworld.kr/req/wms',
-        params: {
-          KEY: VWORLD_KEY,
-          DOMAIN: window.location.origin,
-          LAYERS: 'lt_c_landinfobasemap',
-          STYLES: 'lt_c_landinfobasemap',
-          FORMAT: 'image/png',
-          TRANSPARENT: true,
-        },
-      }),
+    // 지적도 ImageWMS(뷰당 1 요청) — TileWMS(~20 요청)는 실패 시 연결 풀을 막아 배경 타일까지 굶김.
+    // ★ DOMAIN 은 반드시 **순수 호스트**(window.location.hostname). origin(예: `http://localhost:5173` — 프로토콜+포트
+    //   포함)을 보내면 VWorld WMS 가 503으로 거부해 지적도가 안 뜬다. hostname(`localhost` / 배포 `bcs.inwoohub.com`)이면 정상.
+    //   (VWorld WMS 는 CORS 미지원이라 fetch 기반 로더는 못 씀 → OL 기본 <img> 로딩 사용.)
+    const cadastralSource = new ImageWMS({
+      url: 'https://api.vworld.kr/req/wms',
+      ratio: 1,
+      params: {
+        KEY: VWORLD_KEY,
+        DOMAIN: window.location.hostname,
+        LAYERS: 'lt_c_landinfobasemap',
+        STYLES: 'lt_c_landinfobasemap',
+        FORMAT: 'image/png',
+        TRANSPARENT: true,
+      },
     })
+    const cadastralLayer = new ImageLayer({ visible: props.showCadastral, source: cadastralSource })
     cadastralRef.current = cadastralLayer
 
     const rawSource = new VectorSource()
@@ -120,9 +131,20 @@ export function ControlPointMap(props: ControlPointMapProps) {
       target: container,
       controls: defaultControls().extend([new ScaleLine({ units: 'metric' })]),
       layers: [baseLayer, cadastralLayer, clusterLayer],
-      view: new View({ center: fromLonLat(DEFAULT_CENTER), zoom: DEFAULT_ZOOM }),
+      // maxZoom 20: midnight(네이티브18) overzoom을 2단계 이내로 제한(과도한 흐림/무의미한 딥줌 방지).
+      view: new View({ center: fromLonLat(DEFAULT_CENTER), zoom: DEFAULT_ZOOM, maxZoom: 20 }),
     })
     mapRef.current = map
+
+    // 타일이 도착할 때마다 리렌더 → 큰 줌 점프(리스트 포커스 등) 후에도 축소상태 안 남고 즉시 갱신
+    const rerender = () => map.render()
+    baseSource.on('tileloadend', rerender)
+    cadastralSource.on('imageloadend', rerender)
+
+    // 컨테이너 크기 변화(배너 토글·창 리사이즈·레이아웃) → OL 크기가 stale 되면 타일이 잘못 렌더됨(네모난 잔상).
+    // 감지해서 updateSize 로 뷰포트 재계산 + 재렌더.
+    const resizeObserver = new ResizeObserver(() => map.updateSize())
+    resizeObserver.observe(container)
 
     map.on('click', (evt) => {
       if (addModeRef.current) {
@@ -152,6 +174,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     })
 
     return () => {
+      resizeObserver.disconnect()
       map.setTarget(undefined)
       mapRef.current = null
       rawSourceRef.current = null
@@ -181,9 +204,14 @@ export function ControlPointMap(props: ControlPointMapProps) {
     clusterLayerRef.current?.changed()
   }, [props.selectedId, props.surveyMode, props.surveyedIds, props.theme])
 
-  // 테마 변경 → 배경지도 소스 교체
+  // 테마 변경 → 배경지도 소스 교체 (새 소스에도 타일 리렌더 연결)
   useEffect(() => {
-    baseLayerRef.current?.setSource(makeBaseSource(props.theme))
+    const map = mapRef.current
+    const layer = baseLayerRef.current
+    if (!map || !layer) return
+    const src = makeBaseSource(props.theme)
+    src.on('tileloadend', () => map.render())
+    layer.setSource(src)
   }, [props.theme])
 
   // 지적도 레이어 토글
