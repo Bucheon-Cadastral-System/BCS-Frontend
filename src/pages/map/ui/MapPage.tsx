@@ -34,7 +34,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const [records, setRecords] = useState<SurveyRecord[]>(() => loadRecords())
   const [addMode, setAddMode] = useState(false)
   const [addType, setAddType] = useState<PointType>(POINT_TYPES[0])
-  const [tmEpsg, setTmEpsg] = useState<TmEpsg>('EPSG:5186')
+  const tmEpsg: TmEpsg = 'EPSG:5186' // 부천 = 중부원점 고정
   const [showCadastral, setShowCadastral] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
@@ -128,8 +128,6 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
         onToggleAdd={() => setAddMode((v) => !v)}
         addType={addType}
         onChangeType={setAddType}
-        tmEpsg={tmEpsg}
-        onChangeEpsg={setTmEpsg}
         showCadastral={showCadastral}
         onToggleCadastral={() => setShowCadastral((v) => !v)}
         count={points.length}
@@ -159,7 +157,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
 
       {addMode && (
         <div className="bg-blue-100 px-3.5 py-1.5 text-[13px] text-blue-800">
-          지도를 클릭해 <b>{addType}</b> 추가 (원점: {tmEpsg})
+          지도를 클릭해 <b>{addType}</b> 추가
         </div>
       )}
 

@@ -1,8 +1,6 @@
 import { useRef } from 'react'
 import { POINT_TYPES } from '@/entities/control-point'
 import type { PointType, MapTheme } from '@/entities/control-point'
-import { TM_ORIGINS } from '@/shared/lib/crs'
-import type { TmEpsg } from '@/shared/lib/crs'
 import { btn, selectCls, ctlLabel } from '@/shared/ui/classes'
 import { ThemeToggle } from '@/shared/ui/ThemeToggle'
 
@@ -11,8 +9,6 @@ interface MapToolbarProps {
   onToggleAdd: () => void
   addType: PointType
   onChangeType: (t: PointType) => void
-  tmEpsg: TmEpsg
-  onChangeEpsg: (e: TmEpsg) => void
   showCadastral: boolean
   onToggleCadastral: () => void
   count: number
@@ -40,15 +36,6 @@ export function MapToolbar(props: MapToolbarProps) {
           <select className={selectCls} value={props.addType} onChange={(e) => props.onChangeType(e.target.value as PointType)}>
             {POINT_TYPES.map((t) => (
               <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-        </label>
-
-        <label className={ctlLabel}>
-          원점
-          <select className={selectCls} value={props.tmEpsg} onChange={(e) => props.onChangeEpsg(e.target.value as TmEpsg)}>
-            {TM_ORIGINS.map((o) => (
-              <option key={o.epsg} value={o.epsg}>{o.label}</option>
             ))}
           </select>
         </label>
