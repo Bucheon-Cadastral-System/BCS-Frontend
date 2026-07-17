@@ -3,8 +3,9 @@ import { MapToolbar } from '@/widgets/map-toolbar'
 import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
 import { SurveyProjectBar } from '@/widgets/survey-project-bar'
+import { ClusterList } from '@/widgets/cluster-list'
 import { loadPoints, savePoints, createControlPoint, POINT_TYPES } from '@/entities/control-point'
-import type { ControlPoint, PointType } from '@/entities/control-point'
+import type { ControlPoint, PointType, MapTheme } from '@/entities/control-point'
 import type { TmEpsg } from '@/shared/lib/crs'
 import { controlPointsFromCsv } from '@/features/import-control-points'
 import { VWORLD_KEY } from '@/shared/config/map'
@@ -33,15 +34,20 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const [records, setRecords] = useState<SurveyRecord[]>(() => loadRecords())
   const [addMode, setAddMode] = useState(false)
   const [addType, setAddType] = useState<PointType>(POINT_TYPES[0])
-  const [tmEpsg, setTmEpsg] = useState<TmEpsg>('EPSG:5186')
+  const tmEpsg: TmEpsg = 'EPSG:5186' // 부천 = 중부원점 고정
   const [showCadastral, setShowCadastral] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
+  // 저장값 검증: light/dark 이외 문자열이면 PALETTE[theme]가 undefined가 되므로 명시 비교로 폴백.
+  const [theme, setTheme] = useState<MapTheme>(() => (localStorage.getItem('bcs.theme') === 'dark' ? 'dark' : 'light'))
+  const [clusterPopup, setClusterPopup] = useState<{ points: ControlPoint[]; x: number; y: number; w: number; h: number } | null>(null)
+  const [focusNonce, setFocusNonce] = useState(0)
 
   // localStorage 영속
   useEffect(() => { savePoints(points) }, [points])
   useEffect(() => { saveProjects(projects) }, [projects])
   useEffect(() => { saveRecords(records) }, [records])
+  useEffect(() => { localStorage.setItem('bcs.theme', theme) }, [theme])
 
   const surveyedIds = useMemo(
     () => (activeProjectId ? new Set(surveyedPointIds(records, activeProjectId)) : new Set<string>()),
@@ -107,18 +113,22 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     setRecords((prev) => toggleSurvey(prev, activeProjectId, pointId))
   }
 
+  function focusPoint(cp: ControlPoint) {
+    setSelectedId(cp.id)
+    setClusterPopup(null)
+    setFocusNonce((n) => n + 1)
+  }
+
   const selected = points.find((p) => p.id === selectedId) ?? null
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
 
   return (
-    <div className="app">
+    <div className="flex h-full flex-col">
       <MapToolbar
         addMode={addMode}
         onToggleAdd={() => setAddMode((v) => !v)}
         addType={addType}
         onChangeType={setAddType}
-        tmEpsg={tmEpsg}
-        onChangeEpsg={setTmEpsg}
         showCadastral={showCadastral}
         onToggleCadastral={() => setShowCadastral((v) => !v)}
         count={points.length}
@@ -126,6 +136,8 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
         onClearAll={clearAll}
         isAdmin={role === 'ADMIN'}
         onOpenUserManagement={onOpenUserManagement}
+        theme={theme}
+        onToggleTheme={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
       />
 
       <SurveyProjectBar
@@ -139,18 +151,18 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
       />
 
       {!VWORLD_KEY && (
-        <div className="warn">
+        <div className="bg-amber-100 px-3.5 py-1.5 text-[13px] text-amber-800 [&_code]:rounded [&_code]:bg-black/10 [&_code]:px-1 [&_code]:py-px">
           VWorld API 키가 없어 배경지도를 OSM으로 대체합니다. <code>.env</code>에 <code>VITE_VWORLD_KEY</code>를 넣으면 VWorld 배경지도·지적도가 표시됩니다.
         </div>
       )}
 
       {addMode && (
-        <div className="hint">
-          지도를 클릭해 <b>{addType}</b> 추가 (원점: {tmEpsg})
+        <div className="bg-blue-100 px-3.5 py-1.5 text-[13px] text-blue-800">
+          지도를 클릭해 <b>{addType}</b> 추가
         </div>
       )}
 
-      <div className="body">
+      <div className="relative min-h-0 flex-1">
         <ControlPointMap
           points={points}
           addMode={addMode}
@@ -158,8 +170,18 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           selectedId={selectedId}
           surveyMode={activeProjectId !== null}
           surveyedIds={surveyedIds}
+          theme={theme}
+          focusNonce={focusNonce}
           onAddPoint={addPoint}
-          onSelect={setSelectedId}
+          onSelect={(id) => { setSelectedId(id); setClusterPopup(null) }}
+          onClusterClick={(members, x, y, w, h) => { setSelectedId(null); setClusterPopup({ points: members, x, y, w, h }) }}
+        />
+        <ClusterList
+          popup={clusterPopup}
+          surveyedIds={surveyedIds}
+          surveyMode={activeProjectId !== null}
+          onFocus={focusPoint}
+          onClose={() => setClusterPopup(null)}
         />
         <ControlPointDetail
           point={selected}
