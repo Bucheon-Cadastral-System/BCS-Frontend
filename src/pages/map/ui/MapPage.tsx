@@ -20,9 +20,10 @@ import {
   removePointRecords,
 } from '@/entities/survey-record'
 import type { SurveyRecord } from '@/entities/survey-record'
+import type { UserRole } from '@/entities/user'
 
 interface MapPageProps {
-  role: string
+  role: UserRole
   onOpenUserManagement: () => void
 }
 

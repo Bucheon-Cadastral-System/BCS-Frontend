@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 :root {
   --sans: system-ui, 'Malgun Gothic', 'Apple SD Gothic Neo', 'Segoe UI', sans-serif;
   color-scheme: light;

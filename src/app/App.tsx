@@ -2,14 +2,15 @@ import { useState } from 'react'
 import 'ol/ol.css'
 import './App.css'
 import { AdminUsersPage } from '@/pages/admin-users'
-import type { ManagedUser } from '@/pages/admin-users'
+import type { ManagedUser, UserRole } from '@/entities/user'
 import { RegistrationPage } from '@/pages/registration'
 import { LoginPage } from '@/pages/login'
 import { MapPage } from '@/pages/map'
+import { WaitingPage } from '@/pages/waiting'
 
 type AppView = 'login' | 'registration' | 'waiting' | 'map' | 'admin'
 
-const DEVELOPMENT_ROLE = 'ADMIN'
+const DEVELOPMENT_ROLE: UserRole = 'ADMIN'
 
 const INITIAL_USERS: ManagedUser[] = [
   {
@@ -90,23 +91,7 @@ export default function App() {
   }
 
   if (view === 'waiting') {
-    return (
-      <main className="waiting">
-        <section className="waiting__card">
-          <div className="waiting__icon" aria-hidden="true">✓</div>
-          <p className="waiting__eyebrow">가입 신청 완료</p>
-          <h1>관리자 승인을 기다리고 있습니다</h1>
-          <p className="waiting__description">
-            입력하신 정보로 회원가입 신청이 완료되었습니다.
-            <br />
-            관리자가 소속 정보를 확인한 후 서비스를 이용할 수 있습니다.
-          </p>
-          <button type="button" className="waiting__button" onClick={() => setView('login')}>
-            로그인 화면으로 돌아가기
-          </button>
-        </section>
-      </main>
-    )
+    return <WaitingPage onBackToLogin={() => setView('login')} />
   }
 
   return (
