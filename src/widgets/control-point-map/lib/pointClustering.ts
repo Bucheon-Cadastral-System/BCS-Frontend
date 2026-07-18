@@ -26,11 +26,12 @@ export function clusterMembers(feature: FeatureLike): ControlPoint[] {
   return members.map((f) => f.get('cp') as ControlPoint)
 }
 
-/** 멤버들로 계약(ClusterInfo) 계산. 망실은 조사상태보다 우선 집계. */
+/** 멤버들로 계약(ClusterInfo) 계산. 망실(프로젝트별)은 조사완료의 한 종류라 done 대신 lost로 집계. */
 export function computeClusterInfo(
   members: ControlPoint[],
   surveyMode: boolean,
   surveyedIds: Set<string>,
+  lostIds: Set<string>,
 ): ClusterInfo {
   const byType: Record<PointType, number> = { 지적삼각점: 0, 지적삼각보조점: 0, 지적도근점: 0 }
   let done = 0
@@ -38,7 +39,7 @@ export function computeClusterInfo(
   let lost = 0
   for (const cp of members) {
     byType[cp.type] += 1
-    if (cp.lost) lost += 1
+    if (surveyMode && lostIds.has(cp.id)) lost += 1
     else if (surveyMode && surveyedIds.has(cp.id)) done += 1
     else todo += 1
   }

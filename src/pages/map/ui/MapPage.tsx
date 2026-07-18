@@ -15,8 +15,11 @@ import {
   loadRecords,
   saveRecords,
   toggleSurvey,
+  toggleLost,
   isSurveyed,
+  isLost,
   surveyedPointIds,
+  lostPointIds,
   removeProjectRecords,
   removePointRecords,
 } from '@/entities/survey-record'
@@ -54,6 +57,10 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     () => (activeProjectId ? new Set(surveyedPointIds(records, activeProjectId)) : new Set<string>()),
     [records, activeProjectId],
   )
+  const lostIds = useMemo(
+    () => (activeProjectId ? new Set(lostPointIds(records, activeProjectId)) : new Set<string>()),
+    [records, activeProjectId],
+  )
 
   // 프로젝트별 조사 완료 수 (조사 단위 완료 여부 표시용)
   const surveyedCountByProject = useMemo(() => {
@@ -83,8 +90,9 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     })
   }
 
-  function toggleLost(id: string) {
-    setPoints((prev) => prev.map((p) => (p.id === id ? { ...p, lost: !p.lost } : p)))
+  function handleToggleLost(pointId: string) {
+    if (!activeProjectId) return
+    setRecords((prev) => toggleLost(prev, activeProjectId, pointId))
   }
 
   function deletePoint(id: string) {
@@ -157,8 +165,10 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           totalCount={points.length}
           points={points}
           surveyedIds={surveyedIds}
+          lostIds={lostIds}
           onFocusPoint={focusPoint}
           onToggleSurvey={handleToggleSurvey}
+          onToggleLost={handleToggleLost}
           surveyedCountByProject={surveyedCountByProject}
           isAdmin={role === 'ADMIN'}
           onOpenUserManagement={onOpenUserManagement}
@@ -186,6 +196,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
               selectedId={selectedId}
               surveyMode={activeProjectId !== null}
               surveyedIds={surveyedIds}
+              lostIds={lostIds}
               theme={theme}
               focusNonce={focusNonce}
               leftInset={mapLeftInset}
@@ -196,6 +207,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
             <ClusterList
               popup={clusterPopup}
               surveyedIds={surveyedIds}
+              lostIds={lostIds}
               surveyMode={activeProjectId !== null}
               onFocus={focusPoint}
               onClose={() => setClusterPopup(null)}
@@ -204,9 +216,10 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
               point={selected}
               activeProjectName={activeProject?.name ?? null}
               surveyed={selected !== null && activeProjectId !== null && isSurveyed(records, activeProjectId, selected.id)}
+              lost={selected !== null && activeProjectId !== null && isLost(records, activeProjectId, selected.id)}
               onToggleSurvey={handleToggleSurvey}
               onClose={() => setSelectedId(null)}
-              onToggleLost={toggleLost}
+              onToggleLost={handleToggleLost}
               onDelete={deletePoint}
             />
           </div>

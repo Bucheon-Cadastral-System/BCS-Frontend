@@ -1,8 +1,8 @@
 import { Style, Icon, Fill, Stroke, Text } from 'ol/style'
 import type { ControlPoint, PointType } from '../model/types'
 
-/** 조사상태 표현: none=프로젝트 없음, todo=미조사(흐리게), done=조사완료(체크) */
-export type SurveyView = 'none' | 'todo' | 'done'
+/** 조사상태 표현: none=프로젝트 없음, todo=미조사(흐리게), done=조사완료(정상·체크), lost=망실(빨강) */
+export type SurveyView = 'none' | 'todo' | 'done' | 'lost'
 export type MapTheme = 'light' | 'dark'
 
 interface Palette {
@@ -72,7 +72,7 @@ export function controlPointStyle(
   const faded = survey === 'todo'
   return new Style({
     image: new Icon({
-      src: markerDataUri(cp.type, selected, cp.lost, survey === 'done', pal),
+      src: markerDataUri(cp.type, selected, survey === 'lost', survey === 'done', pal),
       opacity: faded ? 0.45 : 1,
     }),
     text: new Text({

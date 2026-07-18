@@ -14,6 +14,7 @@ export interface ClusterPopup {
 interface ClusterListProps {
   popup: ClusterPopup | null
   surveyedIds: Set<string>
+  lostIds: Set<string>
   surveyMode: boolean
   onFocus: (cp: ControlPoint) => void
   onClose: () => void
@@ -35,7 +36,7 @@ function badgeRadius(count: number): number {
   return 29
 }
 
-export function ClusterList({ popup, surveyedIds, surveyMode, onFocus, onClose }: ClusterListProps) {
+export function ClusterList({ popup, surveyedIds, lostIds, surveyMode, onFocus, onClose }: ClusterListProps) {
   const [data, setData] = useState<ClusterPopup | null>(popup)
   const [shown, setShown] = useState(false)
 
@@ -98,8 +99,8 @@ export function ClusterList({ popup, surveyedIds, surveyMode, onFocus, onClose }
       </div>
       <ul className="min-h-0 flex-1 overflow-y-auto py-1">
         {data.points.map((cp) => {
-          const status = cp.lost ? '망실' : surveyMode ? (surveyedIds.has(cp.id) ? '조사완료' : '미조사') : ''
-          const statusCls = cp.lost ? 'text-red-600' : status === '조사완료' ? 'text-blue-600' : 'text-gray-400'
+          const status = surveyMode ? (lostIds.has(cp.id) ? '망실' : surveyedIds.has(cp.id) ? '조사완료' : '미조사') : ''
+          const statusCls = status === '망실' ? 'text-red-600' : status === '조사완료' ? 'text-blue-600' : 'text-gray-400'
           return (
             <li key={cp.id}>
               <button

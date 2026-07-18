@@ -19,8 +19,10 @@ interface MapSidebarProps {
   // 기준점 목록
   points: ControlPoint[]
   surveyedIds: Set<string>
+  lostIds: Set<string>
   onFocusPoint: (cp: ControlPoint) => void
   onToggleSurvey: (pointId: string) => void
+  onToggleLost: (pointId: string) => void
   surveyedCountByProject: Record<string, number>
   // 사용자 관리 (어드민)
   isAdmin: boolean
@@ -219,14 +221,17 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
                       <ul>
                         {props.points.map((cp) => {
                           const surveyed = props.surveyedIds.has(cp.id)
+                          const lost = props.lostIds.has(cp.id)
                           return (
                             <PointRow
                               key={cp.id}
                               cp={cp}
-                              status={cp.lost ? '망실' : surveyed ? '조사완료' : '미조사'}
+                              status={lost ? '망실' : surveyed ? '조사완료' : '미조사'}
                               expanded={expandedPointId === cp.id}
                               surveyed={surveyed}
+                              lost={lost}
                               onToggleSurvey={() => props.onToggleSurvey(cp.id)}
+                              onToggleLost={() => props.onToggleLost(cp.id)}
                               onClick={() => {
                                 const willExpand = expandedPointId !== cp.id
                                 setExpandedPointId(willExpand ? cp.id : null)
@@ -305,14 +310,17 @@ function PointRow(props: {
   onClick: () => void
   expanded?: boolean
   surveyed?: boolean
+  lost?: boolean
   onToggleSurvey?: () => void
+  onToggleLost?: () => void
 }) {
+  const hasActions = Boolean(props.onToggleSurvey && props.onToggleLost)
   return (
     <li>
       <button
         type="button"
         onClick={props.onClick}
-        aria-expanded={props.onToggleSurvey ? Boolean(props.expanded) : undefined}
+        aria-expanded={hasActions ? Boolean(props.expanded) : undefined}
         className={`flex w-full items-center gap-2 px-4 py-1.5 text-left hover:bg-gray-700 ${props.expanded ? 'bg-gray-700/40' : ''}`}
       >
         {props.status && <StatusMark status={props.status} />}
@@ -320,19 +328,30 @@ function PointRow(props: {
         <span className="flex-1 truncate text-[13px] text-gray-200">{props.cp.name}</span>
         <span className="shrink-0 text-[11px] text-gray-500">{props.cp.type}</span>
       </button>
-      {/* 클릭 시 아래에 조사 완료/취소 토글 (상세 모달과 동일 기능) */}
-      {props.expanded && props.onToggleSurvey && (
-        <div className="px-4 pb-2 pt-1.5">
+      {/* 클릭 시 아래에 조사 완료/취소 · 망실 토글 (상세 모달과 동일 기능) */}
+      {props.expanded && hasActions && (
+        <div className="flex gap-2 px-4 pb-2 pt-1.5">
           <button
             type="button"
             onClick={props.onToggleSurvey}
-            className={`block w-full rounded-md border py-2 text-center text-[12px] font-medium ${
+            className={`flex-1 rounded-md border py-1.5 text-center text-[12px] font-medium ${
               props.surveyed
                 ? 'border-gray-600 bg-gray-700 text-gray-100 hover:bg-gray-600'
                 : 'border-blue-600 bg-blue-600 text-white hover:bg-blue-500'
             }`}
           >
             {props.surveyed ? '조사 취소' : '조사 완료'}
+          </button>
+          <button
+            type="button"
+            onClick={props.onToggleLost}
+            className={`flex-1 rounded-md border py-1.5 text-center text-[12px] font-medium ${
+              props.lost
+                ? 'border-red-500 bg-red-500/20 text-red-200 hover:bg-red-500/30'
+                : 'border-red-800 bg-red-900/40 text-red-300 hover:bg-red-900'
+            }`}
+          >
+            {props.lost ? '망실 해제' : '망실'}
           </button>
         </div>
       )}

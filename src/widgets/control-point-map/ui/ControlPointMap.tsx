@@ -45,6 +45,7 @@ interface ControlPointMapProps {
   selectedId: string | null
   surveyMode: boolean
   surveyedIds: Set<string>
+  lostIds: Set<string>
   theme: MapTheme
   focusNonce: number
   leftInset: number
@@ -70,6 +71,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const selectedIdRef = useRef(props.selectedId)
   const surveyModeRef = useRef(props.surveyMode)
   const surveyedIdsRef = useRef(props.surveyedIds)
+  const lostIdsRef = useRef(props.lostIds)
   const themeRef = useRef(props.theme)
   // 렌더 중 ref 대입은 순수하지 않음(버려지는 렌더가 미커밋 값을 남길 수 있음) → 커밋 후 effect에서 동기화.
   // OL 콜백/스타일은 커밋 뒤(비동기 상호작용·재렌더)에만 refs를 읽으므로, 이 effect를 먼저 선언해 항상 최신값을 보게 함.
@@ -81,6 +83,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     selectedIdRef.current = props.selectedId
     surveyModeRef.current = props.surveyMode
     surveyedIdsRef.current = props.surveyedIds
+    lostIdsRef.current = props.lostIds
     themeRef.current = props.theme
   })
 
@@ -121,10 +124,19 @@ export function ControlPointMap(props: ControlPointMapProps) {
       const members = clusterMembers(feature)
       if (members.length === 1) {
         const cp = members[0]
-        const survey = !surveyModeRef.current ? 'none' : surveyedIdsRef.current.has(cp.id) ? 'done' : 'todo'
+        const survey = !surveyModeRef.current
+          ? 'none'
+          : lostIdsRef.current.has(cp.id)
+            ? 'lost'
+            : surveyedIdsRef.current.has(cp.id)
+              ? 'done'
+              : 'todo'
         return controlPointStyle(cp, cp.id === selectedIdRef.current, survey, themeRef.current)
       }
-      return clusterStyle(computeClusterInfo(members, surveyModeRef.current, surveyedIdsRef.current), themeRef.current)
+      return clusterStyle(
+        computeClusterInfo(members, surveyModeRef.current, surveyedIdsRef.current, lostIdsRef.current),
+        themeRef.current,
+      )
     }
 
     const clusterLayer = new AnimatedCluster({
@@ -209,7 +221,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
   // 선택/조사상태/테마 변경 → 클러스터 레이어 재스타일
   useEffect(() => {
     clusterLayerRef.current?.changed()
-  }, [props.selectedId, props.surveyMode, props.surveyedIds, props.theme])
+  }, [props.selectedId, props.surveyMode, props.surveyedIds, props.lostIds, props.theme])
 
   // 테마 변경 → 배경지도 소스 교체 (새 소스에도 타일 리렌더 연결)
   useEffect(() => {
