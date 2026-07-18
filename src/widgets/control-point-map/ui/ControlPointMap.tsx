@@ -47,6 +47,7 @@ interface ControlPointMapProps {
   surveyedIds: Set<string>
   theme: MapTheme
   focusNonce: number
+  leftInset: number
   onAddPoint: (lng: number, lat: number) => void
   onSelect: (id: string | null) => void
   onClusterClick: (members: ControlPoint[], x: number, y: number, w: number, h: number) => void
@@ -59,6 +60,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const clusterLayerRef = useRef<AnimatedCluster | null>(null)
   const cadastralRef = useRef<ImageLayer<ImageWMS> | null>(null)
   const baseLayerRef = useRef<TileLayer<XYZ> | null>(null)
+  const lastFocusNonceRef = useRef(props.focusNonce)
 
   // 지도는 1회만 생성 → 최신 props/콜백을 ref 로 유지
   const addModeRef = useRef(props.addMode)
@@ -224,21 +226,43 @@ export function ControlPointMap(props: ControlPointMapProps) {
     cadastralRef.current?.setVisible(Boolean(VWORLD_KEY) && props.showCadastral)
   }, [props.showCadastral])
 
-  // 선택된 점으로 이동 (부드러운 팬)
+  // 선택된 점으로 이동 (부드러운 팬). 단, 리스트/클러스터 포커스(focusNonce 변화)로 인한 선택이면
+  // 여기서 팬하지 않는다 → 아래 focusNonce 이펙트가 zoom+pan 담당(팬+줌 이중 애니메이션 충돌=버벅임 방지).
+  useEffect(() => {
+    if (!props.selectedId || !mapRef.current) return
+    if (props.focusNonce !== lastFocusNonceRef.current) return
+    const p = props.points.find((x) => x.id === props.selectedId)
+    if (!p) return
+    const view = mapRef.current.getView()
+    const res = view.getResolution() ?? 0
+    const [cx, cy] = fromLonLat([p.lng, p.lat])
+    // 좌측 패널이 가린 폭(leftInset)의 절반만큼 중심을 왼쪽으로 → 점이 '보이는 영역' 중앙에 오게
+    view.animate({ center: [cx - (props.leftInset / 2) * res, cy], duration: 300 })
+  }, [props.selectedId])
+
+  // 리스트/클러스터에서 포커스 → 확대 + 이동 (단일 애니메이션). ref 갱신은 위 selectedId 이펙트보다 뒤에 실행됨.
+  useEffect(() => {
+    lastFocusNonceRef.current = props.focusNonce
+    if (props.focusNonce === 0 || !mapRef.current || !props.selectedId) return
+    const p = props.points.find((x) => x.id === props.selectedId)
+    if (!p) return
+    const view = mapRef.current.getView()
+    const res = view.getResolutionForZoom(19)
+    const [cx, cy] = fromLonLat([p.lng, p.lat])
+    view.animate({ center: [cx - (props.leftInset / 2) * res, cy], zoom: 19, duration: 450 })
+  }, [props.focusNonce])
+
+  // 패널 열림/닫힘으로 가림 폭(leftInset)이 바뀌면, 선택된 점을 새 '보이는 영역 중앙'으로 다시 이동
+  // (닫으면 지도 전체 중앙으로, 열면 가려지지 않은 영역 중앙으로)
   useEffect(() => {
     if (!props.selectedId || !mapRef.current) return
     const p = props.points.find((x) => x.id === props.selectedId)
     if (!p) return
-    mapRef.current.getView().animate({ center: fromLonLat([p.lng, p.lat]), duration: 300 })
-  }, [props.selectedId])
-
-  // 리스트에서 포커스 → 확대 + 이동
-  useEffect(() => {
-    if (props.focusNonce === 0 || !mapRef.current || !props.selectedId) return
-    const p = props.points.find((x) => x.id === props.selectedId)
-    if (!p) return
-    mapRef.current.getView().animate({ center: fromLonLat([p.lng, p.lat]), zoom: 19, duration: 450 })
-  }, [props.focusNonce])
+    const view = mapRef.current.getView()
+    const res = view.getResolution() ?? 0
+    const [cx, cy] = fromLonLat([p.lng, p.lat])
+    view.animate({ center: [cx - (props.leftInset / 2) * res, cy], duration: 200 })
+  }, [props.leftInset])
 
   return <div ref={containerRef} className={`absolute inset-0 ${props.addMode ? 'cursor-crosshair' : ''}`} />
 }

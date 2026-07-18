@@ -14,8 +14,6 @@ interface MapToolbarProps {
   count: number
   onImportCsv: (file: File) => void
   onClearAll: () => void
-  isAdmin: boolean
-  onOpenUserManagement: () => void
   theme: MapTheme
   onToggleTheme: () => void
 }
@@ -68,11 +66,6 @@ export function MapToolbar(props: MapToolbarProps) {
         <button type="button" className={btn('danger')} onClick={props.onClearAll}>
           전체 삭제
         </button>
-        {props.isAdmin && (
-          <button type="button" className={btn()} onClick={props.onOpenUserManagement}>
-            사용자 관리
-          </button>
-        )}
       </div>
       <div className="ml-auto shrink-0">
         <ThemeToggle dark={props.theme === 'dark'} onToggle={props.onToggleTheme} />

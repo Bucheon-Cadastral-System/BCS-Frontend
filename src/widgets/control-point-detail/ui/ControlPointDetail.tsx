@@ -53,7 +53,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
             </span>
           </div>
           <button type="button" className={btn(props.surveyed ? undefined : 'on')} onClick={() => props.onToggleSurvey(p.id)}>
-            {props.surveyed ? '조사 취소' : '조사 완료 표시'}
+            {props.surveyed ? '조사 취소' : '조사 완료'}
           </button>
         </div>
       )}
