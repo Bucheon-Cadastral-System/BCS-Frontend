@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { SurveyProject } from '@/entities/survey-project'
 import type { ControlPoint } from '@/entities/control-point'
 import { PointTypeIcon, StatusMark } from '@/entities/control-point'
@@ -273,34 +273,20 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
                         </div>
                       </div>
 
-                      {/* 점별 조사·망실 기록은 '선택된(조사 대상)' 프로젝트에서만 */}
+                      {/* 점별 조사·망실 기록은 '선택된(조사 대상)' 프로젝트에서만. 리스트는 PointRowList가 내부 메모 */}
                       {selected ? (
-                        <ul>
-                          {props.points.map((cp) => {
-                            const surveyed = props.surveyedIds.has(cp.id)
-                            const lost = props.lostIds.has(cp.id)
-                            return (
-                              <PointRow
-                                key={cp.id}
-                                cp={cp}
-                                status={lost ? '망실' : surveyed ? '조사완료' : '미조사'}
-                                expanded={expandedPointId === cp.id}
-                                surveyed={surveyed}
-                                lost={lost}
-                                onToggleSurvey={() => props.onToggleSurvey(cp.id)}
-                                onToggleLost={() => props.onToggleLost(cp.id)}
-                                onClick={() => {
-                                  const willExpand = expandedPointId !== cp.id
-                                  setExpandedPointId(willExpand ? cp.id : null)
-                                  if (willExpand) props.onFocusPoint(cp)
-                                }}
-                              />
-                            )
-                          })}
-                          {props.points.length === 0 && (
-                            <li className="py-3 pl-9 text-[12px] text-gray-500">기준점이 없습니다</li>
-                          )}
-                        </ul>
+                        <PointRowList
+                          points={props.points}
+                          onFocus={props.onFocusPoint}
+                          survey={{
+                            surveyedIds: props.surveyedIds,
+                            lostIds: props.lostIds,
+                            expandedPointId,
+                            onExpand: setExpandedPointId,
+                            onToggleSurvey: props.onToggleSurvey,
+                            onToggleLost: props.onToggleLost,
+                          }}
+                        />
                       ) : (
                         <p className="px-4 py-2 text-[12px] leading-relaxed text-gray-500">
                           이름 왼쪽의 <b className="text-gray-400">○</b> 를 눌러 이 조사를 선택하면, 지도에 조사 현황이 표시되고 점별로 조사·망실을 기록할 수 있습니다.
@@ -337,7 +323,11 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
 function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
   const [q, setQ] = useState('')
   const query = q.trim()
-  const list = query ? props.points.filter((p) => p.name.includes(query)) : props.points
+  // 검색 결과도 메모 → 팬 리렌더 중 새 배열을 만들지 않아 PointRowList 메모가 유지됨
+  const list = useMemo(
+    () => (query ? props.points.filter((p) => p.name.includes(query)) : props.points),
+    [props.points, query],
+  )
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -352,17 +342,82 @@ function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
         />
       </div>
 
-      <ul className="min-h-0 flex-1 overflow-y-auto pb-1">
-        {list.map((cp) => (
-          <PointRow key={cp.id} cp={cp} onClick={() => props.onFocusPoint(cp)} />
-        ))}
-        {list.length === 0 && (
-          <li className="px-4 py-6 text-center text-[13px] text-gray-500">
-            {props.points.length === 0 ? '기준점이 없습니다' : '검색 결과 없음'}
-          </li>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <PointRowList
+          points={list}
+          onFocus={props.onFocusPoint}
+          emptyText={props.points.length === 0 ? '기준점이 없습니다' : '검색 결과 없음'}
+        />
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 점 목록(내부 메모). 무관한 리렌더(지도 팬 등 부모 리렌더)엔 **같은 <ul> 엘리먼트**를 반환해
+ * 수천 행 재조정을 건너뛴다(React 서브트리 bail-out). 콜백은 매 렌더 새 정체성이어도 되게 ref로 참조.
+ * survey 주면 상태마크·조사/망실 토글·펼침(프로젝트 드로어), 없으면 이름·종류만(기준점 탭).
+ */
+function PointRowList(props: {
+  points: ControlPoint[]
+  onFocus: (cp: ControlPoint) => void
+  survey?: {
+    surveyedIds: Set<string>
+    lostIds: Set<string>
+    expandedPointId: string | null
+    onExpand: (id: string | null) => void
+    onToggleSurvey: (id: string) => void
+    onToggleLost: (id: string) => void
+  }
+  emptyText?: string
+}) {
+  const { points, survey, emptyText } = props
+  const cbRef = useRef({ onFocus: props.onFocus, survey })
+  useEffect(() => {
+    cbRef.current = { onFocus: props.onFocus, survey }
+  })
+
+  // survey 객체는 매 렌더 새로 만들어지므로 deps엔 안정된 내부 값만 넣는다(값 같으면 팬 중 메모 유지).
+  const surveyedIds = survey?.surveyedIds
+  const lostIds = survey?.lostIds
+  const expandedPointId = survey?.expandedPointId ?? null
+  const hasSurvey = Boolean(survey)
+
+  return useMemo(
+    () => (
+      <ul className="pb-1">
+        {points.map((cp) => {
+          const surveyed = surveyedIds?.has(cp.id) ?? false
+          const lost = lostIds?.has(cp.id) ?? false
+          return (
+            <PointRow
+              key={cp.id}
+              cp={cp}
+              status={hasSurvey ? (lost ? '망실' : surveyed ? '조사완료' : '미조사') : undefined}
+              expanded={expandedPointId === cp.id}
+              surveyed={surveyed}
+              lost={lost}
+              onToggleSurvey={hasSurvey ? () => cbRef.current.survey?.onToggleSurvey(cp.id) : undefined}
+              onToggleLost={hasSurvey ? () => cbRef.current.survey?.onToggleLost(cp.id) : undefined}
+              onClick={() => {
+                const cur = cbRef.current
+                if (cur.survey) {
+                  const willExpand = expandedPointId !== cp.id
+                  cur.survey.onExpand(willExpand ? cp.id : null)
+                  if (willExpand) cur.onFocus(cp)
+                } else {
+                  cur.onFocus(cp)
+                }
+              }}
+            />
+          )
+        })}
+        {points.length === 0 && (
+          <li className="px-4 py-6 text-center text-[13px] text-gray-500">{emptyText ?? '기준점이 없습니다'}</li>
         )}
       </ul>
-    </div>
+    ),
+    [points, surveyedIds, lostIds, expandedPointId, hasSurvey, emptyText],
   )
 }
 
