@@ -139,8 +139,9 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
         setRecords([])
         setSelectedId(null)
         showUndoToast('전체 삭제했습니다', () => {
-          setPoints(prevPoints)
-          setRecords(prevRecords)
+          // 토스트 기간에 추가/가져온 데이터 보존 → 덮어쓰지 말고 현재 상태에 병합
+          setPoints((cur) => [...cur, ...prevPoints])
+          setRecords((cur) => [...cur, ...prevRecords])
         })
       },
       `기준점 ${points.length}개와 조사기록이 모두 삭제됩니다`,

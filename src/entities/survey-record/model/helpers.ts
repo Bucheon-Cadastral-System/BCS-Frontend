@@ -1,31 +1,40 @@
 import type { SurveyRecord } from './types'
 
-function findIdx(records: SurveyRecord[], projectId: string, pointId: string): number {
-  return records.findIndex((r) => r.projectId === projectId && r.pointId === pointId)
+function matches(r: SurveyRecord, projectId: string, pointId: string): boolean {
+  return r.projectId === projectId && r.pointId === pointId
 }
 
 /** 해당 프로젝트에서 그 기준점이 조사완료인지 (정상·망실 모두 포함) */
 export function isSurveyed(records: SurveyRecord[], projectId: string, pointId: string): boolean {
-  return findIdx(records, projectId, pointId) >= 0
+  return records.some((r) => matches(r, projectId, pointId))
 }
 
 /** 해당 프로젝트에서 그 기준점이 망실로 판정됐는지 */
 export function isLost(records: SurveyRecord[], projectId: string, pointId: string): boolean {
-  return records.some((r) => r.projectId === projectId && r.pointId === pointId && r.lost)
+  return records.some((r) => matches(r, projectId, pointId) && r.lost)
 }
 
-/** 조사완료(정상) ↔ 미조사 토글. 조사 취소 시 레코드 자체를 제거(망실 결과도 함께 사라짐). */
+/**
+ * 조사완료(정상) ↔ 미조사 토글. 조사 취소 시 (혹시 모를 중복 포함) 동일 키 레코드를 **모두** 제거.
+ * → 조사기록은 (projectId, pointId) 당 최대 1건 불변식 유지.
+ */
 export function toggleSurvey(records: SurveyRecord[], projectId: string, pointId: string): SurveyRecord[] {
-  const idx = findIdx(records, projectId, pointId)
-  if (idx >= 0) return records.filter((_, i) => i !== idx)
+  if (isSurveyed(records, projectId, pointId)) {
+    return records.filter((r) => !matches(r, projectId, pointId))
+  }
   return [...records, { projectId, pointId, surveyedAt: new Date().toISOString(), lost: false }]
 }
 
-/** 망실 ↔ 정상 토글. 미조사 상태에서 망실 표시하면 "망실로 조사"(레코드 생성). */
+/**
+ * 망실 ↔ 정상 토글. 미조사면 "망실로 조사"(레코드 생성).
+ * 동일 키 중복이 있어도 모두 제거 후 하나로 정규화(surveyedAt 보존).
+ */
 export function toggleLost(records: SurveyRecord[], projectId: string, pointId: string): SurveyRecord[] {
-  const idx = findIdx(records, projectId, pointId)
-  if (idx >= 0) return records.map((r, i) => (i === idx ? { ...r, lost: !r.lost } : r))
-  return [...records, { projectId, pointId, surveyedAt: new Date().toISOString(), lost: true }]
+  const existing = records.find((r) => matches(r, projectId, pointId))
+  const nextLost = !(existing?.lost ?? false)
+  const surveyedAt = existing?.surveyedAt ?? new Date().toISOString()
+  const rest = records.filter((r) => !matches(r, projectId, pointId))
+  return [...rest, { projectId, pointId, surveyedAt, lost: nextLost }]
 }
 
 /** 프로젝트의 조사완료 기준점 id 목록 (정상·망실 모두) */

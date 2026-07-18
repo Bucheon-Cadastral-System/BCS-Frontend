@@ -18,12 +18,19 @@ export function Toast(props: {
   const dismissRef = useRef(props.onDismiss)
   dismissRef.current = props.onDismiss
   const closedRef = useRef(false)
+  const closeTimerRef = useRef<number | undefined>(undefined)
 
   const close = () => {
     if (closedRef.current) return
     closedRef.current = true
     setVisible(false)
-    setTimeout(() => dismissRef.current(), 220) // 내려가는 애니 후 언마운트
+    closeTimerRef.current = window.setTimeout(() => dismissRef.current(), 220) // 내려가는 애니 후 언마운트
+  }
+
+  const handleUndo = () => {
+    if (closedRef.current) return // 연속 클릭 시 이중 복원 방지
+    props.onAction()
+    close()
   }
 
   useEffect(() => {
@@ -31,10 +38,11 @@ export function Toast(props: {
       setVisible(true)
       setDeplete(true)
     })
-    const t = setTimeout(close, duration)
+    const t = window.setTimeout(close, duration)
     return () => {
       cancelAnimationFrame(raf)
       clearTimeout(t)
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current) // 이전 토스트의 지연 dismiss가 새 토스트를 닫는 것 방지
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duration])
@@ -54,10 +62,7 @@ export function Toast(props: {
       <span>{props.message}</span>
       <button
         type="button"
-        onClick={() => {
-          props.onAction()
-          close()
-        }}
+        onClick={handleUndo}
         aria-label={props.actionLabel}
         title={props.actionLabel}
         className="relative flex h-9 w-9 items-center justify-center rounded-full text-blue-300 hover:bg-white/10"

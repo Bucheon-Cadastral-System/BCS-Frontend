@@ -75,6 +75,7 @@ export function MapSidebar(props: MapSidebarProps) {
       {/* 패널: 지도를 밀지 않고 그 위에 겹치는 오버레이 드로어. 레일 뒤에서 슬라이드 인/아웃 */}
       <aside
         aria-hidden={!open}
+        inert={!open}
         className={`absolute bottom-0 left-full top-0 z-0 flex w-[300px] flex-col bg-gray-800 transition-transform duration-200 ease-out ${
           open ? 'translate-x-0 border-r border-gray-700 shadow-xl' : '-translate-x-full pointer-events-none'
         }`}
@@ -303,7 +304,7 @@ function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
 }
 
 /**
- * 점 한 줄. status 있으면(프로젝트 드로어) 좌측에 V/X 조사표시, 없으면(기준점 목록) 좌측에 종류 도식(⊕/●/○).
+ * 점 한 줄. 좌측에 종류 도식(⊕/●/○)은 항상, status 있으면(프로젝트 드로어) 그 앞에 V/X 조사표시를 함께 표시.
  */
 function PointRow(props: {
   cp: ControlPoint
