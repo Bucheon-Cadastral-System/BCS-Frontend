@@ -9,7 +9,10 @@ export function ConfirmDialog(props: {
 }) {
   const cancelRef = useRef<HTMLButtonElement>(null)
   const cancelCbRef = useRef(props.onCancel)
-  cancelCbRef.current = props.onCancel
+  // 렌더 중 ref 대입 금지(버려지는 렌더의 콜백 노출 방지) → 커밋 후 동기화
+  useEffect(() => {
+    cancelCbRef.current = props.onCancel
+  }, [props.onCancel])
 
   useEffect(() => {
     const prevActive = document.activeElement as HTMLElement | null
