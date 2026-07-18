@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapToolbar } from '@/widgets/map-toolbar'
 import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
-import { MapSidebar } from '@/widgets/map-sidebar'
+import { MapSidebar, ActiveProjectChip } from '@/widgets/map-sidebar'
 import { ClusterList } from '@/widgets/cluster-list'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { Toast } from '@/shared/ui/Toast'
-import { loadPoints, savePoints, createControlPoint, POINT_TYPES } from '@/entities/control-point'
+import { loadPoints, savePoints, createControlPoint, POINT_TYPES, SEED_DOGEUN_BUCHEON } from '@/entities/control-point'
 import type { ControlPoint, PointType, MapTheme } from '@/entities/control-point'
 import type { TmEpsg } from '@/shared/lib/crs'
 import { controlPointsFromCsv } from '@/features/import-control-points'
@@ -47,7 +47,8 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const [theme, setTheme] = useState<MapTheme>(() => (localStorage.getItem('bcs.theme') === 'dark' ? 'dark' : 'light'))
   const [clusterPopup, setClusterPopup] = useState<{ points: ControlPoint[]; coord: number[]; x: number; y: number; w: number; h: number; id: number } | null>(null)
   const [focusNonce, setFocusNonce] = useState(0)
-  const [mapLeftInset, setMapLeftInset] = useState(0) // 좌측 패널이 지도를 가리는 폭(포커스 센터링 보정)
+  const [mapLeftInset, setMapLeftInset] = useState(0) // 좌측 패널이 지도를 가리는 폭(포커스 센터링 보정). >0 = 패널 열림
+  const [openProjectNonce, setOpenProjectNonce] = useState(0) // 활성 프로젝트 칩 → 프로젝트 패널 열기 신호
   const [confirm, setConfirm] = useState<{ message: string; detail?: string; onConfirm: () => void } | null>(null)
   const [toast, setToast] = useState<{ message: string; onUndo: () => void; id: number } | null>(null)
   const toastIdRef = useRef(0)
@@ -148,6 +149,11 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     )
   }
 
+  function loadSeed() {
+    setPoints(SEED_DOGEUN_BUCHEON) // 임시: 부천 도근점 시드 로드(기존 점 대체)
+    setSelectedId(null)
+  }
+
   function createProject(name: string) {
     const project = createSurveyProject(name)
     setProjects((prev) => [...prev, project])
@@ -191,7 +197,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
 
   return (
-    <>
+    <div className={`contents ${theme === 'dark' ? 'dark' : ''}`}>
     <div className="flex h-full flex-col">
       <MapToolbar
         addMode={addMode}
@@ -203,6 +209,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
         count={points.length}
         onImportCsv={importCsv}
         onClearAll={clearAll}
+        onLoadSeed={loadSeed}
         theme={theme}
         onToggleTheme={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
       />
@@ -226,6 +233,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           isAdmin={role === 'ADMIN'}
           onOpenUserManagement={onOpenUserManagement}
           onInsetChange={setMapLeftInset}
+          openProjectSignal={openProjectNonce}
         />
 
         <div className="flex min-h-0 flex-1 flex-col">
@@ -260,6 +268,14 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
               onClusterAnchorMove={(x, y) => setClusterPopup((cur) => (cur ? { ...cur, x, y } : cur))}
               onClusterAnchorOut={() => setClusterPopup(null)}
             />
+            {activeProject && mapLeftInset === 0 && (
+              <ActiveProjectChip
+                name={activeProject.name}
+                surveyed={surveyedIds.size}
+                total={points.length}
+                onOpen={() => setOpenProjectNonce((n) => n + 1)}
+              />
+            )}
             <ClusterList
               popup={clusterPopup}
               surveyedIds={surveyedIds}
@@ -300,6 +316,6 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
         onDismiss={() => setToast(null)}
       />
     )}
-    </>
+    </div>
   )
 }

@@ -14,6 +14,7 @@ interface MapToolbarProps {
   count: number
   onImportCsv: (file: File) => void
   onClearAll: () => void
+  onLoadSeed: () => void
   theme: MapTheme
   onToggleTheme: () => void
 }
@@ -62,6 +63,9 @@ export function MapToolbar(props: MapToolbarProps) {
           }}
         />
 
+        <button type="button" className={btn()} onClick={props.onLoadSeed} title="부천 지적도근점 임시 시드(2,146점) 불러오기">
+          도근점 시드
+        </button>
         <span className="text-[13px] text-gray-400">{props.count}점</span>
         <button type="button" className={btn('danger')} onClick={props.onClearAll}>
           전체 삭제

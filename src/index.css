@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* 클래스 기반 다크모드: 조상에 .dark 있으면 dark: 변형 적용 (지도 테마=다크일 때 루트에 .dark 부여 → 모달만 반응) */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --sans: system-ui, 'Malgun Gothic', 'Apple SD Gothic Neo', 'Segoe UI', sans-serif;
   color-scheme: light;

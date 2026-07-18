@@ -28,14 +28,14 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
   if (!p) return null
 
   return (
-    <aside className="absolute right-3 top-3 z-[5] w-[300px] max-w-[calc(100%-24px)] rounded-lg border border-gray-200 bg-white p-3.5 shadow-xl max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:w-auto max-sm:max-w-none max-sm:rounded-b-none max-sm:rounded-t-2xl">
+    <aside className="absolute right-3 top-3 z-[5] w-[300px] max-w-[calc(100%-24px)] rounded-lg border border-gray-200 bg-white p-3.5 shadow-xl dark:border-gray-700 dark:bg-gray-800 max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:w-auto max-sm:max-w-none max-sm:rounded-b-none max-sm:rounded-t-2xl">
       <div className="mb-2.5 flex items-center gap-2">
         <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold text-white ${TYPE_BADGE[p.type]}`}>{p.type}</span>
-        <strong className="flex-1 text-[15px] text-gray-900">{p.name}</strong>
-        <button type="button" className="cursor-pointer border-0 bg-transparent text-xl leading-none text-gray-500" onClick={props.onClose} aria-label="닫기">×</button>
+        <strong className="flex-1 text-[15px] text-gray-900 dark:text-gray-100">{p.name}</strong>
+        <button type="button" className="cursor-pointer border-0 bg-transparent text-xl leading-none text-gray-500 dark:text-gray-400" onClick={props.onClose} aria-label="닫기">×</button>
       </div>
 
-      <dl className="mb-3 grid grid-cols-[64px_1fr] gap-x-2.5 gap-y-1 text-[13px] [&_dd]:tabular-nums [&_dd]:text-gray-900 [&_dt]:text-gray-500">
+      <dl className="mb-3 grid grid-cols-[64px_1fr] gap-x-2.5 gap-y-1 text-[13px] [&_dd]:tabular-nums [&_dd]:text-gray-900 [&_dt]:text-gray-500 dark:[&_dd]:text-gray-100 dark:[&_dt]:text-gray-400">
         <dt>위도</dt><dd>{p.lat.toFixed(7)}</dd>
         <dt>경도</dt><dd>{p.lng.toFixed(7)}</dd>
         <dt>TM 원점</dt><dd>{epsgLabel(p.tmEpsg)} ({p.tmEpsg})</dd>
@@ -45,12 +45,16 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
       </dl>
 
       {props.activeProjectName ? (
-        <div className="mb-3 flex flex-col gap-2 border-t border-gray-200 pt-2.5">
+        <div className="mb-3 flex flex-col gap-2 border-t border-gray-200 pt-2.5 dark:border-gray-700">
           <div className="flex items-center gap-2">
-            <span className="flex-1 text-[13px] text-gray-700">{props.activeProjectName}</span>
+            <span className="flex-1 text-[13px] text-gray-700 dark:text-gray-300">{props.activeProjectName}</span>
             <span
               className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                props.lost ? 'bg-red-100 text-red-700' : props.surveyed ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                props.lost
+                  ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300'
+                  : props.surveyed
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300'
+                    : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300'
               }`}
             >
               {props.lost ? '망실' : props.surveyed ? '조사완료' : '미조사'}
@@ -66,7 +70,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
           </div>
         </div>
       ) : (
-        <p className="mb-3 border-t border-gray-200 pt-2.5 text-[12px] text-gray-400">
+        <p className="mb-3 border-t border-gray-200 pt-2.5 text-[12px] text-gray-400 dark:border-gray-700 dark:text-gray-500">
           조사 프로젝트를 선택하면 이 점의 조사·망실 상태를 기록할 수 있습니다.
         </p>
       )}

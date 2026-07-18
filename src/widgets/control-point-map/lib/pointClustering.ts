@@ -12,11 +12,11 @@ import type { ControlPoint, ClusterInfo, PointType } from '@/entities/control-po
  * 지도 위젯/렌더링은 ClusterInfo 계약과 아래 함수 시그니처에만 의존.
  */
 
-export const CLUSTER_DISTANCE = 44
+export const CLUSTER_DISTANCE = 90 // 뭉치는 반경(px). 넓힐수록 줌아웃 시 뱃지 수 줄어듦.
 
 /** 원본 점 소스를 클러스터 소스로 감싼다. (OL 구현) */
 export function createClusterSource(source: VectorSource): Cluster {
-  return new Cluster({ distance: CLUSTER_DISTANCE, minDistance: 24, source })
+  return new Cluster({ distance: CLUSTER_DISTANCE, minDistance: 40, source })
 }
 
 /** 클러스터 피처에서 멤버 기준점 배열 추출. (OL 구현: get('features')) */

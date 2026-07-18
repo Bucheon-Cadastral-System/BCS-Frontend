@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { SurveyProject } from '@/entities/survey-project'
 import type { ControlPoint } from '@/entities/control-point'
-import { PointTypeIcon } from '@/entities/control-point'
+import { PointTypeIcon, StatusMark } from '@/entities/control-point'
 
 /** 좌측 레일에서 열 수 있는 패널 종류 */
 type PanelKey = 'project' | 'points'
@@ -30,6 +30,8 @@ interface MapSidebarProps {
   onOpenUserManagement: () => void
   // 패널이 지도를 가리는 폭 통지 (포커스 센터링 보정용)
   onInsetChange?: (px: number) => void
+  // 외부(지도 위 활성 프로젝트 칩)에서 프로젝트 패널 열기 요청 (nonce, 증가할 때마다 열림)
+  openProjectSignal?: number
 }
 
 export function MapSidebar(props: MapSidebarProps) {
@@ -49,6 +51,28 @@ export function MapSidebar(props: MapSidebarProps) {
   useEffect(() => {
     onInsetChange?.(open ? PANEL_WIDTH : 0)
   }, [open, onInsetChange])
+
+  // 활성 프로젝트 칩 클릭 → 프로젝트 패널 열기 (nonce 증가 시. 0=초기값이라 무시)
+  const openProjectSignal = props.openProjectSignal
+  useEffect(() => {
+    if (!openProjectSignal) return
+    setLastPanel('project')
+    setOpen('project')
+  }, [openProjectSignal])
+
+  // 패널 본문은 '열려 있을 때만' 마운트(닫히면 슬라이드 아웃 후 지연 언마운트).
+  // ★ 성능: 프로젝트가 펼쳐지면 본문에 점 수천 개(PointRow)가 그려지는데, 닫혀도 마운트돼 있으면
+  //   무관한 리렌더(예: 클러스터 클릭 팬 중 매 프레임 setClusterPopup)마다 이 수천 행이 재조정돼 렉이 걸린다.
+  //   닫힘 상태에선 트리에서 제거해 이런 리렌더가 레일만 건드리게 함. (열림 시 1프레임 빈 상태는 슬라이드 인과 겹쳐 무시 가능)
+  const [renderBody, setRenderBody] = useState(false)
+  useEffect(() => {
+    if (open) {
+      setRenderBody(true)
+      return
+    }
+    const t = setTimeout(() => setRenderBody(false), 220)
+    return () => clearTimeout(t)
+  }, [open])
 
   return (
     <div className="relative z-20 flex min-h-0 shrink-0 text-gray-200">
@@ -80,11 +104,12 @@ export function MapSidebar(props: MapSidebarProps) {
           open ? 'translate-x-0 border-r border-gray-700 shadow-xl' : '-translate-x-full pointer-events-none'
         }`}
       >
-        {lastPanel === 'project' ? (
-          <ProjectPanel {...props} onClose={() => setOpen(null)} />
-        ) : (
-          <PointListPanel {...props} onClose={() => setOpen(null)} />
-        )}
+        {renderBody &&
+          (lastPanel === 'project' ? (
+            <ProjectPanel {...props} onClose={() => setOpen(null)} />
+          ) : (
+            <PointListPanel {...props} onClose={() => setOpen(null)} />
+          ))}
       </aside>
     </div>
   )
@@ -374,35 +399,6 @@ function Legend() {
         <i className="inline-block h-3 w-3 rounded-full border border-red-900 bg-red-600" />망실
       </span>
     </div>
-  )
-}
-
-/** 조사여부 좌측 마크: 조사완료=파란 체크(V), 미조사=회색 X, 망실=빨강 X */
-function StatusMark({ status }: { status: string }) {
-  const p = {
-    viewBox: '0 0 24 24',
-    className: 'h-full w-full',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 2.6,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-  }
-  if (status === '조사완료') {
-    return (
-      <span className="h-4 w-4 shrink-0 text-blue-400" title="조사완료" aria-label="조사완료">
-        <svg {...p}>
-          <path d="m5 12 5 5 9-10" />
-        </svg>
-      </span>
-    )
-  }
-  return (
-    <span className={`h-4 w-4 shrink-0 ${status === '망실' ? 'text-red-400' : 'text-gray-500'}`} title={status} aria-label={status}>
-      <svg {...p}>
-        <path d="M6 6l12 12M18 6 6 18" />
-      </svg>
-    </span>
   )
 }
 
