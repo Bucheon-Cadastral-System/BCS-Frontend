@@ -72,7 +72,8 @@ export function controlPointStyle(
   const faded = survey === 'todo'
   return new Style({
     image: new Icon({
-      src: markerDataUri(cp.type, selected, survey === 'lost', survey === 'done', pal),
+      // 망실도 조사완료의 한 종류 → 조사됨(done|lost)이면 우상단 체크 뱃지 표시
+      src: markerDataUri(cp.type, selected, survey === 'lost', survey === 'done' || survey === 'lost', pal),
       opacity: faded ? 0.45 : 1,
     }),
     text: new Text({

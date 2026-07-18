@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { SurveyProject } from '@/entities/survey-project'
-import type { ControlPoint, PointType } from '@/entities/control-point'
+import type { ControlPoint } from '@/entities/control-point'
+import { PointTypeIcon } from '@/entities/control-point'
 
 /** 좌측 레일에서 열 수 있는 패널 종류 */
 type PanelKey = 'project' | 'points'
@@ -148,7 +149,7 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
     <div className="flex min-h-0 flex-1 flex-col">
       <PanelHeader title="조사 프로젝트" onClose={props.onClose} />
 
-      <div className="px-3 pt-3">
+      <div className="px-3 py-3">
         <button
           type="button"
           onClick={handleNew}
@@ -158,7 +159,7 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
         </button>
       </div>
 
-      <ul className="mt-2 min-h-0 flex-1 overflow-y-auto">
+      <ul className="min-h-0 flex-1 overflow-y-auto">
         {props.projects.length === 0 && (
           <li className="px-4 py-6 text-center text-[13px] text-gray-500">조사 프로젝트가 없습니다</li>
         )}
@@ -278,7 +279,7 @@ function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
     <div className="flex min-h-0 flex-1 flex-col">
       <PanelHeader title={`기준점 ${props.points.length}`} onClose={props.onClose} />
 
-      <div className="px-3 pt-3">
+      <div className="px-3 py-3">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -287,7 +288,7 @@ function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
         />
       </div>
 
-      <ul className="mt-2 min-h-0 flex-1 overflow-y-auto pb-1">
+      <ul className="min-h-0 flex-1 overflow-y-auto pb-1">
         {list.map((cp) => (
           <PointRow key={cp.id} cp={cp} onClick={() => props.onFocusPoint(cp)} />
         ))}
@@ -324,13 +325,13 @@ function PointRow(props: {
         className={`flex w-full items-center gap-2 px-4 py-1.5 text-left hover:bg-gray-700 ${props.expanded ? 'bg-gray-700/40' : ''}`}
       >
         {props.status && <StatusMark status={props.status} />}
-        <PointTypeIcon type={props.cp.type} />
+        <PointTypeIcon type={props.cp.type} className="h-4 w-4 text-gray-200" />
         <span className="flex-1 truncate text-[13px] text-gray-200">{props.cp.name}</span>
         <span className="shrink-0 text-[11px] text-gray-500">{props.cp.type}</span>
       </button>
       {/* 클릭 시 아래에 조사 완료/취소 · 망실 토글 (상세 모달과 동일 기능) */}
       {props.expanded && hasActions && (
-        <div className="flex gap-2 px-4 pb-2 pt-1.5">
+        <div className="flex gap-2 px-4 py-2">
           <button
             type="button"
             onClick={props.onToggleSurvey}
@@ -399,36 +400,6 @@ function StatusMark({ status }: { status: string }) {
     <span className={`h-4 w-4 shrink-0 ${status === '망실' ? 'text-red-400' : 'text-gray-500'}`} title={status} aria-label={status}>
       <svg {...p}>
         <path d="M6 6l12 12M18 6 6 18" />
-      </svg>
-    </span>
-  )
-}
-
-/** 종류 도식 아이콘 (지도 마커와 동일 형상): ⊕ 삼각점 / ● 보조점 / ○ 도근점 */
-function PointTypeIcon({ type }: { type: PointType }) {
-  if (type === '지적삼각점') {
-    return (
-      <span className="h-4 w-4 shrink-0 text-gray-100" aria-label="지적삼각점">
-        <svg viewBox="0 0 24 24" className="h-full w-full" fill="none" stroke="currentColor" strokeWidth={1.8}>
-          <circle cx="12" cy="12" r="7" />
-          <path d="M12 4v16M4 12h16" strokeWidth={1.5} />
-        </svg>
-      </span>
-    )
-  }
-  if (type === '지적삼각보조점') {
-    return (
-      <span className="h-4 w-4 shrink-0 text-gray-300" aria-label="지적삼각보조점">
-        <svg viewBox="0 0 24 24" className="h-full w-full" fill="currentColor">
-          <circle cx="12" cy="12" r="6.5" />
-        </svg>
-      </span>
-    )
-  }
-  return (
-    <span className="h-4 w-4 shrink-0 text-gray-100" aria-label="지적도근점">
-      <svg viewBox="0 0 24 24" className="h-full w-full" fill="none" stroke="currentColor" strokeWidth={1.8}>
-        <circle cx="12" cy="12" r="5" />
       </svg>
     </span>
   )

@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapToolbar } from '@/widgets/map-toolbar'
 import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
 import { MapSidebar } from '@/widgets/map-sidebar'
 import { ClusterList } from '@/widgets/cluster-list'
+import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
+import { Toast } from '@/shared/ui/Toast'
 import { loadPoints, savePoints, createControlPoint, POINT_TYPES } from '@/entities/control-point'
 import type { ControlPoint, PointType, MapTheme } from '@/entities/control-point'
 import type { TmEpsg } from '@/shared/lib/crs'
@@ -43,9 +45,13 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
   // 저장값 검증: light/dark 이외 문자열이면 PALETTE[theme]가 undefined가 되므로 명시 비교로 폴백.
   const [theme, setTheme] = useState<MapTheme>(() => (localStorage.getItem('bcs.theme') === 'dark' ? 'dark' : 'light'))
-  const [clusterPopup, setClusterPopup] = useState<{ points: ControlPoint[]; x: number; y: number; w: number; h: number } | null>(null)
+  const [clusterPopup, setClusterPopup] = useState<{ points: ControlPoint[]; coord: number[]; x: number; y: number; w: number; h: number; id: number } | null>(null)
   const [focusNonce, setFocusNonce] = useState(0)
   const [mapLeftInset, setMapLeftInset] = useState(0) // 좌측 패널이 지도를 가리는 폭(포커스 센터링 보정)
+  const [confirm, setConfirm] = useState<{ message: string; detail?: string; onConfirm: () => void } | null>(null)
+  const [toast, setToast] = useState<{ message: string; onUndo: () => void; id: number } | null>(null)
+  const toastIdRef = useRef(0)
+  const clusterIdRef = useRef(0)
 
   // localStorage 영속
   useEffect(() => { savePoints(points) }, [points])
@@ -68,6 +74,14 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     for (const proj of projects) m[proj.id] = surveyedPointIds(records, proj.id).length
     return m
   }, [projects, records])
+
+  // 삭제 확인 모달 + 복원 토스트 공통 헬퍼
+  function askConfirm(message: string, onConfirm: () => void, detail?: string) {
+    setConfirm({ message, detail, onConfirm })
+  }
+  function showUndoToast(message: string, onUndo: () => void) {
+    setToast({ message, onUndo, id: ++toastIdRef.current })
+  }
 
   function addPoint(lng: number, lat: number) {
     const fallback = `${addType}-${points.length + 1}`
@@ -96,18 +110,41 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   }
 
   function deletePoint(id: string) {
-    setPoints((prev) => prev.filter((p) => p.id !== id))
-    setRecords((prev) => removePointRecords(prev, id))
-    setSelectedId((cur) => (cur === id ? null : cur))
+    const point = points.find((p) => p.id === id)
+    if (!point) return
+    const removedRecords = records.filter((r) => r.pointId === id)
+    askConfirm(
+      '정말 삭제하시겠습니까?',
+      () => {
+        setPoints((prev) => prev.filter((p) => p.id !== id))
+        setRecords((prev) => removePointRecords(prev, id))
+        setSelectedId((cur) => (cur === id ? null : cur))
+        showUndoToast('기준점을 삭제했습니다', () => {
+          setPoints((prev) => [...prev, point])
+          setRecords((prev) => [...prev, ...removedRecords])
+        })
+      },
+      point.name,
+    )
   }
 
   function clearAll() {
     if (points.length === 0) return
-    if (window.confirm('저장된 기준점을 모두 삭제할까요? (조사기록도 함께 삭제됩니다)')) {
-      setPoints([])
-      setRecords([])
-      setSelectedId(null)
-    }
+    const prevPoints = points
+    const prevRecords = records
+    askConfirm(
+      '정말 삭제하시겠습니까?',
+      () => {
+        setPoints([])
+        setRecords([])
+        setSelectedId(null)
+        showUndoToast('전체 삭제했습니다', () => {
+          setPoints(prevPoints)
+          setRecords(prevRecords)
+        })
+      },
+      `기준점 ${points.length}개와 조사기록이 모두 삭제됩니다`,
+    )
   }
 
   function createProject(name: string) {
@@ -118,10 +155,24 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
 
   function deleteActiveProject() {
     if (!activeProjectId) return
-    if (!window.confirm('이 조사 프로젝트와 조사기록을 삭제할까요?')) return
-    setRecords((prev) => removeProjectRecords(prev, activeProjectId))
-    setProjects((prev) => prev.filter((p) => p.id !== activeProjectId))
-    setActiveProjectId(null)
+    const pid = activeProjectId
+    const project = projects.find((p) => p.id === pid)
+    if (!project) return
+    const removedRecords = records.filter((r) => r.projectId === pid)
+    askConfirm(
+      '정말 삭제하시겠습니까?',
+      () => {
+        setRecords((prev) => removeProjectRecords(prev, pid))
+        setProjects((prev) => prev.filter((p) => p.id !== pid))
+        setActiveProjectId((cur) => (cur === pid ? null : cur))
+        showUndoToast('조사 프로젝트를 삭제했습니다', () => {
+          setProjects((prev) => [...prev, project])
+          setRecords((prev) => [...prev, ...removedRecords])
+          setActiveProjectId(pid)
+        })
+      },
+      `${project.name} · 조사기록 ${removedRecords.length}건`,
+    )
   }
 
   function handleToggleSurvey(pointId: string) {
@@ -139,6 +190,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
 
   return (
+    <>
     <div className="flex h-full flex-col">
       <MapToolbar
         addMode={addMode}
@@ -200,9 +252,12 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
               theme={theme}
               focusNonce={focusNonce}
               leftInset={mapLeftInset}
+              clusterAnchor={clusterPopup?.coord ?? null}
               onAddPoint={addPoint}
               onSelect={(id) => { setSelectedId(id); setClusterPopup(null) }}
-              onClusterClick={(members, x, y, w, h) => { setSelectedId(null); setClusterPopup({ points: members, x, y, w, h }) }}
+              onClusterClick={(members, coord, x, y, w, h) => { setSelectedId(null); setClusterPopup({ points: members, coord, x, y, w, h, id: ++clusterIdRef.current }) }}
+              onClusterAnchorMove={(x, y) => setClusterPopup((cur) => (cur ? { ...cur, x, y } : cur))}
+              onClusterAnchorOut={() => setClusterPopup(null)}
             />
             <ClusterList
               popup={clusterPopup}
@@ -226,5 +281,24 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
         </div>
       </div>
     </div>
+
+    {confirm && (
+      <ConfirmDialog
+        message={confirm.message}
+        detail={confirm.detail}
+        onConfirm={() => { confirm.onConfirm(); setConfirm(null) }}
+        onCancel={() => setConfirm(null)}
+      />
+    )}
+    {toast && (
+      <Toast
+        key={toast.id}
+        message={toast.message}
+        actionLabel="복원하기"
+        onAction={toast.onUndo}
+        onDismiss={() => setToast(null)}
+      />
+    )}
+    </>
   )
 }
