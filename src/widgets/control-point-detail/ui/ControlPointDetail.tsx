@@ -6,6 +6,7 @@ interface ControlPointDetailProps {
   point: ControlPoint | null
   activeProjectName: string | null
   surveyed: boolean
+  lost: boolean
   onToggleSurvey: (id: string) => void
   onClose: () => void
   onToggleLost: (id: string) => void
@@ -41,29 +42,36 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
         <dt>TM X</dt><dd>{p.tmX.toFixed(3)} m</dd>
         <dt>TM Y</dt><dd>{p.tmY.toFixed(3)} m</dd>
         <dt>등록</dt><dd>{new Date(p.createdAt).toLocaleString('ko-KR')}</dd>
-        <dt>상태</dt><dd>{p.lost ? '망실' : '정상'}</dd>
       </dl>
 
-      {props.activeProjectName && (
+      {props.activeProjectName ? (
         <div className="mb-3 flex flex-col gap-2 border-t border-gray-200 pt-2.5">
           <div className="flex items-center gap-2">
             <span className="flex-1 text-[13px] text-gray-700">{props.activeProjectName}</span>
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${props.surveyed ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
-              {props.surveyed ? '조사완료' : '미조사'}
+            <span
+              className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                props.lost ? 'bg-red-100 text-red-700' : props.surveyed ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+              }`}
+            >
+              {props.lost ? '망실' : props.surveyed ? '조사완료' : '미조사'}
             </span>
           </div>
-          <button type="button" className={btn(props.surveyed ? undefined : 'on')} onClick={() => props.onToggleSurvey(p.id)}>
-            {props.surveyed ? '조사 취소' : '조사 완료 표시'}
-          </button>
+          <div className="flex gap-2">
+            <button type="button" className={`flex-1 text-center ${btn(props.surveyed ? undefined : 'on')}`} onClick={() => props.onToggleSurvey(p.id)}>
+              {props.surveyed ? '조사 취소' : '조사 완료'}
+            </button>
+            <button type="button" className={`flex-1 text-center ${btn(props.lost ? 'on' : 'danger')}`} onClick={() => props.onToggleLost(p.id)}>
+              {props.lost ? '망실 해제' : '망실'}
+            </button>
+          </div>
         </div>
+      ) : (
+        <p className="mb-3 border-t border-gray-200 pt-2.5 text-[12px] text-gray-400">
+          조사 프로젝트를 선택하면 이 점의 조사·망실 상태를 기록할 수 있습니다.
+        </p>
       )}
 
-      <div className="flex gap-2">
-        <button type="button" className={`flex-1 text-center ${btn(p.lost ? 'on' : undefined)}`} onClick={() => props.onToggleLost(p.id)}>
-          {p.lost ? '망실 해제' : '망실 표시'}
-        </button>
-        <button type="button" className={`flex-1 text-center ${btn('danger')}`} onClick={() => props.onDelete(p.id)}>삭제</button>
-      </div>
+      <button type="button" className={`w-full text-center ${btn('danger')}`} onClick={() => props.onDelete(p.id)}>삭제</button>
     </aside>
   )
 }

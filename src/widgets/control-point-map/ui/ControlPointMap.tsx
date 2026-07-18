@@ -45,11 +45,16 @@ interface ControlPointMapProps {
   selectedId: string | null
   surveyMode: boolean
   surveyedIds: Set<string>
+  lostIds: Set<string>
   theme: MapTheme
   focusNonce: number
+  leftInset: number
+  clusterAnchor: number[] | null
   onAddPoint: (lng: number, lat: number) => void
   onSelect: (id: string | null) => void
-  onClusterClick: (members: ControlPoint[], x: number, y: number, w: number, h: number) => void
+  onClusterClick: (members: ControlPoint[], coord: number[], x: number, y: number, w: number, h: number) => void
+  onClusterAnchorMove: (x: number, y: number) => void
+  onClusterAnchorOut: () => void
 }
 
 export function ControlPointMap(props: ControlPointMapProps) {
@@ -59,6 +64,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const clusterLayerRef = useRef<AnimatedCluster | null>(null)
   const cadastralRef = useRef<ImageLayer<ImageWMS> | null>(null)
   const baseLayerRef = useRef<TileLayer<XYZ> | null>(null)
+  const lastFocusNonceRef = useRef(props.focusNonce)
 
   // 지도는 1회만 생성 → 최신 props/콜백을 ref 로 유지
   const addModeRef = useRef(props.addMode)
@@ -68,7 +74,12 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const selectedIdRef = useRef(props.selectedId)
   const surveyModeRef = useRef(props.surveyMode)
   const surveyedIdsRef = useRef(props.surveyedIds)
+  const lostIdsRef = useRef(props.lostIds)
   const themeRef = useRef(props.theme)
+  const leftInsetRef = useRef(props.leftInset)
+  const clusterAnchorRef = useRef(props.clusterAnchor)
+  const onClusterAnchorMoveRef = useRef(props.onClusterAnchorMove)
+  const onClusterAnchorOutRef = useRef(props.onClusterAnchorOut)
   // 렌더 중 ref 대입은 순수하지 않음(버려지는 렌더가 미커밋 값을 남길 수 있음) → 커밋 후 effect에서 동기화.
   // OL 콜백/스타일은 커밋 뒤(비동기 상호작용·재렌더)에만 refs를 읽으므로, 이 effect를 먼저 선언해 항상 최신값을 보게 함.
   useEffect(() => {
@@ -79,7 +90,12 @@ export function ControlPointMap(props: ControlPointMapProps) {
     selectedIdRef.current = props.selectedId
     surveyModeRef.current = props.surveyMode
     surveyedIdsRef.current = props.surveyedIds
+    lostIdsRef.current = props.lostIds
     themeRef.current = props.theme
+    leftInsetRef.current = props.leftInset
+    clusterAnchorRef.current = props.clusterAnchor
+    onClusterAnchorMoveRef.current = props.onClusterAnchorMove
+    onClusterAnchorOutRef.current = props.onClusterAnchorOut
   })
 
   // 초기화 (마운트 시 1회)
@@ -119,10 +135,19 @@ export function ControlPointMap(props: ControlPointMapProps) {
       const members = clusterMembers(feature)
       if (members.length === 1) {
         const cp = members[0]
-        const survey = !surveyModeRef.current ? 'none' : surveyedIdsRef.current.has(cp.id) ? 'done' : 'todo'
+        const survey = !surveyModeRef.current
+          ? 'none'
+          : lostIdsRef.current.has(cp.id)
+            ? 'lost'
+            : surveyedIdsRef.current.has(cp.id)
+              ? 'done'
+              : 'todo'
         return controlPointStyle(cp, cp.id === selectedIdRef.current, survey, themeRef.current)
       }
-      return clusterStyle(computeClusterInfo(members, surveyModeRef.current, surveyedIdsRef.current), themeRef.current)
+      return clusterStyle(
+        computeClusterInfo(members, surveyModeRef.current, surveyedIdsRef.current, lostIdsRef.current),
+        themeRef.current,
+      )
     }
 
     const clusterLayer = new AnimatedCluster({
@@ -164,13 +189,17 @@ export function ControlPointMap(props: ControlPointMapProps) {
         if (members.length === 1) {
           onSelectRef.current(members[0].id)
         } else {
-          // 클러스터 클릭 → 뱃지(클러스터 중심) 옆 리스트 팝오버 (클릭 지점 무관)
+          // 클러스터 클릭 → 뱃지(중심) 좌표 기준 팝오버 + 점처럼 중앙(가림 보정) 포커스(팬, 줌 유지=클러스터 안 깨지게)
           const g = f.getGeometry()
-          const center = g ? map.getPixelFromCoordinate((g as Point).getCoordinates()) : null
+          const coord = g ? (g as Point).getCoordinates() : evt.coordinate
+          const center = map.getPixelFromCoordinate(coord)
           const ax = center ? center[0] : evt.pixel[0]
           const ay = center ? center[1] : evt.pixel[1]
           const size = map.getSize() ?? [0, 0]
-          onClusterClickRef.current(members, ax, ay, size[0], size[1])
+          onClusterClickRef.current(members, coord, ax, ay, size[0], size[1])
+          const view = map.getView()
+          const res = view.getResolution() ?? 0
+          view.animate({ center: [coord[0] - (leftInsetRef.current / 2) * res, coord[1]], duration: 300 })
         }
         handled = true
         return true
@@ -187,6 +216,33 @@ export function ControlPointMap(props: ControlPointMapProps) {
       cadastralRef.current = null
       baseLayerRef.current = null
     }
+  }, [])
+
+  // 클러스터 팝오버 앵커 추적: 지도 움직일 때마다 뱃지 좌표를 픽셀로 재투영해 팝오버가 따라오게, 화면 밖이면 닫기
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    let lastX = -1
+    let lastY = -1
+    const update = () => {
+      const anchor = clusterAnchorRef.current
+      if (!anchor) return
+      const px = map.getPixelFromCoordinate(anchor)
+      const size = map.getSize()
+      if (!px || !size) return
+      if (px[0] < 0 || px[1] < 0 || px[0] > size[0] || px[1] > size[1]) {
+        onClusterAnchorOutRef.current()
+        return
+      }
+      const x = Math.round(px[0])
+      const y = Math.round(px[1])
+      if (x === lastX && y === lastY) return
+      lastX = x
+      lastY = y
+      onClusterAnchorMoveRef.current(x, y)
+    }
+    map.on('postrender', update)
+    return () => map.un('postrender', update)
   }, [])
 
   // points 변경 → 원본 소스 재구성 (클러스터는 자동 갱신)
@@ -207,7 +263,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
   // 선택/조사상태/테마 변경 → 클러스터 레이어 재스타일
   useEffect(() => {
     clusterLayerRef.current?.changed()
-  }, [props.selectedId, props.surveyMode, props.surveyedIds, props.theme])
+  }, [props.selectedId, props.surveyMode, props.surveyedIds, props.lostIds, props.theme])
 
   // 테마 변경 → 배경지도 소스 교체 (새 소스에도 타일 리렌더 연결)
   useEffect(() => {
@@ -224,21 +280,43 @@ export function ControlPointMap(props: ControlPointMapProps) {
     cadastralRef.current?.setVisible(Boolean(VWORLD_KEY) && props.showCadastral)
   }, [props.showCadastral])
 
-  // 선택된 점으로 이동 (부드러운 팬)
+  // 선택된 점으로 이동 (부드러운 팬). 단, 리스트/클러스터 포커스(focusNonce 변화)로 인한 선택이면
+  // 여기서 팬하지 않는다 → 아래 focusNonce 이펙트가 zoom+pan 담당(팬+줌 이중 애니메이션 충돌=버벅임 방지).
+  useEffect(() => {
+    if (!props.selectedId || !mapRef.current) return
+    if (props.focusNonce !== lastFocusNonceRef.current) return
+    const p = props.points.find((x) => x.id === props.selectedId)
+    if (!p) return
+    const view = mapRef.current.getView()
+    const res = view.getResolution() ?? 0
+    const [cx, cy] = fromLonLat([p.lng, p.lat])
+    // 좌측 패널이 가린 폭(leftInset)의 절반만큼 중심을 왼쪽으로 → 점이 '보이는 영역' 중앙에 오게
+    view.animate({ center: [cx - (props.leftInset / 2) * res, cy], duration: 300 })
+  }, [props.selectedId])
+
+  // 리스트/클러스터에서 포커스 → 확대 + 이동 (단일 애니메이션). ref 갱신은 위 selectedId 이펙트보다 뒤에 실행됨.
+  useEffect(() => {
+    lastFocusNonceRef.current = props.focusNonce
+    if (props.focusNonce === 0 || !mapRef.current || !props.selectedId) return
+    const p = props.points.find((x) => x.id === props.selectedId)
+    if (!p) return
+    const view = mapRef.current.getView()
+    const res = view.getResolutionForZoom(19)
+    const [cx, cy] = fromLonLat([p.lng, p.lat])
+    view.animate({ center: [cx - (props.leftInset / 2) * res, cy], zoom: 19, duration: 450 })
+  }, [props.focusNonce])
+
+  // 패널 열림/닫힘으로 가림 폭(leftInset)이 바뀌면, 선택된 점을 새 '보이는 영역 중앙'으로 다시 이동
+  // (닫으면 지도 전체 중앙으로, 열면 가려지지 않은 영역 중앙으로)
   useEffect(() => {
     if (!props.selectedId || !mapRef.current) return
     const p = props.points.find((x) => x.id === props.selectedId)
     if (!p) return
-    mapRef.current.getView().animate({ center: fromLonLat([p.lng, p.lat]), duration: 300 })
-  }, [props.selectedId])
-
-  // 리스트에서 포커스 → 확대 + 이동
-  useEffect(() => {
-    if (props.focusNonce === 0 || !mapRef.current || !props.selectedId) return
-    const p = props.points.find((x) => x.id === props.selectedId)
-    if (!p) return
-    mapRef.current.getView().animate({ center: fromLonLat([p.lng, p.lat]), zoom: 19, duration: 450 })
-  }, [props.focusNonce])
+    const view = mapRef.current.getView()
+    const res = view.getResolution() ?? 0
+    const [cx, cy] = fromLonLat([p.lng, p.lat])
+    view.animate({ center: [cx - (props.leftInset / 2) * res, cy], duration: 200 })
+  }, [props.leftInset])
 
   return <div ref={containerRef} className={`absolute inset-0 ${props.addMode ? 'cursor-crosshair' : ''}`} />
 }

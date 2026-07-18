@@ -17,7 +17,5 @@ export interface ControlPoint {
   tmX: number
   tmY: number
   tmEpsg: TmEpsg
-  /** 망실 여부 (프로토타입: 단일 플래그. 실서비스는 조사이력으로 관리 예정) */
-  lost: boolean
   createdAt: string
 }

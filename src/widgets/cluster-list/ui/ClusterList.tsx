@@ -1,28 +1,28 @@
 import { useEffect, useState } from 'react'
-import type { ControlPoint, PointType } from '@/entities/control-point'
+import type { ControlPoint } from '@/entities/control-point'
+import { PointTypeIcon } from '@/entities/control-point'
 
 export interface ClusterPopup {
   points: ControlPoint[]
+  /** 클러스터 뱃지 지도 좌표 (지도 이동 시 픽셀 재투영해 따라감) */
+  coord: number[]
   /** 클러스터 뱃지 중심 픽셀 */
   x: number
   y: number
   /** 지도 뷰포트 크기 */
   w: number
   h: number
+  /** 팝오버 인스턴스 id (위치 갱신과 열림 애니 구분용) */
+  id: number
 }
 
 interface ClusterListProps {
   popup: ClusterPopup | null
   surveyedIds: Set<string>
+  lostIds: Set<string>
   surveyMode: boolean
   onFocus: (cp: ControlPoint) => void
   onClose: () => void
-}
-
-const TYPE_DOT: Record<PointType, string> = {
-  지적삼각점: 'bg-gray-900',
-  지적삼각보조점: 'bg-gray-500',
-  지적도근점: 'bg-gray-700',
 }
 
 const WIDTH = 260
@@ -35,14 +35,19 @@ function badgeRadius(count: number): number {
   return 29
 }
 
-export function ClusterList({ popup, surveyedIds, surveyMode, onFocus, onClose }: ClusterListProps) {
+export function ClusterList({ popup, surveyedIds, lostIds, surveyMode, onFocus, onClose }: ClusterListProps) {
   const [data, setData] = useState<ClusterPopup | null>(popup)
   const [shown, setShown] = useState(false)
 
-  // 열림: 초기 hidden 상태를 한 번 그린 뒤(double rAF) shown=true → 팝인. 닫힘: shown=false 후 언마운트.
+  // 위치/내용은 매 popup 변경마다 반영(지도 따라 이동 포함)
   useEffect(() => {
-    if (popup) {
-      setData(popup)
+    if (popup) setData(popup)
+  }, [popup])
+
+  // 열림 애니는 '새 팝오버(id 변경)'일 때만 재생 — 위치 갱신(같은 id)에는 재발동 안 함. 닫힘=shown off 후 언마운트.
+  const openId = popup?.id ?? null
+  useEffect(() => {
+    if (openId != null) {
       setShown(false)
       let r2 = 0
       const r1 = requestAnimationFrame(() => {
@@ -56,7 +61,7 @@ export function ClusterList({ popup, surveyedIds, surveyMode, onFocus, onClose }
     setShown(false)
     const t = setTimeout(() => setData(null), 170)
     return () => clearTimeout(t)
-  }, [popup])
+  }, [openId])
 
   // 비모달 팝오버라 focus-trap은 넣지 않되(지도 위 임시 UI), Esc 로는 닫히게. (항목은 이미 <button>이라 Tab/Enter 가능)
   useEffect(() => {
@@ -98,8 +103,8 @@ export function ClusterList({ popup, surveyedIds, surveyMode, onFocus, onClose }
       </div>
       <ul className="min-h-0 flex-1 overflow-y-auto py-1">
         {data.points.map((cp) => {
-          const status = cp.lost ? '망실' : surveyMode ? (surveyedIds.has(cp.id) ? '조사완료' : '미조사') : ''
-          const statusCls = cp.lost ? 'text-red-600' : status === '조사완료' ? 'text-blue-600' : 'text-gray-400'
+          const status = surveyMode ? (lostIds.has(cp.id) ? '망실' : surveyedIds.has(cp.id) ? '조사완료' : '미조사') : ''
+          const statusCls = status === '망실' ? 'text-red-600' : status === '조사완료' ? 'text-blue-600' : 'text-gray-400'
           return (
             <li key={cp.id}>
               <button
@@ -107,7 +112,7 @@ export function ClusterList({ popup, surveyedIds, surveyMode, onFocus, onClose }
                 onClick={() => onFocus(cp)}
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-gray-50"
               >
-                <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${TYPE_DOT[cp.type]}`} />
+                <PointTypeIcon type={cp.type} className="h-4 w-4 text-gray-700" />
                 <span className="flex-1 truncate text-[13px] text-gray-800">{cp.name}</span>
                 <span className="shrink-0 text-[11px] text-gray-400">{cp.type}</span>
                 {status && <span className={`shrink-0 text-[11px] font-semibold ${statusCls}`}>{status}</span>}
