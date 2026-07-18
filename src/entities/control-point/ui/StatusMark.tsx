@@ -17,8 +17,8 @@ export function StatusMark({ status, onLight = false }: { status: string; onLigh
           : 'text-gray-500'
   const path = status === '조사완료' ? 'm5 12 5 5 9-10' : 'M6 6l12 12M18 6 6 18'
   return (
-    <span className={`inline-block h-4 w-4 shrink-0 ${color}`} title={status} aria-label={status}>
-      <svg viewBox="0 0 24 24" className="h-full w-full" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round">
+    <span role="img" className={`inline-block h-4 w-4 shrink-0 ${color}`} title={status} aria-label={status}>
+      <svg viewBox="0 0 24 24" className="h-full w-full" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d={path} />
       </svg>
     </span>
