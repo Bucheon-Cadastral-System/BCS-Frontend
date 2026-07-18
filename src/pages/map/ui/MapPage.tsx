@@ -221,8 +221,6 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           onChangeActive={setActiveProjectId}
           onCreate={createProject}
           onDeleteActive={deleteActiveProject}
-          surveyedCount={surveyedIds.size}
-          totalCount={points.length}
           points={points}
           surveyedIds={surveyedIds}
           lostIds={lostIds}
