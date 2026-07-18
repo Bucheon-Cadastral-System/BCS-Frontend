@@ -1,7 +1,7 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { SurveyProject } from '@/entities/survey-project'
 import type { ControlPoint } from '@/entities/control-point'
-import { PointTypeIcon } from '@/entities/control-point'
+import { PointTypeIcon, StatusMark } from '@/entities/control-point'
 
 /** 좌측 레일에서 열 수 있는 패널 종류 */
 type PanelKey = 'project' | 'points'
@@ -15,8 +15,6 @@ interface MapSidebarProps {
   onChangeActive: (id: string | null) => void
   onCreate: (name: string) => void
   onDeleteActive: () => void
-  surveyedCount: number
-  totalCount: number
   // 기준점 목록
   points: ControlPoint[]
   surveyedIds: Set<string>
@@ -30,6 +28,8 @@ interface MapSidebarProps {
   onOpenUserManagement: () => void
   // 패널이 지도를 가리는 폭 통지 (포커스 센터링 보정용)
   onInsetChange?: (px: number) => void
+  // 외부(지도 위 활성 프로젝트 칩)에서 프로젝트 패널 열기 요청 (nonce, 증가할 때마다 열림)
+  openProjectSignal?: number
 }
 
 export function MapSidebar(props: MapSidebarProps) {
@@ -49,6 +49,28 @@ export function MapSidebar(props: MapSidebarProps) {
   useEffect(() => {
     onInsetChange?.(open ? PANEL_WIDTH : 0)
   }, [open, onInsetChange])
+
+  // 활성 프로젝트 칩 클릭 → 프로젝트 패널 열기 (nonce 증가 시. 0=초기값이라 무시)
+  const openProjectSignal = props.openProjectSignal
+  useEffect(() => {
+    if (!openProjectSignal) return
+    setLastPanel('project')
+    setOpen('project')
+  }, [openProjectSignal])
+
+  // 패널 본문은 '열려 있을 때만' 마운트(닫히면 슬라이드 아웃 후 지연 언마운트).
+  // ★ 성능: 프로젝트가 펼쳐지면 본문에 점 수천 개(PointRow)가 그려지는데, 닫혀도 마운트돼 있으면
+  //   무관한 리렌더(예: 클러스터 클릭 팬 중 매 프레임 setClusterPopup)마다 이 수천 행이 재조정돼 렉이 걸린다.
+  //   닫힘 상태에선 트리에서 제거해 이런 리렌더가 레일만 건드리게 함. (열림 시 1프레임 빈 상태는 슬라이드 인과 겹쳐 무시 가능)
+  const [renderBody, setRenderBody] = useState(false)
+  useEffect(() => {
+    if (open) {
+      setRenderBody(true)
+      return
+    }
+    const t = setTimeout(() => setRenderBody(false), 220)
+    return () => clearTimeout(t)
+  }, [open])
 
   return (
     <div className="relative z-20 flex min-h-0 shrink-0 text-gray-200">
@@ -80,11 +102,12 @@ export function MapSidebar(props: MapSidebarProps) {
           open ? 'translate-x-0 border-r border-gray-700 shadow-xl' : '-translate-x-full pointer-events-none'
         }`}
       >
-        {lastPanel === 'project' ? (
-          <ProjectPanel {...props} onClose={() => setOpen(null)} />
-        ) : (
-          <PointListPanel {...props} onClose={() => setOpen(null)} />
-        )}
+        {renderBody &&
+          (lastPanel === 'project' ? (
+            <ProjectPanel {...props} onClose={() => setOpen(null)} />
+          ) : (
+            <PointListPanel {...props} onClose={() => setOpen(null)} />
+          ))}
       </aside>
     </div>
   )
@@ -123,23 +146,27 @@ function PanelHeader(props: { title: string; onClose: () => void }) {
   )
 }
 
-/** 프로젝트 아코디언: 항목 클릭 → 활성(=펼침) 토글, 펼치면 진행률 + 점 리스트(조사여부 V/X) */
+/**
+ * 프로젝트 목록. 행 클릭 = 펼침(browse)일 뿐이고, '선택(활성화)'은 드로어 안의 버튼으로 한다.
+ * 선택(active)과 펼침(expand)을 분리 → '선택'이 명시적 행위가 되고, 선택중은 행에 뚜렷이 표시된다.
+ */
 function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
-  const active = props.activeProjectId
+  // 펼침(browse)은 선택(active)과 독립. 처음엔 선택된 프로젝트를 펼쳐 둔다.
+  const [expandedId, setExpandedId] = useState<string | null>(props.activeProjectId)
   // 닫힘 애니메이션: 접히는 동안에도 내용을 잠깐 유지(mountedId 지연 언마운트)
-  const [mountedId, setMountedId] = useState<string | null>(active)
+  const [mountedId, setMountedId] = useState<string | null>(expandedId)
   useEffect(() => {
-    if (active !== null) {
-      setMountedId(active)
+    if (expandedId !== null) {
+      setMountedId(expandedId)
       return
     }
     const t = setTimeout(() => setMountedId(null), 220)
     return () => clearTimeout(t)
-  }, [active])
+  }, [expandedId])
 
-  // 드로어에서 조사 토글 버튼을 펼친 점 (프로젝트 바뀌면 초기화)
+  // 드로어에서 조사 토글 버튼을 펼친 점 (펼친 프로젝트 바뀌면 초기화)
   const [expandedPointId, setExpandedPointId] = useState<string | null>(null)
-  useEffect(() => setExpandedPointId(null), [active])
+  useEffect(() => setExpandedPointId(null), [expandedId])
 
   function handleNew() {
     const name = window.prompt('조사 프로젝트 이름 (예: 2026.7.1.자 조사)', '')
@@ -165,34 +192,61 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
           <li className="px-4 py-6 text-center text-[13px] text-gray-500">조사 프로젝트가 없습니다</li>
         )}
         {props.projects.map((p) => {
-          const expanded = active === p.id
+          const expanded = expandedId === p.id
+          const selected = props.activeProjectId === p.id // ★ 선택(활성) = 지도/칩에 반영되는 프로젝트
           const mounted = mountedId === p.id
           const psurveyed = props.surveyedCountByProject[p.id] ?? 0
           const ptotal = props.points.length
-          const pdone = ptotal > 0 && psurveyed >= ptotal
+          const ppct = ptotal ? Math.round((psurveyed / ptotal) * 100) : 0
           return (
-            <li key={p.id} className="border-b border-gray-700/60">
-              {/* 프로젝트 헤더 (크게 + V) */}
-              <button
-                type="button"
-                onClick={() => props.onChangeActive(expanded ? null : p.id)}
-                aria-expanded={expanded}
-                className={`flex w-full items-center gap-2 px-4 py-3 text-left text-sm ${
-                  expanded ? 'bg-gray-700/50 font-semibold text-white' : 'text-gray-200 hover:bg-gray-700'
-                }`}
-              >
-                <span className="flex-1 truncate">{p.name}</span>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ${
-                    pdone ? 'bg-blue-500/20 text-blue-300' : 'bg-gray-700 text-gray-300'
+            <li
+              key={p.id}
+              className={`border-b border-gray-700/60 border-l-[3px] ${
+                selected ? 'border-l-blue-500 bg-blue-500/10' : 'border-l-transparent'
+              }`}
+            >
+              {/* 행: 이름 좌측 라디오 = 선택(활성) 토글 겸 표시 · 나머지 클릭 = 펼침(browse) */}
+              <div className="flex items-stretch">
+                <span className="flex items-center py-3 pl-4 pr-1.5">
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => props.onChangeActive(selected ? null : p.id)}
+                    title={selected ? '선택 해제' : '이 조사 선택'}
+                    aria-label={selected ? `${p.name} 선택 해제` : `${p.name} 이 조사 선택`}
+                    className={`flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 transition-colors ${
+                      selected ? 'border-blue-400 bg-blue-500' : 'border-gray-500 hover:border-gray-300'
+                    }`}
+                  >
+                    {selected && (
+                      <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="#ffffff" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m5 12 5 5 9-10" />
+                      </svg>
+                    )}
+                  </button>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setExpandedId(expanded ? null : p.id)}
+                  aria-expanded={expanded}
+                  className={`flex min-w-0 flex-1 items-center gap-2 py-3 pr-4 text-left text-sm ${
+                    selected ? 'font-semibold text-white' : expanded ? 'text-gray-100' : 'text-gray-200 hover:bg-gray-700'
                   }`}
                 >
-                  {psurveyed}/{ptotal}
-                </span>
-                <span className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}>
-                  <IconChevronDown />
-                </span>
-              </button>
+                  <span className="flex-1 truncate">{p.name}</span>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ${
+                      ptotal > 0 && psurveyed >= ptotal ? 'bg-blue-500/20 text-blue-300' : 'bg-gray-700 text-gray-300'
+                    }`}
+                  >
+                    {psurveyed}/{ptotal}
+                  </span>
+                  <span className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}>
+                    <IconChevronDown />
+                  </span>
+                </button>
+              </div>
 
               {/* 펼침 드로어: grid-rows 0fr↔1fr 로 높이 애니메이션(열림/닫힘 모두) */}
               <div
@@ -202,60 +256,55 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
               >
                 <div className="overflow-hidden">
                   {mounted && (
-                    <div className="bg-gray-900/40 pb-2">
-                      <div className="px-4 py-2.5">
+                    <div className="bg-gray-900/40 pb-2 pt-1">
+                      {/* 진행률 (이 프로젝트 기준) */}
+                      <div className="px-4 py-2">
                         <div className="mb-1.5 flex items-center text-[12px] text-gray-300">
                           <span className="flex-1">
-                            조사 <b className="text-blue-400">{props.surveyedCount}</b> / 전체 {props.totalCount}
+                            조사 <b className="text-blue-400">{psurveyed}</b> / 전체 {ptotal}
                           </span>
-                          <span className="font-semibold text-blue-400">
-                            {props.totalCount ? Math.round((props.surveyedCount / props.totalCount) * 100) : 0}%
-                          </span>
+                          <span className="font-semibold text-blue-400">{ppct}%</span>
                         </div>
                         <div className="h-1.5 overflow-hidden rounded-full bg-gray-700">
                           <div
                             className="h-full rounded-full bg-blue-500 transition-[width] duration-500 ease-out"
-                            style={{ width: `${props.totalCount ? (props.surveyedCount / props.totalCount) * 100 : 0}%` }}
+                            style={{ width: `${ppct}%` }}
                           />
                         </div>
                       </div>
 
-                      <ul>
-                        {props.points.map((cp) => {
-                          const surveyed = props.surveyedIds.has(cp.id)
-                          const lost = props.lostIds.has(cp.id)
-                          return (
-                            <PointRow
-                              key={cp.id}
-                              cp={cp}
-                              status={lost ? '망실' : surveyed ? '조사완료' : '미조사'}
-                              expanded={expandedPointId === cp.id}
-                              surveyed={surveyed}
-                              lost={lost}
-                              onToggleSurvey={() => props.onToggleSurvey(cp.id)}
-                              onToggleLost={() => props.onToggleLost(cp.id)}
-                              onClick={() => {
-                                const willExpand = expandedPointId !== cp.id
-                                setExpandedPointId(willExpand ? cp.id : null)
-                                if (willExpand) props.onFocusPoint(cp)
-                              }}
-                            />
-                          )
-                        })}
-                        {props.points.length === 0 && (
-                          <li className="py-3 pl-9 text-[12px] text-gray-500">기준점이 없습니다</li>
-                        )}
-                      </ul>
+                      {/* 점별 조사·망실 기록은 '선택된(조사 대상)' 프로젝트에서만. 리스트는 PointRowList가 내부 메모 */}
+                      {selected ? (
+                        <PointRowList
+                          points={props.points}
+                          onFocus={props.onFocusPoint}
+                          survey={{
+                            surveyedIds: props.surveyedIds,
+                            lostIds: props.lostIds,
+                            expandedPointId,
+                            onExpand: setExpandedPointId,
+                            onToggleSurvey: props.onToggleSurvey,
+                            onToggleLost: props.onToggleLost,
+                          }}
+                        />
+                      ) : (
+                        <p className="px-4 py-2 text-[12px] leading-relaxed text-gray-500">
+                          이름 왼쪽의 <b className="text-gray-400">○</b> 를 눌러 이 조사를 선택하면, 지도에 조사 현황이 표시되고 점별로 조사·망실을 기록할 수 있습니다.
+                        </p>
+                      )}
 
-                      <div className="px-4 pt-2">
-                        <button
-                          type="button"
-                          onClick={props.onDeleteActive}
-                          className="w-full rounded-md border border-red-800 bg-red-900/40 py-1.5 text-[12px] text-red-300 hover:bg-red-900"
-                        >
-                          이 조사 삭제
-                        </button>
-                      </div>
+                      {/* 삭제는 선택된 프로젝트에서만 (onDeleteActive=활성 삭제) */}
+                      {selected && (
+                        <div className="px-4 pt-2">
+                          <button
+                            type="button"
+                            onClick={props.onDeleteActive}
+                            className="w-full rounded-md border border-red-800 bg-red-900/40 py-1.5 text-[12px] text-red-300 hover:bg-red-900"
+                          >
+                            이 조사 삭제
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -274,7 +323,11 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
 function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
   const [q, setQ] = useState('')
   const query = q.trim()
-  const list = query ? props.points.filter((p) => p.name.includes(query)) : props.points
+  // 검색 결과도 메모 → 팬 리렌더 중 새 배열을 만들지 않아 PointRowList 메모가 유지됨
+  const list = useMemo(
+    () => (query ? props.points.filter((p) => p.name.includes(query)) : props.points),
+    [props.points, query],
+  )
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -289,17 +342,82 @@ function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
         />
       </div>
 
-      <ul className="min-h-0 flex-1 overflow-y-auto pb-1">
-        {list.map((cp) => (
-          <PointRow key={cp.id} cp={cp} onClick={() => props.onFocusPoint(cp)} />
-        ))}
-        {list.length === 0 && (
-          <li className="px-4 py-6 text-center text-[13px] text-gray-500">
-            {props.points.length === 0 ? '기준점이 없습니다' : '검색 결과 없음'}
-          </li>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <PointRowList
+          points={list}
+          onFocus={props.onFocusPoint}
+          emptyText={props.points.length === 0 ? '기준점이 없습니다' : '검색 결과 없음'}
+        />
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 점 목록(내부 메모). 무관한 리렌더(지도 팬 등 부모 리렌더)엔 **같은 <ul> 엘리먼트**를 반환해
+ * 수천 행 재조정을 건너뛴다(React 서브트리 bail-out). 콜백은 매 렌더 새 정체성이어도 되게 ref로 참조.
+ * survey 주면 상태마크·조사/망실 토글·펼침(프로젝트 드로어), 없으면 이름·종류만(기준점 탭).
+ */
+function PointRowList(props: {
+  points: ControlPoint[]
+  onFocus: (cp: ControlPoint) => void
+  survey?: {
+    surveyedIds: Set<string>
+    lostIds: Set<string>
+    expandedPointId: string | null
+    onExpand: (id: string | null) => void
+    onToggleSurvey: (id: string) => void
+    onToggleLost: (id: string) => void
+  }
+  emptyText?: string
+}) {
+  const { points, survey, emptyText } = props
+  const cbRef = useRef({ onFocus: props.onFocus, survey })
+  useEffect(() => {
+    cbRef.current = { onFocus: props.onFocus, survey }
+  })
+
+  // survey 객체는 매 렌더 새로 만들어지므로 deps엔 안정된 내부 값만 넣는다(값 같으면 팬 중 메모 유지).
+  const surveyedIds = survey?.surveyedIds
+  const lostIds = survey?.lostIds
+  const expandedPointId = survey?.expandedPointId ?? null
+  const hasSurvey = Boolean(survey)
+
+  return useMemo(
+    () => (
+      <ul className="pb-1">
+        {points.map((cp) => {
+          const surveyed = surveyedIds?.has(cp.id) ?? false
+          const lost = lostIds?.has(cp.id) ?? false
+          return (
+            <PointRow
+              key={cp.id}
+              cp={cp}
+              status={hasSurvey ? (lost ? '망실' : surveyed ? '조사완료' : '미조사') : undefined}
+              expanded={expandedPointId === cp.id}
+              surveyed={surveyed}
+              lost={lost}
+              onToggleSurvey={hasSurvey ? () => cbRef.current.survey?.onToggleSurvey(cp.id) : undefined}
+              onToggleLost={hasSurvey ? () => cbRef.current.survey?.onToggleLost(cp.id) : undefined}
+              onClick={() => {
+                const cur = cbRef.current
+                if (cur.survey) {
+                  const willExpand = expandedPointId !== cp.id
+                  cur.survey.onExpand(willExpand ? cp.id : null)
+                  if (willExpand) cur.onFocus(cp)
+                } else {
+                  cur.onFocus(cp)
+                }
+              }}
+            />
+          )
+        })}
+        {points.length === 0 && (
+          <li className="px-4 py-6 text-center text-[13px] text-gray-500">{emptyText ?? '기준점이 없습니다'}</li>
         )}
       </ul>
-    </div>
+    ),
+    [points, surveyedIds, lostIds, expandedPointId, hasSurvey, emptyText],
   )
 }
 
@@ -374,35 +492,6 @@ function Legend() {
         <i className="inline-block h-3 w-3 rounded-full border border-red-900 bg-red-600" />망실
       </span>
     </div>
-  )
-}
-
-/** 조사여부 좌측 마크: 조사완료=파란 체크(V), 미조사=회색 X, 망실=빨강 X */
-function StatusMark({ status }: { status: string }) {
-  const p = {
-    viewBox: '0 0 24 24',
-    className: 'h-full w-full',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 2.6,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-  }
-  if (status === '조사완료') {
-    return (
-      <span className="h-4 w-4 shrink-0 text-blue-400" title="조사완료" aria-label="조사완료">
-        <svg {...p}>
-          <path d="m5 12 5 5 9-10" />
-        </svg>
-      </span>
-    )
-  }
-  return (
-    <span className={`h-4 w-4 shrink-0 ${status === '망실' ? 'text-red-400' : 'text-gray-500'}`} title={status} aria-label={status}>
-      <svg {...p}>
-        <path d="M6 6l12 12M18 6 6 18" />
-      </svg>
-    </span>
   )
 }
 

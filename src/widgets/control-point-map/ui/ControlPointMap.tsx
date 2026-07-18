@@ -18,7 +18,7 @@ import type { Style } from 'ol/style'
 import { VWORLD_KEY, DEFAULT_CENTER, DEFAULT_ZOOM } from '@/shared/config/map'
 import { controlPointStyle, clusterStyle } from '@/entities/control-point'
 import type { ControlPoint, MapTheme } from '@/entities/control-point'
-import { createClusterSource, clusterMembers, computeClusterInfo } from '../lib/pointClustering'
+import { createClusterSource, clusterMembers, computeClusterInfo, CLUSTER_DISTANCE } from '../lib/pointClustering'
 
 /**
  * 테마별 배경지도 소스 (VWorld Base/midnight, 키 없으면 OSM / CARTO dark).
@@ -78,6 +78,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const themeRef = useRef(props.theme)
   const leftInsetRef = useRef(props.leftInset)
   const clusterAnchorRef = useRef(props.clusterAnchor)
+  const anchorZoomRef = useRef<number | null>(null) // 팝오버 열릴 때의 줌 (줌 바뀌면=클러스터 재구성 → 닫기)
   const onClusterAnchorMoveRef = useRef(props.onClusterAnchorMove)
   const onClusterAnchorOutRef = useRef(props.onClusterAnchorOut)
   // 렌더 중 ref 대입은 순수하지 않음(버려지는 렌더가 미커밋 값을 남길 수 있음) → 커밋 후 effect에서 동기화.
@@ -147,6 +148,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
       return clusterStyle(
         computeClusterInfo(members, surveyModeRef.current, surveyedIdsRef.current, lostIdsRef.current),
         themeRef.current,
+        surveyModeRef.current,
       )
     }
 
@@ -161,8 +163,8 @@ export function ControlPointMap(props: ControlPointMapProps) {
       target: container,
       controls: defaultControls().extend([new ScaleLine({ units: 'metric' })]),
       layers: [baseLayer, cadastralLayer, clusterLayer],
-      // maxZoom 20: midnight(네이티브18) overzoom을 2단계 이내로 제한(과도한 흐림/무의미한 딥줌 방지).
-      view: new View({ center: fromLonLat(DEFAULT_CENTER), zoom: DEFAULT_ZOOM, maxZoom: 20 }),
+      // maxZoom 22: 리스트 포커스 시 조밀한 점도 디클러스터되도록 딥줌 허용(배경은 overzoom 흐림, 마커·지적도는 선명).
+      view: new View({ center: fromLonLat(DEFAULT_CENTER), zoom: DEFAULT_ZOOM, maxZoom: 22 }),
     })
     mapRef.current = map
 
@@ -227,6 +229,12 @@ export function ControlPointMap(props: ControlPointMapProps) {
     const update = () => {
       const anchor = clusterAnchorRef.current
       if (!anchor) return
+      // 줌이 바뀌면 클러스터가 재구성(확대 시 점들이 퍼짐)되어 이 뱃지가 더는 없음 → 팝오버 닫기. (팬은 줌 불변이라 유지)
+      const z = map.getView().getZoom()
+      if (anchorZoomRef.current != null && z != null && Math.abs(z - anchorZoomRef.current) > 0.01) {
+        onClusterAnchorOutRef.current()
+        return
+      }
       const px = map.getPixelFromCoordinate(anchor)
       const size = map.getSize()
       if (!px || !size) return
@@ -244,6 +252,11 @@ export function ControlPointMap(props: ControlPointMapProps) {
     map.on('postrender', update)
     return () => map.un('postrender', update)
   }, [])
+
+  // 팝오버 열릴 때(anchor 지정)의 줌을 기록 → 이후 줌 변경 감지에 사용
+  useEffect(() => {
+    anchorZoomRef.current = props.clusterAnchor && mapRef.current ? (mapRef.current.getView().getZoom() ?? null) : null
+  }, [props.clusterAnchor])
 
   // points 변경 → 원본 소스 재구성 (클러스터는 자동 갱신)
   useEffect(() => {
@@ -301,9 +314,25 @@ export function ControlPointMap(props: ControlPointMapProps) {
     const p = props.points.find((x) => x.id === props.selectedId)
     if (!p) return
     const view = mapRef.current.getView()
-    const res = view.getResolutionForZoom(19)
     const [cx, cy] = fromLonLat([p.lng, p.lat])
-    view.animate({ center: [cx - (props.leftInset / 2) * res, cy], zoom: 19, duration: 450 })
+    // 가장 가까운 다른 점과의 거리(맵 단위) → 픽셀 간격이 클러스터 거리를 넘는 줌 계산(사전투영된 소스 지오메트리 사용)
+    let nearest = Infinity
+    for (const f of rawSourceRef.current?.getFeatures() ?? []) {
+      if (f.get('id') === p.id) continue
+      const g = f.getGeometry() as Point | null
+      if (!g) continue
+      const [qx, qy] = g.getCoordinates()
+      const d = Math.hypot(qx - cx, qy - cy)
+      if (d < nearest) nearest = d
+    }
+    let zoom = 19
+    if (nearest !== Infinity && nearest > 0) {
+      // 픽셀 간격 > CLUSTER_DISTANCE*1.2 가 되는 해상도의 줌 → 그 점이 분리됨. [19,22]로 클램프.
+      const z = view.getZoomForResolution(nearest / (CLUSTER_DISTANCE * 1.2))
+      if (z !== undefined) zoom = Math.min(22, Math.max(19, z))
+    }
+    const res = view.getResolutionForZoom(zoom)
+    view.animate({ center: [cx - (props.leftInset / 2) * res, cy], zoom, duration: 450 })
   }, [props.focusNonce])
 
   // 패널 열림/닫힘으로 가림 폭(leftInset)이 바뀌면, 선택된 점을 새 '보이는 영역 중앙'으로 다시 이동
