@@ -1,7 +1,7 @@
 import axios, { AxiosError } from 'axios'
 
-/** 백엔드 API 기본 주소 — 미지정 시 로컬 Spring. 배포에선 동일 오리진 뒤 프록시를 쓰므로 빈 문자열 지정. */
-const BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
+/** API 기본 주소 — 기본은 동일 오리진(개발=Vite 프록시, 배포=Caddy 프록시). 별도 오리진이 필요할 때만 지정. */
+const BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? ''
 
 /** 실패 응답(RFC 9457 ProblemDetail)의 판별 코드를 담는 에러 — 화면 분기는 message가 아니라 code로 한다. */
 export class ApiError extends Error {
@@ -32,7 +32,7 @@ http.interceptors.response.use(
     throw new ApiError(
       problem?.code ?? 'UNKNOWN',
       status,
-      problem?.detail ?? (status ? `요청에 실패했습니다 (${status})` : '서버에 연결할 수 없습니다'),
+      problem?.detail ?? (status ? '요청을 처리하지 못했습니다.' : '연결에 실패했습니다. 잠시 후 다시 시도해 주세요.'),
     )
   },
 )

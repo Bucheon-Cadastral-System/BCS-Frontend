@@ -176,11 +176,11 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           )}
 
           {pointsQuery.isPending && (
-            <div className="bg-gray-100 px-3.5 py-1.5 text-[13px] text-gray-600">서버에서 기준점을 불러오는 중…</div>
+            <div className="bg-gray-100 px-3.5 py-1.5 text-[13px] text-gray-600">기준점을 불러오는 중…</div>
           )}
           {pointsQuery.isError && (
             <div className="bg-red-100 px-3.5 py-1.5 text-[13px] text-red-800">
-              서버에 연결할 수 없습니다. 백엔드 실행 여부를 확인해 주세요.
+              기준점을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
             </div>
           )}
 

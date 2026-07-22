@@ -11,4 +11,10 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  server: {
+    // 개발도 배포와 같은 동일 오리진 구조 — 브라우저 교차 출처 차단(CORS) 회피
+    proxy: {
+      '/api': 'http://localhost:8080',
+    },
+  },
 })
