@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useAppDispatch, useAppSelector } from '@/app/store/hooks'
+import { setActiveProject, toggleTheme } from '@/app/store'
 import { MapToolbar } from '@/widgets/map-toolbar'
 import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
@@ -7,7 +9,7 @@ import { ClusterList } from '@/widgets/cluster-list'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { Toast } from '@/shared/ui/Toast'
 import { loadPoints, savePoints, createControlPoint, POINT_TYPES, SEED_DOGEUN_BUCHEON } from '@/entities/control-point'
-import type { ControlPoint, PointType, MapTheme } from '@/entities/control-point'
+import type { ControlPoint, PointType } from '@/entities/control-point'
 import type { TmEpsg } from '@/shared/lib/crs'
 import { controlPointsFromCsv } from '@/features/import-control-points'
 import { VWORLD_KEY } from '@/shared/config/map'
@@ -42,9 +44,9 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const tmEpsg: TmEpsg = 'EPSG:5186' // 부천 = 중부원점 고정
   const [showCadastral, setShowCadastral] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
-  // 저장값 검증: light/dark 이외 문자열이면 PALETTE[theme]가 undefined가 되므로 명시 비교로 폴백.
-  const [theme, setTheme] = useState<MapTheme>(() => (localStorage.getItem('bcs.theme') === 'dark' ? 'dark' : 'light'))
+  const dispatch = useAppDispatch()
+  const theme = useAppSelector((state) => state.ui.theme)
+  const activeProjectId = useAppSelector((state) => state.ui.activeProjectId)
   const [clusterPopup, setClusterPopup] = useState<{ points: ControlPoint[]; coord: number[]; x: number; y: number; w: number; h: number; id: number } | null>(null)
   const [focusNonce, setFocusNonce] = useState(0)
   const [mapLeftInset, setMapLeftInset] = useState(0) // 좌측 패널이 지도를 가리는 폭(포커스 센터링 보정). >0 = 패널 열림
@@ -58,7 +60,6 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   useEffect(() => { savePoints(points) }, [points])
   useEffect(() => { saveProjects(projects) }, [projects])
   useEffect(() => { saveRecords(records) }, [records])
-  useEffect(() => { localStorage.setItem('bcs.theme', theme) }, [theme])
 
   const surveyedIds = useMemo(
     () => (activeProjectId ? new Set(surveyedPointIds(records, activeProjectId)) : new Set<string>()),
@@ -157,7 +158,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   function createProject(name: string) {
     const project = createSurveyProject(name)
     setProjects((prev) => [...prev, project])
-    setActiveProjectId(project.id)
+    dispatch(setActiveProject(project.id))
   }
 
   function deleteActiveProject() {
@@ -171,11 +172,11 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
       () => {
         setRecords((prev) => removeProjectRecords(prev, pid))
         setProjects((prev) => prev.filter((p) => p.id !== pid))
-        setActiveProjectId((cur) => (cur === pid ? null : cur))
+        dispatch(setActiveProject(null))
         showUndoToast('조사 프로젝트를 삭제했습니다', () => {
           setProjects((prev) => [...prev, project])
           setRecords((prev) => [...prev, ...removedRecords])
-          setActiveProjectId(pid)
+          dispatch(setActiveProject(pid))
         })
       },
       `${project.name} · 조사기록 ${removedRecords.length}건`,
@@ -211,14 +212,14 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
         onClearAll={clearAll}
         onLoadSeed={loadSeed}
         theme={theme}
-        onToggleTheme={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
+        onToggleTheme={() => dispatch(toggleTheme())}
       />
 
       <div className="flex min-h-0 flex-1">
         <MapSidebar
           projects={projects}
           activeProjectId={activeProjectId}
-          onChangeActive={setActiveProjectId}
+          onChangeActive={(id) => dispatch(setActiveProject(id))}
           onCreate={createProject}
           onDeleteActive={deleteActiveProject}
           points={points}
