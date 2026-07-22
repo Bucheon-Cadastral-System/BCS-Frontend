@@ -1,4 +1,4 @@
-import { api, apiJson } from '@/shared/api/http'
+import { http } from '@/shared/api/http'
 import type { SurveyRecord } from '../model/types'
 
 interface ServerSurveyRecord {
@@ -21,21 +21,20 @@ function toSurveyRecord(server: ServerSurveyRecord): SurveyRecord {
 }
 
 export async function fetchSurveyRecords(projectId: string): Promise<SurveyRecord[]> {
-  const res = await api<{ content: ServerSurveyRecord[] }>(`/api/survey-projects/${projectId}/records`)
-  return res.content.map(toSurveyRecord)
+  const res = await http.get<{ content: ServerSurveyRecord[] }>(`/api/survey-projects/${projectId}/records`)
+  return res.data.content.map(toSurveyRecord)
 }
 
 /** 조사 기록/정정 — 서버가 기존 기록이면 판정 정정으로 처리한다. */
 export async function putSurveyRecord(projectId: string, pointId: string, lost: boolean): Promise<SurveyRecord> {
-  const server = await apiJson<ServerSurveyRecord>(
+  const res = await http.put<ServerSurveyRecord>(
     `/api/survey-projects/${projectId}/records/${pointId}`,
-    'PUT',
     { result: lost ? 'LOST' : 'INTACT' },
   )
-  return toSurveyRecord(server)
+  return toSurveyRecord(res.data)
 }
 
 /** 조사 취소 — 레코드 삭제. */
-export function deleteSurveyRecord(projectId: string, pointId: string): Promise<void> {
-  return api<void>(`/api/survey-projects/${projectId}/records/${pointId}`, { method: 'DELETE' })
+export async function deleteSurveyRecord(projectId: string, pointId: string): Promise<void> {
+  await http.delete(`/api/survey-projects/${projectId}/records/${pointId}`)
 }

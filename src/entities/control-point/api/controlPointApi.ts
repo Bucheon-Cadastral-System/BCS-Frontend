@@ -1,4 +1,4 @@
-import { api, apiJson } from '@/shared/api/http'
+import { http } from '@/shared/api/http'
 import type { TmEpsg } from '@/shared/lib/crs'
 import type { ControlPoint, PointType } from '../model/types'
 
@@ -61,8 +61,8 @@ function toControlPoint(server: ServerControlPoint): ControlPoint {
 }
 
 export async function fetchControlPoints(): Promise<ControlPoint[]> {
-  const res = await api<{ content: ServerControlPoint[] }>('/api/control-points')
-  return res.content.map(toControlPoint)
+  const res = await http.get<{ content: ServerControlPoint[] }>('/api/control-points')
+  return res.data.content.map(toControlPoint)
 }
 
 export interface RegisterControlPointArgs {
@@ -77,7 +77,7 @@ export interface RegisterControlPointArgs {
 }
 
 export async function registerControlPoint(args: RegisterControlPointArgs): Promise<ControlPoint> {
-  const server = await apiJson<ServerControlPoint>('/api/control-points', 'POST', {
+  const res = await http.post<ServerControlPoint>('/api/control-points', {
     pointNo: args.pointNo,
     type: TYPE_TO_SERVER[args.type],
     name: args.name,
@@ -87,5 +87,5 @@ export async function registerControlPoint(args: RegisterControlPointArgs): Prom
     longitude: args.lng,
     latitude: args.lat,
   })
-  return toControlPoint(server)
+  return toControlPoint(res.data)
 }

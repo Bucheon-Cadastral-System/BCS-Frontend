@@ -11,3 +11,4 @@ export {
   removePointRecords,
 } from './model/helpers'
 export { fetchSurveyRecords, putSurveyRecord, deleteSurveyRecord } from './api/surveyRecordApi'
+export { useSurveyRecordsQuery, useRecordSurveyMutation, useCancelSurveyMutation, surveyRecordsKey } from './api/queries'

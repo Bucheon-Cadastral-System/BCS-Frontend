@@ -1,3 +1,5 @@
+import axios, { AxiosError } from 'axios'
+
 /** 백엔드 API 기본 주소 — 미지정 시 로컬 Spring. 배포에선 동일 오리진 뒤 프록시를 쓰므로 빈 문자열 지정. */
 const BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
 
@@ -18,22 +20,21 @@ interface ProblemDetail {
   detail?: string
 }
 
-export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, init)
-  if (!res.ok) {
-    const problem = (await res.json().catch(() => null)) as ProblemDetail | null
-    throw new ApiError(problem?.code ?? 'UNKNOWN', res.status, problem?.detail ?? `요청에 실패했습니다 (${res.status})`)
-  }
-  if (res.status === 204) {
-    return undefined as T
-  }
-  return (await res.json()) as T
-}
+export const http = axios.create({
+  baseURL: BASE_URL,
+  headers: { 'Content-Type': 'application/json' },
+})
 
-export function apiJson<T>(path: string, method: 'POST' | 'PUT', body: unknown): Promise<T> {
-  return api<T>(path, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-}
+// 모든 실패를 ApiError로 정규화 — 네트워크 오류(응답 없음)는 status 0
+http.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError<ProblemDetail>) => {
+    const status = error.response?.status ?? 0
+    const problem = error.response?.data
+    throw new ApiError(
+      problem?.code ?? 'UNKNOWN',
+      status,
+      problem?.detail ?? (status ? `요청에 실패했습니다 (${status})` : '서버에 연결할 수 없습니다'),
+    )
+  },
+)
