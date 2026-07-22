@@ -20,10 +20,8 @@ interface ProblemDetail {
   detail?: string
 }
 
-export const http = axios.create({
-  baseURL: BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
-})
+// Content-Type은 axios가 본문 타입으로 정한다(객체=JSON, FormData=multipart) — 고정하면 파일 업로드가 깨진다
+export const http = axios.create({ baseURL: BASE_URL })
 
 // 모든 실패를 ApiError로 정규화 — 네트워크 오류(응답 없음)는 status 0
 http.interceptors.response.use(

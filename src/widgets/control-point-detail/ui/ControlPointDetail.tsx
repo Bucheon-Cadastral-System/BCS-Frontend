@@ -10,7 +10,6 @@ interface ControlPointDetailProps {
   onToggleSurvey: (id: string) => void
   onClose: () => void
   onToggleLost: (id: string) => void
-  onDelete: (id: string) => void
 }
 
 const TYPE_BADGE: Record<PointType, string> = {
@@ -74,7 +73,6 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
         </p>
       )}
 
-      <button type="button" className={`w-full text-center ${btn('danger')}`} onClick={() => props.onDelete(p.id)}>삭제</button>
     </aside>
   )
 }
