@@ -14,7 +14,6 @@ interface MapSidebarProps {
   activeProjectId: string | null
   onChangeActive: (id: string | null) => void
   onCreate: (name: string) => void
-  onDeleteActive: () => void
   // 기준점 목록
   points: ControlPoint[]
   surveyedIds: Set<string>
@@ -22,7 +21,6 @@ interface MapSidebarProps {
   onFocusPoint: (cp: ControlPoint) => void
   onToggleSurvey: (pointId: string) => void
   onToggleLost: (pointId: string) => void
-  surveyedCountByProject: Record<string, number>
   // 사용자 관리 (어드민)
   isAdmin: boolean
   onOpenUserManagement: () => void
@@ -195,8 +193,9 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
           const expanded = expandedId === p.id
           const selected = props.activeProjectId === p.id // ★ 선택(활성) = 지도/칩에 반영되는 프로젝트
           const mounted = mountedId === p.id
-          const psurveyed = props.surveyedCountByProject[p.id] ?? 0
           const ptotal = props.points.length
+          // 조사기록은 활성 프로젝트 것만 조회하므로 카운트·진행률은 선택된 조사에서만 표시
+          const psurveyed = selected ? props.surveyedIds.size : 0
           const ppct = ptotal ? Math.round((psurveyed / ptotal) * 100) : 0
           return (
             <li
@@ -235,13 +234,15 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
                   }`}
                 >
                   <span className="flex-1 truncate">{p.name}</span>
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ${
-                      ptotal > 0 && psurveyed >= ptotal ? 'bg-blue-500/20 text-blue-300' : 'bg-gray-700 text-gray-300'
-                    }`}
-                  >
-                    {psurveyed}/{ptotal}
-                  </span>
+                  {selected && (
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ${
+                        ptotal > 0 && psurveyed >= ptotal ? 'bg-blue-500/20 text-blue-300' : 'bg-gray-700 text-gray-300'
+                      }`}
+                    >
+                      {psurveyed}/{ptotal}
+                    </span>
+                  )}
                   <span className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}>
                     <IconChevronDown />
                   </span>
@@ -258,6 +259,7 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
                   {mounted && (
                     <div className="bg-gray-900/40 pb-2 pt-1">
                       {/* 진행률 (이 프로젝트 기준) */}
+                      {selected && (
                       <div className="px-4 py-2">
                         <div className="mb-1.5 flex items-center text-[12px] text-gray-300">
                           <span className="flex-1">
@@ -272,6 +274,7 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
                           />
                         </div>
                       </div>
+                      )}
 
                       {/* 점별 조사·망실 기록은 '선택된(조사 대상)' 프로젝트에서만. 리스트는 PointRowList가 내부 메모 */}
                       {selected ? (
@@ -291,19 +294,6 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
                         <p className="px-4 py-2 text-[12px] leading-relaxed text-gray-500">
                           이름 왼쪽의 <b className="text-gray-400">○</b> 를 눌러 이 조사를 선택하면, 지도에 조사 현황이 표시되고 점별로 조사·망실을 기록할 수 있습니다.
                         </p>
-                      )}
-
-                      {/* 삭제는 선택된 프로젝트에서만 (onDeleteActive=활성 삭제) */}
-                      {selected && (
-                        <div className="px-4 pt-2">
-                          <button
-                            type="button"
-                            onClick={props.onDeleteActive}
-                            className="w-full rounded-md border border-red-800 bg-red-900/40 py-1.5 text-[12px] text-red-300 hover:bg-red-900"
-                          >
-                            이 조사 삭제
-                          </button>
-                        </div>
                       )}
                     </div>
                   )}

@@ -17,5 +17,4 @@ export interface ControlPoint {
   tmX: number
   tmY: number
   tmEpsg: TmEpsg
-  createdAt: string
 }

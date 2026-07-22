@@ -1,31 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { useAppDispatch, useAppSelector } from '@/app/store/hooks'
+import { setActiveProject, toggleTheme } from '@/app/store'
 import { MapToolbar } from '@/widgets/map-toolbar'
 import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
 import { MapSidebar, ActiveProjectChip } from '@/widgets/map-sidebar'
 import { ClusterList } from '@/widgets/cluster-list'
-import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
-import { Toast } from '@/shared/ui/Toast'
-import { loadPoints, savePoints, createControlPoint, POINT_TYPES, SEED_DOGEUN_BUCHEON } from '@/entities/control-point'
-import type { ControlPoint, PointType, MapTheme } from '@/entities/control-point'
+import { POINT_TYPES, useControlPointsQuery, useRegisterControlPointMutation } from '@/entities/control-point'
+import type { ControlPoint, PointType } from '@/entities/control-point'
+import { useCreateSurveyProjectMutation, useSurveyProjectsQuery } from '@/entities/survey-project'
+import { useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
+import { useImportExcavation } from '@/features/import-excavation'
+import { ApiError } from '@/shared/api/http'
+import { wgs84ToTm } from '@/shared/lib/crs'
 import type { TmEpsg } from '@/shared/lib/crs'
-import { controlPointsFromCsv } from '@/features/import-control-points'
 import { VWORLD_KEY } from '@/shared/config/map'
-import { loadProjects, saveProjects, createSurveyProject } from '@/entities/survey-project'
-import type { SurveyProject } from '@/entities/survey-project'
-import {
-  loadRecords,
-  saveRecords,
-  toggleSurvey,
-  toggleLost,
-  isSurveyed,
-  isLost,
-  surveyedPointIds,
-  lostPointIds,
-  removeProjectRecords,
-  removePointRecords,
-} from '@/entities/survey-record'
-import type { SurveyRecord } from '@/entities/survey-record'
 import type { UserRole } from '@/entities/user'
 
 interface MapPageProps {
@@ -34,157 +23,113 @@ interface MapPageProps {
 }
 
 export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
-  const [points, setPoints] = useState<ControlPoint[]>(() => loadPoints())
-  const [projects, setProjects] = useState<SurveyProject[]>(() => loadProjects())
-  const [records, setRecords] = useState<SurveyRecord[]>(() => loadRecords())
+  const dispatch = useAppDispatch()
+  const theme = useAppSelector((state) => state.ui.theme)
+  const activeProjectId = useAppSelector((state) => state.ui.activeProjectId)
+
+  const pointsQuery = useControlPointsQuery()
+  const projectsQuery = useSurveyProjectsQuery()
+  const recordsQuery = useSurveyRecordsQuery(activeProjectId)
+  const registerMutation = useRegisterControlPointMutation()
+  const createProjectMutation = useCreateSurveyProjectMutation()
+  const recordMutation = useRecordSurveyMutation()
+  const cancelMutation = useCancelSurveyMutation()
+  const importMutation = useImportExcavation()
+
+  // 쿼리 미도착(undefined) 기본값 — 참조가 렌더마다 바뀌면 지도 소스 재구성·리스트 메모가 깨져 useMemo로 고정
+  const points = useMemo(() => pointsQuery.data ?? [], [pointsQuery.data])
+  const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data])
+  const records = useMemo(() => recordsQuery.data ?? [], [recordsQuery.data])
+
   const [addMode, setAddMode] = useState(false)
   const [addType, setAddType] = useState<PointType>(POINT_TYPES[0])
   const tmEpsg: TmEpsg = 'EPSG:5186' // 부천 = 중부원점 고정
   const [showCadastral, setShowCadastral] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
-  // 저장값 검증: light/dark 이외 문자열이면 PALETTE[theme]가 undefined가 되므로 명시 비교로 폴백.
-  const [theme, setTheme] = useState<MapTheme>(() => (localStorage.getItem('bcs.theme') === 'dark' ? 'dark' : 'light'))
   const [clusterPopup, setClusterPopup] = useState<{ points: ControlPoint[]; coord: number[]; x: number; y: number; w: number; h: number; id: number } | null>(null)
   const [focusNonce, setFocusNonce] = useState(0)
   const [mapLeftInset, setMapLeftInset] = useState(0) // 좌측 패널이 지도를 가리는 폭(포커스 센터링 보정). >0 = 패널 열림
   const [openProjectNonce, setOpenProjectNonce] = useState(0) // 활성 프로젝트 칩 → 프로젝트 패널 열기 신호
-  const [confirm, setConfirm] = useState<{ message: string; detail?: string; onConfirm: () => void } | null>(null)
-  const [toast, setToast] = useState<{ message: string; onUndo: () => void; id: number } | null>(null)
-  const toastIdRef = useRef(0)
   const clusterIdRef = useRef(0)
 
-  // localStorage 영속
-  useEffect(() => { savePoints(points) }, [points])
-  useEffect(() => { saveProjects(projects) }, [projects])
-  useEffect(() => { saveRecords(records) }, [records])
-  useEffect(() => { localStorage.setItem('bcs.theme', theme) }, [theme])
-
-  const surveyedIds = useMemo(
-    () => (activeProjectId ? new Set(surveyedPointIds(records, activeProjectId)) : new Set<string>()),
-    [records, activeProjectId],
-  )
-  const lostIds = useMemo(
-    () => (activeProjectId ? new Set(lostPointIds(records, activeProjectId)) : new Set<string>()),
-    [records, activeProjectId],
-  )
-
-  // 프로젝트별 조사 완료 수 (조사 단위 완료 여부 표시용)
-  const surveyedCountByProject = useMemo(() => {
-    const m: Record<string, number> = {}
-    for (const proj of projects) m[proj.id] = surveyedPointIds(records, proj.id).length
-    return m
-  }, [projects, records])
-
-  // 삭제 확인 모달 + 복원 토스트 공통 헬퍼
-  function askConfirm(message: string, onConfirm: () => void, detail?: string) {
-    setConfirm({ message, detail, onConfirm })
-  }
-  function showUndoToast(message: string, onUndo: () => void) {
-    setToast({ message, onUndo, id: ++toastIdRef.current })
-  }
+  // 활성 프로젝트의 조사기록만 조회하므로 레코드 존재=조사됨, lost=망실
+  const surveyedIds = useMemo(() => new Set(records.map((r) => r.pointId)), [records])
+  const lostIds = useMemo(() => new Set(records.filter((r) => r.lost).map((r) => r.pointId)), [records])
 
   function addPoint(lng: number, lat: number) {
+    const pointNoInput = window.prompt('관리번호를 입력하세요 (예: 41192D000001265)')
+    if (pointNoInput === null) return
+    const pointNo = pointNoInput.trim()
+    if (!pointNo) return
+
     const fallback = `${addType}-${points.length + 1}`
-    const input = window.prompt('기준점 이름을 입력하세요', fallback)
-    if (input === null) return
-    const name = input.trim() || fallback
-    const p = createControlPoint({ type: addType, name, lng, lat, tmEpsg })
-    setPoints((prev) => [...prev, p])
-    setSelectedId(p.id)
+    const nameInput = window.prompt('기준점 이름을 입력하세요', fallback)
+    if (nameInput === null) return
+    const name = nameInput.trim() || fallback
+
+    const { x, y } = wgs84ToTm(lng, lat, tmEpsg)
+    registerMutation.mutate(
+      { pointNo, type: addType, name, lng, lat, tmX: x, tmY: y, tmEpsg },
+      {
+        onSuccess: (saved) => setSelectedId(saved.id),
+        onError: (e) =>
+          window.alert(
+            e instanceof ApiError && e.code === 'CONTROL_POINT_DUPLICATE'
+              ? '이미 등록된 관리번호입니다.'
+              : '기준점 등록에 실패했습니다.',
+          ),
+      },
+    )
   }
 
   function importCsv(file: File) {
-    void file.text().then((text) => {
-      const newPoints = controlPointsFromCsv(text, tmEpsg)
-      if (newPoints.length === 0) {
-        window.alert('불러올 좌표가 없습니다. (헤더에 위도/경도 컬럼이 필요합니다)')
-        return
-      }
-      setPoints((prev) => [...prev, ...newPoints])
-    })
-  }
+    const nameInput = window.prompt('조사 프로젝트 이름 (굴착협의 건명)', file.name.replace(/\.csv$/i, ''))
+    if (nameInput === null) return
+    const name = nameInput.trim()
+    if (!name) return
 
-  function handleToggleLost(pointId: string) {
-    if (!activeProjectId) return
-    setRecords((prev) => toggleLost(prev, activeProjectId, pointId))
-  }
-
-  function deletePoint(id: string) {
-    const point = points.find((p) => p.id === id)
-    if (!point) return
-    const removedRecords = records.filter((r) => r.pointId === id)
-    askConfirm(
-      '정말 삭제하시겠습니까?',
-      () => {
-        setPoints((prev) => prev.filter((p) => p.id !== id))
-        setRecords((prev) => removePointRecords(prev, id))
-        setSelectedId((cur) => (cur === id ? null : cur))
-        showUndoToast('기준점을 삭제했습니다', () => {
-          setPoints((prev) => [...prev, point])
-          setRecords((prev) => [...prev, ...removedRecords])
-        })
+    importMutation.mutate(
+      { file, name },
+      {
+        onSuccess: (summary) => {
+          dispatch(setActiveProject(String(summary.projectId)))
+          window.alert(
+            `기준점 ${summary.totalRows}점(신규 ${summary.newPoints} · 기존 ${summary.existingPoints}), 조사기록 ${summary.createdRecords}건을 불러왔습니다.`,
+          )
+        },
+        onError: (e) =>
+          window.alert(e instanceof ApiError ? `불러오기 실패: ${e.message}` : 'CSV 불러오기에 실패했습니다.'),
       },
-      point.name,
     )
   }
 
-  function clearAll() {
-    if (points.length === 0) return
-    const prevPoints = points
-    const prevRecords = records
-    askConfirm(
-      '정말 삭제하시겠습니까?',
-      () => {
-        setPoints([])
-        setRecords([])
-        setSelectedId(null)
-        showUndoToast('전체 삭제했습니다', () => {
-          // 토스트 기간에 추가/가져온 데이터 보존 → 덮어쓰지 말고 현재 상태에 병합
-          setPoints((cur) => [...cur, ...prevPoints])
-          setRecords((cur) => [...cur, ...prevRecords])
-        })
-      },
-      `기준점 ${points.length}개와 조사기록이 모두 삭제됩니다`,
-    )
-  }
-
-  function loadSeed() {
-    setPoints(SEED_DOGEUN_BUCHEON) // 임시: 부천 도근점 시드 로드(기존 점 대체)
-    setSelectedId(null)
-  }
-
-  function createProject(name: string) {
-    const project = createSurveyProject(name)
-    setProjects((prev) => [...prev, project])
-    setActiveProjectId(project.id)
-  }
-
-  function deleteActiveProject() {
-    if (!activeProjectId) return
-    const pid = activeProjectId
-    const project = projects.find((p) => p.id === pid)
-    if (!project) return
-    const removedRecords = records.filter((r) => r.projectId === pid)
-    askConfirm(
-      '정말 삭제하시겠습니까?',
-      () => {
-        setRecords((prev) => removeProjectRecords(prev, pid))
-        setProjects((prev) => prev.filter((p) => p.id !== pid))
-        setActiveProjectId((cur) => (cur === pid ? null : cur))
-        showUndoToast('조사 프로젝트를 삭제했습니다', () => {
-          setProjects((prev) => [...prev, project])
-          setRecords((prev) => [...prev, ...removedRecords])
-          setActiveProjectId(pid)
-        })
-      },
-      `${project.name} · 조사기록 ${removedRecords.length}건`,
-    )
+  function notifySurveySaveFailed() {
+    window.alert('조사 상태를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.')
   }
 
   function handleToggleSurvey(pointId: string) {
     if (!activeProjectId) return
-    setRecords((prev) => toggleSurvey(prev, activeProjectId, pointId))
+    if (surveyedIds.has(pointId)) {
+      cancelMutation.mutate({ projectId: activeProjectId, pointId }, { onError: notifySurveySaveFailed })
+    } else {
+      recordMutation.mutate({ projectId: activeProjectId, pointId, lost: false }, { onError: notifySurveySaveFailed })
+    }
+  }
+
+  function handleToggleLost(pointId: string) {
+    if (!activeProjectId) return
+    // 미조사면 망실로 기록(서버 upsert), 망실이면 정상으로 정정
+    recordMutation.mutate(
+      { projectId: activeProjectId, pointId, lost: !lostIds.has(pointId) },
+      { onError: notifySurveySaveFailed },
+    )
+  }
+
+  function createProject(name: string) {
+    createProjectMutation.mutate(name, {
+      onSuccess: (project) => dispatch(setActiveProject(project.id)),
+      onError: () => window.alert('조사 프로젝트 생성에 실패했습니다.'),
+    })
   }
 
   function focusPoint(cp: ControlPoint) {
@@ -208,26 +153,22 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
         onToggleCadastral={() => setShowCadastral((v) => !v)}
         count={points.length}
         onImportCsv={importCsv}
-        onClearAll={clearAll}
-        onLoadSeed={loadSeed}
         theme={theme}
-        onToggleTheme={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
+        onToggleTheme={() => dispatch(toggleTheme())}
       />
 
       <div className="flex min-h-0 flex-1">
         <MapSidebar
           projects={projects}
           activeProjectId={activeProjectId}
-          onChangeActive={setActiveProjectId}
+          onChangeActive={(id) => dispatch(setActiveProject(id))}
           onCreate={createProject}
-          onDeleteActive={deleteActiveProject}
           points={points}
           surveyedIds={surveyedIds}
           lostIds={lostIds}
           onFocusPoint={focusPoint}
           onToggleSurvey={handleToggleSurvey}
           onToggleLost={handleToggleLost}
-          surveyedCountByProject={surveyedCountByProject}
           isAdmin={role === 'ADMIN'}
           onOpenUserManagement={onOpenUserManagement}
           onInsetChange={setMapLeftInset}
@@ -238,6 +179,15 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           {!VWORLD_KEY && (
             <div className="bg-amber-100 px-3.5 py-1.5 text-[13px] text-amber-800 [&_code]:rounded [&_code]:bg-black/10 [&_code]:px-1 [&_code]:py-px">
               VWorld API 키가 없어 배경지도를 OSM으로 대체합니다. <code>.env</code>에 <code>VITE_VWORLD_KEY</code>를 넣으면 VWorld 배경지도·지적도가 표시됩니다.
+            </div>
+          )}
+
+          {pointsQuery.isPending && (
+            <div className="bg-gray-100 px-3.5 py-1.5 text-[13px] text-gray-600">기준점을 불러오는 중…</div>
+          )}
+          {pointsQuery.isError && (
+            <div className="bg-red-100 px-3.5 py-1.5 text-[13px] text-red-800">
+              기준점을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
             </div>
           )}
 
@@ -285,35 +235,16 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
             <ControlPointDetail
               point={selected}
               activeProjectName={activeProject?.name ?? null}
-              surveyed={selected !== null && activeProjectId !== null && isSurveyed(records, activeProjectId, selected.id)}
-              lost={selected !== null && activeProjectId !== null && isLost(records, activeProjectId, selected.id)}
+              surveyed={selected !== null && surveyedIds.has(selected.id)}
+              lost={selected !== null && lostIds.has(selected.id)}
               onToggleSurvey={handleToggleSurvey}
               onClose={() => setSelectedId(null)}
               onToggleLost={handleToggleLost}
-              onDelete={deletePoint}
             />
           </div>
         </div>
       </div>
     </div>
-
-    {confirm && (
-      <ConfirmDialog
-        message={confirm.message}
-        detail={confirm.detail}
-        onConfirm={() => { confirm.onConfirm(); setConfirm(null) }}
-        onCancel={() => setConfirm(null)}
-      />
-    )}
-    {toast && (
-      <Toast
-        key={toast.id}
-        message={toast.message}
-        actionLabel="복원하기"
-        onAction={toast.onUndo}
-        onDismiss={() => setToast(null)}
-      />
-    )}
     </div>
   )
 }

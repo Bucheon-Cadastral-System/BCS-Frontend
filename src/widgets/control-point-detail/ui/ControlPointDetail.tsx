@@ -10,7 +10,6 @@ interface ControlPointDetailProps {
   onToggleSurvey: (id: string) => void
   onClose: () => void
   onToggleLost: (id: string) => void
-  onDelete: (id: string) => void
 }
 
 const TYPE_BADGE: Record<PointType, string> = {
@@ -41,7 +40,6 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
         <dt>TM 원점</dt><dd>{epsgLabel(p.tmEpsg)} ({p.tmEpsg})</dd>
         <dt>TM X</dt><dd>{p.tmX.toFixed(3)} m</dd>
         <dt>TM Y</dt><dd>{p.tmY.toFixed(3)} m</dd>
-        <dt>등록</dt><dd>{new Date(p.createdAt).toLocaleString('ko-KR')}</dd>
       </dl>
 
       {props.activeProjectName ? (
@@ -75,7 +73,6 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
         </p>
       )}
 
-      <button type="button" className={`w-full text-center ${btn('danger')}`} onClick={() => props.onDelete(p.id)}>삭제</button>
     </aside>
   )
 }
