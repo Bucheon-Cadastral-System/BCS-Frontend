@@ -1,5 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { uiReducer } from './uiSlice'
+import { safeStorage } from '@/shared/lib/safeStorage'
 
 export const store = configureStore({
   reducer: { ui: uiReducer },
@@ -11,7 +12,7 @@ store.subscribe(() => {
   const theme = store.getState().ui.theme
   if (theme !== prevTheme) {
     prevTheme = theme
-    localStorage.setItem('bcs.theme', theme)
+    safeStorage.set('bcs.theme', theme)
   }
 })
 

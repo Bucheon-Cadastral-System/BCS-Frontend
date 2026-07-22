@@ -103,19 +103,26 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     )
   }
 
+  function notifySurveySaveFailed() {
+    window.alert('조사 상태를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+  }
+
   function handleToggleSurvey(pointId: string) {
     if (!activeProjectId) return
     if (surveyedIds.has(pointId)) {
-      cancelMutation.mutate({ projectId: activeProjectId, pointId })
+      cancelMutation.mutate({ projectId: activeProjectId, pointId }, { onError: notifySurveySaveFailed })
     } else {
-      recordMutation.mutate({ projectId: activeProjectId, pointId, lost: false })
+      recordMutation.mutate({ projectId: activeProjectId, pointId, lost: false }, { onError: notifySurveySaveFailed })
     }
   }
 
   function handleToggleLost(pointId: string) {
     if (!activeProjectId) return
     // 미조사면 망실로 기록(서버 upsert), 망실이면 정상으로 정정
-    recordMutation.mutate({ projectId: activeProjectId, pointId, lost: !lostIds.has(pointId) })
+    recordMutation.mutate(
+      { projectId: activeProjectId, pointId, lost: !lostIds.has(pointId) },
+      { onError: notifySurveySaveFailed },
+    )
   }
 
   function createProject(name: string) {
