@@ -22,6 +22,5 @@ export function createControlPoint(args: CreateControlPointArgs): ControlPoint {
     tmX: x,
     tmY: y,
     tmEpsg: args.tmEpsg,
-    createdAt: new Date().toISOString(),
   }
 }

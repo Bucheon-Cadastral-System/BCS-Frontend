@@ -2161,5 +2161,4 @@ export const SEED_DOGEUN_BUCHEON: ControlPoint[] = RAW.map(([id, name, lng, lat,
   tmX,
   tmY,
   tmEpsg: 'EPSG:5174',
-  createdAt: '2026-07-01T00:00:00.000Z',
 }))

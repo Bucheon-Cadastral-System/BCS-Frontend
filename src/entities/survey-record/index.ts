@@ -10,3 +10,4 @@ export {
   removeProjectRecords,
   removePointRecords,
 } from './model/helpers'
+export { fetchSurveyRecords, putSurveyRecord, deleteSurveyRecord } from './api/surveyRecordApi'

@@ -41,7 +41,6 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
         <dt>TM 원점</dt><dd>{epsgLabel(p.tmEpsg)} ({p.tmEpsg})</dd>
         <dt>TM X</dt><dd>{p.tmX.toFixed(3)} m</dd>
         <dt>TM Y</dt><dd>{p.tmY.toFixed(3)} m</dd>
-        <dt>등록</dt><dd>{new Date(p.createdAt).toLocaleString('ko-KR')}</dd>
       </dl>
 
       {props.activeProjectName ? (
