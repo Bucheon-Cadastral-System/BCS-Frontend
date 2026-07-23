@@ -101,15 +101,22 @@ export function ChartBlock({ json }: { json: string }) {
     a.click()
   }
 
+  // 스크린리더용 데이터 대체 텍스트 — canvas는 비텍스트라 제목·라벨·값을 읽을 수 있게 요약한다(WCAG 1.1.1)
+  const summary =
+    (spec.title ? `${spec.title}. ` : '') +
+    spec.datasets
+      .map((d) => `${d.label ? `${d.label}: ` : ''}${spec.labels.map((l, i) => `${l} ${d.data[i]}`).join(', ')}`)
+      .join(' / ')
+
   return (
     <div className="group relative my-1 rounded-lg border border-gray-200 bg-white p-2 dark:border-gray-700 dark:bg-gray-800" style={{ height: 200 }}>
-      <canvas ref={canvasRef} />
+      <canvas ref={canvasRef} role="img" aria-label={summary} />
       <button
         type="button"
         onClick={download}
         aria-label="차트 이미지 저장"
         title="차트 이미지 저장"
-        className="absolute right-1.5 top-1.5 rounded-md bg-white/80 p-1 text-gray-400 opacity-0 shadow-sm transition-opacity hover:text-gray-700 group-hover:opacity-100 dark:bg-gray-900/70 dark:hover:text-gray-200"
+        className="absolute right-1.5 top-1.5 rounded-md bg-white/80 p-1 text-gray-400 opacity-0 shadow-sm transition-opacity hover:text-gray-700 group-hover:opacity-100 focus-visible:opacity-100 dark:bg-gray-900/70 dark:hover:text-gray-200"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />

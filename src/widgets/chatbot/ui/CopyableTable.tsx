@@ -48,7 +48,7 @@ export function CopyableTable({ children, node: _node, ...props }: ComponentProp
         onClick={copy}
         aria-label="표 복사"
         title="표 복사 (Excel 붙여넣기)"
-        className="absolute right-1 top-1 z-10 inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white/85 px-1.5 py-0.5 text-[11px] text-gray-500 backdrop-blur transition-opacity hover:text-gray-800 dark:border-gray-600 dark:bg-gray-900/80 dark:text-gray-300 dark:hover:text-gray-100 [@media(hover:hover)]:opacity-0 group-hover/table:opacity-100"
+        className="absolute right-1 top-1 z-10 inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white/85 px-1.5 py-0.5 text-[11px] text-gray-500 backdrop-blur transition-opacity hover:text-gray-800 dark:border-gray-600 dark:bg-gray-900/80 dark:text-gray-300 dark:hover:text-gray-100 [@media(hover:hover)]:opacity-0 group-hover/table:opacity-100 focus-visible:opacity-100"
       >
         {copied ? '복사됨' : '복사'}
       </button>

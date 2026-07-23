@@ -15,7 +15,7 @@ const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min)
 /**
  * 챗봇 창 배치 호스트 — children(헤더 아래 콘텐츠)을 감싸고 창을 코너 카드 / 우측 도킹으로 배치한다.
  * 우측 도킹은 flex 형제로 실제 자리를 차지해 지도를 밀어내고, 코너는 지도 위 오버레이로 떠 있는다.
- * 모드를 바꿔도 같은 ChatPanel 엘리먼트를 재배치만 하므로 입력값·스크롤·대화가 유지된다.
+ * 모드 전환 시 대화(messages)는 부모 상태라 유지되나, 패널이 다른 호스트에 다시 마운트돼 입력 초안·스크롤 위치는 초기화된다(알려진 한계).
  */
 export function ChatDockLayout({ children, onAction }: { children: ReactNode; onAction?: (action: ChatAction) => void }) {
   const initial = useRef(loadChatUi()).current
@@ -155,12 +155,26 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
       {/* 도킹 리사이즈 힌트 — 경계(seam) 위에 걸쳐 지도쪽·채팅쪽 양쪽에서 보이는 중앙 그립. 루트 자식이라 패널 overflow에 안 잘림 */}
       {docked && (
         <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="채팅 패널 폭 조절"
+          aria-valuenow={dockWidth}
+          aria-valuemin={DOCK_MIN_WIDTH}
+          tabIndex={0}
           onPointerDown={startSplitterDrag}
+          onKeyDown={(e) => {
+            if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+            e.preventDefault()
+            const area = areaRef.current
+            const max = area ? area.getBoundingClientRect().width - DOCK_MIN_WIDTH - 8 : dockWidth
+            const step = e.key === 'ArrowLeft' ? 24 : -24 // 왼쪽=넓게(드래그 방향과 일치), 오른쪽=좁게
+            setDockWidth((w) => Math.round(clamp(w + step, DOCK_MIN_WIDTH, Math.max(DOCK_MIN_WIDTH, max))))
+          }}
           style={{ right: dockWidth }}
           className="group absolute inset-y-0 z-30 flex w-5 translate-x-1/2 cursor-col-resize items-center justify-center"
         >
           <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-gray-300 dark:bg-gray-600" />
-          <span className="relative h-12 w-1.5 rounded-full bg-gray-400 shadow transition-colors group-hover:bg-blue-500 dark:bg-gray-500 dark:group-hover:bg-blue-400" />
+          <span className="relative h-12 w-1.5 rounded-full bg-gray-400 shadow transition-colors group-hover:bg-blue-500 group-focus-visible:bg-blue-500 dark:bg-gray-500 dark:group-hover:bg-blue-400 dark:group-focus-visible:bg-blue-400" />
         </div>
       )}
 
