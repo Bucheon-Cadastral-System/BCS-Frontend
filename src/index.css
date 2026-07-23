@@ -12,6 +12,46 @@
   box-sizing: border-box;
 }
 
+/* 포커스 아웃라인 전역 제거 — 마우스 기반 내부 도구라 모든 페이지·항목에서 브라우저 기본 포커스 링을 숨긴다 */
+*:focus,
+*:focus-visible {
+  outline: none;
+}
+
+/* 챗봇 메시지 등장 — 아래에서 올라오며 흐림→선명 */
+@keyframes chat-msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+.chat-msg-in {
+  animation: chat-msg-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-msg-in {
+    animation: none;
+  }
+}
+
+/* 챗봇 스크롤 영역 — 얇고 옅은 스크롤바 */
+.chat-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 130, 0.35);
+  border-radius: 3px;
+}
+.chat-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 html,
 body,
 #root {

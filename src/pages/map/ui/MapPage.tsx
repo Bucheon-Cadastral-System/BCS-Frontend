@@ -6,6 +6,7 @@ import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
 import { MapSidebar, ActiveProjectChip } from '@/widgets/map-sidebar'
 import { ClusterList } from '@/widgets/cluster-list'
+import { ChatDockLayout } from '@/widgets/chatbot'
 import { POINT_TYPES, useControlPointsQuery, useRegisterControlPointMutation } from '@/entities/control-point'
 import type { ControlPoint, PointType } from '@/entities/control-point'
 import { useCreateSurveyProjectMutation, useSurveyProjectsQuery } from '@/entities/survey-project'
@@ -157,6 +158,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
         onToggleTheme={() => dispatch(toggleTheme())}
       />
 
+      <ChatDockLayout>
       <div className="flex min-h-0 flex-1">
         <MapSidebar
           projects={projects}
@@ -244,6 +246,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           </div>
         </div>
       </div>
+      </ChatDockLayout>
     </div>
     </div>
   )
