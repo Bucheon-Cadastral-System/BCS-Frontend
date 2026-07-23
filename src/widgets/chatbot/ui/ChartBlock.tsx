@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import Chart, { type ChartConfiguration } from 'chart.js/auto'
 import type { ChartSpec } from '../model/types'
 
@@ -36,7 +36,8 @@ function parseSpec(raw: string): ChartSpec | null {
 /** ```chart JSON을 Chart.js로 렌더한다. 형식이 깨지면 원문을 코드블록으로 폴백. PNG 저장 버튼 제공. */
 export function ChartBlock({ json }: { json: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const spec = parseSpec(json)
+  // json이 안 바뀌면 같은 spec 참조를 유지 — 부모 리렌더마다 useEffect가 재발동돼 차트가 destroy→재생성되며 깜빡이는 것을 막는다
+  const spec = useMemo(() => parseSpec(json), [json])
 
   useEffect(() => {
     const canvas = canvasRef.current

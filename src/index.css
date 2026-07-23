@@ -12,9 +12,8 @@
   box-sizing: border-box;
 }
 
-/* 포커스 아웃라인 전역 제거 — 마우스 기반 내부 도구라 모든 페이지·항목에서 브라우저 기본 포커스 링을 숨긴다 */
-*:focus,
-*:focus-visible {
+/* 마우스·프로그램 포커스의 잔상 링만 제거하고, 키보드 포커스(:focus-visible)는 접근성을 위해 브라우저 기본 링을 남긴다 */
+*:focus:not(:focus-visible) {
   outline: none;
 }
 

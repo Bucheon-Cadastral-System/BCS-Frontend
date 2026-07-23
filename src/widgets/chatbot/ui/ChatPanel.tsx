@@ -76,7 +76,7 @@ export function ChatPanel(props: ChatPanelProps) {
         </div>
 
         {/* 대화 시작 전에만 자주 쓰는 질의 빠른실행 버튼 노출 */}
-        {props.messages.length === 0 && <QuickActions onQuery={props.onSend} />}
+        {props.messages.length === 0 && <QuickActions onQuery={props.onSend} disabled={props.pending} />}
 
         {props.messages.map((m, i) => (
           <div key={i} className="chat-msg-in space-y-2">
@@ -93,7 +93,7 @@ export function ChatPanel(props: ChatPanelProps) {
               </div>
             </div>
             {/* 어시스턴트 답변 아래마다 빠른 질의 버튼 노출 */}
-            {m.role === 'assistant' && <QuickActions onQuery={props.onSend} />}
+            {m.role === 'assistant' && <QuickActions onQuery={props.onSend} disabled={props.pending} />}
           </div>
         ))}
 

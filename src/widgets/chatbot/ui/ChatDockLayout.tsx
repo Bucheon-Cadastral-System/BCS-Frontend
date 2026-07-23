@@ -53,19 +53,30 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
     return () => window.removeEventListener('keydown', onKey)
   }, [open, mode])
 
+  // 진행 중 요청의 응답이 '새 대화'로 초기화된 뒤 섞이지 않게 세션을 센다
+  const sessionRef = useRef(0)
+
   function send(text: string) {
+    if (pending) return // 입력창·빠른 질의 등 모든 전송 경로를 응답 대기 중엔 막는다
+    const session = sessionRef.current
     setMessages((prev) => [...prev, { role: 'user', text }])
     chatMutation.mutate(text, {
-      onSuccess: (answer) => setMessages((prev) => [...prev, { role: 'assistant', text: answer }]),
-      onError: () =>
+      onSuccess: (answer) => {
+        if (sessionRef.current !== session) return // 새 대화로 초기화됐으면 이전 응답을 버린다
+        setMessages((prev) => [...prev, { role: 'assistant', text: answer }])
+      },
+      onError: () => {
+        if (sessionRef.current !== session) return
         setMessages((prev) => [
           ...prev,
           { role: 'assistant', text: '답변을 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.' },
-        ]),
+        ])
+      },
     })
   }
 
   function newChat() {
+    sessionRef.current += 1
     setMessages([])
   }
 
