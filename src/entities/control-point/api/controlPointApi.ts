@@ -50,6 +50,7 @@ interface ServerControlPoint {
 function toControlPoint(server: ServerControlPoint): ControlPoint {
   return {
     id: String(server.id),
+    pointNo: server.pointNo,
     type: TYPE_FROM_SERVER[server.type],
     name: server.name,
     lng: server.longitude,

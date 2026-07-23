@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ChatMessage } from '../model/types'
+import type { ChatAction, ChatMessage } from '../model/types'
 import { CloseIcon, CollapseIcon, ExpandIcon, NewChatIcon, SendIcon, SparkleIcon } from './icons'
+import { MessageContent } from './MessageContent'
+import { QuickActions } from './QuickActions'
 
 // 대화 시작 전부터 맨 위에 두는 웰컴 안내(어시스턴트 말풍선). 메시지 배열 밖이라 저장·전송되지 않는다.
 const WELCOME_MESSAGE = ['안녕하세요! BCS 어시스턴트입니다.', '무엇을 도와드릴까요?'].join('\n')
@@ -25,9 +27,11 @@ interface ChatPanelProps {
   onNewChat: () => void
   onToggleExpand: () => void
   onClose: () => void
+  onAction?: (action: ChatAction) => void
 }
 
-const HEADER_BTN = 'flex size-7 items-center justify-center rounded-md text-gray-400 hover:bg-gray-500/10 hover:text-gray-600 dark:hover:text-gray-200'
+const HEADER_BTN = 'flex size-7 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-500/10 hover:text-gray-600 dark:hover:text-gray-200'
+const CLOSE_BTN = 'flex size-7 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400'
 
 /**
  * 상태 없는 대화 셸 — 글래스 헤더·입력이 스크롤 위에 떠 있고 메시지는 그 아래로 흐른다(참고 디자인).
@@ -71,18 +75,25 @@ export function ChatPanel(props: ChatPanelProps) {
           </div>
         </div>
 
+        {/* 대화 시작 전에만 자주 쓰는 질의 빠른실행 버튼 노출 */}
+        {props.messages.length === 0 && <QuickActions onQuery={props.onSend} />}
+
         {props.messages.map((m, i) => (
-          <div key={i} className={`chat-msg-in flex gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            {m.role === 'assistant' && <AssistantAvatar />}
-            <div
-              className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-[13px] leading-relaxed ${
-                m.role === 'user'
-                  ? 'rounded-tr-sm bg-blue-600 text-white'
-                  : 'rounded-tl-sm bg-white text-gray-800 shadow-sm dark:bg-gray-800 dark:text-gray-100'
-              }`}
-            >
-              {m.text}
+          <div key={i} className="chat-msg-in space-y-2">
+            <div className={`flex gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              {m.role === 'assistant' && <AssistantAvatar />}
+              <div
+                className={`max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed ${
+                  m.role === 'user'
+                    ? 'whitespace-pre-wrap rounded-tr-sm bg-blue-600 text-white'
+                    : 'rounded-tl-sm bg-white text-gray-800 shadow-sm dark:bg-gray-800 dark:text-gray-100'
+                }`}
+              >
+                {m.role === 'assistant' ? <MessageContent text={m.text} onAction={props.onAction} /> : m.text}
+              </div>
             </div>
+            {/* 어시스턴트 답변 아래마다 빠른 질의 버튼 노출 */}
+            {m.role === 'assistant' && <QuickActions onQuery={props.onSend} />}
           </div>
         ))}
 
@@ -107,7 +118,7 @@ export function ChatPanel(props: ChatPanelProps) {
         <button type="button" onClick={props.onNewChat} aria-label="새 대화" title="새 대화 (대화 기록 비우기)" className={HEADER_BTN}>
           <NewChatIcon className="size-4" />
         </button>
-        <button type="button" onClick={props.onClose} aria-label="닫기" title="닫기" className={HEADER_BTN}>
+        <button type="button" onClick={props.onClose} aria-label="닫기" title="닫기" className={CLOSE_BTN}>
           <CloseIcon className="size-4" />
         </button>
       </header>

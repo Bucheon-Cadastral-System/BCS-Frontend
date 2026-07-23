@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { ChatPanel } from './ChatPanel'
 import { ChatBubbleIcon } from './icons'
-import type { ChatMessage, ChatMode, Size } from '../model/types'
+import { useSendChatMutation } from '../api/chat'
+import type { ChatAction, ChatMessage, ChatMode, Size } from '../model/types'
 import { loadChatMessages, loadChatUi, saveChatMessages, saveChatUi } from '../model/storage'
 
 const DOCK_MIN_WIDTH = 320
@@ -16,7 +17,7 @@ const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min)
  * 우측 도킹은 flex 형제로 실제 자리를 차지해 지도를 밀어내고, 코너는 지도 위 오버레이로 떠 있는다.
  * 모드를 바꿔도 같은 ChatPanel 엘리먼트를 재배치만 하므로 입력값·스크롤·대화가 유지된다.
  */
-export function ChatDockLayout({ children }: { children: ReactNode }) {
+export function ChatDockLayout({ children, onAction }: { children: ReactNode; onAction?: (action: ChatAction) => void }) {
   const initial = useRef(loadChatUi()).current
 
   const [open, setOpen] = useState(initial.open)
@@ -25,11 +26,12 @@ export function ChatDockLayout({ children }: { children: ReactNode }) {
   const [dockWidth, setDockWidth] = useState(initial.dockWidth)
 
   const [messages, setMessages] = useState<ChatMessage[]>(loadChatMessages)
-  const [pending, setPending] = useState(false)
   const [resizing, setResizing] = useState(false) // 도킹 폭 드래그 중엔 width transition을 꺼 랙(매 프레임 애니메이션 추격)을 없앤다
 
+  const chatMutation = useSendChatMutation()
+  const pending = chatMutation.isPending
+
   const areaRef = useRef<HTMLDivElement>(null)
-  const sendTimer = useRef<number | undefined>(undefined)
 
   const docked = open && mode === 'right'
 
@@ -40,8 +42,6 @@ export function ChatDockLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     saveChatMessages(messages)
   }, [messages])
-
-  useEffect(() => () => window.clearTimeout(sendTimer.current), [])
 
   // 코너 오버레이는 ESC로 닫는다(도킹은 자리 차지라 유지)
   useEffect(() => {
@@ -55,20 +55,17 @@ export function ChatDockLayout({ children }: { children: ReactNode }) {
 
   function send(text: string) {
     setMessages((prev) => [...prev, { role: 'user', text }])
-    setPending(true)
-    // 응답 연동 전까지 보여주는 임시 안내 — 대화 흐름만 시연한다
-    sendTimer.current = window.setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', text: '아직 답변 기능을 준비 중입니다. 곧 이용하실 수 있습니다.' },
-      ])
-      setPending(false)
-    }, 600)
+    chatMutation.mutate(text, {
+      onSuccess: (answer) => setMessages((prev) => [...prev, { role: 'assistant', text: answer }]),
+      onError: () =>
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', text: '답변을 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.' },
+        ]),
+    })
   }
 
   function newChat() {
-    window.clearTimeout(sendTimer.current)
-    setPending(false)
     setMessages([])
   }
 
@@ -126,6 +123,7 @@ export function ChatDockLayout({ children }: { children: ReactNode }) {
       onNewChat={newChat}
       onToggleExpand={() => setMode((m) => (m === 'right' ? 'corner' : 'right'))}
       onClose={() => setOpen(false)}
+      onAction={onAction}
     />
   )
 

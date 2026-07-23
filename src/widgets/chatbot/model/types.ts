@@ -19,3 +19,16 @@ export interface PersistedChatUi {
   floatSize: Size
   dockWidth: number
 }
+
+/** 차트 블록 스펙 — 모델이 ```chart JSON으로 내려주고 Chart.js로 렌더한다. */
+export interface ChartSpec {
+  type: 'bar' | 'line' | 'pie' | 'doughnut'
+  title?: string
+  labels: string[]
+  datasets: { label: string; data: number[] }[]
+}
+
+/** 화면 액션 — 지도 앱이라 라우팅 대신 지도 상호작용으로 매핑한다(기준점 포커스·조사 프로젝트 선택). */
+export type ChatAction =
+  | { type: 'focusPoint'; pointNo: string; label?: string }
+  | { type: 'selectProject'; projectId: number | string; label?: string }
