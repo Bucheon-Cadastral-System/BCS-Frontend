@@ -4,18 +4,18 @@
  * 나머지 UI 스타일은 전부 Tailwind(컴포넌트 인라인 + shared/ui/classes)로 이동.
  */
 
-/* 줌(+/−) 버튼을 지도 우하단으로 */
+/* 줌(+/−) 버튼을 지도 좌하단으로 (우하단은 챗봇 버블 자리) */
 .ol-zoom {
   top: auto;
-  left: auto;
-  right: 0.5em;
+  right: auto;
+  left: 0.5em;
   bottom: 0.5em;
 }
 
-/* 축척 막대를 줌 버튼 왼쪽(우하단)으로 */
+/* 축척 막대를 줌 버튼 오른쪽(좌하단)으로 */
 .ol-scale-line {
-  left: auto;
-  right: 3.6em;
+  right: auto;
+  left: 3.6em;
   bottom: 0.9em;
   background: rgba(255, 255, 255, 0.8);
   border-radius: 4px;
@@ -27,9 +27,9 @@
   border-top: none;
 }
 
-/* 저작권 표시는 겹치지 않게 좌하단으로 */
+/* 저작권 표시는 컨트롤·버블과 안 겹치게 우하단 버블 왼쪽으로 */
 .ol-attribution {
-  right: auto;
-  left: 0.5em;
+  left: auto;
+  right: 5.5em;
   bottom: 0.5em;
 }

@@ -10,6 +10,7 @@ export type PointType = (typeof POINT_TYPES)[number]
  */
 export interface ControlPoint {
   id: string
+  pointNo: string
   type: PointType
   name: string
   lng: number

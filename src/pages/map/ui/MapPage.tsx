@@ -6,6 +6,8 @@ import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
 import { MapSidebar, ActiveProjectChip } from '@/widgets/map-sidebar'
 import { ClusterList } from '@/widgets/cluster-list'
+import { ChatDockLayout } from '@/widgets/chatbot'
+import type { ChatAction } from '@/widgets/chatbot'
 import { POINT_TYPES, useControlPointsQuery, useRegisterControlPointMutation } from '@/entities/control-point'
 import type { ControlPoint, PointType } from '@/entities/control-point'
 import { useCreateSurveyProjectMutation, useSurveyProjectsQuery } from '@/entities/survey-project'
@@ -138,6 +140,17 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     setFocusNonce((n) => n + 1)
   }
 
+  // 챗봇 액션 → 지도 상호작용(기준점 포커스 / 조사 프로젝트 선택)
+  function handleChatAction(action: ChatAction) {
+    if (action.type === 'focusPoint') {
+      const cp = points.find((p) => p.pointNo === action.pointNo)
+      if (cp) focusPoint(cp)
+    } else {
+      dispatch(setActiveProject(String(action.projectId)))
+      setOpenProjectNonce((n) => n + 1)
+    }
+  }
+
   const selected = points.find((p) => p.id === selectedId) ?? null
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
 
@@ -157,6 +170,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
         onToggleTheme={() => dispatch(toggleTheme())}
       />
 
+      <ChatDockLayout onAction={handleChatAction}>
       <div className="flex min-h-0 flex-1">
         <MapSidebar
           projects={projects}
@@ -244,6 +258,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           </div>
         </div>
       </div>
+      </ChatDockLayout>
     </div>
     </div>
   )
