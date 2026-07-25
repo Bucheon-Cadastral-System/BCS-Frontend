@@ -11,8 +11,9 @@ import type { ChatAction } from '@/widgets/chatbot'
 import { POINT_TYPES, useControlPointsQuery, useRegisterControlPointMutation } from '@/entities/control-point'
 import type { ControlPoint, PointType } from '@/entities/control-point'
 import { useCreateSurveyProjectMutation, useSurveyProjectsQuery } from '@/entities/survey-project'
+import type { SurveyProjectType } from '@/entities/survey-project'
 import { useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
-import { useImportExcavation } from '@/features/import-excavation'
+import { useImportSurveyCsv } from '@/features/import-survey-csv'
 import { ApiError } from '@/shared/api/http'
 import { wgs84ToTm } from '@/shared/lib/crs'
 import type { TmEpsg } from '@/shared/lib/crs'
@@ -36,7 +37,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const createProjectMutation = useCreateSurveyProjectMutation()
   const recordMutation = useRecordSurveyMutation()
   const cancelMutation = useCancelSurveyMutation()
-  const importMutation = useImportExcavation()
+  const importMutation = useImportSurveyCsv()
 
   // 쿼리 미도착(undefined) 기본값 — 참조가 렌더마다 바뀌면 지도 소스 재구성·리스트 메모가 깨져 useMemo로 고정
   const points = useMemo(() => pointsQuery.data ?? [], [pointsQuery.data])
@@ -84,19 +85,26 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     )
   }
 
+  // 조사 계기 선택 — 유형이 둘뿐이라 확인 대화로 받는다(입력 모달로 바꿀 때 함께 정리)
+  function askProjectType(): SurveyProjectType {
+    return window.confirm('굴착협의 조사입니까?\n확인 = 굴착협의, 취소 = 일반 조사')
+      ? 'EXCAVATION_CONSULTATION'
+      : 'GENERAL'
+  }
+
   function importCsv(file: File) {
-    const nameInput = window.prompt('조사 프로젝트 이름 (굴착협의 건명)', file.name.replace(/\.csv$/i, ''))
+    const nameInput = window.prompt('조사 프로젝트 이름', file.name.replace(/\.csv$/i, ''))
     if (nameInput === null) return
     const name = nameInput.trim()
     if (!name) return
 
     importMutation.mutate(
-      { file, name },
+      { file, name, type: askProjectType() },
       {
         onSuccess: (summary) => {
           dispatch(setActiveProject(String(summary.projectId)))
           window.alert(
-            `기준점 ${summary.totalRows}점(신규 ${summary.newPoints} · 기존 ${summary.existingPoints}), 조사기록 ${summary.createdRecords}건을 불러왔습니다.`,
+            `기준점 ${summary.totalRows}점(신규 ${summary.newPoints} · 기존 ${summary.existingPoints} · 갱신 ${summary.updatedPoints}), 조사기록 ${summary.createdRecords}건을 불러왔습니다.`,
           )
         },
         onError: (e) =>
@@ -128,7 +136,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   }
 
   function createProject(name: string) {
-    createProjectMutation.mutate(name, {
+    createProjectMutation.mutate({ name, type: askProjectType() }, {
       onSuccess: (project) => dispatch(setActiveProject(project.id)),
       onError: () => window.alert('조사 프로젝트 생성에 실패했습니다.'),
     })

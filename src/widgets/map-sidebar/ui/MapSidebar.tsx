@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { SurveyProject } from '@/entities/survey-project'
+import { SURVEY_PROJECT_TYPE_LABEL } from '@/entities/survey-project'
 import type { ControlPoint } from '@/entities/control-point'
 import { PointTypeIcon, StatusMark } from '@/entities/control-point'
 
@@ -233,7 +234,11 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
                     selected ? 'font-semibold text-white' : expanded ? 'text-gray-100' : 'text-gray-200 hover:bg-gray-700'
                   }`}
                 >
-                  <span className="flex-1 truncate">{p.name}</span>
+                  <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                  {/* 조사 계기 — 일반 조사와 굴착협의를 목록에서 구분한다 */}
+                  <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-gray-400 ring-1 ring-gray-600">
+                    {SURVEY_PROJECT_TYPE_LABEL[p.type]}
+                  </span>
                   {selected && (
                     <span
                       className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ${

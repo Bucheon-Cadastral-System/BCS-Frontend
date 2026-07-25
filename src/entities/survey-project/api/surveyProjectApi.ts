@@ -1,15 +1,15 @@
 import { http } from '@/shared/api/http'
-import type { SurveyProject } from '../model/types'
+import type { SurveyProject, SurveyProjectType } from '../model/types'
 
 interface ServerSurveyProject {
   id: number
-  type: 'GENERAL' | 'EXCAVATION_CONSULTATION'
+  type: SurveyProjectType
   name: string
   note: string | null
 }
 
 function toSurveyProject(server: ServerSurveyProject): SurveyProject {
-  return { id: String(server.id), name: server.name }
+  return { id: String(server.id), type: server.type, name: server.name }
 }
 
 export async function fetchSurveyProjects(): Promise<SurveyProject[]> {
@@ -17,7 +17,9 @@ export async function fetchSurveyProjects(): Promise<SurveyProject[]> {
   return res.data.content.map(toSurveyProject)
 }
 
-export async function createSurveyProjectApi(name: string): Promise<SurveyProject> {
-  const res = await http.post<ServerSurveyProject>('/api/survey-projects', { type: 'GENERAL', name })
+export async function createSurveyProjectApi(
+  { name, type }: { name: string; type: SurveyProjectType },
+): Promise<SurveyProject> {
+  const res = await http.post<ServerSurveyProject>('/api/survey-projects', { type, name })
   return toSurveyProject(res.data)
 }
