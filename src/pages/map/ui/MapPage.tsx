@@ -100,10 +100,11 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           setSelectedId(saved.id)
         },
         onError: (e) =>
-          window.alert(
+          showToast(
             e instanceof ApiError && e.code === 'CONTROL_POINT_DUPLICATE'
               ? '이미 등록된 관리번호입니다.'
               : '기준점 등록에 실패했습니다.',
+            'error',
           ),
       },
     )
@@ -126,13 +127,13 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           )
         },
         onError: (e) =>
-          window.alert(e instanceof ApiError ? `불러오기 실패: ${e.message}` : 'CSV 불러오기에 실패했습니다.'),
+          showToast(e instanceof ApiError ? `불러오기 실패: ${e.message}` : 'CSV 불러오기에 실패했습니다.', 'error'),
       },
     )
   }
 
   function notifySurveySaveFailed() {
-    window.alert('조사 상태를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+    showToast('조사 상태를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.', 'error')
   }
 
   function handleToggleSurvey(pointId: string) {
@@ -161,7 +162,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           setCreatingProject(false)
           dispatch(setActiveProject(project.id))
         },
-        onError: () => window.alert('조사 프로젝트 생성에 실패했습니다.'),
+        onError: () => showToast('조사 프로젝트 생성에 실패했습니다.', 'error'),
       },
     )
   }

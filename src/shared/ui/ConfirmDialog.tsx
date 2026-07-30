@@ -35,7 +35,7 @@ export function ConfirmDialog(props: {
       window.removeEventListener('keydown', onKey)
       prevActive?.focus?.() // 닫은 뒤 트리거로 포커스 복원
     }
-  }, [])
+  }, [danger])
 
   return (
     <div
