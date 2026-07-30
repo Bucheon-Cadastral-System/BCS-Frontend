@@ -14,6 +14,9 @@ import { useCreateSurveyProjectMutation, useSurveyProjectsQuery } from '@/entiti
 import type { SurveyProjectType } from '@/entities/survey-project'
 import { useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
 import { useImportSurveyCsv } from '@/features/import-survey-csv'
+import { AddControlPointModal } from '@/features/add-control-point'
+import type { AddControlPointValues } from '@/features/add-control-point'
+import { SurveyProjectFormModal } from '@/features/survey-project-form'
 import { ApiError } from '@/shared/api/http'
 import { wgs84ToTm } from '@/shared/lib/crs'
 import type { TmEpsg } from '@/shared/lib/crs'
@@ -53,28 +56,39 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const [focusNonce, setFocusNonce] = useState(0)
   const [mapLeftInset, setMapLeftInset] = useState(0) // 좌측 패널이 지도를 가리는 폭(포커스 센터링 보정). >0 = 패널 열림
   const [openProjectNonce, setOpenProjectNonce] = useState(0) // 활성 프로젝트 칩 → 프로젝트 패널 열기 신호
+  // 입력 모달 — 지도 클릭 프리필(기준점 추가) / 업로드한 파일(CSV 임포트) / 새 조사 만들기
+  const [addDraft, setAddDraft] = useState<{ northing: number; easting: number } | null>(null)
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [creatingProject, setCreatingProject] = useState(false)
   const clusterIdRef = useRef(0)
 
   // 활성 프로젝트의 조사기록만 조회하므로 레코드 존재=조사됨, lost=망실
   const surveyedIds = useMemo(() => new Set(records.map((r) => r.pointId)), [records])
   const lostIds = useMemo(() => new Set(records.filter((r) => r.lost).map((r) => r.pointId)), [records])
 
+  // 지도 클릭 → 입력 모달(성과 좌표는 사용자가 확정). 클릭 좌표는 프리필 시작값으로만 쓴다.
   function addPoint(lng: number, lat: number) {
-    const pointNoInput = window.prompt('관리번호를 입력하세요 (예: 41192D000001265)')
-    if (pointNoInput === null) return
-    const pointNo = pointNoInput.trim()
-    if (!pointNo) return
-
-    const fallback = `${addType}-${points.length + 1}`
-    const nameInput = window.prompt('기준점 이름을 입력하세요', fallback)
-    if (nameInput === null) return
-    const name = nameInput.trim() || fallback
-
     const { x, y } = wgs84ToTm(lng, lat, tmEpsg)
+    setAddDraft({ northing: y, easting: x })
+  }
+
+  function submitAddPoint(values: AddControlPointValues) {
     registerMutation.mutate(
-      { pointNo, type: addType, name, lng, lat, tmX: x, tmY: y, tmEpsg },
       {
-        onSuccess: (saved) => setSelectedId(saved.id),
+        pointNo: values.pointNo,
+        type: values.type,
+        name: values.name,
+        lng: values.lng,
+        lat: values.lat,
+        tmX: values.easting,
+        tmY: values.northing,
+        tmEpsg: values.tmEpsg,
+      },
+      {
+        onSuccess: (saved) => {
+          setAddDraft(null)
+          setSelectedId(saved.id)
+        },
         onError: (e) =>
           window.alert(
             e instanceof ApiError && e.code === 'CONTROL_POINT_DUPLICATE'
@@ -85,23 +99,16 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     )
   }
 
-  // 조사 계기 선택 — 유형이 둘뿐이라 확인 대화로 받는다(입력 모달로 바꿀 때 함께 정리)
-  function askProjectType(): SurveyProjectType {
-    return window.confirm('굴착협의 조사입니까?\n확인 = 굴착협의, 취소 = 일반 조사')
-      ? 'EXCAVATION_CONSULTATION'
-      : 'GENERAL'
+  function importCsv(file: File) {
+    setImportFile(file)
   }
 
-  function importCsv(file: File) {
-    const nameInput = window.prompt('조사 프로젝트 이름', file.name.replace(/\.csv$/i, ''))
-    if (nameInput === null) return
-    const name = nameInput.trim()
-    if (!name) return
-
+  function submitImport(file: File, name: string, type: SurveyProjectType) {
     importMutation.mutate(
-      { file, name, type: askProjectType() },
+      { file, name, type },
       {
         onSuccess: (summary) => {
+          setImportFile(null)
           dispatch(setActiveProject(String(summary.projectId)))
           window.alert(
             `기준점 ${summary.totalRows}점(신규 ${summary.newPoints} · 기존 ${summary.existingPoints} · 갱신 ${summary.updatedPoints}), 조사기록 ${summary.createdRecords}건을 불러왔습니다.`,
@@ -135,11 +142,17 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     )
   }
 
-  function createProject(name: string) {
-    createProjectMutation.mutate({ name, type: askProjectType() }, {
-      onSuccess: (project) => dispatch(setActiveProject(project.id)),
-      onError: () => window.alert('조사 프로젝트 생성에 실패했습니다.'),
-    })
+  function submitCreateProject(name: string, type: SurveyProjectType) {
+    createProjectMutation.mutate(
+      { name, type },
+      {
+        onSuccess: (project) => {
+          setCreatingProject(false)
+          dispatch(setActiveProject(project.id))
+        },
+        onError: () => window.alert('조사 프로젝트 생성에 실패했습니다.'),
+      },
+    )
   }
 
   function focusPoint(cp: ControlPoint) {
@@ -184,7 +197,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           projects={projects}
           activeProjectId={activeProjectId}
           onChangeActive={(id) => dispatch(setActiveProject(id))}
-          onCreate={createProject}
+          onCreate={() => setCreatingProject(true)}
           points={points}
           surveyedIds={surveyedIds}
           lostIds={lostIds}
@@ -267,6 +280,39 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
         </div>
       </div>
       </ChatDockLayout>
+
+      {addDraft && (
+        <AddControlPointModal
+          defaultType={addType}
+          defaultEpsg={tmEpsg}
+          prefill={addDraft}
+          submitting={registerMutation.isPending}
+          onSubmit={submitAddPoint}
+          onCancel={() => setAddDraft(null)}
+        />
+      )}
+
+      {importFile && (
+        <SurveyProjectFormModal
+          title="대상지 CSV 불러오기"
+          description={`${importFile.name} 파일로 조사 프로젝트를 만듭니다.`}
+          submitLabel="불러오기"
+          defaultName={importFile.name.replace(/\.csv$/i, '')}
+          submitting={importMutation.isPending}
+          onSubmit={({ name, type }) => submitImport(importFile, name, type)}
+          onCancel={() => setImportFile(null)}
+        />
+      )}
+
+      {creatingProject && (
+        <SurveyProjectFormModal
+          title="새 조사 만들기"
+          submitLabel="만들기"
+          submitting={createProjectMutation.isPending}
+          onSubmit={({ name, type }) => submitCreateProject(name, type)}
+          onCancel={() => setCreatingProject(false)}
+        />
+      )}
     </div>
     </div>
   )
