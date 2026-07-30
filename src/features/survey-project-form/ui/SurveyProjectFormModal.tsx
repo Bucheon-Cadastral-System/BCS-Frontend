@@ -30,11 +30,12 @@ export function SurveyProjectFormModal(props: {
     <Modal
       title={props.title}
       description={props.description}
+      busy={props.submitting}
       onClose={props.onCancel}
       onSubmit={submit}
       footer={
         <>
-          <button type="button" className={MODAL_CANCEL_BTN} onClick={props.onCancel}>
+          <button type="button" className={MODAL_CANCEL_BTN} onClick={props.onCancel} disabled={props.submitting}>
             취소
           </button>
           <button type="submit" className={MODAL_SUBMIT_BTN} disabled={!canSubmit}>

@@ -41,7 +41,9 @@ export function AddControlPointModal(props: {
 
   const n = Number(northing)
   const e = Number(easting)
-  const coordsValid = Number.isFinite(n) && Number.isFinite(e)
+  // 빈 문자열·공백은 Number()가 0으로 바꾸므로, 값이 비면 좌표 없음으로 본다
+  const coordsValid =
+    northing.trim() !== '' && easting.trim() !== '' && Number.isFinite(n) && Number.isFinite(e)
   // 경위도는 TM에서 한 방향으로만 파생한다(따로 수정하면 두 값이 어긋나 권위가 모호해진다)
   const geo = coordsValid ? tmToWgs84(e, n, tmEpsg) : null
   const canSubmit = pointNo.trim() !== '' && name.trim() !== '' && geo !== null && !props.submitting
@@ -64,11 +66,12 @@ export function AddControlPointModal(props: {
     <Modal
       title="기준점 추가"
       description="성과 좌표(TM)가 공식값입니다. 지도에서 찍은 위치는 시작값이므로 실제 성과로 바꿔 주세요."
+      busy={props.submitting}
       onClose={props.onCancel}
       onSubmit={submit}
       footer={
         <>
-          <button type="button" className={MODAL_CANCEL_BTN} onClick={props.onCancel}>
+          <button type="button" className={MODAL_CANCEL_BTN} onClick={props.onCancel} disabled={props.submitting}>
             취소
           </button>
           <button type="submit" className={MODAL_SUBMIT_BTN} disabled={!canSubmit}>

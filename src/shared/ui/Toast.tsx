@@ -7,14 +7,17 @@ export type ToastTone = 'info' | 'success' | 'error'
  * onAction을 주면 복원 버튼(↺ + 둘레 링 게이지 카운트다운), 없으면 닫기 버튼만 둔다.
  * 매 토스트마다 부모에서 key 를 바꿔 새로 마운트 → 타이머·애니 재시작.
  */
+type ToastAction =
+  // 되돌리기 버튼은 아이콘뿐이라 라벨이 없으면 보조기술이 무슨 동작인지 알 수 없다 → 항상 짝으로 받는다
+  | { actionLabel: string; onAction: () => void }
+  | { actionLabel?: undefined; onAction?: undefined }
+
 export function Toast(props: {
   message: string
   tone?: ToastTone
-  actionLabel?: string
-  onAction?: () => void
   onDismiss: () => void
   duration?: number
-}) {
+} & ToastAction) {
   const duration = props.duration ?? 5000
   const [visible, setVisible] = useState(false) // enter/exit 슬라이드
   const [deplete, setDeplete] = useState(false) // 링 게이지 감소 트리거
