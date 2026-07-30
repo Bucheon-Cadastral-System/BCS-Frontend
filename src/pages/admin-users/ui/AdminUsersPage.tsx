@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { DISTRICTS, POSITIONS, TEAMS } from '@/entities/user'
 import type { ManagedUser, UserStatus } from '@/entities/user'
+import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 
 interface AdminUsersPageProps {
   users: ManagedUser[]
@@ -14,11 +15,18 @@ const STATUS_LABEL: Record<UserStatus, string> = {
   INACTIVE: '비활성',
 }
 
+const STATUS_ACTION_LABEL: Record<UserStatus, string> = {
+  PENDING: '상태 변경',
+  ACTIVE: '승인',
+  INACTIVE: '비활성화',
+}
+
 export function AdminUsersPage({ users, onChangeUsers, onBack }: AdminUsersPageProps) {
   const [filter, setFilter] = useState<'ALL' | UserStatus>('ALL')
   const [query, setQuery] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState<ManagedUser | null>(null)
+  const [pendingChange, setPendingChange] = useState<{ id: string; status: UserStatus } | null>(null)
 
   const counts = useMemo(() => ({
     ALL: users.length,
@@ -43,9 +51,14 @@ export function AdminUsersPage({ users, onChangeUsers, onBack }: AdminUsersPageP
   }, [filter, query, users])
 
   const updateStatus = (id: string, status: UserStatus) => {
-    const action = status === 'ACTIVE' ? '사용자로 승인' : status === 'INACTIVE' ? '비활성화' : '상태 변경'
-    if (!window.confirm(`해당 사용자를 ${action}할까요?`)) return
+    setPendingChange({ id, status })
+  }
+
+  const applyStatusChange = () => {
+    if (!pendingChange) return
+    const { id, status } = pendingChange
     onChangeUsers(users.map((user) => user.id === id ? { ...user, status } : user))
+    setPendingChange(null)
   }
 
   const startEditing = (user: ManagedUser) => {
@@ -197,6 +210,17 @@ export function AdminUsersPage({ users, onChangeUsers, onBack }: AdminUsersPageP
           })}
         </div>
       </section>
+
+      {pendingChange && (
+        <ConfirmDialog
+          message={`해당 사용자를 ${STATUS_ACTION_LABEL[pendingChange.status]}할까요?`}
+          confirmLabel={STATUS_ACTION_LABEL[pendingChange.status]}
+          cancelLabel="취소"
+          danger={pendingChange.status === 'INACTIVE'}
+          onConfirm={applyStatusChange}
+          onCancel={() => setPendingChange(null)}
+        />
+      )}
     </main>
   )
 }
