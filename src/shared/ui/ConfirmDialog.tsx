@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
+import { useDialogBehavior } from '@/shared/lib/useDialogBehavior'
 
 /**
  * 실행 전 한 번 묻는 확인 대화상자. Esc·배경클릭=취소.
@@ -13,29 +14,12 @@ export function ConfirmDialog(props: {
   onConfirm: () => void
   onCancel: () => void
 }) {
+  const panelRef = useRef<HTMLDivElement>(null)
   const cancelRef = useRef<HTMLButtonElement>(null)
   const confirmRef = useRef<HTMLButtonElement>(null)
-  const cancelCbRef = useRef(props.onCancel)
   const danger = props.danger ?? false
-  // 렌더 중 ref 대입 금지(버려지는 렌더의 콜백 노출 방지) → 커밋 후 동기화
-  useEffect(() => {
-    cancelCbRef.current = props.onCancel
-  }, [props.onCancel])
-
-  useEffect(() => {
-    const prevActive = document.activeElement as HTMLElement | null
-    // 되돌릴 수 없는 작업이면 실수로 확정하지 않게 취소에 포커스를 준다
-    if (danger) cancelRef.current?.focus()
-    else confirmRef.current?.focus()
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') cancelCbRef.current()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      prevActive?.focus?.() // 닫은 뒤 트리거로 포커스 복원
-    }
-  }, [danger])
+  // 되돌릴 수 없는 작업이면 실수로 확정하지 않게 취소에 포커스를 준다
+  useDialogBehavior({ panelRef, onClose: props.onCancel, initialFocusRef: danger ? cancelRef : confirmRef })
 
   return (
     <div
@@ -45,7 +29,7 @@ export function ConfirmDialog(props: {
       aria-labelledby="confirm-dialog-message"
       onClick={props.onCancel}
     >
-      <div className="w-full max-w-xs rounded-xl bg-white p-5 shadow-2xl dark:bg-gray-800" onClick={(e) => e.stopPropagation()}>
+      <div ref={panelRef} className="w-full max-w-xs rounded-xl bg-white p-5 shadow-2xl dark:bg-gray-800" onClick={(e) => e.stopPropagation()}>
         <p id="confirm-dialog-message" className="text-center text-[14px] font-medium text-gray-900 dark:text-gray-100">
           {props.message}
         </p>

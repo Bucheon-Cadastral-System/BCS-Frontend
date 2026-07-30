@@ -1,12 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import type { ReactNode } from 'react'
+import { useDialogBehavior } from '@/shared/lib/useDialogBehavior'
 
 /**
  * 입력·확인 대화상자의 공통 셸 — 배경 딤·Esc·배경 클릭 닫기, 열릴 때 첫 요소로 포커스 이동, 닫으면 트리거로 복원.
  * 내용(폼)은 children이 채우고, 제출·취소 버튼은 footer로 받는다.
  */
-const FOCUSABLE = 'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
-
 export function Modal(props: {
   title: string
   description?: string
@@ -18,45 +17,7 @@ export function Modal(props: {
   onSubmit?: () => void
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
-  const closeCbRef = useRef(props.onClose)
-  const busyRef = useRef(props.busy)
-  // 렌더 중 ref 대입 금지(버려지는 렌더의 콜백 노출 방지) → 커밋 후 동기화
-  useEffect(() => {
-    closeCbRef.current = props.onClose
-    busyRef.current = props.busy
-  }, [props.onClose, props.busy])
-
-  useEffect(() => {
-    const prevActive = document.activeElement as HTMLElement | null
-    panelRef.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus()
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (!busyRef.current) closeCbRef.current()
-        return
-      }
-      // 모달(aria-modal)이라 Tab 이동은 창 안에서 순환시킨다
-      if (e.key !== 'Tab') return
-      const panel = panelRef.current
-      if (!panel) return
-      const items = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE))
-      if (items.length === 0) return
-      const first = items[0]
-      const last = items[items.length - 1]
-      const active = document.activeElement as HTMLElement | null
-      if (!e.shiftKey && (active === last || !panel.contains(active))) {
-        e.preventDefault()
-        first.focus()
-      } else if (e.shiftKey && (active === first || !panel.contains(active))) {
-        e.preventDefault()
-        last.focus()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      prevActive?.focus?.()
-    }
-  }, [])
+  useDialogBehavior({ panelRef, onClose: props.onClose, busy: props.busy })
 
   return (
     <div
