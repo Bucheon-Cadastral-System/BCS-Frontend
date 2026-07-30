@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { DISTRICTS, POSITIONS, TEAMS } from '@/entities/user'
 import type { ManagedUser, UserStatus } from '@/entities/user'
+import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 
 interface AdminUsersPageProps {
   users: ManagedUser[]
@@ -14,11 +15,19 @@ const STATUS_LABEL: Record<UserStatus, string> = {
   INACTIVE: '비활성',
 }
 
+/** 확인 문구는 목표 상태만으로 정해지지 않는다 — 같은 ACTIVE라도 대기 중이면 승인, 비활성이면 재활성화다. */
+function actionLabelOf(from: UserStatus, to: UserStatus): string {
+  if (to === 'ACTIVE') return from === 'INACTIVE' ? '다시 활성화' : '승인'
+  if (to === 'INACTIVE') return '비활성화'
+  return '상태 변경'
+}
+
 export function AdminUsersPage({ users, onChangeUsers, onBack }: AdminUsersPageProps) {
   const [filter, setFilter] = useState<'ALL' | UserStatus>('ALL')
   const [query, setQuery] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState<ManagedUser | null>(null)
+  const [pendingChange, setPendingChange] = useState<{ id: string; status: UserStatus; label: string } | null>(null)
 
   const counts = useMemo(() => ({
     ALL: users.length,
@@ -43,9 +52,16 @@ export function AdminUsersPage({ users, onChangeUsers, onBack }: AdminUsersPageP
   }, [filter, query, users])
 
   const updateStatus = (id: string, status: UserStatus) => {
-    const action = status === 'ACTIVE' ? '사용자로 승인' : status === 'INACTIVE' ? '비활성화' : '상태 변경'
-    if (!window.confirm(`해당 사용자를 ${action}할까요?`)) return
+    const current = users.find((user) => user.id === id)
+    if (!current) return
+    setPendingChange({ id, status, label: actionLabelOf(current.status, status) })
+  }
+
+  const applyStatusChange = () => {
+    if (!pendingChange) return
+    const { id, status } = pendingChange
     onChangeUsers(users.map((user) => user.id === id ? { ...user, status } : user))
+    setPendingChange(null)
   }
 
   const startEditing = (user: ManagedUser) => {
@@ -197,6 +213,17 @@ export function AdminUsersPage({ users, onChangeUsers, onBack }: AdminUsersPageP
           })}
         </div>
       </section>
+
+      {pendingChange && (
+        <ConfirmDialog
+          message={`해당 사용자를 ${pendingChange.label}할까요?`}
+          confirmLabel={pendingChange.label}
+          cancelLabel="취소"
+          danger={pendingChange.status === 'INACTIVE'}
+          onConfirm={applyStatusChange}
+          onCancel={() => setPendingChange(null)}
+        />
+      )}
     </main>
   )
 }

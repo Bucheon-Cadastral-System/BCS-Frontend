@@ -14,7 +14,8 @@ interface MapSidebarProps {
   projects: SurveyProject[]
   activeProjectId: string | null
   onChangeActive: (id: string | null) => void
-  onCreate: (name: string) => void
+  /** 새 조사 만들기 요청 — 이름·유형 입력은 페이지의 모달이 받는다 */
+  onCreate: () => void
   // 기준점 목록
   points: ControlPoint[]
   surveyedIds: Set<string>
@@ -168,8 +169,7 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
   useEffect(() => setExpandedPointId(null), [expandedId])
 
   function handleNew() {
-    const name = window.prompt('조사 프로젝트 이름 (예: 2026.7.1.자 조사)', '')
-    if (name && name.trim()) props.onCreate(name.trim())
+    props.onCreate()
   }
 
   return (
