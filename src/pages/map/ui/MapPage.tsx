@@ -18,6 +18,8 @@ import { AddControlPointModal } from '@/features/add-control-point'
 import type { AddControlPointValues } from '@/features/add-control-point'
 import { SurveyProjectFormModal } from '@/features/survey-project-form'
 import { ApiError } from '@/shared/api/http'
+import { Toast } from '@/shared/ui/Toast'
+import type { ToastTone } from '@/shared/ui/Toast'
 import { wgs84ToTm } from '@/shared/lib/crs'
 import type { TmEpsg } from '@/shared/lib/crs'
 import { VWORLD_KEY } from '@/shared/config/map'
@@ -60,6 +62,14 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const [addDraft, setAddDraft] = useState<{ northing: number; easting: number } | null>(null)
   const [importFile, setImportFile] = useState<File | null>(null)
   const [creatingProject, setCreatingProject] = useState(false)
+  // 결과 알림 — id를 key로 써서 같은 문구가 다시 떠도 애니·타이머가 재시작된다
+  const [toast, setToast] = useState<{ id: number; message: string; tone: ToastTone } | null>(null)
+  const toastIdRef = useRef(0)
+
+  function showToast(message: string, tone: ToastTone = 'info') {
+    toastIdRef.current += 1
+    setToast({ id: toastIdRef.current, message, tone })
+  }
   const clusterIdRef = useRef(0)
 
   // 활성 프로젝트의 조사기록만 조회하므로 레코드 존재=조사됨, lost=망실
@@ -110,8 +120,9 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
         onSuccess: (summary) => {
           setImportFile(null)
           dispatch(setActiveProject(String(summary.projectId)))
-          window.alert(
+          showToast(
             `기준점 ${summary.totalRows}점(신규 ${summary.newPoints} · 기존 ${summary.existingPoints} · 갱신 ${summary.updatedPoints}), 조사기록 ${summary.createdRecords}건을 불러왔습니다.`,
+            'success',
           )
         },
         onError: (e) =>
@@ -312,6 +323,10 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           onSubmit={({ name, type }) => submitCreateProject(name, type)}
           onCancel={() => setCreatingProject(false)}
         />
+      )}
+
+      {toast && (
+        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={() => setToast(null)} />
       )}
     </div>
     </div>
