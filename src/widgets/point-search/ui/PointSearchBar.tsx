@@ -1,27 +1,46 @@
-import { useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import type { ControlPoint } from '@/entities/control-point'
 import { PointTypeIcon } from '@/entities/control-point'
 import { useDismiss } from '@/shared/lib/useDismiss'
 
-const MAX_RESULTS = 8
+/** 결과 한 줄 높이 — 가상 스크롤 추정치와 실제가 같아야 스크롤이 튀지 않는다 */
+const ROW_HEIGHT = 48
 
 /**
  * 기준점 검색 (헤더 우측). 이름·관리번호로 찾고 고르면 그 점으로 지도를 이동한다.
- * 목록은 전부 로드돼 있어 입력 즉시 걸러진다(서버 왕복 없음).
+ * 목록은 전부 로드돼 있어 입력 즉시 걸러지고, 결과는 개수 제한 없이 보여주되 보이는 줄만 그린다.
  */
 export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: ControlPoint) => void }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
   const rootRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   useDismiss({ enabled: open, onDismiss: () => setOpen(false), ref: rootRef })
 
   const keyword = query.trim()
-  const results = keyword
-    ? props.points.filter((p) => p.name.includes(keyword) || p.pointNo.includes(keyword)).slice(0, MAX_RESULTS)
-    : []
-  // 목록이 바뀌면 첫 항목부터 (검색어를 고치는 중에 엉뚱한 항목이 선택돼 있지 않게)
+  const results = useMemo(
+    () => (keyword ? props.points.filter((p) => p.name.includes(keyword) || p.pointNo.includes(keyword)) : []),
+    [props.points, keyword],
+  )
+  // 목록이 줄어들면 선택도 범위 안으로
   const active = Math.min(activeIndex, Math.max(results.length - 1, 0))
+  const showList = open && keyword !== ''
+
+  const virtualizer = useVirtualizer({
+    count: results.length,
+    getScrollElement: () => listRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 6,
+    getItemKey: (index) => results[index].id,
+  })
+
+  // 방향키로 옮긴 항목이 화면 밖이면 따라 스크롤
+  useEffect(() => {
+    if (showList && results.length > 0) virtualizer.scrollToIndex(active)
+  }, [active, showList, results.length, virtualizer])
 
   function choose(cp: ControlPoint) {
     props.onSelect(cp)
@@ -31,7 +50,7 @@ export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: C
   }
 
   // ↑↓로 결과를 옮겨 다니고 Enter로 고른다. 한글 조합 중에는 IME가 후보 이동에 키를 쓰므로 건드리지 않는다.
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+  function handleKeyDown(e: ReactKeyboardEvent<HTMLInputElement>) {
     if (e.nativeEvent.isComposing) return
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       if (results.length === 0) return
@@ -61,7 +80,7 @@ export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: C
         placeholder="점 검색"
         aria-label="기준점 검색"
         role="combobox"
-        aria-expanded={open && keyword !== ''}
+        aria-expanded={showList}
         aria-controls="point-search-results"
         aria-activedescendant={results.length > 0 ? `point-search-option-${active}` : undefined}
         autoComplete="off"
@@ -79,35 +98,51 @@ export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: C
         </svg>
       </button>
 
-      {open && keyword !== '' && (
-        <ul
-          id="point-search-results"
-          role="listbox"
-          className="absolute left-0 right-0 top-full z-20 mt-1.5 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
-        >
-          {results.map((cp, i) => (
-            <li key={cp.id} id={`point-search-option-${i}`} role="option" aria-selected={i === active}>
-              <button
-                type="button"
-                onClick={() => choose(cp)}
-                onMouseEnter={() => setActiveIndex(i)}
-                className={`flex w-full items-center gap-2 px-3 py-2 text-left ${
-                  i === active ? 'bg-gray-100 dark:bg-gray-700' : 'hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-              >
-                <PointTypeIcon type={cp.type} className="h-4 w-4 text-gray-600 dark:text-gray-300" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px] text-gray-900 dark:text-gray-100">{cp.name}</span>
-                  <span className="block truncate text-[11px] text-gray-400 dark:text-gray-500">{cp.pointNo}</span>
-                </span>
-                <span className="shrink-0 text-[11px] text-gray-400 dark:text-gray-500">{cp.type}</span>
-              </button>
-            </li>
-          ))}
-          {results.length === 0 && (
-            <li className="px-3 py-3 text-center text-[12px] text-gray-500 dark:text-gray-400">검색 결과 없음</li>
+      {showList && (
+        <div className="absolute left-0 right-0 top-full z-20 mt-1.5 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800">
+          {results.length === 0 ? (
+            <p className="px-3 py-3 text-center text-[12px] text-gray-500 dark:text-gray-400">검색 결과 없음</p>
+          ) : (
+            <>
+              <p className="border-b border-gray-200 px-3 py-1.5 text-[11px] text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                {results.length}개
+              </p>
+              <div ref={listRef} className="max-h-72 overflow-y-auto">
+                <ul id="point-search-results" role="listbox" className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+                  {virtualizer.getVirtualItems().map((item) => {
+                    const cp = results[item.index]
+                    return (
+                      <li
+                        key={item.key}
+                        id={`point-search-option-${item.index}`}
+                        role="option"
+                        aria-selected={item.index === active}
+                        className="absolute left-0 top-0 w-full"
+                        style={{ height: ROW_HEIGHT, transform: `translateY(${item.start}px)` }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => choose(cp)}
+                          onMouseEnter={() => setActiveIndex(item.index)}
+                          className={`flex h-full w-full items-center gap-2 px-3 text-left ${
+                            item.index === active ? 'bg-gray-100 dark:bg-gray-700' : ''
+                          }`}
+                        >
+                          <PointTypeIcon type={cp.type} className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[13px] text-gray-900 dark:text-gray-100">{cp.name}</span>
+                            <span className="block truncate text-[11px] text-gray-400 dark:text-gray-500">{cp.pointNo}</span>
+                          </span>
+                          <span className="shrink-0 text-[11px] text-gray-400 dark:text-gray-500">{cp.type}</span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            </>
           )}
-        </ul>
+        </div>
       )}
     </div>
   )
