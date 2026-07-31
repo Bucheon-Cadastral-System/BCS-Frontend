@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '@/app/store/hooks'
-import { setActiveProject, toggleTheme } from '@/app/store'
+import { setActiveProject } from '@/app/store'
 import { MapToolbar } from '@/widgets/map-toolbar'
 import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
 import { MapSidebar, ActiveProjectChip } from '@/widgets/map-sidebar'
+import { AddPointTypeChip } from '@/widgets/add-point-control'
 import { ClusterList } from '@/widgets/cluster-list'
 import { ChatDockLayout } from '@/widgets/chatbot'
 import type { ChatAction } from '@/widgets/chatbot'
@@ -52,7 +53,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const [addMode, setAddMode] = useState(false)
   const [addType, setAddType] = useState<PointType>(POINT_TYPES[0])
   const tmEpsg: TmEpsg = 'EPSG:5186' // 부천 = 중부원점 고정
-  const [showCadastral, setShowCadastral] = useState(true)
+  const showCadastral = true // 지적도 표시 토글 UI는 자리를 정한 뒤 다시 붙인다
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [clusterPopup, setClusterPopup] = useState<{ points: ControlPoint[]; coord: number[]; x: number; y: number; w: number; h: number; id: number } | null>(null)
   const [focusNonce, setFocusNonce] = useState(0)
@@ -110,10 +111,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     )
   }
 
-  function importCsv(file: File) {
-    setImportFile(file)
-  }
-
+  // CSV 불러오기 버튼은 자리를 정한 뒤 다시 붙인다 — setImportFile(file)로 아래 모달이 열린다
   function submitImport(file: File, name: string, type: SurveyProjectType) {
     importMutation.mutate(
       { file, name, type },
@@ -190,18 +188,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   return (
     <div className={`contents ${theme === 'dark' ? 'dark' : ''}`}>
     <div className="flex h-full flex-col">
-      <MapToolbar
-        addMode={addMode}
-        onToggleAdd={() => setAddMode((v) => !v)}
-        addType={addType}
-        onChangeType={setAddType}
-        showCadastral={showCadastral}
-        onToggleCadastral={() => setShowCadastral((v) => !v)}
-        count={points.length}
-        onImportCsv={importCsv}
-        theme={theme}
-        onToggleTheme={() => dispatch(toggleTheme())}
-      />
+      <MapToolbar addMode={addMode} onToggleAdd={() => setAddMode((v) => !v)} />
 
       <ChatDockLayout onAction={handleChatAction}>
       <div className="flex min-h-0 flex-1">
@@ -238,12 +225,6 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
             </div>
           )}
 
-          {addMode && (
-            <div className="bg-blue-100 px-3.5 py-1.5 text-[13px] text-blue-800">
-              지도를 클릭해 <b>{addType}</b> 추가
-            </div>
-          )}
-
           <div className="relative min-h-0 flex-1">
             <ControlPointMap
               points={points}
@@ -263,14 +244,18 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
               onClusterAnchorMove={(x, y) => setClusterPopup((cur) => (cur ? { ...cur, x, y } : cur))}
               onClusterAnchorOut={() => setClusterPopup(null)}
             />
-            {activeProject && mapLeftInset === 0 && (
-              <ActiveProjectChip
-                name={activeProject.name}
-                surveyed={surveyedIds.size}
-                total={points.length}
-                onOpen={() => setOpenProjectNonce((n) => n + 1)}
-              />
-            )}
+            {/* 좌상단 상태 칩 — 조사 중인 프로젝트와 추가할 종류를 세로로 쌓는다 */}
+            <div className="absolute left-3 top-3 z-[5] flex flex-col items-start gap-2">
+              {activeProject && mapLeftInset === 0 && (
+                <ActiveProjectChip
+                  name={activeProject.name}
+                  surveyed={surveyedIds.size}
+                  total={points.length}
+                  onOpen={() => setOpenProjectNonce((n) => n + 1)}
+                />
+              )}
+              {addMode && <AddPointTypeChip type={addType} onChange={setAddType} />}
+            </div>
             <ClusterList
               popup={clusterPopup}
               surveyedIds={surveyedIds}

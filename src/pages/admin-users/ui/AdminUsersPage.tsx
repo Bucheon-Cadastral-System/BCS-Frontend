@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { DISTRICTS, POSITIONS, TEAMS } from '@/entities/user'
 import type { ManagedUser, UserStatus } from '@/entities/user'
+import { AppHeader } from '@/shared/ui/AppHeader'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 
 interface AdminUsersPageProps {
@@ -78,14 +79,10 @@ export function AdminUsersPage({ users, onChangeUsers, onBack }: AdminUsersPageP
 
   return (
     <main className="min-h-full bg-slate-100 text-slate-900">
-      <header className="flex min-h-16 items-center gap-3 bg-slate-800 px-4 text-white shadow-md">
-        <button type="button" className="grid size-10 place-items-center rounded-lg border border-white/20 hover:bg-white/10" onClick={onBack} aria-label="지도로 돌아가기">←</button>
-        <img className="h-10 w-auto" src="/logo2.png" alt="" />
-        <div className="flex items-center gap-3">
-          <strong>사용자 관리</strong>
-          <span className="rounded-full bg-teal-500/20 px-2 py-1 text-xs font-bold text-teal-300">ADMIN</span>
-        </div>
-      </header>
+      {/* 화면 이름과 지도로 돌아가기는 아래 본문에 있으므로 헤더에는 아이덴티티와 권한 표시만 둔다 */}
+      <AppHeader>
+        <span className="rounded-full bg-teal-500/20 px-2.5 py-1 text-xs font-bold text-teal-300">ADMIN</span>
+      </AppHeader>
 
       <section className="mx-auto max-w-6xl px-5 py-10">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
