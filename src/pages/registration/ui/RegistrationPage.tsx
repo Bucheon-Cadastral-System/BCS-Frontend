@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { DISTRICTS, POSITIONS, TEAMS } from '@/entities/user'
 import type { District, Position, Team } from '@/entities/user'
+import { BrandLockup } from '@/shared/ui/BrandLockup'
 
 export interface RegistrationData {
   kakaoId: string
@@ -48,7 +49,8 @@ export function RegistrationPage({ kakaoId, onCancel, onSubmit }: RegistrationPa
   return (
     <main className="min-h-full bg-slate-100 px-5 py-10">
       <header className="mx-auto mb-8 flex max-w-3xl items-center justify-between">
-        <img className="w-44" src="/logo.png" alt="부천시" />
+        {/* 가입 신청 전이라 메인으로 가는 링크를 걸지 않는다. 옆에 서비스명이 따로 있어 심볼+BCS만 노출 */}
+        <BrandLockup size="md" tone="onLight" variant="mark" />
         <span className="text-sm font-semibold text-slate-500">지적기준점 관리 서비스</span>
       </header>
 

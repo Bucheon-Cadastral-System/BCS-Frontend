@@ -18,8 +18,8 @@ const CHIP: Record<MapTheme, { base: string; border: string; done: string; lost:
   dark: { base: 'rgba(241,245,249,0.62)', border: '#0f172a', done: '#22c55e', lost: '#dc2626', text: '#0f172a' },
 }
 
-/** 개수 구간별 반지름 (네이버 부동산식 크기 차등) */
-function radiusForCount(count: number): number {
+/** 개수 구간별 반지름 (네이버 부동산식 크기 차등) — 뱃지 옆에 붙는 팝오버도 같은 값을 써야 위치가 맞는다 */
+export function radiusForCount(count: number): number {
   if (count < 10) return 15
   if (count < 50) return 19
   if (count < 200) return 24

@@ -3,6 +3,7 @@ import type VectorSource from 'ol/source/Vector'
 import type { FeatureLike } from 'ol/Feature'
 import { fromLonLat } from 'ol/proj'
 import { boundingExtent } from 'ol/extent'
+import { deriveSurveyStatus } from '@/entities/survey-record'
 import type { Extent } from 'ol/extent'
 import type { ControlPoint, ClusterInfo, PointType } from '@/entities/control-point'
 
@@ -39,8 +40,9 @@ export function computeClusterInfo(
   let lost = 0
   for (const cp of members) {
     byType[cp.type] += 1
-    if (surveyMode && lostIds.has(cp.id)) lost += 1
-    else if (surveyMode && surveyedIds.has(cp.id)) done += 1
+    const status = surveyMode ? deriveSurveyStatus(cp.id, surveyedIds, lostIds) : 'todo'
+    if (status === 'lost') lost += 1
+    else if (status === 'done') done += 1
     else todo += 1
   }
   return { count: members.length, byType, bySurvey: { done, todo, lost } }

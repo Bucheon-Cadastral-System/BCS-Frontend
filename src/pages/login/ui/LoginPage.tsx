@@ -1,3 +1,5 @@
+import { BrandLockup } from '@/shared/ui/BrandLockup'
+
 interface LoginPageProps {
   onKakaoLogin: () => void
   onDevelopmentAccess: () => void
@@ -10,7 +12,8 @@ export function LoginPage({ onKakaoLogin, onDevelopmentAccess }: LoginPageProps)
       <div className="absolute -bottom-80 -left-24 size-[420px] rotate-28 rounded-[42%] border border-[#15437d14]" aria-hidden="true" />
 
       <section className="relative z-10 w-full max-w-[440px] rounded-3xl border border-white/90 bg-white/94 px-6 py-10 text-center shadow-[0_24px_70px_rgba(20,47,78,0.14)] backdrop-blur-xl sm:px-12" aria-labelledby="login-title">
-        <img className="mx-auto mb-9 block h-auto w-full max-w-[230px]" src="/logo.png" alt="부천시" />
+        {/* 아래 제목이 같은 문구를 쓰므로 심볼+BCS만 노출 */}
+        <BrandLockup size="lg" tone="onLight" variant="mark" className="mx-auto mb-9 w-fit" />
 
         <div className="text-slate-900">
           <h1 className="text-2xl leading-snug font-bold tracking-[-0.04em]" id="login-title">부천시 지적기준점 관리 서비스</h1>

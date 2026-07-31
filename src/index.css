@@ -51,6 +51,15 @@
   background: transparent;
 }
 
+/* 셀렉트 화살표 — 브라우저 기본 화살표는 여백이 제각각이라(오른쪽 테두리에 붙어 보임) 직접 그린다 */
+.select-chevron {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 1rem 1rem;
+}
+
 html,
 body,
 #root {

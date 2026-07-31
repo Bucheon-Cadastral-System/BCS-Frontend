@@ -5,12 +5,16 @@ export function surveyRecordsKey(projectId: string) {
   return ['survey-records', projectId] as const
 }
 
-/** 활성 프로젝트의 조사기록 — 프로젝트 미선택(null)이면 조회하지 않는다. */
+/**
+ * 활성 프로젝트의 조사기록 — 프로젝트 미선택(null)이면 조회하지 않는다.
+ * 여러 조사자가 같은 프로젝트를 동시에 기록하므로 마스터 데이터보다 짧게 잡아 남의 기록도 비교적 빨리 반영한다.
+ */
 export function useSurveyRecordsQuery(projectId: string | null) {
   return useQuery({
     queryKey: ['survey-records', projectId],
     queryFn: () => fetchSurveyRecords(projectId as string),
     enabled: projectId !== null,
+    staleTime: 30_000,
   })
 }
 

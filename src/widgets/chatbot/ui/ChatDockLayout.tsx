@@ -5,6 +5,7 @@ import { ChatBubbleIcon } from './icons'
 import { useSendChatMutation } from '../api/chat'
 import type { ChatAction, ChatMessage, ChatMode, Size } from '../model/types'
 import { loadChatMessages, loadChatUi, saveChatMessages, saveChatUi } from '../model/storage'
+import { useDismiss } from '@/shared/lib/useDismiss'
 
 const DOCK_MIN_WIDTH = 320
 const FLOAT_MIN: Size = { width: 300, height: 380 }
@@ -44,14 +45,7 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
   }, [messages])
 
   // 코너 오버레이는 ESC로 닫는다(도킹은 자리 차지라 유지)
-  useEffect(() => {
-    if (!open || mode !== 'corner') return
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, mode])
+  useDismiss({ enabled: open && mode === 'corner', onDismiss: () => setOpen(false) })
 
   // 진행 중 요청의 응답이 '새 대화'로 초기화된 뒤 섞이지 않게 세션을 센다
   const sessionRef = useRef(0)
@@ -140,7 +134,8 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
 
   return (
     // 루트에 테마 배경을 깔아, 서브픽셀 틈이 생겨도 밝은 body 배경 대신 이 색이 비쳐 흰 선이 안 보이게 한다
-    <div ref={areaRef} className="relative flex min-h-0 min-w-0 flex-1 flex-row bg-gray-100 dark:bg-gray-900">
+    // overflow-hidden: 스플리터(경계 위로 절반 걸침)·코너 카드처럼 가장자리에 걸치는 요소가 페이지 가로 스크롤을 만들지 않게 한다
+    <div ref={areaRef} className="relative flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden bg-gray-100 dark:bg-gray-900">
       {/* flex 컨테이너여야 자식(콘텐츠 flex)의 flex-1·stretch가 먹어 지도가 영역을 꽉 채운다 */}
       <main className="relative flex min-h-0 min-w-0 flex-1">{children}</main>
 
@@ -152,15 +147,17 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
         {docked && <div className="h-full" style={{ width: dockWidth }}>{panel}</div>}
       </div>
 
-      {/* 도킹 리사이즈 힌트 — 경계(seam) 위에 걸쳐 지도쪽·채팅쪽 양쪽에서 보이는 중앙 그립. 루트 자식이라 패널 overflow에 안 잘림 */}
-      {docked && (
+      {/* 도킹 리사이즈 힌트 — 경계(seam) 위에 걸쳐 지도쪽·채팅쪽 양쪽에서 보이는 중앙 그립. 루트 자식이라 패널 overflow에 안 잘림.
+          열림/닫힘 동안 패널 폭과 같은 트랜지션으로 경계를 따라 움직여야 하므로, 도킹 모드에선 닫혀 있어도 마운트를 유지한다 */}
+      {mode === 'right' && (
         <div
           role="separator"
           aria-orientation="vertical"
           aria-label="채팅 패널 폭 조절"
           aria-valuenow={dockWidth}
           aria-valuemin={DOCK_MIN_WIDTH}
-          tabIndex={0}
+          aria-hidden={!docked}
+          tabIndex={docked ? 0 : -1}
           onPointerDown={startSplitterDrag}
           onKeyDown={(e) => {
             if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
@@ -170,8 +167,10 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
             const step = e.key === 'ArrowLeft' ? 24 : -24 // 왼쪽=넓게(드래그 방향과 일치), 오른쪽=좁게
             setDockWidth((w) => Math.round(clamp(w + step, DOCK_MIN_WIDTH, Math.max(DOCK_MIN_WIDTH, max))))
           }}
-          style={{ right: dockWidth }}
-          className="group absolute inset-y-0 z-30 flex w-5 translate-x-1/2 cursor-col-resize items-center justify-center"
+          style={{ right: docked ? dockWidth : 0, opacity: docked ? 1 : 0 }}
+          className={`group absolute inset-y-0 z-30 flex w-5 translate-x-1/2 items-center justify-center ${
+            docked ? 'cursor-col-resize' : 'pointer-events-none'
+          } ${resizing ? '' : 'transition-[right,opacity] duration-200 ease-out'}`}
         >
           <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-gray-300 dark:bg-gray-600" />
           <span className="relative h-12 w-1.5 rounded-full bg-gray-400 shadow transition-colors group-hover:bg-blue-500 group-focus-visible:bg-blue-500 dark:bg-gray-500 dark:group-hover:bg-blue-400 dark:group-focus-visible:bg-blue-400" />

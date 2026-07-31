@@ -16,8 +16,10 @@ export function useDialogBehavior(options: {
   busy?: boolean
   /** 지정하면 이 요소로 초기 포커스를 준다(미지정 시 첫 포커스 가능 요소) */
   initialFocusRef?: RefObject<HTMLElement | null>
+  /** 화면에서 감춰진 동안(지도 위치 찍기 등)엔 Esc·포커스 트랩을 쉬게 한다 */
+  enabled?: boolean
 }) {
-  const { panelRef, initialFocusRef } = options
+  const { panelRef, initialFocusRef, enabled = true } = options
   const closeRef = useRef(options.onClose)
   const busyRef = useRef(options.busy)
   // 렌더 중 ref 대입 금지(버려지는 렌더의 콜백 노출 방지) → 커밋 후 동기화
@@ -27,6 +29,7 @@ export function useDialogBehavior(options: {
   }, [options.onClose, options.busy])
 
   useEffect(() => {
+    if (!enabled) return
     const prevActive = document.activeElement as HTMLElement | null
     const target = initialFocusRef?.current ?? panelRef.current?.querySelector<HTMLElement>(FOCUSABLE)
     target?.focus()
@@ -58,5 +61,5 @@ export function useDialogBehavior(options: {
       window.removeEventListener('keydown', onKey)
       prevActive?.focus?.()
     }
-  }, [panelRef, initialFocusRef])
+  }, [panelRef, initialFocusRef, enabled])
 }

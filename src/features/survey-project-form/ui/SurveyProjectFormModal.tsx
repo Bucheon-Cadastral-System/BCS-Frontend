@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { SURVEY_PROJECT_TYPE_LABEL } from '@/entities/survey-project'
 import type { SurveyProjectType } from '@/entities/survey-project'
-import { MODAL_CANCEL_BTN, MODAL_INPUT, MODAL_SUBMIT_BTN, Modal, ModalField } from '@/shared/ui/Modal'
-import { selectCls } from '@/shared/ui/classes'
+import { MODAL_CANCEL_BTN, MODAL_INPUT, MODAL_SELECT, MODAL_SUBMIT_BTN, Modal, ModalField } from '@/shared/ui/Modal'
 
 const TYPES: SurveyProjectType[] = ['GENERAL', 'EXCAVATION_CONSULTATION']
 
@@ -49,7 +48,7 @@ export function SurveyProjectFormModal(props: {
       </ModalField>
 
       <ModalField label="유형" hint="조사를 하게 된 계기입니다. 파일 서식과는 별개입니다.">
-        <select className={selectCls} value={type} onChange={(e) => setType(e.target.value as SurveyProjectType)}>
+        <select className={MODAL_SELECT} value={type} onChange={(e) => setType(e.target.value as SurveyProjectType)}>
           {TYPES.map((t) => (
             <option key={t} value={t}>
               {SURVEY_PROJECT_TYPE_LABEL[t]}
