@@ -153,7 +153,8 @@ function ToolsPanel(props: MapSidebarProps & { onClose: () => void }) {
     <div className="flex min-h-0 flex-1 flex-col">
       <PanelHeader title="도구" onClose={props.onClose} />
 
-      <div className="min-h-0 flex-1 overflow-y-auto py-2">
+      {/* 컨테이너 패딩을 두면 첫 항목의 눌리는 영역이 구분선에서 떠 보인다 → 여백은 항목 자체(py-3)가 갖는다 */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
         <ToolItem
           label="대상지 CSV 불러오기"
           description="조사 프로젝트를 만들고 기준점·기존 조사를 한 번에 등록합니다."
@@ -259,7 +260,8 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
     <div className="flex min-h-0 flex-1 flex-col">
       <PanelHeader title="조사 프로젝트" onClose={props.onClose} />
 
-      <div className="px-3 py-3">
+      {/* 구분선~컨트롤~목록 간격을 같게 유지(위아래 대칭) */}
+      <div className="p-3">
         <button
           type="button"
           onClick={handleNew}
@@ -428,7 +430,7 @@ function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
     <div className="flex min-h-0 flex-1 flex-col">
       <PanelHeader title={`기준점 ${props.points.length}`} onClose={props.onClose} />
 
-      <div className="px-3 py-3">
+      <div className="p-3">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -541,6 +543,8 @@ function PointRowList(props: {
           )
         })}
       </ul>
+      {/* 맨 아래까지 내렸을 때 '맨 위로' 버튼이 마지막 행을 가리지 않도록 띄워 둔다 */}
+      <div className="h-12" aria-hidden="true" />
     </div>
 
       {/* 목록이 길어 한참 내려간 뒤에만 아래에서 올라온다 */}
@@ -638,72 +642,86 @@ function Legend() {
   )
 }
 
-/* ── 레일/헤더 인라인 SVG 아이콘 ── */
-function svgProps() {
-  return {
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 1.8,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    className: 'h-full w-full',
-  }
+/* ── 레일/패널 인라인 SVG 아이콘 ── */
+
+/**
+ * 아이콘 공통 껍데기 — 선 굵기·마감·크기를 한 곳에서 정한다.
+ * pad: 도형이 뷰박스를 꽉 채워 유독 커 보이는 아이콘(사람·렌치 등)에 여백을 줘 다른 아이콘과 시각 크기를 맞춘다.
+ */
+function RailIcon({ pad = 0, children }: { pad?: number; children: ReactNode }) {
+  return (
+    <svg
+      viewBox={`${-pad} ${-pad} ${24 + pad * 2} ${24 + pad * 2}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-full w-full"
+    >
+      {children}
+    </svg>
+  )
 }
+
 function IconProject() {
   return (
-    <svg {...svgProps()}>
+    <RailIcon>
       <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
-    </svg>
+    </RailIcon>
   )
 }
+
 function IconPoints() {
   return (
-    <svg {...svgProps()}>
+    <RailIcon>
       <path d="M12 21s-6-5.686-6-10a6 6 0 1 1 12 0c0 4.314-6 10-6 10Z" />
       <circle cx="12" cy="11" r="2" />
-    </svg>
-  )
-}
-function IconUpload() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 16V4m0 0L8 8m4-4 4 4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-    </svg>
+    </RailIcon>
   )
 }
 
 function IconTools() {
   return (
-    <svg {...svgProps()}>
-      <path d="M14.6 6.1a3.9 3.9 0 0 1 5.1 5.1l-2.6-2.6-2.5 2.5-2.6-2.6 2.6-2.4Z" />
-      <path d="m12 12-7 7 2.5 2.5 7-7" />
-    </svg>
+    <RailIcon pad={3}>
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+    </RailIcon>
   )
 }
 
 function IconUsers() {
   return (
-    // 두 사람 도형이 뷰박스를 꽉 채워 커 보이므로 여백을 줘 다른 아이콘과 시각 크기 맞춤
-    <svg {...svgProps()} viewBox="-2 -2 28 28">
+    <RailIcon pad={2}>
       <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
       <circle cx="9" cy="7" r="4" />
       <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
+    </RailIcon>
   )
 }
+
+function IconUpload() {
+  return (
+    <span className="h-4 w-4">
+      <RailIcon>
+        <path d="M12 16V4m0 0L8 8m4-4 4 4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+      </RailIcon>
+    </span>
+  )
+}
+
 function IconChevronLeft() {
   return (
-    <svg {...svgProps()}>
+    <RailIcon>
       <path d="m15 18-6-6 6-6" />
-    </svg>
+    </RailIcon>
   )
 }
+
 function IconChevronDown() {
   return (
-    <svg {...svgProps()}>
+    <RailIcon>
       <path d="m6 9 6 6 6-6" />
-    </svg>
+    </RailIcon>
   )
 }
