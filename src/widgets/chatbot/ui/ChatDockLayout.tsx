@@ -152,15 +152,17 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
         {docked && <div className="h-full" style={{ width: dockWidth }}>{panel}</div>}
       </div>
 
-      {/* 도킹 리사이즈 힌트 — 경계(seam) 위에 걸쳐 지도쪽·채팅쪽 양쪽에서 보이는 중앙 그립. 루트 자식이라 패널 overflow에 안 잘림 */}
-      {docked && (
+      {/* 도킹 리사이즈 힌트 — 경계(seam) 위에 걸쳐 지도쪽·채팅쪽 양쪽에서 보이는 중앙 그립. 루트 자식이라 패널 overflow에 안 잘림.
+          열림/닫힘 동안 패널 폭과 같은 트랜지션으로 경계를 따라 움직여야 하므로, 도킹 모드에선 닫혀 있어도 마운트를 유지한다 */}
+      {mode === 'right' && (
         <div
           role="separator"
           aria-orientation="vertical"
           aria-label="채팅 패널 폭 조절"
           aria-valuenow={dockWidth}
           aria-valuemin={DOCK_MIN_WIDTH}
-          tabIndex={0}
+          aria-hidden={!docked}
+          tabIndex={docked ? 0 : -1}
           onPointerDown={startSplitterDrag}
           onKeyDown={(e) => {
             if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
@@ -170,8 +172,10 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
             const step = e.key === 'ArrowLeft' ? 24 : -24 // 왼쪽=넓게(드래그 방향과 일치), 오른쪽=좁게
             setDockWidth((w) => Math.round(clamp(w + step, DOCK_MIN_WIDTH, Math.max(DOCK_MIN_WIDTH, max))))
           }}
-          style={{ right: dockWidth }}
-          className="group absolute inset-y-0 z-30 flex w-5 translate-x-1/2 cursor-col-resize items-center justify-center"
+          style={{ right: docked ? dockWidth : 0, opacity: docked ? 1 : 0 }}
+          className={`group absolute inset-y-0 z-30 flex w-5 translate-x-1/2 items-center justify-center ${
+            docked ? 'cursor-col-resize' : 'pointer-events-none'
+          } ${resizing ? '' : 'transition-[right,opacity] duration-200 ease-out'}`}
         >
           <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-gray-300 dark:bg-gray-600" />
           <span className="relative h-12 w-1.5 rounded-full bg-gray-400 shadow transition-colors group-hover:bg-blue-500 group-focus-visible:bg-blue-500 dark:bg-gray-500 dark:group-hover:bg-blue-400 dark:group-focus-visible:bg-blue-400" />
