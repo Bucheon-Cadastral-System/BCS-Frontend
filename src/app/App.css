@@ -4,18 +4,20 @@
  * 나머지 UI 스타일은 전부 Tailwind(컴포넌트 인라인 + shared/ui/classes)로 이동.
  */
 
-/* 줌(+/−) 버튼을 지도 좌하단으로 (우하단은 챗봇 버블 자리) */
+/* 줌(+/−) 버튼을 지도 좌하단으로 (우하단은 챗봇 버블 자리).
+   왼쪽 8px에 지도 표시 설정(48px 스택)이 있어 그 오른쪽으로 밀어 둔다.
+   em은 요소 폰트 크기 기준이라 컨트롤마다 실제 값이 달라져서, 좌우 간격은 px로 고정한다 */
 .ol-zoom {
   top: auto;
   right: auto;
-  left: 0.5em;
+  left: 64px; /* 표시 설정 스택(좌측 8px + 폭 48px) 오른쪽 8px */
   bottom: 0.5em;
 }
 
-/* 축척 막대를 줌 버튼 오른쪽(좌하단)으로 */
+/* 축척 막대를 줌 버튼 바로 오른쪽에 붙인다 (줌 버튼 폭 약 30px + 간격 8px) */
 .ol-scale-line {
   right: auto;
-  left: 3.6em;
+  left: 102px;
   bottom: 0.9em;
   background: rgba(255, 255, 255, 0.8);
   border-radius: 4px;

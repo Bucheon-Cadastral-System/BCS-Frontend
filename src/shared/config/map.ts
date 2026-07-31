@@ -12,3 +12,4 @@ export const DEFAULT_CENTER: [number, number] = [126.766, 37.5035]
 
 /** 지도 기본 줌 */
 export const DEFAULT_ZOOM = 13
+

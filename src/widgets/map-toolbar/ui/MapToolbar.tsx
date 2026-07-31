@@ -1,14 +1,10 @@
-import { AddPointButton } from '@/widgets/add-point-control'
+import type { ReactNode } from 'react'
 import { AppHeader } from '@/shared/ui/AppHeader'
 
 /**
- * 지도 화면 헤더 — 공통 헤더에 기준점 추가 토글만 얹는다.
- * 지적도·CSV·테마는 자리를 정한 뒤 다시 붙인다.
+ * 지도 화면 헤더 — 공통 헤더에 화면별 요소를 꽂는 자리만 제공한다.
+ * 어떤 버튼을 둘지는 페이지가 정한다(위젯끼리 직접 참조하지 않게).
  */
-export function MapToolbar(props: { addMode: boolean; onToggleAdd: () => void }) {
-  return (
-    <AppHeader>
-      <AddPointButton active={props.addMode} onToggle={props.onToggleAdd} />
-    </AppHeader>
-  )
+export function MapToolbar({ children }: { children?: ReactNode }) {
+  return <AppHeader>{children}</AppHeader>
 }

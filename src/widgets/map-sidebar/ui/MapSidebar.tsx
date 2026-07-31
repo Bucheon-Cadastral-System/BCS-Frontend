@@ -1,19 +1,23 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { SURVEY_STATUS_LABEL, deriveSurveyStatus } from '@/entities/survey-record'
 import { Skeleton, SkeletonRows } from '@/shared/ui/Skeleton'
+import { percent } from '@/shared/lib/percent'
 import type { SurveyProject } from '@/entities/survey-project'
 import { SURVEY_PROJECT_TYPE_LABEL } from '@/entities/survey-project'
 import type { ControlPoint } from '@/entities/control-point'
 import { PointTypeIcon, StatusMark } from '@/entities/control-point'
 
 /** 좌측 레일에서 열 수 있는 패널 종류 */
-type PanelKey = 'project' | 'points'
+type PanelKey = 'project' | 'points' | 'tools'
 /** 패널 폭(px) — 지도 오버레이 inset 계산과 동일 값 유지 */
 const PANEL_WIDTH = 300
 /** 점 목록 행 높이(h-8) — 가상 스크롤 추정치와 실제 렌더가 같아야 스크롤이 튀지 않는다 */
 const ROW_HEIGHT = 32
 /** 펼친 행에 붙는 조사·망실 버튼 영역 높이 */
 const ROW_ACTIONS_HEIGHT = 46
+/** 조사 프로젝트를 안 고른 목록(기준점 탭)에서 상태 판정에 넘길 빈 집합 */
+const EMPTY_IDS: Set<string> = new Set()
 
 interface MapSidebarProps {
   // 조사 프로젝트
@@ -33,6 +37,8 @@ interface MapSidebarProps {
   projectsLoading?: boolean
   pointsLoading?: boolean
   recordsLoading?: boolean
+  // 도구
+  onImportCsv: (file: File) => void
   // 사용자 관리 (어드민)
   isAdmin: boolean
   onOpenUserManagement: () => void
@@ -92,6 +98,17 @@ export function MapSidebar(props: MapSidebarProps) {
         <RailItem label="기준점" active={open === 'points'} onClick={() => toggle('points')}>
           <IconPoints />
         </RailItem>
+
+        {/* 조사 대상을 다루는 위(프로젝트·기준점)와 데이터 작업(도구)을 구분선으로 나눈다 */}
+        <RailItem
+          label="도구"
+          active={open === 'tools'}
+          onClick={() => toggle('tools')}
+          className="border-t border-gray-700"
+        >
+          <IconTools />
+        </RailItem>
+
         {props.isAdmin && (
           <RailItem
             label="사용자"
@@ -115,11 +132,67 @@ export function MapSidebar(props: MapSidebarProps) {
         {renderBody &&
           (lastPanel === 'project' ? (
             <ProjectPanel {...props} onClose={() => setOpen(null)} />
-          ) : (
+          ) : lastPanel === 'points' ? (
             <PointListPanel {...props} onClose={() => setOpen(null)} />
+          ) : (
+            <ToolsPanel {...props} onClose={() => setOpen(null)} />
           ))}
       </aside>
     </div>
+  )
+}
+
+/**
+ * 도구 패널 — 가끔 쓰는 데이터 작업을 라벨과 함께 나열한다.
+ * (지적도·배경처럼 지도를 보며 켜고 끄는 설정은 지도 좌하단 표시 설정에 있다.)
+ */
+function ToolsPanel(props: MapSidebarProps & { onClose: () => void }) {
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <PanelHeader title="도구" onClose={props.onClose} />
+
+      <div className="min-h-0 flex-1 overflow-y-auto py-2">
+        <ToolItem
+          label="대상지 CSV 불러오기"
+          description="조사 프로젝트를 만들고 기준점·기존 조사를 한 번에 등록합니다."
+          onClick={() => fileRef.current?.click()}
+        >
+          <IconUpload />
+        </ToolItem>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".csv,text/csv"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) props.onImportCsv(file)
+            e.target.value = '' // 같은 파일을 다시 골라도 change가 나게 비운다
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
+/** 도구 한 줄 — 아이콘 + 이름 + 설명 */
+function ToolItem(props: { label: string; description: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={props.onClick}
+      className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-gray-700"
+    >
+      <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-gray-700 text-gray-200">
+        {props.children}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-[13px] font-medium text-gray-100">{props.label}</span>
+        <span className="mt-0.5 block text-[11px] leading-relaxed text-gray-400">{props.description}</span>
+      </span>
+    </button>
   )
 }
 
@@ -212,7 +285,7 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
           const ptotal = props.points.length
           // 조사기록은 활성 프로젝트 것만 조회하므로 카운트·진행률은 선택된 조사에서만 표시
           const psurveyed = selected ? props.surveyedIds.size : 0
-          const ppct = ptotal ? Math.round((psurveyed / ptotal) * 100) : 0
+          const ppct = percent(psurveyed, ptotal)
           return (
             <li
               key={p.id}
@@ -404,6 +477,7 @@ function PointRowList(props: {
   })
 
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [scrolled, setScrolled] = useState(false) // 한참 내려갔을 때만 '맨 위로'를 띄운다
   const expandedId = survey?.expandedPointId ?? null
   const virtualizer = useVirtualizer({
     count: points.length,
@@ -429,13 +503,13 @@ function PointRowList(props: {
   }
 
   return (
-    <div ref={scrollRef} className={`overflow-y-auto ${className}`}>
+    <div className={`relative flex min-h-0 ${className.includes('flex-1') ? 'flex-1' : ''} flex-col`}>
+    <div ref={scrollRef} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 240)} className={`overflow-y-auto ${className}`}>
       {/* 전체 높이만큼 자리를 잡아 스크롤 막대가 실제 목록 길이를 나타내게 하고, 보이는 행만 그 안에 띄운다 */}
       <ul className="relative w-full pb-1" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((item) => {
           const cp = points[item.index]
-          const surveyed = surveyedIds?.has(cp.id) ?? false
-          const lost = lostIds?.has(cp.id) ?? false
+          const status = deriveSurveyStatus(cp.id, surveyedIds ?? EMPTY_IDS, lostIds ?? EMPTY_IDS)
           return (
             <li
               key={item.key}
@@ -446,10 +520,10 @@ function PointRowList(props: {
             >
               <PointRow
                 cp={cp}
-                status={hasSurvey ? (lost ? '망실' : surveyed ? '조사완료' : '미조사') : undefined}
+                status={hasSurvey ? SURVEY_STATUS_LABEL[status] : undefined}
                 expanded={expandedPointId === cp.id}
-                surveyed={surveyed}
-                lost={lost}
+                surveyed={status !== 'todo'}
+                lost={status === 'lost'}
                 onToggleSurvey={hasSurvey ? () => cbRef.current.survey?.onToggleSurvey(cp.id) : undefined}
                 onToggleLost={hasSurvey ? () => cbRef.current.survey?.onToggleLost(cp.id) : undefined}
                 onClick={() => {
@@ -467,6 +541,23 @@ function PointRowList(props: {
           )
         })}
       </ul>
+    </div>
+
+      {/* 목록이 길어 한참 내려간 뒤에만 아래에서 올라온다 */}
+      <button
+        type="button"
+        onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+        aria-hidden={!scrolled}
+        tabIndex={scrolled ? 0 : -1}
+        className={`absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full bg-gray-900/85 py-1.5 pl-2.5 pr-3 text-[12px] font-medium text-white shadow-lg backdrop-blur transition-all duration-200 hover:bg-gray-900 ${
+          scrolled ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-3 opacity-0'
+        }`}
+      >
+        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="m18 15-6-6-6 6" />
+        </svg>
+        맨 위로
+      </button>
     </div>
   )
 }
@@ -574,6 +665,23 @@ function IconPoints() {
     </svg>
   )
 }
+function IconUpload() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 16V4m0 0L8 8m4-4 4 4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+    </svg>
+  )
+}
+
+function IconTools() {
+  return (
+    <svg {...svgProps()}>
+      <path d="M14.6 6.1a3.9 3.9 0 0 1 5.1 5.1l-2.6-2.6-2.5 2.5-2.6-2.6 2.6-2.4Z" />
+      <path d="m12 12-7 7 2.5 2.5 7-7" />
+    </svg>
+  )
+}
+
 function IconUsers() {
   return (
     // 두 사람 도형이 뷰박스를 꽉 채워 커 보이므로 여백을 줘 다른 아이콘과 시각 크기 맞춤
