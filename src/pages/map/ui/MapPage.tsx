@@ -5,13 +5,13 @@ import { MapToolbar } from '@/widgets/map-toolbar'
 import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
 import { MapSidebar, ActiveProjectChip } from '@/widgets/map-sidebar'
-import { AddPointButton, AddPointTypeChip } from '@/widgets/add-point-control'
+import { PointSearchBar } from '@/widgets/point-search'
 import { MapLayerControl } from '@/widgets/map-layer-control'
 import { ClusterList } from '@/widgets/cluster-list'
 import { ChatDockLayout } from '@/widgets/chatbot'
 import type { ChatAction } from '@/widgets/chatbot'
 import { POINT_TYPES, useControlPointsQuery, useRegisterControlPointMutation } from '@/entities/control-point'
-import type { ControlPoint, PointType } from '@/entities/control-point'
+import type { ControlPoint } from '@/entities/control-point'
 import { useCreateSurveyProjectMutation, useSurveyProjectsQuery } from '@/entities/survey-project'
 import type { SurveyProjectType } from '@/entities/survey-project'
 import { useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
@@ -51,8 +51,6 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data])
   const records = useMemo(() => recordsQuery.data ?? [], [recordsQuery.data])
 
-  const [addMode, setAddMode] = useState(false)
-  const [addType, setAddType] = useState<PointType>(POINT_TYPES[0])
   const tmEpsg: TmEpsg = 'EPSG:5186' // 부천 = 중부원점 고정
   const [showCadastral, setShowCadastral] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -60,8 +58,11 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const [focusNonce, setFocusNonce] = useState(0)
   const [mapLeftInset, setMapLeftInset] = useState(0) // 좌측 패널이 지도를 가리는 폭(포커스 센터링 보정). >0 = 패널 열림
   const [openProjectNonce, setOpenProjectNonce] = useState(0) // 활성 프로젝트 칩 → 프로젝트 패널 열기 신호
-  // 입력 모달 — 지도 클릭 프리필(기준점 추가) / 업로드한 파일(CSV 임포트) / 새 조사 만들기
-  const [addDraft, setAddDraft] = useState<{ northing: number; easting: number } | null>(null)
+  // 기준점 추가 — 모달이 주 경로이고, '지도에서 위치 찍기'는 그 안의 한 단계(찍는 동안만 모달을 숨긴다)
+  const [addOpen, setAddOpen] = useState(false)
+  const [picking, setPicking] = useState(false)
+  const [picked, setPicked] = useState<{ northing: number; easting: number } | null>(null)
+  // 입력 모달 — 업로드한 파일(CSV 임포트) / 새 조사 만들기
   const [importFile, setImportFile] = useState<File | null>(null)
   const [creatingProject, setCreatingProject] = useState(false)
   // 결과 알림 — id를 key로 써서 같은 문구가 다시 떠도 애니·타이머가 재시작된다
@@ -78,10 +79,23 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const surveyedIds = useMemo(() => new Set(records.map((r) => r.pointId)), [records])
   const lostIds = useMemo(() => new Set(records.filter((r) => r.lost).map((r) => r.pointId)), [records])
 
-  // 지도 클릭 → 입력 모달(성과 좌표는 사용자가 확정). 클릭 좌표는 프리필 시작값으로만 쓴다.
+  // 위치 찍기 중 지도 클릭 → 좌표만 모달로 돌려주고 다시 입력 화면으로. 찍은 값은 시작값일 뿐 실제 성과가 아니다.
   function addPoint(lng: number, lat: number) {
     const { x, y } = wgs84ToTm(lng, lat, tmEpsg)
-    setAddDraft({ northing: y, easting: x })
+    setPicked({ northing: y, easting: x })
+    setPicking(false)
+  }
+
+  function startAddPoint() {
+    setPicked(null)
+    setPicking(false)
+    setAddOpen(true)
+  }
+
+  function closeAddPoint() {
+    setAddOpen(false)
+    setPicking(false)
+    setPicked(null)
   }
 
   function submitAddPoint(values: AddControlPointValues) {
@@ -98,7 +112,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
       },
       {
         onSuccess: (saved) => {
-          setAddDraft(null)
+          closeAddPoint()
           setSelectedId(saved.id)
         },
         onError: (e) =>
@@ -193,7 +207,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     <div className={`contents ${theme === 'dark' ? 'dark' : ''}`}>
     <div className="flex h-full flex-col">
       <MapToolbar>
-        <AddPointButton active={addMode} onToggle={() => setAddMode((v) => !v)} />
+        <PointSearchBar points={points} onSelect={focusPoint} />
       </MapToolbar>
 
       <ChatDockLayout onAction={handleChatAction}>
@@ -210,6 +224,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           onToggleSurvey={handleToggleSurvey}
           onToggleLost={handleToggleLost}
           onImportCsv={importCsv}
+          onStartAddPoint={startAddPoint}
           projectsLoading={projectsQuery.isPending}
           pointsLoading={pointsQuery.isPending}
           recordsLoading={activeProjectId !== null && recordsQuery.isPending}
@@ -238,7 +253,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           <div className="relative min-h-0 flex-1">
             <ControlPointMap
               points={points}
-              addMode={addMode}
+              addMode={picking}
               showCadastral={showCadastral}
               selectedId={selectedId}
               surveyMode={activeProjectId !== null}
@@ -272,8 +287,22 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
                   onOpen={() => setOpenProjectNonce((n) => n + 1)}
                 />
               )}
-              {addMode && <AddPointTypeChip type={addType} onChange={setAddType} />}
             </div>
+
+            {/* 위치 찍기 중 — 모달은 숨어 있으므로 지도 위에서 무엇을 해야 하는지 알려 준다 */}
+            {picking && (
+              <div className="absolute left-1/2 top-3 z-[5] flex -translate-x-1/2 items-center gap-3 rounded-full bg-gray-900/85 py-2 pl-4 pr-2 text-[13px] text-white shadow-lg backdrop-blur">
+                지도를 클릭해 위치를 지정하세요
+                <button
+                  type="button"
+                  onClick={() => setPicking(false)}
+                  className="rounded-full bg-white/10 px-2.5 py-1 text-[12px] hover:bg-white/20"
+                >
+                  취소
+                </button>
+              </div>
+            )}
+
             <ClusterList
               popup={clusterPopup}
               surveyedIds={surveyedIds}
@@ -296,14 +325,16 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
       </div>
       </ChatDockLayout>
 
-      {addDraft && (
+      {addOpen && (
         <AddControlPointModal
-          defaultType={addType}
+          defaultType={POINT_TYPES[0]}
           defaultEpsg={tmEpsg}
-          prefill={addDraft}
+          picked={picked}
+          picking={picking}
+          onPick={() => setPicking(true)}
           submitting={registerMutation.isPending}
           onSubmit={submitAddPoint}
-          onCancel={() => setAddDraft(null)}
+          onCancel={closeAddPoint}
         />
       )}
 
