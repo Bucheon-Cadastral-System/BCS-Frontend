@@ -176,7 +176,7 @@ export function SurveyProjectFormModal(props: {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".csv,text/csv"
+          accept=".csv,.xlsx,text/csv"
           hidden
           onChange={(e) => {
             const picked = e.target.files?.[0]

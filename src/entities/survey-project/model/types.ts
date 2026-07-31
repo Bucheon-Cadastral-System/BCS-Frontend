@@ -2,6 +2,9 @@
 export interface SurveyProject {
   id: string
   name: string
+  /** 조사 기간 (YYYY-MM-DD). 종료일이 비어 있으면 진행 중인 조사다. */
+  startedOn: string
+  endedOn: string | null
   note: string | null
 }
 
