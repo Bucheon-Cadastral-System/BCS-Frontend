@@ -11,7 +11,6 @@ import Feature from 'ol/Feature'
 import Point from 'ol/geom/Point'
 import { fromLonLat, toLonLat } from 'ol/proj'
 import { defaults as defaultControls } from 'ol/control/defaults'
-import ScaleLine from 'ol/control/ScaleLine'
 import AnimatedCluster from 'ol-ext/layer/AnimatedCluster'
 import type { FeatureLike } from 'ol/Feature'
 import type { Style } from 'ol/style'
@@ -56,6 +55,8 @@ interface ControlPointMapProps {
   onClusterClick: (members: ControlPoint[], coord: number[], x: number, y: number, w: number, h: number) => void
   onClusterAnchorMove: (x: number, y: number) => void
   onClusterAnchorOut: () => void
+  /** 만들어진 지도 인스턴스 — 하단 상태 표시처럼 매 프레임 값이 바뀌는 UI가 직접 구독하도록 넘긴다 */
+  onMapReady?: (map: Map | null) => void
 }
 
 export function ControlPointMap(props: ControlPointMapProps) {
@@ -82,6 +83,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const pointsRef = useRef(props.points)
   const focusNonceRef = useRef(props.focusNonce)
   const showCadastralRef = useRef(props.showCadastral)
+  const onMapReadyRef = useRef(props.onMapReady)
   const anchorZoomRef = useRef<number | null>(null) // 팝오버 열릴 때의 줌 (줌 바뀌면=클러스터 재구성 → 닫기)
   const onClusterAnchorMoveRef = useRef(props.onClusterAnchorMove)
   const onClusterAnchorOutRef = useRef(props.onClusterAnchorOut)
@@ -102,6 +104,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     pointsRef.current = props.points
     focusNonceRef.current = props.focusNonce
     showCadastralRef.current = props.showCadastral
+    onMapReadyRef.current = props.onMapReady
     onClusterAnchorMoveRef.current = props.onClusterAnchorMove
     onClusterAnchorOutRef.current = props.onClusterAnchorOut
   })
@@ -164,12 +167,13 @@ export function ControlPointMap(props: ControlPointMapProps) {
 
     const map = new Map({
       target: container,
-      controls: defaultControls().extend([new ScaleLine({ units: 'metric' })]),
+      controls: defaultControls(), // 축척은 비율과 한 칩에 묶으려고 map-status-bar 가 직접 붙인다
       layers: [baseLayer, cadastralLayer, clusterLayer],
       // maxZoom 22: 리스트 포커스 시 조밀한 점도 디클러스터되도록 딥줌 허용(배경은 overzoom 흐림, 마커·지적도는 선명).
       view: new View({ center: fromLonLat(DEFAULT_CENTER), zoom: DEFAULT_ZOOM, maxZoom: 22 }),
     })
     mapRef.current = map
+    onMapReadyRef.current?.(map)
 
     // 타일이 도착할 때마다 리렌더 → 큰 줌 점프(리스트 포커스 등) 후에도 축소상태 안 남고 즉시 갱신
     const rerender = () => map.render()
@@ -216,6 +220,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     return () => {
       resizeObserver.disconnect()
       map.setTarget(undefined)
+      onMapReadyRef.current?.(null)
       mapRef.current = null
       rawSourceRef.current = null
       clusterLayerRef.current = null

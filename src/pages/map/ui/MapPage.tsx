@@ -7,6 +7,8 @@ import { ControlPointDetail } from '@/widgets/control-point-detail'
 import { MapSidebar, ActiveProjectChip } from '@/widgets/map-sidebar'
 import { PointSearchBar } from '@/widgets/point-search'
 import { MapLayerControl } from '@/widgets/map-layer-control'
+import { MapStatusBar } from '@/widgets/map-status-bar'
+import type OlMap from 'ol/Map'
 import { ClusterList } from '@/widgets/cluster-list'
 import { ChatDockLayout } from '@/widgets/chatbot'
 import type { ChatAction } from '@/widgets/chatbot'
@@ -53,6 +55,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
 
   const tmEpsg: TmEpsg = 'EPSG:5186' // 부천 = 중부원점 고정
   const [showCadastral, setShowCadastral] = useState(true)
+  const [mapInstance, setMapInstance] = useState<OlMap | null>(null) // 하단 상태 표시가 직접 구독한다
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [clusterPopup, setClusterPopup] = useState<{ points: ControlPoint[]; coord: number[]; x: number; y: number; w: number; h: number; id: number } | null>(null)
   const [focusNonce, setFocusNonce] = useState(0)
@@ -268,7 +271,11 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
               onClusterClick={(members, coord, x, y, w, h) => { setSelectedId(null); setClusterPopup({ points: members, coord, x, y, w, h, id: ++clusterIdRef.current }) }}
               onClusterAnchorMove={(x, y) => setClusterPopup((cur) => (cur ? { ...cur, x, y } : cur))}
               onClusterAnchorOut={() => setClusterPopup(null)}
+              onMapReady={setMapInstance}
             />
+
+            {/* 포인터 성과 좌표·축척 비율 — 지도 인스턴스를 직접 구독해 페이지는 리렌더되지 않는다 */}
+            <MapStatusBar map={mapInstance} tmEpsg={tmEpsg} />
             {/* 지도 표시 설정 — 줌·축척과 같은 좌하단 묶음 */}
             <MapLayerControl
               showCadastral={showCadastral}
