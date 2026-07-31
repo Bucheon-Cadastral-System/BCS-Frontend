@@ -4,12 +4,11 @@ import { SURVEY_STATUS_LABEL, deriveSurveyStatus } from '@/entities/survey-recor
 import { Skeleton, SkeletonRows } from '@/shared/ui/Skeleton'
 import { percent } from '@/shared/lib/percent'
 import type { SurveyProject } from '@/entities/survey-project'
-import { SURVEY_PROJECT_TYPE_LABEL } from '@/entities/survey-project'
 import type { ControlPoint } from '@/entities/control-point'
 import { PointTypeIcon, StatusMark } from '@/entities/control-point'
 
 /** 좌측 레일에서 열 수 있는 패널 종류 */
-type PanelKey = 'project' | 'points' | 'tools'
+type PanelKey = 'project' | 'points'
 /** 패널 폭(px) — 지도 오버레이 inset 계산과 동일 값 유지 */
 const PANEL_WIDTH = 300
 /** 점 목록 행 높이(h-8) — 가상 스크롤 추정치와 실제 렌더가 같아야 스크롤이 튀지 않는다 */
@@ -24,7 +23,7 @@ interface MapSidebarProps {
   projects: SurveyProject[]
   activeProjectId: string | null
   onChangeActive: (id: string | null) => void
-  /** 새 조사 만들기 요청 — 이름·유형 입력은 페이지의 모달이 받는다 */
+  /** 새 조사 만들기 요청 — 입력과 대상지 파일은 페이지의 모달이 받는다 */
   onCreate: () => void
   // 기준점 목록
   points: ControlPoint[]
@@ -38,8 +37,7 @@ interface MapSidebarProps {
   pointsLoading?: boolean
   recordsLoading?: boolean
   // 도구
-  onImportCsv: (file: File) => void
-  /** 지도 클릭으로 기준점을 추가하는 모드 시작 */
+  /** 기준점 추가 시작 — 입력은 페이지의 모달이 받는다 */
   onStartAddPoint: () => void
   // 사용자 관리 (어드민)
   isAdmin: boolean
@@ -101,16 +99,6 @@ export function MapSidebar(props: MapSidebarProps) {
           <IconPoints />
         </RailItem>
 
-        {/* 조사 대상을 다루는 위(프로젝트·기준점)와 데이터 작업(도구)을 구분선으로 나눈다 */}
-        <RailItem
-          label="도구"
-          active={open === 'tools'}
-          onClick={() => toggle('tools')}
-          className="border-t border-gray-700"
-        >
-          <IconTools />
-        </RailItem>
-
         {props.isAdmin && (
           <RailItem
             label="사용자"
@@ -134,79 +122,11 @@ export function MapSidebar(props: MapSidebarProps) {
         {renderBody &&
           (lastPanel === 'project' ? (
             <ProjectPanel {...props} onClose={() => setOpen(null)} />
-          ) : lastPanel === 'points' ? (
-            <PointListPanel {...props} onClose={() => setOpen(null)} />
           ) : (
-            <ToolsPanel {...props} onClose={() => setOpen(null)} />
+            <PointListPanel {...props} onClose={() => setOpen(null)} />
           ))}
       </aside>
     </div>
-  )
-}
-
-/**
- * 도구 패널 — 가끔 쓰는 데이터 작업을 라벨과 함께 나열한다.
- * (지적도·배경처럼 지도를 보며 켜고 끄는 설정은 지도 좌하단 표시 설정에 있다.)
- */
-function ToolsPanel(props: MapSidebarProps & { onClose: () => void }) {
-  const fileRef = useRef<HTMLInputElement>(null)
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <PanelHeader title="도구" onClose={props.onClose} />
-
-      {/* 컨테이너 패딩을 두면 첫 항목의 눌리는 영역이 구분선에서 떠 보인다 → 여백은 항목 자체(py-3)가 갖는다 */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <ToolItem
-          label="기준점 추가"
-          description="지도에서 위치를 찍고 성과 좌표를 입력해 한 점을 등록합니다."
-          onClick={() => {
-            props.onStartAddPoint()
-            props.onClose() // 지도를 클릭해야 하므로 패널은 비켜 준다
-          }}
-        >
-          <IconAddPoint />
-        </ToolItem>
-
-        <ToolItem
-          label="대상지 CSV 불러오기"
-          description="조사 프로젝트를 만들고 기준점·기존 조사를 한 번에 등록합니다."
-          onClick={() => fileRef.current?.click()}
-        >
-          <IconUpload />
-        </ToolItem>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".csv,text/csv"
-          hidden
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (file) props.onImportCsv(file)
-            e.target.value = '' // 같은 파일을 다시 골라도 change가 나게 비운다
-          }}
-        />
-      </div>
-    </div>
-  )
-}
-
-/** 도구 한 줄 — 아이콘 + 이름 + 설명 */
-function ToolItem(props: { label: string; description: string; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={props.onClick}
-      className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-gray-700"
-    >
-      <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-gray-700 text-gray-200">
-        <span className="h-4 w-4">{props.children}</span>
-      </span>
-      <span className="min-w-0">
-        <span className="block text-[13px] font-medium text-gray-100">{props.label}</span>
-        <span className="mt-0.5 block text-[11px] leading-relaxed text-gray-400">{props.description}</span>
-      </span>
-    </button>
   )
 }
 
@@ -280,7 +200,7 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
           onClick={handleNew}
           className="w-full rounded-md border border-blue-600 bg-blue-600 py-2 text-[13px] font-medium text-white hover:bg-blue-500"
         >
-          ＋ 새 조사
+          ＋ 프로젝트 추가
         </button>
       </div>
 
@@ -338,10 +258,6 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
                   }`}
                 >
                   <span className="min-w-0 flex-1 truncate">{p.name}</span>
-                  {/* 조사 계기 — 일반 조사와 굴착협의를 목록에서 구분한다 */}
-                  <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-gray-400 ring-1 ring-gray-600">
-                    {SURVEY_PROJECT_TYPE_LABEL[p.type]}
-                  </span>
                   {selected && (
                     <span
                       className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ${
@@ -443,13 +359,27 @@ function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
     <div className="flex min-h-0 flex-1 flex-col">
       <PanelHeader title={`기준점 ${props.points.length}`} onClose={props.onClose} />
 
-      <div className="p-3">
+      {/* 구분선~컨트롤~목록 간격을 같게 유지(위아래 대칭) */}
+      <div className="space-y-2 p-3">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="이름 검색"
-          className="w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-1.5 text-[13px] text-gray-100 placeholder:text-gray-500 outline-none focus:border-blue-500"
+          className="w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-[13px] text-gray-100 placeholder:text-gray-500 outline-none focus:border-blue-500"
         />
+        <button
+          type="button"
+          onClick={() => {
+            props.onStartAddPoint()
+            props.onClose() // 지도에서 위치를 찍을 수 있게 패널은 비켜 준다
+          }}
+          className="flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-600 py-2 text-[13px] font-medium text-gray-100 hover:bg-gray-700"
+        >
+          <span className="h-4 w-4">
+            <IconAddPoint />
+          </span>
+          기준점 추가
+        </button>
       </div>
 
       <PointRowList
@@ -700,13 +630,6 @@ function IconPoints() {
   )
 }
 
-function IconTools() {
-  return (
-    <RailIcon pad={3}>
-      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-    </RailIcon>
-  )
-}
 
 function IconUsers() {
   return (
@@ -732,13 +655,6 @@ function IconAddPoint() {
   )
 }
 
-function IconUpload() {
-  return (
-    <RailIcon>
-      <path d="M12 16V4m0 0L8 8m4-4 4 4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-    </RailIcon>
-  )
-}
 
 function IconChevronLeft() {
   return (

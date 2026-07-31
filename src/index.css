@@ -60,6 +60,26 @@
   background-size: 1rem 1rem;
 }
 
+/* 날짜 입력.
+   달력 팝업은 브라우저가 그리는 화면이라 CSS로 꾸밀 수 없고, color-scheme 만이 밝게/어둡게를 바꾼다.
+   지정해 두면 팝업과 그 안의 아이콘이 앱 테마를 따라간다. */
+input[type='date'] {
+  color-scheme: light;
+}
+.dark input[type='date'] {
+  color-scheme: dark;
+}
+input[type='date']::-webkit-calendar-picker-indicator {
+  width: 1.05rem;
+  height: 1.05rem;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+input[type='date']::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
 html,
 body,
 #root {

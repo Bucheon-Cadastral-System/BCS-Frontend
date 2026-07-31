@@ -94,11 +94,11 @@ export function AddControlPointModal(props: {
         </>
       }
     >
-      <ModalField label="관리번호" hint="예: 41192D000001265">
+      <ModalField label="관리번호" required>
         <input className={MODAL_INPUT} value={pointNo} onChange={(ev) => setPointNo(ev.target.value)} placeholder="41192D000001265" />
       </ModalField>
 
-      <ModalField label="기준점명">
+      <ModalField label="기준점명" required>
         <input className={MODAL_INPUT} value={name} onChange={(ev) => setName(ev.target.value)} placeholder="1465공" />
       </ModalField>
 
@@ -123,10 +123,10 @@ export function AddControlPointModal(props: {
       </ModalField>
 
       <div className="grid grid-cols-2 gap-2">
-        <ModalField label="X 좌표 (북, m)">
+        <ModalField label="X 좌표 (북, m)" required>
           <input className={MODAL_INPUT} value={northing} onChange={(ev) => setNorthing(ev.target.value)} inputMode="decimal" placeholder="545236.77" />
         </ModalField>
-        <ModalField label="Y 좌표 (동, m)">
+        <ModalField label="Y 좌표 (동, m)" required>
           <input className={MODAL_INPUT} value={easting} onChange={(ev) => setEasting(ev.target.value)} inputMode="decimal" placeholder="181840.96" />
         </ModalField>
       </div>

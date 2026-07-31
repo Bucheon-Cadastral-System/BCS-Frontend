@@ -15,7 +15,7 @@ import type { ChatAction } from '@/widgets/chatbot'
 import { POINT_TYPES, useControlPointsQuery, useRegisterControlPointMutation } from '@/entities/control-point'
 import type { ControlPoint } from '@/entities/control-point'
 import { useCreateSurveyProjectMutation, useSurveyProjectsQuery } from '@/entities/survey-project'
-import type { SurveyProjectType } from '@/entities/survey-project'
+import type { SurveyProjectDraft } from '@/entities/survey-project'
 import { useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
 import { useImportSurveyCsv } from '@/features/import-survey-csv'
 import { AddControlPointModal } from '@/features/add-control-point'
@@ -23,6 +23,8 @@ import type { AddControlPointValues } from '@/features/add-control-point'
 import { SurveyProjectFormModal } from '@/features/survey-project-form'
 import { ApiError } from '@/shared/api/http'
 import { Toast } from '@/shared/ui/Toast'
+import { FileDropOverlay } from '@/shared/ui/FileDropOverlay'
+import { useFileDrop } from '@/shared/lib/useFileDrop'
 import type { ToastTone } from '@/shared/ui/Toast'
 import { wgs84ToTm } from '@/shared/lib/crs'
 import type { TmEpsg } from '@/shared/lib/crs'
@@ -65,9 +67,8 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const [addOpen, setAddOpen] = useState(false)
   const [picking, setPicking] = useState(false)
   const [picked, setPicked] = useState<{ northing: number; easting: number; epsg: TmEpsg } | null>(null)
-  // 입력 모달 — 업로드한 파일(CSV 임포트) / 새 조사 만들기
-  const [importFile, setImportFile] = useState<File | null>(null)
-  const [creatingProject, setCreatingProject] = useState(false)
+  // 새 조사 만들기 — 대상지 파일을 붙이면 그 파일로 대상까지 지정한다(화면에 끌어다 놓으면 파일이 붙은 채로 열린다)
+  const [creatingProject, setCreatingProject] = useState<{ file: File | null } | null>(null)
   // 결과 알림 — id를 key로 써서 같은 문구가 다시 떠도 애니·타이머가 재시작된다
   const [toast, setToast] = useState<{ id: number; message: string; tone: ToastTone } | null>(null)
   const toastIdRef = useRef(0)
@@ -77,6 +78,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     setToast({ id: toastIdRef.current, message, tone })
   }
   const clusterIdRef = useRef(0)
+  const fileDrop = useFileDrop((file) => setCreatingProject({ file }))
 
   // 활성 프로젝트의 조사기록만 조회하므로 레코드 존재=조사됨, lost=망실
   const surveyedIds = useMemo(() => new Set(records.map((r) => r.pointId)), [records])
@@ -129,16 +131,12 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     )
   }
 
-  function importCsv(file: File) {
-    setImportFile(file)
-  }
-
-  function submitImport(file: File, name: string, type: SurveyProjectType) {
+  function submitImport(file: File, draft: SurveyProjectDraft) {
     importMutation.mutate(
-      { file, name, type },
+      { file, draft },
       {
         onSuccess: (summary) => {
-          setImportFile(null)
+          setCreatingProject(null)
           dispatch(setActiveProject(String(summary.projectId)))
           showToast(
             `기준점 ${summary.totalRows}점(신규 ${summary.newPoints} · 기존 ${summary.existingPoints} · 갱신 ${summary.updatedPoints}), 조사기록 ${summary.createdRecords}건을 불러왔습니다.`,
@@ -173,12 +171,16 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     )
   }
 
-  function submitCreateProject(name: string, type: SurveyProjectType) {
+  function submitProject(draft: SurveyProjectDraft, file: File | null) {
+    if (file) {
+      submitImport(file, draft)
+      return
+    }
     createProjectMutation.mutate(
-      { name, type },
+      draft,
       {
         onSuccess: (project) => {
-          setCreatingProject(false)
+          setCreatingProject(null)
           dispatch(setActiveProject(project.id))
         },
         onError: () => showToast('조사 프로젝트 생성에 실패했습니다.', 'error'),
@@ -208,7 +210,9 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
 
   return (
     <div className={`contents ${theme === 'dark' ? 'dark' : ''}`}>
-    <div className="flex h-full flex-col">
+    {/* 화면 어디에 파일을 떨어뜨려도 그 파일이 붙은 채로 조사 추가가 열린다 */}
+    <div className="relative flex h-full flex-col" {...fileDrop.dropHandlers}>
+      {fileDrop.dragging && <FileDropOverlay label="대상지 파일을 놓으세요" />}
       <MapToolbar>
         <PointSearchBar points={points} onSelect={focusPoint} />
       </MapToolbar>
@@ -219,14 +223,13 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           projects={projects}
           activeProjectId={activeProjectId}
           onChangeActive={(id) => dispatch(setActiveProject(id))}
-          onCreate={() => setCreatingProject(true)}
+          onCreate={() => setCreatingProject({ file: null })}
           points={points}
           surveyedIds={surveyedIds}
           lostIds={lostIds}
           onFocusPoint={focusPoint}
           onToggleSurvey={handleToggleSurvey}
           onToggleLost={handleToggleLost}
-          onImportCsv={importCsv}
           onStartAddPoint={startAddPoint}
           projectsLoading={projectsQuery.isPending}
           pointsLoading={pointsQuery.isPending}
@@ -345,25 +348,14 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
         />
       )}
 
-      {importFile && (
-        <SurveyProjectFormModal
-          title="대상지 CSV 불러오기"
-          description={`${importFile.name} 파일로 조사 프로젝트를 만듭니다.`}
-          submitLabel="불러오기"
-          defaultName={importFile.name.replace(/\.csv$/i, '')}
-          submitting={importMutation.isPending}
-          onSubmit={({ name, type }) => submitImport(importFile, name, type)}
-          onCancel={() => setImportFile(null)}
-        />
-      )}
-
       {creatingProject && (
         <SurveyProjectFormModal
-          title="새 조사 만들기"
-          submitLabel="만들기"
-          submitting={createProjectMutation.isPending}
-          onSubmit={({ name, type }) => submitCreateProject(name, type)}
-          onCancel={() => setCreatingProject(false)}
+          title="조사 프로젝트 추가"
+          submitLabel="추가"
+          attachedFile={creatingProject.file}
+          submitting={createProjectMutation.isPending || importMutation.isPending}
+          onSubmit={submitProject}
+          onCancel={() => setCreatingProject(null)}
         />
       )}
 
