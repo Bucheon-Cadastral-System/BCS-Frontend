@@ -18,6 +18,7 @@ import type { Style } from 'ol/style'
 import { VWORLD_KEY, DEFAULT_CENTER, DEFAULT_ZOOM } from '@/shared/config/map'
 import { controlPointStyle, clusterStyle } from '@/entities/control-point'
 import type { ControlPoint, MapTheme } from '@/entities/control-point'
+import { deriveSurveyStatus } from '@/entities/survey-record'
 import { createClusterSource, clusterMembers, computeClusterInfo, CLUSTER_DISTANCE } from '../lib/pointClustering'
 
 /**
@@ -78,6 +79,9 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const themeRef = useRef(props.theme)
   const leftInsetRef = useRef(props.leftInset)
   const clusterAnchorRef = useRef(props.clusterAnchor)
+  const pointsRef = useRef(props.points)
+  const focusNonceRef = useRef(props.focusNonce)
+  const showCadastralRef = useRef(props.showCadastral)
   const anchorZoomRef = useRef<number | null>(null) // 팝오버 열릴 때의 줌 (줌 바뀌면=클러스터 재구성 → 닫기)
   const onClusterAnchorMoveRef = useRef(props.onClusterAnchorMove)
   const onClusterAnchorOutRef = useRef(props.onClusterAnchorOut)
@@ -95,6 +99,9 @@ export function ControlPointMap(props: ControlPointMapProps) {
     themeRef.current = props.theme
     leftInsetRef.current = props.leftInset
     clusterAnchorRef.current = props.clusterAnchor
+    pointsRef.current = props.points
+    focusNonceRef.current = props.focusNonce
+    showCadastralRef.current = props.showCadastral
     onClusterAnchorMoveRef.current = props.onClusterAnchorMove
     onClusterAnchorOutRef.current = props.onClusterAnchorOut
   })
@@ -104,7 +111,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     const container = containerRef.current
     if (!container) return
 
-    const baseSource = makeBaseSource(props.theme)
+    const baseSource = makeBaseSource(themeRef.current)
     const baseLayer = new TileLayer({ source: baseSource })
     baseLayerRef.current = baseLayer
 
@@ -125,7 +132,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
       },
     })
     // VWORLD_KEY 없으면 지적도 WMS가 KEY='' 로 매 이동마다 실패 요청 → 아예 끔
-    const cadastralLayer = new ImageLayer({ visible: Boolean(VWORLD_KEY) && props.showCadastral, source: cadastralSource })
+    const cadastralLayer = new ImageLayer({ visible: Boolean(VWORLD_KEY) && showCadastralRef.current, source: cadastralSource })
     cadastralRef.current = cadastralLayer
 
     const rawSource = new VectorSource()
@@ -136,13 +143,9 @@ export function ControlPointMap(props: ControlPointMapProps) {
       const members = clusterMembers(feature)
       if (members.length === 1) {
         const cp = members[0]
-        const survey = !surveyModeRef.current
-          ? 'none'
-          : lostIdsRef.current.has(cp.id)
-            ? 'lost'
-            : surveyedIdsRef.current.has(cp.id)
-              ? 'done'
-              : 'todo'
+        const survey = surveyModeRef.current
+          ? deriveSurveyStatus(cp.id, surveyedIdsRef.current, lostIdsRef.current)
+          : 'none'
         return controlPointStyle(cp, cp.id === selectedIdRef.current, survey, themeRef.current)
       }
       return clusterStyle(
@@ -172,6 +175,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     const rerender = () => map.render()
     baseSource.on('tileloadend', rerender)
     cadastralSource.on('imageloadend', rerender)
+
 
     // 컨테이너 크기 변화(배너 토글·창 리사이즈·레이아웃) → OL 크기가 stale 되면 타일이 잘못 렌더됨(네모난 잔상).
     // 감지해서 updateSize 로 뷰포트 재계산 + 재렌더.
@@ -297,21 +301,22 @@ export function ControlPointMap(props: ControlPointMapProps) {
   // 여기서 팬하지 않는다 → 아래 focusNonce 이펙트가 zoom+pan 담당(팬+줌 이중 애니메이션 충돌=버벅임 방지).
   useEffect(() => {
     if (!props.selectedId || !mapRef.current) return
-    if (props.focusNonce !== lastFocusNonceRef.current) return
-    const p = props.points.find((x) => x.id === props.selectedId)
+    if (focusNonceRef.current !== lastFocusNonceRef.current) return
+    const p = pointsRef.current.find((x) => x.id === props.selectedId)
     if (!p) return
     const view = mapRef.current.getView()
     const res = view.getResolution() ?? 0
     const [cx, cy] = fromLonLat([p.lng, p.lat])
     // 좌측 패널이 가린 폭(leftInset)의 절반만큼 중심을 왼쪽으로 → 점이 '보이는 영역' 중앙에 오게
-    view.animate({ center: [cx - (props.leftInset / 2) * res, cy], duration: 300 })
+    view.animate({ center: [cx - (leftInsetRef.current / 2) * res, cy], duration: 300 })
   }, [props.selectedId])
 
   // 리스트/클러스터에서 포커스 → 확대 + 이동 (단일 애니메이션). ref 갱신은 위 selectedId 이펙트보다 뒤에 실행됨.
   useEffect(() => {
     lastFocusNonceRef.current = props.focusNonce
-    if (props.focusNonce === 0 || !mapRef.current || !props.selectedId) return
-    const p = props.points.find((x) => x.id === props.selectedId)
+    const selectedId = selectedIdRef.current
+    if (props.focusNonce === 0 || !mapRef.current || !selectedId) return
+    const p = pointsRef.current.find((x) => x.id === selectedId)
     if (!p) return
     const view = mapRef.current.getView()
     const [cx, cy] = fromLonLat([p.lng, p.lat])
@@ -332,14 +337,15 @@ export function ControlPointMap(props: ControlPointMapProps) {
       if (z !== undefined) zoom = Math.min(22, Math.max(19, z))
     }
     const res = view.getResolutionForZoom(zoom)
-    view.animate({ center: [cx - (props.leftInset / 2) * res, cy], zoom, duration: 450 })
+    view.animate({ center: [cx - (leftInsetRef.current / 2) * res, cy], zoom, duration: 450 })
   }, [props.focusNonce])
 
   // 패널 열림/닫힘으로 가림 폭(leftInset)이 바뀌면, 선택된 점을 새 '보이는 영역 중앙'으로 다시 이동
   // (닫으면 지도 전체 중앙으로, 열면 가려지지 않은 영역 중앙으로)
   useEffect(() => {
-    if (!props.selectedId || !mapRef.current) return
-    const p = props.points.find((x) => x.id === props.selectedId)
+    const selectedId = selectedIdRef.current
+    if (!selectedId || !mapRef.current) return
+    const p = pointsRef.current.find((x) => x.id === selectedId)
     if (!p) return
     const view = mapRef.current.getView()
     const res = view.getResolution() ?? 0
