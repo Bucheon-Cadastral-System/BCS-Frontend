@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ControlPoint } from '@/entities/control-point'
-import { PointTypeIcon, StatusMark } from '@/entities/control-point'
+import { PointTypeIcon, StatusMark, radiusForCount } from '@/entities/control-point'
+import { SURVEY_STATUS_LABEL, deriveSurveyStatus } from '@/entities/survey-record'
+import { useDismiss } from '@/shared/lib/useDismiss'
 import { SkeletonRows } from '@/shared/ui/Skeleton'
 import { useIncrementalReveal } from '@/shared/lib/useIncrementalReveal'
 
@@ -28,14 +30,6 @@ interface ClusterListProps {
 }
 
 const WIDTH = 260
-
-/** clusterStyle 의 반경 버킷과 동일 (뱃지 크기만큼 옆으로 띄우려고) */
-function badgeRadius(count: number): number {
-  if (count < 10) return 15
-  if (count < 50) return 19
-  if (count < 200) return 24
-  return 29
-}
 
 export function ClusterList({ popup, surveyedIds, lostIds, surveyMode, onFocus, onClose }: ClusterListProps) {
   const [data, setData] = useState<ClusterPopup | null>(popup)
@@ -68,14 +62,8 @@ export function ClusterList({ popup, surveyedIds, lostIds, surveyMode, onFocus, 
   }, [openId])
 
   // 비모달 팝오버라 focus-trap은 넣지 않되(지도 위 임시 UI), Esc 로는 닫히게. (항목은 이미 <button>이라 Tab/Enter 가능)
-  useEffect(() => {
-    if (!popup) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [popup, onClose])
+  // 바깥 클릭은 지도 조작(뱃지 다시 누르기·팬)이 자체로 처리하므로 여기선 걸지 않는다.
+  useDismiss({ enabled: Boolean(popup), onDismiss: onClose })
 
   // onFocus 는 ref 로 참조 → 아래 rows 메모의 의존성에서 빼서 매 렌더마다 재생성 안 되게(콜백 정체성 무관)
   const onFocusRef = useRef(onFocus)
@@ -91,7 +79,7 @@ export function ClusterList({ popup, surveyedIds, lostIds, surveyMode, onFocus, 
   const rows = useMemo(
     () =>
       members?.slice(0, count).map((cp) => {
-        const status = surveyMode ? (lostIds.has(cp.id) ? '망실' : surveyedIds.has(cp.id) ? '조사완료' : '미조사') : ''
+        const status = surveyMode ? SURVEY_STATUS_LABEL[deriveSurveyStatus(cp.id, surveyedIds, lostIds)] : ''
         return (
           <li key={cp.id}>
             <button
@@ -113,7 +101,7 @@ export function ClusterList({ popup, surveyedIds, lostIds, surveyMode, onFocus, 
   if (!data) return null
 
   const width = Math.min(WIDTH, data.w - 16) // 좁은 화면에선 뷰포트에 맞춰 축소
-  const gap = badgeRadius(data.points.length) + 12
+  const gap = radiusForCount(data.points.length) + 12 // 뱃지 크기만큼 옆으로 띄운다
   const placeLeft = data.x + gap + width > data.w
   // 뱃지 오른쪽(기본)/왼쪽 배치 후, 최종 left를 뷰포트 [8, w-width-8]로 클램프(좁은 화면서 화면 밖 방지)
   const rawLeft = placeLeft ? data.x - gap - width : data.x + gap

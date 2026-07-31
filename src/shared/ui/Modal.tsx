@@ -70,6 +70,10 @@ export function ModalField(props: { label: string; hint?: string; children: Reac
 export const MODAL_INPUT =
   'w-full rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-[13px] text-gray-900 placeholder:text-gray-400 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100'
 
+/** 모달 안 셀렉트 — 다크 툴바용 selectCls와 배경 계열이 달라 따로 둔다 */
+export const MODAL_SELECT =
+  'w-full rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-[13px] text-gray-900 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100'
+
 export const MODAL_CANCEL_BTN =
   'rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[13px] text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
 

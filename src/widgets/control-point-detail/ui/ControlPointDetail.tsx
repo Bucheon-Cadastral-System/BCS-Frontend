@@ -1,5 +1,6 @@
 import { TM_ORIGINS } from '@/shared/lib/crs'
 import type { ControlPoint, PointType } from '@/entities/control-point'
+import { SURVEY_STATUS_LABEL } from '@/entities/survey-record'
 import { btn } from '@/shared/ui/classes'
 
 interface ControlPointDetailProps {
@@ -55,7 +56,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
                     : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300'
               }`}
             >
-              {props.lost ? '망실' : props.surveyed ? '조사완료' : '미조사'}
+              {SURVEY_STATUS_LABEL[props.lost ? 'lost' : props.surveyed ? 'done' : 'todo']}
             </span>
           </div>
           <div className="flex gap-2">

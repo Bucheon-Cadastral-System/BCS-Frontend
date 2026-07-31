@@ -3,8 +3,7 @@ import { POINT_TYPES } from '@/entities/control-point'
 import type { PointType } from '@/entities/control-point'
 import { TM_ORIGINS, tmToWgs84 } from '@/shared/lib/crs'
 import type { TmEpsg } from '@/shared/lib/crs'
-import { MODAL_CANCEL_BTN, MODAL_INPUT, MODAL_SUBMIT_BTN, Modal, ModalField } from '@/shared/ui/Modal'
-import { selectCls } from '@/shared/ui/classes'
+import { MODAL_CANCEL_BTN, MODAL_INPUT, MODAL_SELECT, MODAL_SUBMIT_BTN, Modal, ModalField } from '@/shared/ui/Modal'
 
 export interface AddControlPointValues {
   pointNo: string
@@ -89,7 +88,7 @@ export function AddControlPointModal(props: {
       </ModalField>
 
       <ModalField label="종류">
-        <select className={selectCls} value={type} onChange={(ev) => setType(ev.target.value as PointType)}>
+        <select className={MODAL_SELECT} value={type} onChange={(ev) => setType(ev.target.value as PointType)}>
           {POINT_TYPES.map((t) => (
             <option key={t} value={t}>
               {t}
@@ -99,7 +98,7 @@ export function AddControlPointModal(props: {
       </ModalField>
 
       <ModalField label="원점">
-        <select className={selectCls} value={tmEpsg} onChange={(ev) => setTmEpsg(ev.target.value as TmEpsg)}>
+        <select className={MODAL_SELECT} value={tmEpsg} onChange={(ev) => setTmEpsg(ev.target.value as TmEpsg)}>
           {TM_ORIGINS.map((o) => (
             <option key={o.epsg} value={o.epsg}>
               {o.label} ({o.epsg})
