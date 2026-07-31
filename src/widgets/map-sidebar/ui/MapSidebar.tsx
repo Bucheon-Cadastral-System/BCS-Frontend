@@ -39,6 +39,8 @@ interface MapSidebarProps {
   recordsLoading?: boolean
   // 도구
   onImportCsv: (file: File) => void
+  /** 지도 클릭으로 기준점을 추가하는 모드 시작 */
+  onStartAddPoint: () => void
   // 사용자 관리 (어드민)
   isAdmin: boolean
   onOpenUserManagement: () => void
@@ -155,6 +157,17 @@ function ToolsPanel(props: MapSidebarProps & { onClose: () => void }) {
 
       {/* 컨테이너 패딩을 두면 첫 항목의 눌리는 영역이 구분선에서 떠 보인다 → 여백은 항목 자체(py-3)가 갖는다 */}
       <div className="min-h-0 flex-1 overflow-y-auto">
+        <ToolItem
+          label="기준점 추가"
+          description="지도에서 위치를 찍고 성과 좌표를 입력해 한 점을 등록합니다."
+          onClick={() => {
+            props.onStartAddPoint()
+            props.onClose() // 지도를 클릭해야 하므로 패널은 비켜 준다
+          }}
+        >
+          <IconAddPoint />
+        </ToolItem>
+
         <ToolItem
           label="대상지 CSV 불러오기"
           description="조사 프로젝트를 만들고 기준점·기존 조사를 한 번에 등록합니다."
@@ -697,6 +710,21 @@ function IconUsers() {
       <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </RailIcon>
+  )
+}
+
+function IconAddPoint() {
+  return (
+    <span className="h-4 w-4">
+      <svg viewBox="0 0 24 24" className="h-full w-full" aria-hidden="true">
+        <g fill="none" stroke="currentColor" strokeWidth="1.8">
+          <circle cx="10" cy="10" r="6" />
+          <path d="M10 3v14M3 10h14" strokeWidth="1.2" />
+        </g>
+        <circle cx="18" cy="18" r="5.5" fill="#16a34a" />
+        <path d="M18 15.4v5.2M15.4 18h5.2" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    </span>
   )
 }
 
