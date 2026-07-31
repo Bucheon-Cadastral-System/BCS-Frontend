@@ -5,6 +5,7 @@ import { ChatBubbleIcon } from './icons'
 import { useSendChatMutation } from '../api/chat'
 import type { ChatAction, ChatMessage, ChatMode, Size } from '../model/types'
 import { loadChatMessages, loadChatUi, saveChatMessages, saveChatUi } from '../model/storage'
+import { useDismiss } from '@/shared/lib/useDismiss'
 
 const DOCK_MIN_WIDTH = 320
 const FLOAT_MIN: Size = { width: 300, height: 380 }
@@ -44,14 +45,7 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
   }, [messages])
 
   // 코너 오버레이는 ESC로 닫는다(도킹은 자리 차지라 유지)
-  useEffect(() => {
-    if (!open || mode !== 'corner') return
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, mode])
+  useDismiss({ enabled: open && mode === 'corner', onDismiss: () => setOpen(false) })
 
   // 진행 중 요청의 응답이 '새 대화'로 초기화된 뒤 섞이지 않게 세션을 센다
   const sessionRef = useRef(0)
@@ -140,7 +134,8 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
 
   return (
     // 루트에 테마 배경을 깔아, 서브픽셀 틈이 생겨도 밝은 body 배경 대신 이 색이 비쳐 흰 선이 안 보이게 한다
-    <div ref={areaRef} className="relative flex min-h-0 min-w-0 flex-1 flex-row bg-gray-100 dark:bg-gray-900">
+    // overflow-hidden: 스플리터(경계 위로 절반 걸침)·코너 카드처럼 가장자리에 걸치는 요소가 페이지 가로 스크롤을 만들지 않게 한다
+    <div ref={areaRef} className="relative flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden bg-gray-100 dark:bg-gray-900">
       {/* flex 컨테이너여야 자식(콘텐츠 flex)의 flex-1·stretch가 먹어 지도가 영역을 꽉 채운다 */}
       <main className="relative flex min-h-0 min-w-0 flex-1">{children}</main>
 
