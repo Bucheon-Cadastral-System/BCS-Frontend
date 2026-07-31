@@ -12,6 +12,7 @@ const MAX_RESULTS = 8
 export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: ControlPoint) => void }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(0)
   const rootRef = useRef<HTMLDivElement>(null)
   useDismiss({ enabled: open, onDismiss: () => setOpen(false), ref: rootRef })
 
@@ -19,11 +20,30 @@ export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: C
   const results = keyword
     ? props.points.filter((p) => p.name.includes(keyword) || p.pointNo.includes(keyword)).slice(0, MAX_RESULTS)
     : []
+  // 목록이 바뀌면 첫 항목부터 (검색어를 고치는 중에 엉뚱한 항목이 선택돼 있지 않게)
+  const active = Math.min(activeIndex, Math.max(results.length - 1, 0))
 
   function choose(cp: ControlPoint) {
     props.onSelect(cp)
     setOpen(false)
     setQuery('')
+    setActiveIndex(0)
+  }
+
+  // ↑↓로 결과를 옮겨 다니고 Enter로 고른다. 한글 조합 중에는 IME가 후보 이동에 키를 쓰므로 건드리지 않는다.
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.nativeEvent.isComposing) return
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (results.length === 0) return
+      e.preventDefault()
+      setOpen(true)
+      setActiveIndex((i) => {
+        const cur = Math.min(i, results.length - 1)
+        return e.key === 'ArrowDown' ? Math.min(cur + 1, results.length - 1) : Math.max(cur - 1, 0)
+      })
+      return
+    }
+    if (e.key === 'Enter' && results.length > 0) choose(results[active])
   }
 
   return (
@@ -33,20 +53,23 @@ export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: C
         value={query}
         onChange={(e) => {
           setQuery(e.target.value)
+          setActiveIndex(0)
           setOpen(true)
         }}
         onFocus={() => setOpen(true)}
-        // 한글 조합 중 Enter는 확정용이라 검색으로 보지 않는다
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.nativeEvent.isComposing && results.length > 0) choose(results[0])
-        }}
+        onKeyDown={handleKeyDown}
         placeholder="점 검색"
         aria-label="기준점 검색"
+        role="combobox"
+        aria-expanded={open && keyword !== ''}
+        aria-controls="point-search-results"
+        aria-activedescendant={results.length > 0 ? `point-search-option-${active}` : undefined}
+        autoComplete="off"
         className="w-full rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 pr-10 text-[13px] text-white backdrop-blur-md transition-all placeholder:text-white/30 focus:border-blue-400/50 focus:outline-none focus:ring-2 focus:ring-blue-400/20"
       />
       <button
         type="button"
-        onClick={() => results.length > 0 && choose(results[0])}
+        onClick={() => results.length > 0 && choose(results[active])}
         aria-label="검색"
         className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-white/40 transition-colors hover:text-blue-300"
       >
@@ -57,13 +80,20 @@ export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: C
       </button>
 
       {open && keyword !== '' && (
-        <ul className="absolute left-0 right-0 top-full z-20 mt-1.5 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800">
-          {results.map((cp) => (
-            <li key={cp.id}>
+        <ul
+          id="point-search-results"
+          role="listbox"
+          className="absolute left-0 right-0 top-full z-20 mt-1.5 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
+        >
+          {results.map((cp, i) => (
+            <li key={cp.id} id={`point-search-option-${i}`} role="option" aria-selected={i === active}>
               <button
                 type="button"
                 onClick={() => choose(cp)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700"
+                onMouseEnter={() => setActiveIndex(i)}
+                className={`flex w-full items-center gap-2 px-3 py-2 text-left ${
+                  i === active ? 'bg-gray-100 dark:bg-gray-700' : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
               >
                 <PointTypeIcon type={cp.type} className="h-4 w-4 text-gray-600 dark:text-gray-300" />
                 <span className="min-w-0 flex-1">
