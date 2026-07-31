@@ -1,33 +1,36 @@
-# React + TypeScript + Vite
+# BCS — 부천시 지적기준점 관리 시스템
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+부천시의 지적기준점을 웹 지도 위에서 관리하는 내부 행정 업무용 시스템입니다. 이 저장소는 담당자가 실제로 마주하는 화면을 담고 있습니다.
 
-Currently, two official plugins are available:
+지적기준점은 토지의 경계를 재는 기준이 되는 점입니다. 도로 공사로 없어지거나 표석이 훼손되는 일이 있어 주기적으로 현장을 확인해야 하는데, 그 결과가 종이와 파일로 흩어져 있으면 어느 점을 언제 확인했는지 알기 어렵습니다. BCS는 기준점의 위치와 조사 이력을 한 지도 위에 모아, 담당자가 화면을 보면서 바로 판단할 수 있게 합니다.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 이렇게 씁니다
 
-## React Compiler
+현장에서 기준점을 찾아 상태를 확인하고, 사무실에서 그 결과를 지도와 목록으로 들여다봅니다. 두 자리에서 같은 화면을 쓰기 때문에 PC와 모바일 모두에 맞춰 동작합니다.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 주요 기능
 
-## Expanding the Oxlint configuration
+**지도에서 기준점 보기**
+지적삼각점·지적삼각보조점·지적도근점을 각각의 공식 도식으로 지도에 표시합니다. 지적도를 함께 겹쳐 볼 수 있어 필지 경계와 나란히 확인할 수 있습니다. 점이 몰려 있는 곳은 하나로 묶어 개수로 보여주고, 확대하면 다시 펼쳐집니다. 배경 지도는 밝은 화면과 어두운 화면 중에 고를 수 있습니다.
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+**조사 프로젝트별 관리**
+조사는 한 번으로 끝나지 않고 계기마다 반복됩니다. 그래서 기준점 자체에 상태를 붙이지 않고, 조사 프로젝트를 만들어 그 안에서 점마다 결과를 남깁니다. 같은 점이라도 이번 조사에서는 정상이고 다음 조사에서는 망실일 수 있습니다. 지도에서는 미조사·조사완료·망실이 한눈에 구분되고, 프로젝트별 진행률도 함께 표시됩니다.
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
+**대상지 불러오기**
+굴착 협의처럼 조사 대상 목록이 파일로 오는 경우, 그 파일을 올리면 조사 프로젝트와 대상 기준점이 한 번에 만들어집니다. 이미 등록된 기준점은 다시 만들지 않고 이어서 씁니다.
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
-# BCS-Frontend
+**기준점 등록**
+새로 찾은 기준점은 성과 좌표를 직접 입력해 등록합니다. 대략의 위치를 지도에서 찍어 시작값을 채운 뒤 실제 성과로 고쳐 넣을 수도 있습니다.
+
+**검색**
+기준점 이름이나 관리번호로 찾습니다. 목록에서 고르면 지도가 그 점으로 이동하며 상세 정보를 함께 엽니다.
+
+**챗봇에게 묻기**
+"이번 조사 얼마나 진행됐어?" 처럼 말로 물으면 현황을 정리해 답합니다. 필요하면 표나 그래프로 보여주고, 특정 기준점이나 조사로 화면을 옮겨 주기도 합니다.
+
+**계정 관리**
+직원별로 계정을 두고 운영자가 승인한 사람만 사용합니다.
+
+## 현재 상태
+
+실제 업무에 쓰일 시스템을 목표로 개발하고 있습니다. 지도·조사·검색·챗봇 화면이 동작하며, 로그인과 사진 기록은 준비 중입니다.
