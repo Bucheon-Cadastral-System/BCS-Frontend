@@ -203,6 +203,9 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           onFocusPoint={focusPoint}
           onToggleSurvey={handleToggleSurvey}
           onToggleLost={handleToggleLost}
+          projectsLoading={projectsQuery.isPending}
+          pointsLoading={pointsQuery.isPending}
+          recordsLoading={activeProjectId !== null && recordsQuery.isPending}
           isAdmin={role === 'ADMIN'}
           onOpenUserManagement={onOpenUserManagement}
           onInsetChange={setMapLeftInset}

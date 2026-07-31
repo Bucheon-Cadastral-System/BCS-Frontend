@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ControlPoint } from '@/entities/control-point'
 import { PointTypeIcon, StatusMark } from '@/entities/control-point'
+import { SkeletonRows } from '@/shared/ui/Skeleton'
+import { useIncrementalReveal } from '@/shared/lib/useIncrementalReveal'
 
 export interface ClusterPopup {
   points: ControlPoint[]
@@ -84,9 +86,11 @@ export function ClusterList({ popup, surveyedIds, lostIds, surveyMode, onFocus, 
   // ★ 성능: 지도 팬(뱃지 클릭 시) 동안 위치(top/left)만 바뀌는데도 매 프레임 리렌더된다.
   //   행 목록은 points/조사상태에만 의존하므로 메모해 위치 갱신엔 재조립·재조정 안 되게 함(같은 엘리먼트 → 서브트리 bail-out).
   const members = data?.points
+  // 축소 상태에선 한 뱃지에 수백~수천 점이 묶일 수 있어, 팝오버 열림 애니가 끊기지 않게 나눠 그린다
+  const { count, hasMore, sentinelRef } = useIncrementalReveal(members?.length ?? 0)
   const rows = useMemo(
     () =>
-      members?.map((cp) => {
+      members?.slice(0, count).map((cp) => {
         const status = surveyMode ? (lostIds.has(cp.id) ? '망실' : surveyedIds.has(cp.id) ? '조사완료' : '미조사') : ''
         return (
           <li key={cp.id}>
@@ -103,7 +107,7 @@ export function ClusterList({ popup, surveyedIds, lostIds, surveyMode, onFocus, 
           </li>
         )
       }),
-    [members, surveyedIds, lostIds, surveyMode],
+    [members, count, surveyedIds, lostIds, surveyMode],
   )
 
   if (!data) return null
@@ -136,6 +140,11 @@ export function ClusterList({ popup, surveyedIds, lostIds, surveyMode, onFocus, 
       </div>
       <ul ref={listRef} className="min-h-0 flex-1 overflow-y-auto py-1">
         {rows}
+        {hasMore && (
+          <li ref={sentinelRef}>
+            <SkeletonRows rows={3} />
+          </li>
+        )}
       </ul>
     </aside>
   )

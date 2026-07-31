@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
+import { Skeleton, SkeletonRows } from '@/shared/ui/Skeleton'
 import type { SurveyProject } from '@/entities/survey-project'
 import { SURVEY_PROJECT_TYPE_LABEL } from '@/entities/survey-project'
 import type { ControlPoint } from '@/entities/control-point'
@@ -8,6 +10,10 @@ import { PointTypeIcon, StatusMark } from '@/entities/control-point'
 type PanelKey = 'project' | 'points'
 /** 패널 폭(px) — 지도 오버레이 inset 계산과 동일 값 유지 */
 const PANEL_WIDTH = 300
+/** 점 목록 행 높이(h-8) — 가상 스크롤 추정치와 실제 렌더가 같아야 스크롤이 튀지 않는다 */
+const ROW_HEIGHT = 32
+/** 펼친 행에 붙는 조사·망실 버튼 영역 높이 */
+const ROW_ACTIONS_HEIGHT = 46
 
 interface MapSidebarProps {
   // 조사 프로젝트
@@ -23,6 +29,10 @@ interface MapSidebarProps {
   onFocusPoint: (cp: ControlPoint) => void
   onToggleSurvey: (pointId: string) => void
   onToggleLost: (pointId: string) => void
+  // 서버 조회 진행 여부 — 로딩 중엔 '없습니다' 대신 자리표시를 보여준다
+  projectsLoading?: boolean
+  pointsLoading?: boolean
+  recordsLoading?: boolean
   // 사용자 관리 (어드민)
   isAdmin: boolean
   onOpenUserManagement: () => void
@@ -187,9 +197,14 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
       </div>
 
       <ul className="min-h-0 flex-1 overflow-y-auto">
-        {props.projects.length === 0 && (
-          <li className="px-4 py-6 text-center text-[13px] text-gray-500">조사 프로젝트가 없습니다</li>
-        )}
+        {props.projects.length === 0 &&
+          (props.projectsLoading ? (
+            <li>
+              <SkeletonRows rows={3} />
+            </li>
+          ) : (
+            <li className="px-4 py-6 text-center text-[13px] text-gray-500">조사 프로젝트가 없습니다</li>
+          ))}
         {props.projects.map((p) => {
           const expanded = expandedId === p.id
           const selected = props.activeProjectId === p.id // ★ 선택(활성) = 지도/칩에 반영되는 프로젝트
@@ -266,18 +281,28 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
                       {/* 진행률 (이 프로젝트 기준) */}
                       {selected && (
                       <div className="px-4 py-2">
-                        <div className="mb-1.5 flex items-center text-[12px] text-gray-300">
-                          <span className="flex-1">
-                            조사 <b className="text-blue-400">{psurveyed}</b> / 전체 {ptotal}
-                          </span>
-                          <span className="font-semibold text-blue-400">{ppct}%</span>
-                        </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-gray-700">
-                          <div
-                            className="h-full rounded-full bg-blue-500 transition-[width] duration-500 ease-out"
-                            style={{ width: `${ppct}%` }}
-                          />
-                        </div>
+                        {/* 조사기록을 받아오는 중엔 0/0·0%가 잠깐 보이지 않도록 자리표시로 둔다 */}
+                        {props.recordsLoading ? (
+                          <div className="space-y-1.5">
+                            <Skeleton className="h-3 w-40" />
+                            <Skeleton className="h-1.5 w-full rounded-full" />
+                          </div>
+                        ) : (
+                          <>
+                            <div className="mb-1.5 flex items-center text-[12px] text-gray-300">
+                              <span className="flex-1">
+                                조사 <b className="text-blue-400">{psurveyed}</b> / 전체 {ptotal}
+                              </span>
+                              <span className="font-semibold text-blue-400">{ppct}%</span>
+                            </div>
+                            <div className="h-1.5 overflow-hidden rounded-full bg-gray-700">
+                              <div
+                                className="h-full rounded-full bg-blue-500 transition-[width] duration-500 ease-out"
+                                style={{ width: `${ppct}%` }}
+                              />
+                            </div>
+                          </>
+                        )}
                       </div>
                       )}
 
@@ -294,6 +319,8 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
                             onToggleSurvey: props.onToggleSurvey,
                             onToggleLost: props.onToggleLost,
                           }}
+                          loading={props.pointsLoading}
+                          className="max-h-[45vh]"
                         />
                       ) : (
                         <p className="px-4 py-2 text-[12px] leading-relaxed text-gray-500">
@@ -337,20 +364,20 @@ function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
         />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <PointRowList
-          points={list}
-          onFocus={props.onFocusPoint}
-          emptyText={props.points.length === 0 ? '기준점이 없습니다' : '검색 결과 없음'}
-        />
-      </div>
+      <PointRowList
+        points={list}
+        onFocus={props.onFocusPoint}
+        emptyText={props.points.length === 0 ? '기준점이 없습니다' : '검색 결과 없음'}
+        loading={props.pointsLoading}
+      />
     </div>
   )
 }
 
 /**
- * 점 목록(내부 메모). 무관한 리렌더(지도 팬 등 부모 리렌더)엔 **같은 <ul> 엘리먼트**를 반환해
- * 수천 행 재조정을 건너뛴다(React 서브트리 bail-out). 콜백은 매 렌더 새 정체성이어도 되게 ref로 참조.
+ * 점 목록 — 가상 스크롤. 기준점이 수천 개라 전부 마운트하면 그 커밋이 프레임을 막아 패널이 늦게 뜨고 조작이 끊긴다.
+ * 화면에 보이는 행(+overscan)만 그리므로 DOM 수가 목록 길이와 무관하게 일정하다.
+ * 행 높이는 펼침(조사·망실 버튼) 때문에 가변이라 measureElement로 실제 높이를 잰다.
  * survey 주면 상태마크·조사/망실 토글·펼침(프로젝트 드로어), 없으면 이름·종류만(기준점 탭).
  */
 function PointRowList(props: {
@@ -365,54 +392,82 @@ function PointRowList(props: {
     onToggleLost: (id: string) => void
   }
   emptyText?: string
+  /** 서버에서 목록을 받아오는 중 — 빈 목록 문구 대신 자리표시를 보여준다 */
+  loading?: boolean
+  /** 스크롤 영역 높이 지정(프로젝트 드로어처럼 다른 내용과 같이 놓일 때) */
+  className?: string
 }) {
-  const { points, survey, emptyText } = props
+  const { points, survey, emptyText, loading, className = 'min-h-0 flex-1' } = props
   const cbRef = useRef({ onFocus: props.onFocus, survey })
   useEffect(() => {
     cbRef.current = { onFocus: props.onFocus, survey }
   })
 
-  // survey 객체는 매 렌더 새로 만들어지므로 deps엔 안정된 내부 값만 넣는다(값 같으면 팬 중 메모 유지).
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const expandedId = survey?.expandedPointId ?? null
+  const virtualizer = useVirtualizer({
+    count: points.length,
+    getScrollElement: () => scrollRef.current,
+    // 접힌 행은 ROW_HEIGHT로 고정이라 추정이 정확하다(실측과 어긋나면 스크롤 중 위치가 밀린다).
+    // 펼친 행만 조사·망실 버튼만큼 높아지는데, 한 번에 하나뿐이라 measureElement가 그 차이를 보정한다.
+    estimateSize: (index) => (points[index].id === expandedId ? ROW_HEIGHT + ROW_ACTIONS_HEIGHT : ROW_HEIGHT),
+    overscan: 8,
+    getItemKey: (index) => points[index].id,
+  })
+
   const surveyedIds = survey?.surveyedIds
   const lostIds = survey?.lostIds
   const expandedPointId = survey?.expandedPointId ?? null
   const hasSurvey = Boolean(survey)
 
-  return useMemo(
-    () => (
-      <ul className="pb-1">
-        {points.map((cp) => {
+  if (points.length === 0) {
+    return loading ? (
+      <SkeletonRows rows={6} className="py-1" />
+    ) : (
+      <p className="px-4 py-6 text-center text-[13px] text-gray-500">{emptyText ?? '기준점이 없습니다'}</p>
+    )
+  }
+
+  return (
+    <div ref={scrollRef} className={`overflow-y-auto ${className}`}>
+      {/* 전체 높이만큼 자리를 잡아 스크롤 막대가 실제 목록 길이를 나타내게 하고, 보이는 행만 그 안에 띄운다 */}
+      <ul className="relative w-full pb-1" style={{ height: virtualizer.getTotalSize() }}>
+        {virtualizer.getVirtualItems().map((item) => {
+          const cp = points[item.index]
           const surveyed = surveyedIds?.has(cp.id) ?? false
           const lost = lostIds?.has(cp.id) ?? false
           return (
-            <PointRow
-              key={cp.id}
-              cp={cp}
-              status={hasSurvey ? (lost ? '망실' : surveyed ? '조사완료' : '미조사') : undefined}
-              expanded={expandedPointId === cp.id}
-              surveyed={surveyed}
-              lost={lost}
-              onToggleSurvey={hasSurvey ? () => cbRef.current.survey?.onToggleSurvey(cp.id) : undefined}
-              onToggleLost={hasSurvey ? () => cbRef.current.survey?.onToggleLost(cp.id) : undefined}
-              onClick={() => {
-                const cur = cbRef.current
-                if (cur.survey) {
-                  const willExpand = expandedPointId !== cp.id
-                  cur.survey.onExpand(willExpand ? cp.id : null)
-                  if (willExpand) cur.onFocus(cp)
-                } else {
-                  cur.onFocus(cp)
-                }
-              }}
-            />
+            <li
+              key={item.key}
+              ref={virtualizer.measureElement}
+              data-index={item.index}
+              className="absolute left-0 top-0 w-full"
+              style={{ transform: `translateY(${item.start}px)` }}
+            >
+              <PointRow
+                cp={cp}
+                status={hasSurvey ? (lost ? '망실' : surveyed ? '조사완료' : '미조사') : undefined}
+                expanded={expandedPointId === cp.id}
+                surveyed={surveyed}
+                lost={lost}
+                onToggleSurvey={hasSurvey ? () => cbRef.current.survey?.onToggleSurvey(cp.id) : undefined}
+                onToggleLost={hasSurvey ? () => cbRef.current.survey?.onToggleLost(cp.id) : undefined}
+                onClick={() => {
+                  const cur = cbRef.current
+                  if (cur.survey) {
+                    const willExpand = expandedPointId !== cp.id
+                    cur.survey.onExpand(willExpand ? cp.id : null)
+                    if (willExpand) cur.onFocus(cp)
+                  } else {
+                    cur.onFocus(cp)
+                  }
+                }}
+              />
+            </li>
           )
         })}
-        {points.length === 0 && (
-          <li className="px-4 py-6 text-center text-[13px] text-gray-500">{emptyText ?? '기준점이 없습니다'}</li>
-        )}
       </ul>
-    ),
-    [points, surveyedIds, lostIds, expandedPointId, hasSurvey, emptyText],
+    </div>
   )
 }
 
@@ -430,13 +485,15 @@ function PointRow(props: {
   onToggleLost?: () => void
 }) {
   const hasActions = Boolean(props.onToggleSurvey && props.onToggleLost)
+  // 바깥 <li>는 가상 스크롤 래퍼가 그린다(위치·높이 측정 대상).
+  // 행 높이는 h-8로 고정 — 가상 스크롤 추정 높이와 어긋나면 스크롤 도중 총 높이가 재계산돼 막대와 손 위치가 밀린다.
   return (
-    <li>
+    <div>
       <button
         type="button"
         onClick={props.onClick}
         aria-expanded={hasActions ? Boolean(props.expanded) : undefined}
-        className={`flex w-full items-center gap-2 px-4 py-1.5 text-left hover:bg-gray-700 ${props.expanded ? 'bg-gray-700/40' : ''}`}
+        className={`flex h-8 w-full items-center gap-2 px-4 text-left hover:bg-gray-700 ${props.expanded ? 'bg-gray-700/40' : ''}`}
       >
         {props.status && <StatusMark status={props.status} />}
         <PointTypeIcon type={props.cp.type} className="h-4 w-4 text-gray-200" />
@@ -470,7 +527,7 @@ function PointRow(props: {
           </button>
         </div>
       )}
-    </li>
+    </div>
   )
 }
 
