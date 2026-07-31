@@ -25,8 +25,11 @@ export interface AddControlPointValues {
 export function AddControlPointModal(props: {
   defaultType: PointType
   defaultEpsg: TmEpsg
-  /** 지도에서 찍어 온 시작값 — 값이 새로 오면 좌표 칸만 채운다(입력하던 다른 값은 유지) */
-  picked: { northing: number; easting: number } | null
+  /**
+   * 지도에서 찍어 온 시작값 — 값이 새로 오면 좌표 칸을 채운다(입력하던 다른 값은 유지).
+   * 숫자만으로는 어느 원점 기준인지 알 수 없으므로 변환에 쓴 원점을 함께 받아 같이 맞춘다.
+   */
+  picked: { northing: number; easting: number; epsg: TmEpsg } | null
   /** 지도 클릭을 기다리는 중 — 이때 모달은 숨고 지도만 보인다 */
   picking: boolean
   onPick: () => void
@@ -47,6 +50,7 @@ export function AddControlPointModal(props: {
     if (!picked) return
     setNorthing(picked.northing.toFixed(2))
     setEasting(picked.easting.toFixed(2))
+    setTmEpsg(picked.epsg) // 좌표와 원점이 어긋나면 저장되는 경위도가 찍은 위치와 달라진다
   }, [picked])
 
   const n = Number(northing)

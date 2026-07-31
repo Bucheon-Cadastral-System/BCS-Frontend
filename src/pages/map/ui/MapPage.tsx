@@ -61,7 +61,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   // 기준점 추가 — 모달이 주 경로이고, '지도에서 위치 찍기'는 그 안의 한 단계(찍는 동안만 모달을 숨긴다)
   const [addOpen, setAddOpen] = useState(false)
   const [picking, setPicking] = useState(false)
-  const [picked, setPicked] = useState<{ northing: number; easting: number } | null>(null)
+  const [picked, setPicked] = useState<{ northing: number; easting: number; epsg: TmEpsg } | null>(null)
   // 입력 모달 — 업로드한 파일(CSV 임포트) / 새 조사 만들기
   const [importFile, setImportFile] = useState<File | null>(null)
   const [creatingProject, setCreatingProject] = useState(false)
@@ -82,7 +82,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   // 위치 찍기 중 지도 클릭 → 좌표만 모달로 돌려주고 다시 입력 화면으로. 찍은 값은 시작값일 뿐 실제 성과가 아니다.
   function addPoint(lng: number, lat: number) {
     const { x, y } = wgs84ToTm(lng, lat, tmEpsg)
-    setPicked({ northing: y, easting: x })
+    setPicked({ northing: y, easting: x, epsg: tmEpsg })
     setPicking(false)
   }
 

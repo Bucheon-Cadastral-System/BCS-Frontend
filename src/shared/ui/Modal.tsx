@@ -19,7 +19,8 @@ export function Modal(props: {
   onSubmit?: () => void
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
-  useDialogBehavior({ panelRef, onClose: props.onClose, busy: props.busy })
+  // 감춰진 동안엔 Esc·포커스 트랩을 끈다 — 안 보이는 창이 Esc를 가로채 입력하던 값을 날리면 안 된다
+  useDialogBehavior({ panelRef, onClose: props.onClose, busy: props.busy, enabled: !props.hidden })
 
   return (
     <div

@@ -26,6 +26,7 @@ export function MapLayerControl(props: {
       {/* 라벨·아이콘이 현재 배경을 그대로 나타낸다(누르면 반대로 바뀜) */}
       <LayerButton
         label={dark ? '다크' : '라이트'}
+        pressed={dark}
         onClick={props.onToggleTheme}
         className="border-t border-gray-200 dark:border-gray-700"
       >
@@ -45,10 +46,14 @@ export function MapLayerControl(props: {
   )
 }
 
-/** 아이콘 + 라벨 세로 버튼. active를 주면 켜진 상태를 파랑으로 표시한다. */
+/**
+ * 아이콘 + 라벨 세로 버튼. active를 주면 켜진 상태를 파랑으로 표시한다.
+ * 테마처럼 라벨·아이콘이 이미 상태를 나타내는 버튼은 색은 그대로 두고 pressed만 줘서 보조기술에 상태를 알린다.
+ */
 function LayerButton(props: {
   label: string
   active?: boolean
+  pressed?: boolean
   onClick: () => void
   className?: string
   children: ReactNode
@@ -57,7 +62,7 @@ function LayerButton(props: {
     <button
       type="button"
       onClick={props.onClick}
-      aria-pressed={props.active}
+      aria-pressed={props.pressed ?? props.active}
       title={props.label}
       className={`flex w-full flex-col items-center gap-1 py-2 ${
         props.active

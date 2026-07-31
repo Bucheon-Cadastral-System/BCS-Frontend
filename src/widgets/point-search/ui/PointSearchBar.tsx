@@ -20,9 +20,15 @@ export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: C
   const listRef = useRef<HTMLDivElement>(null)
   useDismiss({ enabled: open, onDismiss: () => setOpen(false), ref: rootRef })
 
-  const keyword = query.trim()
+  // 관리번호에 영문이 섞여 있어(예: 41192D000001265) 대소문자를 가리지 않는다
+  const keyword = query.trim().toLowerCase()
   const results = useMemo(
-    () => (keyword ? props.points.filter((p) => p.name.includes(keyword) || p.pointNo.includes(keyword)) : []),
+    () =>
+      keyword
+        ? props.points.filter(
+            (p) => p.name.toLowerCase().includes(keyword) || p.pointNo.toLowerCase().includes(keyword),
+          )
+        : [],
     [props.points, keyword],
   )
   // 목록이 줄어들면 선택도 범위 안으로
@@ -82,6 +88,7 @@ export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: C
         role="combobox"
         aria-expanded={showList}
         aria-controls="point-search-results"
+        aria-autocomplete="list"
         aria-activedescendant={results.length > 0 ? `point-search-option-${active}` : undefined}
         autoComplete="off"
         className="w-full rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 pr-10 text-[13px] text-white backdrop-blur-md transition-all placeholder:text-white/30 focus:border-blue-400/50 focus:outline-none focus:ring-2 focus:ring-blue-400/20"

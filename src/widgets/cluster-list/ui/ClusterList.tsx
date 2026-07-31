@@ -75,7 +75,7 @@ export function ClusterList({ popup, surveyedIds, lostIds, surveyMode, onFocus, 
   //   행 목록은 points/조사상태에만 의존하므로 메모해 위치 갱신엔 재조립·재조정 안 되게 함(같은 엘리먼트 → 서브트리 bail-out).
   const members = data?.points
   // 축소 상태에선 한 뱃지에 수백~수천 점이 묶일 수 있어, 팝오버 열림 애니가 끊기지 않게 나눠 그린다
-  const { count, hasMore, sentinelRef } = useIncrementalReveal(members?.length ?? 0)
+  const { count, hasMore, sentinelRef } = useIncrementalReveal(members?.length ?? 0, { resetKey: data?.id })
   const rows = useMemo(
     () =>
       members?.slice(0, count).map((cp) => {

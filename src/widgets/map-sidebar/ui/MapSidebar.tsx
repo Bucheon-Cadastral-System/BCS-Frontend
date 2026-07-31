@@ -200,7 +200,7 @@ function ToolItem(props: { label: string; description: string; onClick: () => vo
       className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-gray-700"
     >
       <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-gray-700 text-gray-200">
-        {props.children}
+        <span className="h-4 w-4">{props.children}</span>
       </span>
       <span className="min-w-0">
         <span className="block text-[13px] font-medium text-gray-100">{props.label}</span>
@@ -408,7 +408,7 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
                             onToggleLost: props.onToggleLost,
                           }}
                           loading={props.pointsLoading}
-                          className="max-h-[45vh]"
+                          maxHeightClass="max-h-[45vh]"
                         />
                       ) : (
                         <p className="px-4 py-2 text-[12px] leading-relaxed text-gray-500">
@@ -482,10 +482,12 @@ function PointRowList(props: {
   emptyText?: string
   /** 서버에서 목록을 받아오는 중 — 빈 목록 문구 대신 자리표시를 보여준다 */
   loading?: boolean
-  /** 스크롤 영역 높이 지정(프로젝트 드로어처럼 다른 내용과 같이 놓일 때) */
-  className?: string
+  /** 스크롤 영역 높이 제한(프로젝트 드로어처럼 다른 내용과 같이 놓일 때) */
+  maxHeightClass?: string
 }) {
-  const { points, survey, emptyText, loading, className = 'min-h-0 flex-1' } = props
+  const { points, survey, emptyText, loading, maxHeightClass } = props
+  // 높이 제한이 없으면 남은 공간을 채운다(기준점 탭), 있으면 그만큼만 차지한다(프로젝트 드로어)
+  const fills = !maxHeightClass
   const cbRef = useRef({ onFocus: props.onFocus, survey })
   useEffect(() => {
     cbRef.current = { onFocus: props.onFocus, survey }
@@ -518,8 +520,12 @@ function PointRowList(props: {
   }
 
   return (
-    <div className={`relative flex min-h-0 ${className.includes('flex-1') ? 'flex-1' : ''} flex-col`}>
-    <div ref={scrollRef} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 240)} className={`overflow-y-auto ${className}`}>
+    <div className={`relative flex min-h-0 flex-col ${fills ? 'flex-1' : ''}`}>
+    <div
+      ref={scrollRef}
+      onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 240)}
+      className={`overflow-y-auto ${maxHeightClass ?? 'min-h-0 flex-1'}`}
+    >
       {/* 전체 높이만큼 자리를 잡아 스크롤 막대가 실제 목록 길이를 나타내게 하고, 보이는 행만 그 안에 띄운다 */}
       <ul className="relative w-full pb-1" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((item) => {
@@ -715,26 +721,22 @@ function IconUsers() {
 
 function IconAddPoint() {
   return (
-    <span className="h-4 w-4">
-      <svg viewBox="0 0 24 24" className="h-full w-full" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="h-full w-full" aria-hidden="true">
         <g fill="none" stroke="currentColor" strokeWidth="1.8">
           <circle cx="10" cy="10" r="6" />
           <path d="M10 3v14M3 10h14" strokeWidth="1.2" />
         </g>
-        <circle cx="18" cy="18" r="5.5" fill="#16a34a" />
-        <path d="M18 15.4v5.2M15.4 18h5.2" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
-      </svg>
-    </span>
+      <circle cx="18" cy="18" r="5.5" fill="#16a34a" />
+      <path d="M18 15.4v5.2M15.4 18h5.2" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
   )
 }
 
 function IconUpload() {
   return (
-    <span className="h-4 w-4">
-      <RailIcon>
-        <path d="M12 16V4m0 0L8 8m4-4 4 4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-      </RailIcon>
-    </span>
+    <RailIcon>
+      <path d="M12 16V4m0 0L8 8m4-4 4 4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+    </RailIcon>
   )
 }
 

@@ -69,10 +69,8 @@ function RegisterRoute() {
     <RegistrationPage
       kakaoId="development-kakao-id"
       onCancel={() => navigate('/login')}
-      onSubmit={(registration) => {
-        console.info('회원가입 신청 데이터', registration)
-        navigate('/waiting')
-      }}
+      // 백엔드 연동 전이라 신청 내용은 아직 보내지 않는다. 이름·연락처가 담긴 값이라 콘솔에도 남기지 않는다.
+      onSubmit={() => navigate('/waiting')}
     />
   )
 }
