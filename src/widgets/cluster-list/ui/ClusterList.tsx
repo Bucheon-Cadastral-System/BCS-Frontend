@@ -74,8 +74,10 @@ export function ClusterList({ popup, surveyedIds, lostIds, surveyMode, onFocus, 
   // ★ 성능: 지도 팬(뱃지 클릭 시) 동안 위치(top/left)만 바뀌는데도 매 프레임 리렌더된다.
   //   행 목록은 points/조사상태에만 의존하므로 메모해 위치 갱신엔 재조립·재조정 안 되게 함(같은 엘리먼트 → 서브트리 bail-out).
   const members = data?.points
-  // 축소 상태에선 한 뱃지에 수백~수천 점이 묶일 수 있어, 팝오버 열림 애니가 끊기지 않게 나눠 그린다
-  const { count, hasMore, sentinelRef } = useIncrementalReveal(members?.length ?? 0, { resetKey: data?.id })
+  // 축소 상태에선 한 뱃지에 수백~수천 점이 묶일 수 있어, 팝오버 열림 애니가 끊기지 않게 나눠 그린다.
+  // resetKey는 data(한 렌더 늦게 갱신)가 아니라 popup의 id로 잡아야, 새 뱃지의 목록이 이전 표시 개수만큼 한꺼번에 마운트되지 않는다.
+  // 닫히는 중(openId=null)에는 직전 id를 유지해 사라지는 애니 도중 행이 무더기로 언마운트되지 않게 한다.
+  const { count, hasMore, sentinelRef } = useIncrementalReveal(members?.length ?? 0, { resetKey: openId ?? data?.id })
   const rows = useMemo(
     () =>
       members?.slice(0, count).map((cp) => {
