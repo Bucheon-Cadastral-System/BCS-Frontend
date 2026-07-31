@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import 'ol/ol.css'
 import './App.css'
 import { AdminUsersPage } from '@/pages/admin-users'
@@ -7,8 +8,6 @@ import { RegistrationPage } from '@/pages/registration'
 import { LoginPage } from '@/pages/login'
 import { MapPage } from '@/pages/map'
 import { WaitingPage } from '@/pages/waiting'
-
-type AppView = 'login' | 'registration' | 'waiting' | 'map' | 'admin'
 
 const DEVELOPMENT_ROLE: UserRole = 'ADMIN'
 
@@ -54,50 +53,59 @@ const INITIAL_USERS: ManagedUser[] = [
   },
 ]
 
-export default function App() {
-  const [view, setView] = useState<AppView>('login')
-  const [users, setUsers] = useState<ManagedUser[]>(INITIAL_USERS)
-
-  if (view === 'map') {
-    return (
-      <MapPage
-        role={DEVELOPMENT_ROLE}
-        onOpenUserManagement={() => setView('admin')}
-      />
-    )
-  }
-
-  if (view === 'admin') {
-    return (
-      <AdminUsersPage
-        users={users}
-        onChangeUsers={setUsers}
-        onBack={() => setView('map')}
-      />
-    )
-  }
-
-  if (view === 'registration') {
-    return (
-      <RegistrationPage
-        kakaoId="development-kakao-id"
-        onCancel={() => setView('login')}
-        onSubmit={(registration) => {
-          console.info('회원가입 신청 데이터', registration)
-          setView('waiting')
-        }}
-      />
-    )
-  }
-
-  if (view === 'waiting') {
-    return <WaitingPage onBackToLogin={() => setView('login')} />
-  }
-
+function LoginRoute() {
+  const navigate = useNavigate()
   return (
     <LoginPage
-      onKakaoLogin={() => setView('registration')}
-      onDevelopmentAccess={() => setView('map')}
+      onKakaoLogin={() => navigate('/register')}
+      onDevelopmentAccess={() => navigate('/')}
     />
+  )
+}
+
+function RegisterRoute() {
+  const navigate = useNavigate()
+  return (
+    <RegistrationPage
+      kakaoId="development-kakao-id"
+      onCancel={() => navigate('/login')}
+      onSubmit={(registration) => {
+        console.info('회원가입 신청 데이터', registration)
+        navigate('/waiting')
+      }}
+    />
+  )
+}
+
+function WaitingRoute() {
+  const navigate = useNavigate()
+  return <WaitingPage onBackToLogin={() => navigate('/login')} />
+}
+
+function MapRoute() {
+  const navigate = useNavigate()
+  return <MapPage role={DEVELOPMENT_ROLE} onOpenUserManagement={() => navigate('/admin/users')} />
+}
+
+function AdminUsersRoute(props: { users: ManagedUser[]; onChangeUsers: (users: ManagedUser[]) => void }) {
+  const navigate = useNavigate()
+  return <AdminUsersPage users={props.users} onChangeUsers={props.onChangeUsers} onBack={() => navigate('/')} />
+}
+
+export default function App() {
+  // 사용자 목록은 아직 백엔드 연동 전이라 앱 상태로 들고 있는다(라우트 이동 간 유지 목적).
+  const [users, setUsers] = useState<ManagedUser[]>(INITIAL_USERS)
+
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<MapRoute />} />
+        <Route path="/login" element={<LoginRoute />} />
+        <Route path="/register" element={<RegisterRoute />} />
+        <Route path="/waiting" element={<WaitingRoute />} />
+        <Route path="/admin/users" element={<AdminUsersRoute users={users} onChangeUsers={setUsers} />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
