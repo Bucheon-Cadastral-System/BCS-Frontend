@@ -21,6 +21,8 @@ export function PointerCoordinates(props: { map: Map | null; tmEpsg: TmEpsg }) {
     const onPointerMove = (evt: { coordinate: number[]; dragging: boolean }) => {
       if (evt.dragging) return
       const [lng, lat] = toLonLat(evt.coordinate)
+      // 지적 성과 표기는 측량 관례(X=북 northing, Y=동 easting)로 GIS 축 순서와 반대다.
+      // proj4 는 GIS 순서로 돌려주므로 x=동, y=북 으로 받아 이름을 붙인다.
       const { x, y } = wgs84ToTm(lng, lat, tmEpsg)
       setTm({ northing: y, easting: x })
     }
