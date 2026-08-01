@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { http } from '@/shared/api/http'
 import { CONTROL_POINTS_KEY } from '@/entities/control-point'
-import { SURVEY_PROJECTS_KEY, toSurveyProjectPayload } from '@/entities/survey-project'
+import { SURVEY_PROJECTS_KEY, SURVEY_TARGETS_KEY, toSurveyProjectPayload } from '@/entities/survey-project'
 import type { SurveyProjectDraft } from '@/entities/survey-project'
 
 export interface ImportSummary {
@@ -30,6 +30,7 @@ export function useImportSurveyCsv() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CONTROL_POINTS_KEY })
       queryClient.invalidateQueries({ queryKey: SURVEY_PROJECTS_KEY })
+      queryClient.invalidateQueries({ queryKey: SURVEY_TARGETS_KEY })
       queryClient.invalidateQueries({ queryKey: ['survey-records'] })
     },
   })

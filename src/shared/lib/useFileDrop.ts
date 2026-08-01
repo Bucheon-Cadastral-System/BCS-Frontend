@@ -8,11 +8,11 @@ const carriesFile = (e: DragEvent) => e.dataTransfer.types.includes('Files')
  * 영역에 파일을 떨어뜨려 받는다. 반환한 핸들러를 받을 요소에 펼쳐 놓고, dragging 이면 안내를 덮어 그린다.
  * 중첩해서 쓸 수 있다 — 안쪽(모달)이 이벤트를 멈추므로 바깥(화면) 안내가 함께 뜨지 않는다.
  */
-export function useFileDrop(onFile: (file: File) => void) {
+export function useFileDrop(onFiles: (files: File[]) => void) {
   const [dragging, setDragging] = useState(false)
-  const onFileRef = useRef(onFile)
+  const onFilesRef = useRef(onFiles)
   useEffect(() => {
-    onFileRef.current = onFile
+    onFilesRef.current = onFiles
   })
 
   const dropHandlers = {
@@ -31,8 +31,8 @@ export function useFileDrop(onFile: (file: File) => void) {
       e.preventDefault()
       e.stopPropagation()
       setDragging(false)
-      const file = e.dataTransfer.files[0]
-      if (file) onFileRef.current(file)
+      const files = Array.from(e.dataTransfer.files)
+      if (files.length > 0) onFilesRef.current(files)
     },
   }
 

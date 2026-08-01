@@ -1,3 +1,3 @@
 export type { SurveyProject, SurveyProjectDraft } from './model/types'
-export { fetchSurveyProjects, createSurveyProjectApi, toSurveyProjectPayload } from './api/surveyProjectApi'
-export { useSurveyProjectsQuery, useCreateSurveyProjectMutation, SURVEY_PROJECTS_KEY } from './api/queries'
+export { fetchSurveyProjects, fetchSurveyTargets, createSurveyProjectApi, toSurveyProjectPayload } from './api/surveyProjectApi'
+export { useSurveyProjectsQuery, useSurveyTargetsQuery, useCreateSurveyProjectMutation, SURVEY_PROJECTS_KEY, SURVEY_TARGETS_KEY } from './api/queries'

@@ -11,6 +11,7 @@ export function ActiveProjectChip(props: {
   surveyed: number
   total: number
   onOpen: () => void
+  onClear: () => void
 }) {
   const pct = percent(props.surveyed, props.total)
   return (
@@ -25,6 +26,19 @@ export function ActiveProjectChip(props: {
           {props.surveyed}/{props.total}
           <span className="ml-1 font-normal text-blue-500/80 dark:text-blue-400/80">{pct}%</span>
         </span>
+      }
+      action={
+        <button
+          type="button"
+          onClick={props.onClear}
+          title="조사 선택 해제"
+          aria-label="조사 선택 해제"
+          className="flex size-6 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+        >
+          <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
       }
     />
   )

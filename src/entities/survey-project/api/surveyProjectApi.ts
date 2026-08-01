@@ -41,3 +41,9 @@ export async function createSurveyProjectApi(draft: SurveyProjectDraft): Promise
   const res = await http.post<ServerSurveyProject>('/api/survey-projects', toSurveyProjectPayload(draft))
   return toSurveyProject(res.data)
 }
+
+/** 그 조사의 대상 점 id — 지도·목록을 조사 대상으로만 좁히고 진행률의 분모로 쓴다. */
+export async function fetchSurveyTargets(projectId: string): Promise<string[]> {
+  const res = await http.get<{ content: number[] }>(`/api/survey-projects/${projectId}/targets`)
+  return res.data.content.map(String)
+}

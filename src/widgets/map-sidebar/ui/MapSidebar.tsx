@@ -27,6 +27,8 @@ interface MapSidebarProps {
   onCreate: () => void
   // 기준점 목록
   points: ControlPoint[]
+  /** 고른 조사의 대상 점 — 조사를 고르지 않았으면 points 와 같다 */
+  targetPoints: ControlPoint[]
   surveyedIds: Set<string>
   lostIds: Set<string>
   onFocusPoint: (cp: ControlPoint) => void
@@ -217,7 +219,7 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
           const expanded = expandedId === p.id
           const selected = props.activeProjectId === p.id // ★ 선택(활성) = 지도/칩에 반영되는 프로젝트
           const mounted = mountedId === p.id
-          const ptotal = props.points.length
+          const ptotal = props.targetPoints.length // 분모는 전체 기준점이 아니라 그 조사의 대상
           // 조사기록은 활성 프로젝트 것만 조회하므로 카운트·진행률은 선택된 조사에서만 표시
           const psurveyed = selected ? props.surveyedIds.size : 0
           const ppct = percent(psurveyed, ptotal)
@@ -313,7 +315,7 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
                       {/* 점별 조사·망실 기록은 '선택된(조사 대상)' 프로젝트에서만. 리스트는 PointRowList가 내부 메모 */}
                       {selected ? (
                         <PointRowList
-                          points={props.points}
+                          points={props.targetPoints}
                           onFocus={props.onFocusPoint}
                           survey={{
                             surveyedIds: props.surveyedIds,

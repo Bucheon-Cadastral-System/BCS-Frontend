@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '@/app/store/hooks'
 import { setActiveProject, toggleTheme } from '@/app/store'
 import { MapToolbar } from '@/widgets/map-toolbar'
@@ -14,10 +14,11 @@ import { ChatDockLayout } from '@/widgets/chatbot'
 import type { ChatAction } from '@/widgets/chatbot'
 import { POINT_TYPES, useControlPointsQuery, useRegisterControlPointMutation } from '@/entities/control-point'
 import type { ControlPoint } from '@/entities/control-point'
-import { useCreateSurveyProjectMutation, useSurveyProjectsQuery } from '@/entities/survey-project'
+import { useCreateSurveyProjectMutation, useSurveyProjectsQuery, useSurveyTargetsQuery } from '@/entities/survey-project'
 import type { SurveyProjectDraft } from '@/entities/survey-project'
 import { useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
-import { useImportSurveyCsv } from '@/features/import-survey-csv'
+import { ImportProgressModal, useImportSurveyCsv } from '@/features/import-survey-csv'
+import type { ReadFile } from '@/features/import-survey-csv'
 import { AddControlPointModal } from '@/features/add-control-point'
 import type { AddControlPointValues } from '@/features/add-control-point'
 import { SurveyProjectFormModal } from '@/features/survey-project-form'
@@ -36,6 +37,12 @@ interface MapPageProps {
   onOpenUserManagement: () => void
 }
 
+/** 읽어 둔 파일의 요약 한 줄 — 입력하기 전에 대상이 몇 건인지 보인다. */
+function summaryOf(read: ReadFile) {
+  const { totalRows, errors } = read.preview
+  return errors.length > 0 ? `대상 ${totalRows}건 · 오류 ${errors.length}건` : `대상 ${totalRows}건`
+}
+
 export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const dispatch = useAppDispatch()
   const theme = useAppSelector((state) => state.ui.theme)
@@ -44,6 +51,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const pointsQuery = useControlPointsQuery()
   const projectsQuery = useSurveyProjectsQuery()
   const recordsQuery = useSurveyRecordsQuery(activeProjectId)
+  const targetsQuery = useSurveyTargetsQuery(activeProjectId)
   const registerMutation = useRegisterControlPointMutation()
   const createProjectMutation = useCreateSurveyProjectMutation()
   const recordMutation = useRecordSurveyMutation()
@@ -54,6 +62,13 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const points = useMemo(() => pointsQuery.data ?? [], [pointsQuery.data])
   const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data])
   const records = useMemo(() => recordsQuery.data ?? [], [recordsQuery.data])
+
+  // 조사를 고르면 화면을 그 조사의 대상으로 좁힌다 — 지도·목록·진행률 분모가 모두 이 목록을 따른다
+  const targetIds = useMemo(() => new Set(targetsQuery.data ?? []), [targetsQuery.data])
+  const targetPoints = useMemo(
+    () => (activeProjectId === null ? points : points.filter((p) => targetIds.has(p.id))),
+    [activeProjectId, points, targetIds],
+  )
 
   const tmEpsg: TmEpsg = 'EPSG:5186' // 부천 = 중부원점 고정
   const [showCadastral, setShowCadastral] = useState(true)
@@ -67,8 +82,13 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const [addOpen, setAddOpen] = useState(false)
   const [picking, setPicking] = useState(false)
   const [picked, setPicked] = useState<{ northing: number; easting: number; epsg: TmEpsg } | null>(null)
-  // 새 조사 만들기 — 대상지 파일을 붙이면 그 파일로 대상까지 지정한다(화면에 끌어다 놓으면 파일이 붙은 채로 열린다)
+  // 조사 프로젝트 추가 — 파일을 붙이면 먼저 읽어 보고(reading), 읽은 파일마다 차례로 입력받는다(form).
+  // 파일 없이 만들면 곧장 form 한 건.
+  const [importing, setImporting] = useState<File[] | null>(null)
+  const [projectQueue, setProjectQueue] = useState<{ items: ReadFile[]; index: number } | null>(null)
   const [creatingProject, setCreatingProject] = useState<{ file: File | null } | null>(null)
+  // 파일을 고르기 전에 적어 두던 값 — 첫 조사 입력으로 이어 준다
+  const [carriedDraft, setCarriedDraft] = useState<SurveyProjectDraft | null>(null)
   // 결과 알림 — id를 key로 써서 같은 문구가 다시 떠도 애니·타이머가 재시작된다
   const [toast, setToast] = useState<{ id: number; message: string; tone: ToastTone } | null>(null)
   const toastIdRef = useRef(0)
@@ -78,7 +98,14 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     setToast({ id: toastIdRef.current, message, tone })
   }
   const clusterIdRef = useRef(0)
-  const fileDrop = useFileDrop((file) => setCreatingProject({ file }))
+  const fileDrop = useFileDrop((files) => startImport(files))
+
+  // 표시되는 점이 바뀌면 클러스터가 다시 묶이므로, 열려 있던 묶음 팝오버는 더 이상 없는 뱃지를 가리킨다 → 닫는다.
+  // 고른 점도 지도에서 사라졌으면 선택을 푼다(마커 없는 상세가 남지 않게).
+  useEffect(() => {
+    setClusterPopup(null)
+    setSelectedId((cur) => (cur !== null && !targetPoints.some((p) => p.id === cur) ? null : cur))
+  }, [targetPoints])
 
   // 활성 프로젝트의 조사기록만 조회하므로 레코드 존재=조사됨, lost=망실
   const surveyedIds = useMemo(() => new Set(records.map((r) => r.pointId)), [records])
@@ -136,7 +163,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
       { file, draft },
       {
         onSuccess: (summary) => {
-          setCreatingProject(null)
+          advanceQueue()
           dispatch(setActiveProject(String(summary.projectId)))
           showToast(
             `기준점 ${summary.totalRows}점(신규 ${summary.newPoints} · 기존 ${summary.existingPoints} · 갱신 ${summary.updatedPoints}), 조사기록 ${summary.createdRecords}건을 불러왔습니다.`,
@@ -171,6 +198,28 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     )
   }
 
+  /** 파일을 붙였다 — 드롭이든 선택이든 읽어 보는 단계로 들어간다. 적어 두던 값이 있으면 첫 조사에 이어 쓴다. */
+  function startImport(files: File[], carried?: SurveyProjectDraft) {
+    // 새로 붙인 파일이 우선이다 — 열려 있던 입력·대기 중인 파일은 접고 처음부터 읽는다
+    setCreatingProject(null)
+    setProjectQueue(null)
+    setCarriedDraft(carried ?? null)
+    setImporting(files)
+  }
+
+  /** 등록이 끝나면 다음 파일로 넘어가고, 마지막이면 흐름을 닫는다. */
+  function advanceQueue() {
+    setCreatingProject(null)
+    setProjectQueue((cur) => (cur && cur.index + 1 < cur.items.length ? { ...cur, index: cur.index + 1 } : null))
+  }
+
+  function closeProjectFlow() {
+    setCreatingProject(null)
+    setProjectQueue(null)
+    setImporting(null)
+    setCarriedDraft(null)
+  }
+
   function submitProject(draft: SurveyProjectDraft, file: File | null) {
     if (file) {
       submitImport(file, draft)
@@ -180,7 +229,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
       draft,
       {
         onSuccess: (project) => {
-          setCreatingProject(null)
+          advanceQueue()
           dispatch(setActiveProject(project.id))
         },
         onError: () => showToast('조사 프로젝트 생성에 실패했습니다.', 'error'),
@@ -225,6 +274,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           onChangeActive={(id) => dispatch(setActiveProject(id))}
           onCreate={() => setCreatingProject({ file: null })}
           points={points}
+          targetPoints={targetPoints}
           surveyedIds={surveyedIds}
           lostIds={lostIds}
           onFocusPoint={focusPoint}
@@ -258,7 +308,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
 
           <div className="relative min-h-0 flex-1">
             <ControlPointMap
-              points={points}
+              points={targetPoints}
               addMode={picking}
               showCadastral={showCadastral}
               selectedId={selectedId}
@@ -293,8 +343,9 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
                 <ActiveProjectChip
                   name={activeProject.name}
                   surveyed={surveyedIds.size}
-                  total={points.length}
+                  total={targetPoints.length}
                   onOpen={() => setOpenProjectNonce((n) => n + 1)}
+                  onClear={() => dispatch(setActiveProject(null))}
                 />
               )}
             </div>
@@ -348,19 +399,50 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
         />
       )}
 
+      {/* 파일을 붙였으면 먼저 읽어 본다 — 대상 건수·오류를 확인하고 입력으로 넘어간다 */}
+      {importing && !projectQueue && (
+        <ImportProgressModal
+          files={importing}
+          onReady={(read) => {
+            setImporting(null)
+            setProjectQueue({ items: read, index: 0 })
+          }}
+          onCancel={closeProjectFlow}
+        />
+      )}
+
+      {projectQueue && (
+        <SurveyProjectFormModal
+          // 다음 파일로 넘어가면 폼을 새로 연다. 형제(토스트)와 키가 겹치지 않게 접두어를 붙인다
+          key={`project-${projectQueue.index}`}
+          title="조사 프로젝트 추가"
+          submitLabel="추가"
+          attachedFile={projectQueue.items[projectQueue.index].file}
+          defaults={projectQueue.index === 0 && carriedDraft ? carriedDraft : undefined}
+          fileSummary={summaryOf(projectQueue.items[projectQueue.index])}
+          step={projectQueue.items.length > 1
+            ? { current: projectQueue.index + 1, total: projectQueue.items.length }
+            : undefined}
+          submitting={importMutation.isPending}
+          onSubmit={submitProject}
+          onCancel={closeProjectFlow}
+        />
+      )}
+
       {creatingProject && (
         <SurveyProjectFormModal
           title="조사 프로젝트 추가"
           submitLabel="추가"
           attachedFile={creatingProject.file}
+          onPickFiles={startImport}
           submitting={createProjectMutation.isPending || importMutation.isPending}
           onSubmit={submitProject}
-          onCancel={() => setCreatingProject(null)}
+          onCancel={closeProjectFlow}
         />
       )}
 
       {toast && (
-        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={() => setToast(null)} />
+        <Toast key={`toast-${toast.id}`} message={toast.message} tone={toast.tone} onDismiss={() => setToast(null)} />
       )}
     </div>
     </div>

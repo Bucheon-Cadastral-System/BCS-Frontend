@@ -20,6 +20,12 @@ export function SurveyProjectFormModal(props: {
   defaults?: Partial<SurveyProjectDraft>
   /** 화면에 떨어뜨린 파일 — 바뀔 때마다 이 폼에 붙는다(창이 열려 있는 동안 다시 떨어뜨려도 갈아 끼워진다) */
   attachedFile?: File | null
+  /** 파일을 여러 개 올렸을 때 몇 번째를 입력하는 중인지 */
+  step?: { current: number; total: number }
+  /** 미리 읽어 둔 파일이면 그 요약 — 대상이 몇 건인지 보고 확인할 수 있다 */
+  fileSummary?: string
+  /** 파일을 고르면 읽어 보는 단계로 넘긴다 — 입력하던 값도 함께 넘겨 첫 조사에 이어 쓴다 */
+  onPickFiles?: (files: File[], draft: SurveyProjectDraft) => void
   submitting: boolean
   onSubmit: (draft: SurveyProjectDraft, file: File | null) => void
   onCancel: () => void
@@ -36,6 +42,15 @@ export function SurveyProjectFormModal(props: {
 
   const periodReversed = endedOn !== '' && endedOn < startedOn
   const canSubmit = name.trim() !== '' && startedOn !== '' && !periodReversed && !props.submitting
+
+  function currentDraft(): SurveyProjectDraft {
+    return {
+      name: name.trim(),
+      startedOn,
+      endedOn: trimmedOrNull(endedOn),
+      note: trimmedOrNull(note),
+    }
+  }
 
   function submit() {
     if (!canSubmit) return
@@ -68,7 +83,7 @@ export function SurveyProjectFormModal(props: {
 
   return (
     <Modal
-      title={props.title}
+      title={props.step ? `${props.title} (${props.step.current} / ${props.step.total})` : props.title}
       description={props.description}
       busy={props.submitting}
       onClose={props.onCancel}
@@ -144,7 +159,12 @@ export function SurveyProjectFormModal(props: {
       <ModalField label="대상지 파일">
         {file ? (
           <span className="flex items-center gap-2 rounded-md border border-gray-300 bg-gray-50 px-2.5 py-1.5 dark:border-gray-600 dark:bg-gray-900/40">
-            <span className="min-w-0 flex-1 truncate text-[13px] text-gray-800 dark:text-gray-200">{file.name}</span>
+            <span className="min-w-0 flex-1 truncate text-[13px] text-gray-800 dark:text-gray-200">
+              {file.name}
+              {props.fileSummary && (
+                <span className="ml-1.5 text-[11px] text-gray-500 dark:text-gray-400">{props.fileSummary}</span>
+              )}
+            </span>
             <button
               type="button"
               onClick={() => setFile(null)}
@@ -177,11 +197,15 @@ export function SurveyProjectFormModal(props: {
           ref={fileInputRef}
           type="file"
           accept=".csv,.xlsx,text/csv"
+          multiple
           hidden
           onChange={(e) => {
-            const picked = e.target.files?.[0]
-            if (picked) attach(picked)
+            const picked = Array.from(e.target.files ?? [])
             e.target.value = '' // 같은 파일을 다시 골라도 change 가 나게 비운다
+            if (picked.length === 0) return
+            // 고른 파일은 곧장 붙이지 않고 읽어 보는 단계를 거친다 — 드롭과 같은 흐름
+            if (props.onPickFiles) props.onPickFiles(picked, currentDraft())
+            else attach(picked[0])
           }}
         />
       </ModalField>
