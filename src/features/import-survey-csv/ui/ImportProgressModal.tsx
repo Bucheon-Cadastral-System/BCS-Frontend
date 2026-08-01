@@ -18,16 +18,14 @@ export function ImportProgressModal(props: {
   onCancel: () => void
 }) {
   const { entries, finished } = useImportPreviews(props.files)
-  const succeeded = entries.filter((e) => e.status.kind === 'done')
+  // flatMap 으로 걸러 두면 상태 종류가 늘어날 때 컴파일러가 빠뜨린 자리를 잡는다
+  const succeeded: ReadFile[] = entries.flatMap((e) =>
+    e.status.kind === 'done' ? [{ file: e.file, preview: e.status.preview }] : [],
+  )
   const failedCount = entries.length - succeeded.length
 
   function proceed() {
-    props.onReady(
-      succeeded.map((e) => ({
-        file: e.file,
-        preview: (e.status as { kind: 'done'; preview: SurveyCsvPreview }).preview,
-      })),
-    )
+    props.onReady(succeeded)
   }
 
   return (

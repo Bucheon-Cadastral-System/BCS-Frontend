@@ -75,10 +75,14 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data])
   const records = useMemo(() => recordsQuery.data ?? [], [recordsQuery.data])
 
-  // 조사를 고르면 화면을 그 조사의 대상으로 좁힌다 — 지도·목록·진행률 분모가 모두 이 목록을 따른다
-  const targetIds = useMemo(() => new Set(targetsQuery.data ?? []), [targetsQuery.data])
+  // 조사를 고르면 화면을 그 조사의 대상으로 좁힌다 — 지도·목록·진행률 분모가 모두 이 목록을 따른다.
+  // 대상 목록이 오기 전에는 좁히지 않는다: 빈 배열로 두면 응답을 기다리는 동안 지도가 비고 선택까지 풀린다.
+  const targetIds = useMemo(
+    () => (targetsQuery.data === undefined ? null : new Set(targetsQuery.data)),
+    [targetsQuery.data],
+  )
   const targetPoints = useMemo(
-    () => (activeProjectId === null ? points : points.filter((p) => targetIds.has(p.id))),
+    () => (activeProjectId === null || targetIds === null ? points : points.filter((p) => targetIds.has(p.id))),
     [activeProjectId, points, targetIds],
   )
 
@@ -315,6 +319,12 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           {pointsQuery.isError && (
             <div className="bg-red-100 px-3.5 py-1.5 text-[13px] text-red-800">
               기준점을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
+            </div>
+          )}
+          {/* 대상을 못 읽으면 전체 기준점이 그대로 보이므로, 지금 보이는 것이 조사 대상이 아님을 알린다 */}
+          {targetsQuery.isError && (
+            <div className="bg-red-100 px-3.5 py-1.5 text-[13px] text-red-800">
+              조사 대상을 불러오지 못해 전체 기준점을 표시합니다. 잠시 후 다시 시도해 주세요.
             </div>
           )}
 

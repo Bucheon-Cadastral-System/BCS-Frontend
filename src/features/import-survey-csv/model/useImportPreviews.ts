@@ -21,6 +21,9 @@ export interface PreviewEntry {
  * 붙인 파일들을 차례로 읽어 본다.
  * 순차로 보내는 이유 — 확정(등록)이 순차여야 하므로(파일 간 같은 기준점이 겹칠 수 있다) 같은 순서로 보여 주면
  * 진행 표시와 실제 등록 순서가 어긋나지 않는다.
+ *
+ * files 는 참조가 바뀔 때마다 처음부터 다시 읽으므로 안정된 배열을 넘겨야 한다.
+ * 인라인 배열을 넘기면 렌더마다 서버로 다시 보낸다.
  */
 export function useImportPreviews(files: File[]) {
   const [entries, setEntries] = useState<PreviewEntry[]>([])

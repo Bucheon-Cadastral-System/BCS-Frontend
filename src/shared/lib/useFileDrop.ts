@@ -15,6 +15,18 @@ export function useFileDrop(onFiles: (files: File[]) => void) {
     onFilesRef.current = onFiles
   })
 
+  // 드래그가 이 영역 밖에서 끝나면(브라우저 UI 위에 떨어뜨리거나 Esc 로 취소) leave·drop 이 오지 않아
+  // 안내가 화면을 덮은 채로 남는다. 끝났다는 사실은 문서에서 듣는다.
+  useEffect(() => {
+    const stop = () => setDragging(false)
+    document.addEventListener('drop', stop)
+    document.addEventListener('dragend', stop)
+    return () => {
+      document.removeEventListener('drop', stop)
+      document.removeEventListener('dragend', stop)
+    }
+  }, [])
+
   const dropHandlers = {
     onDragOver: (e: DragEvent) => {
       if (!carriesFile(e)) return

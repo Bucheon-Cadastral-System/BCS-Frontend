@@ -77,6 +77,15 @@
   }
 }
 
+/* 움직임을 줄이기로 한 사용자에겐 흐르지 않는 띠로 대신한다 — 진행 중이라는 사실은 남기고 반복 운동만 없앤다 */
+@media (prefers-reduced-motion: reduce) {
+  .progress-wave {
+    background-image: none;
+    background-color: var(--color-blue-300);
+    animation: none;
+  }
+}
+
 /* 날짜 입력.
    달력 팝업은 브라우저가 그리는 화면이라 CSS로 꾸밀 수 없고, color-scheme 만이 밝게/어둡게를 바꾼다.
    지정해 두면 팝업과 그 안의 아이콘이 앱 테마를 따라간다. */

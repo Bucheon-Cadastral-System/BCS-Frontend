@@ -63,15 +63,7 @@ export function SurveyProjectFormModal(props: {
 
   function submit() {
     if (!canSubmit) return
-    props.onSubmit(
-      {
-        name: name.trim(),
-        startedOn,
-        endedOn: trimmedOrNull(endedOn),
-        note: trimmedOrNull(note),
-      },
-      file,
-    )
+    props.onSubmit(currentDraft(), file)
   }
 
   // 조사명을 아직 안 적었으면 파일 이름을 빌려 쓴다(적어 둔 이름은 건드리지 않는다)
