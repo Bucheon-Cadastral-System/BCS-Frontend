@@ -351,15 +351,18 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
 function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
   const [q, setQ] = useState('')
   const query = q.trim()
+  // 지도에 보이는 것과 같은 목록이어야 한다 — 조사를 고르면 지도에서 빠진 점이 목록에만 남아
+  // 눌러도 아무 일이 없는 것처럼 보인다. 조사를 고르지 않았으면 targetPoints 가 곧 전체 기준점이다.
+  const source = props.targetPoints
   // 검색 결과도 메모 → 팬 리렌더 중 새 배열을 만들지 않아 PointRowList 메모가 유지됨
   const list = useMemo(
-    () => (query ? props.points.filter((p) => p.name.includes(query)) : props.points),
-    [props.points, query],
+    () => (query ? source.filter((p) => p.name.includes(query)) : source),
+    [source, query],
   )
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PanelHeader title={`기준점 ${props.points.length}`} onClose={props.onClose} />
+      <PanelHeader title={`기준점 ${source.length}`} onClose={props.onClose} />
 
       {/* 구분선~컨트롤~목록 간격을 같게 유지(위아래 대칭) */}
       <div className="space-y-2 p-3">
@@ -387,7 +390,7 @@ function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
       <PointRowList
         points={list}
         onFocus={props.onFocusPoint}
-        emptyText={props.points.length === 0 ? '기준점이 없습니다' : '검색 결과 없음'}
+        emptyText={source.length === 0 ? '기준점이 없습니다' : '검색 결과 없음'}
         loading={props.pointsLoading}
       />
     </div>

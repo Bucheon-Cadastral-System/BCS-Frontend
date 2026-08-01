@@ -33,6 +33,8 @@ export function SurveyProjectFormModal(props: {
   onSkip?: () => void
   /** 파일을 고르면 읽어 보는 단계로 넘긴다 — 입력하던 값도 함께 넘겨 첫 조사에 이어 쓴다 */
   onPickFiles?: (files: File[], draft: SurveyProjectDraft) => void
+  /** 입력하던 값을 알린다 — 창 밖(화면 전체)에 파일을 떨어뜨렸을 때도 이어 쓸 수 있게 */
+  onDraftChange?: (draft: SurveyProjectDraft) => void
   submitting: boolean
   onSubmit: (draft: SurveyProjectDraft, file: File | null) => void
   onCancel: () => void
@@ -65,6 +67,18 @@ export function SurveyProjectFormModal(props: {
     if (!canSubmit) return
     props.onSubmit(currentDraft(), file)
   }
+
+  // 값이 바뀔 때마다 바깥에 알린다 — 받는 쪽이 ref 에 담으므로 이 알림이 다시 그림을 부르지 않는다
+  const draftListenerRef = useRef(props.onDraftChange)
+  draftListenerRef.current = props.onDraftChange
+  useEffect(() => {
+    draftListenerRef.current?.({
+      name: name.trim(),
+      startedOn,
+      endedOn: trimmedOrNull(endedOn),
+      note: trimmedOrNull(note),
+    })
+  }, [name, startedOn, endedOn, note])
 
   // 조사명을 아직 안 적었으면 파일 이름을 빌려 쓴다(적어 둔 이름은 건드리지 않는다)
   function attach(picked: File) {

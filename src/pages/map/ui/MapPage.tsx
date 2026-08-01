@@ -102,9 +102,12 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   // 파일 없이 만들면 곧장 form 한 건.
   const [importing, setImporting] = useState<File[] | null>(null)
   const [projectQueue, setProjectQueue] = useState<{ items: ReadFile[]; index: number } | null>(null)
-  const [creatingProject, setCreatingProject] = useState<{ file: File | null } | null>(null)
+  const [creatingProject, setCreatingProject] = useState(false)
   // 파일을 고르기 전에 적어 두던 값 — 첫 조사 입력으로 이어 준다
   const [carriedDraft, setCarriedDraft] = useState<SurveyProjectDraft | null>(null)
+  // 입력 중인 값을 ref 로 따라간다 — 화면 아무 데나 파일을 놓아도 이어 쓸 수 있어야 하는데,
+  // 상태로 올리면 글자를 칠 때마다 지도까지 다시 그린다
+  const openDraftRef = useRef<SurveyProjectDraft | null>(null)
   // 결과 알림 — id를 key로 써서 같은 문구가 다시 떠도 애니·타이머가 재시작된다
   const [toast, setToast] = useState<{ id: number; message: string; tone: ToastTone } | null>(null)
   const toastIdRef = useRef(0)
@@ -214,26 +217,32 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     )
   }
 
-  /** 파일을 붙였다 — 드롭이든 선택이든 읽어 보는 단계로 들어간다. 적어 두던 값이 있으면 첫 조사에 이어 쓴다. */
+  /**
+   * 파일을 붙였다 — 드롭이든 선택이든 읽어 보는 단계로 들어간다.
+   * 적어 두던 값은 첫 조사 입력으로 이어 쓴다. 파일 선택은 그 값을 직접 넘기고, 화면 드롭은 ref 에서 가져온다.
+   */
   function startImport(files: File[], carried?: SurveyProjectDraft) {
+    const draft = carried ?? openDraftRef.current
     // 새로 붙인 파일이 우선이다 — 열려 있던 입력·대기 중인 파일은 접고 처음부터 읽는다
-    setCreatingProject(null)
+    setCreatingProject(false)
     setProjectQueue(null)
-    setCarriedDraft(carried ?? null)
+    setCarriedDraft(draft)
+    openDraftRef.current = null
     setImporting(files)
   }
 
   /** 등록이 끝나면 다음 파일로 넘어가고, 마지막이면 흐름을 닫는다. */
   function advanceQueue() {
-    setCreatingProject(null)
+    setCreatingProject(false)
     setProjectQueue((cur) => (cur && cur.index + 1 < cur.items.length ? { ...cur, index: cur.index + 1 } : null))
   }
 
   function closeProjectFlow() {
-    setCreatingProject(null)
+    setCreatingProject(false)
     setProjectQueue(null)
     setImporting(null)
     setCarriedDraft(null)
+    openDraftRef.current = null
   }
 
   function submitProject(draft: SurveyProjectDraft, file: File | null) {
@@ -288,7 +297,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           projects={projects}
           activeProjectId={activeProjectId}
           onChangeActive={(id) => dispatch(setActiveProject(id))}
-          onCreate={() => setCreatingProject({ file: null })}
+          onCreate={() => setCreatingProject(true)}
           points={points}
           targetPoints={targetPoints}
           surveyedIds={surveyedIds}
@@ -457,8 +466,10 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
         <SurveyProjectFormModal
           title="조사 프로젝트 추가"
           submitLabel="추가"
-          attachedFile={creatingProject.file}
           onPickFiles={startImport}
+          onDraftChange={(draft) => {
+            openDraftRef.current = draft
+          }}
           submitting={createProjectMutation.isPending || importMutation.isPending}
           onSubmit={submitProject}
           onCancel={closeProjectFlow}
