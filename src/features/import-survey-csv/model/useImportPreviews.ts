@@ -30,6 +30,7 @@ export function useImportPreviews(files: File[]) {
     // 개발 모드는 이 효과를 두 번 실행한다 — 첫 실행을 정리로 버리고 두 번째가 처음부터 다시 읽게 둔다.
     // "이미 시작했으면 건너뛴다"로 막으면 버려진 첫 실행만 남아 진행이 멈춘다.
     let cancelled = false
+    const controller = new AbortController()
 
     // 읽는 중에 파일을 다시 붙일 수 있으므로 목록을 매번 새로 세운다
     setEntries(files.map((file) => ({ file, status: { kind: 'waiting' } })))
@@ -42,11 +43,15 @@ export function useImportPreviews(files: File[]) {
 
     void (async () => {
       for (const [index, file] of files.entries()) {
+        // 그만뒀으면 남은 파일은 보내지 않는다 — 창을 닫았는데 서버가 계속 읽고 있을 이유가 없다
+        if (cancelled) return
         update(index, { kind: 'uploading', percent: 0 })
         try {
-          const preview = await previewSurveyCsv(file, (percent) =>
-            update(index, percent < 100 ? { kind: 'uploading', percent } : { kind: 'reading' }),
-          )
+          const preview = await previewSurveyCsv(file, {
+            signal: controller.signal,
+            onUploaded: (percent) =>
+              update(index, percent < 100 ? { kind: 'uploading', percent } : { kind: 'reading' }),
+          })
           update(index, { kind: 'done', preview })
         } catch (e) {
           update(index, { kind: 'failed', reason: e instanceof ApiError ? e.message : '파일을 읽지 못했습니다.' })
@@ -57,6 +62,7 @@ export function useImportPreviews(files: File[]) {
 
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [files])
 

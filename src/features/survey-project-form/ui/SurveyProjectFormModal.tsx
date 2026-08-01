@@ -24,6 +24,13 @@ export function SurveyProjectFormModal(props: {
   step?: { current: number; total: number }
   /** 미리 읽어 둔 파일이면 그 요약 — 대상이 몇 건인지 보고 확인할 수 있다 */
   fileSummary?: string
+  /** 파일 때문에 등록할 수 없는 이유 — 있으면 등록을 막고 사유를 보여 준다 */
+  fileError?: string
+  /**
+   * 읽어 둔 파일 중 이것만 건너뛴다.
+   * 건너뛸 수 있다는 것은 그 파일이 이 단계의 주제라는 뜻이라, 이때는 파일을 바꾸거나 뺄 수 없다.
+   */
+  onSkip?: () => void
   /** 파일을 고르면 읽어 보는 단계로 넘긴다 — 입력하던 값도 함께 넘겨 첫 조사에 이어 쓴다 */
   onPickFiles?: (files: File[], draft: SurveyProjectDraft) => void
   submitting: boolean
@@ -41,7 +48,9 @@ export function SurveyProjectFormModal(props: {
   const [note, setNote] = useState(props.defaults?.note ?? '')
 
   const periodReversed = endedOn !== '' && endedOn < startedOn
-  const canSubmit = name.trim() !== '' && startedOn !== '' && !periodReversed && !props.submitting
+  const fileLocked = props.onSkip !== undefined
+  const canSubmit =
+    name.trim() !== '' && startedOn !== '' && !periodReversed && !props.fileError && !props.submitting
 
   function currentDraft(): SurveyProjectDraft {
     return {
@@ -90,9 +99,20 @@ export function SurveyProjectFormModal(props: {
       onSubmit={submit}
       footer={
         <>
-          <button type="button" className={MODAL_CANCEL_BTN} onClick={props.onCancel} disabled={props.submitting}>
-            취소
+          <button
+            type="button"
+            // 여러 파일을 넘기는 중이면 이 버튼은 한 건이 아니라 남은 전부를 접는다 — 건너뛰기와 떼어 놓는다
+            className={`${MODAL_CANCEL_BTN} ${fileLocked ? 'mr-auto' : ''}`}
+            onClick={props.onCancel}
+            disabled={props.submitting}
+          >
+            {fileLocked ? '전체 중단' : '취소'}
           </button>
+          {props.onSkip && (
+            <button type="button" className={MODAL_CANCEL_BTN} onClick={props.onSkip} disabled={props.submitting}>
+              건너뛰기
+            </button>
+          )}
           <button type="submit" className={MODAL_SUBMIT_BTN} disabled={!canSubmit}>
             {props.submitting ? '처리 중…' : props.submitLabel}
           </button>
@@ -165,33 +185,39 @@ export function SurveyProjectFormModal(props: {
                 <span className="ml-1.5 text-[11px] text-gray-500 dark:text-gray-400">{props.fileSummary}</span>
               )}
             </span>
-            <button
-              type="button"
-              onClick={() => setFile(null)}
-              aria-label="대상지 파일 빼기"
-              className="shrink-0 rounded p-1 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/15 dark:hover:text-red-400"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className="size-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
+            {/* 읽어 둔 파일은 요약이 그 파일의 것이므로 갈아 끼우지 않는다 — 빼려면 건너뛰기로 */}
+            {!fileLocked && (
+              <button
+                type="button"
+                onClick={() => setFile(null)}
+                aria-label="대상지 파일 빼기"
+                className="shrink-0 rounded p-1 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/15 dark:hover:text-red-400"
               >
-                <path d="M4 7h16" />
-                <path d="M10 11v6M14 11v6" />
-                <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
-                <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-              </svg>
-            </button>
+                <svg
+                  viewBox="0 0 24 24"
+                  className="size-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M4 7h16" />
+                  <path d="M10 11v6M14 11v6" />
+                  <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
+                  <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                </svg>
+              </button>
+            )}
           </span>
         ) : (
           <button type="button" className={MODAL_CANCEL_BTN} onClick={() => fileInputRef.current?.click()}>
             파일 선택
           </button>
+        )}
+        {props.fileError && (
+          <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">{props.fileError}</p>
         )}
         <input
           ref={fileInputRef}

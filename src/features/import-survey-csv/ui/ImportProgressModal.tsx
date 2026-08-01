@@ -33,7 +33,7 @@ export function ImportProgressModal(props: {
   return (
     <Modal
       title="대상지 파일 읽는 중"
-      description={`${props.files.length}개 파일을 차례로 확인합니다.`}
+      description={props.files.length > 1 ? `${props.files.length}개 파일을 차례로 확인합니다.` : undefined}
       busy={!finished}
       onClose={props.onCancel}
       footer={
@@ -55,8 +55,9 @@ export function ImportProgressModal(props: {
       }
     >
       <ul className="space-y-2">
-        {entries.map((entry) => (
-          <li key={entry.file.name + entry.file.lastModified}>
+        {/* 이름·수정시각이 같은 파일을 함께 올릴 수 있어 키는 붙인 순서로 잡는다 */}
+        {entries.map((entry, index) => (
+          <li key={index}>
             <FileRow entry={entry} />
           </li>
         ))}

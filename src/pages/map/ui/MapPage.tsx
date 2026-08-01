@@ -43,6 +43,18 @@ function summaryOf(read: ReadFile) {
   return errors.length > 0 ? `대상 ${totalRows}건 · 오류 ${errors.length}건` : `대상 ${totalRows}건`
 }
 
+/**
+ * 등록을 막아야 하는 이유 — 서버는 잘못된 행이 하나라도 있으면 파일 전체를 거부한다.
+ * 보내 봐야 같은 사유로 실패하므로 미리 막고 어디를 고쳐야 하는지 알린다.
+ */
+function blockingReasonOf(read: ReadFile) {
+  const { errors } = read.preview
+  if (errors.length === 0) return undefined
+  const head = errors.slice(0, 2).map((e) => `${e.row}행 ${e.message}`).join(' / ')
+  const rest = errors.length > 2 ? ` 외 ${errors.length - 2}건` : ''
+  return `잘못된 행이 있어 등록할 수 없습니다. 파일을 고쳐 다시 올려 주세요 — ${head}${rest}`
+}
+
 export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const dispatch = useAppDispatch()
   const theme = useAppSelector((state) => state.ui.theme)
@@ -420,9 +432,11 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           attachedFile={projectQueue.items[projectQueue.index].file}
           defaults={projectQueue.index === 0 && carriedDraft ? carriedDraft : undefined}
           fileSummary={summaryOf(projectQueue.items[projectQueue.index])}
+          fileError={blockingReasonOf(projectQueue.items[projectQueue.index])}
           step={projectQueue.items.length > 1
             ? { current: projectQueue.index + 1, total: projectQueue.items.length }
             : undefined}
+          onSkip={advanceQueue}
           submitting={importMutation.isPending}
           onSubmit={submitProject}
           onCancel={closeProjectFlow}

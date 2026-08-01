@@ -14,14 +14,18 @@ export interface SurveyCsvPreview {
  * 확정 전에 파일만 읽어 본다.
  * 진행률은 전송 구간만 실제 값이다 — 서버가 파싱하는 시간은 알 수 없어 100%는 응답이 왔을 때다.
  */
-export async function previewSurveyCsv(file: File, onUploaded?: (percent: number) => void): Promise<SurveyCsvPreview> {
+export async function previewSurveyCsv(
+  file: File,
+  options: { onUploaded?: (percent: number) => void; signal?: AbortSignal } = {},
+): Promise<SurveyCsvPreview> {
   const form = new FormData()
   form.append('file', file)
 
   const res = await http.post<SurveyCsvPreview>('/api/imports/survey-csv/preview', form, {
+    signal: options.signal,
     onUploadProgress: (e) => {
-      if (!onUploaded || !e.total) return
-      onUploaded(Math.round((e.loaded / e.total) * 100))
+      if (!options.onUploaded || !e.total) return
+      options.onUploaded(Math.round((e.loaded / e.total) * 100))
     },
   })
   return res.data
