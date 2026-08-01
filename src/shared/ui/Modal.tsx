@@ -34,7 +34,7 @@ export function Modal(props: {
     >
       <div
         ref={panelRef}
-        className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl dark:bg-gray-800"
+        className="relative w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl dark:bg-gray-800"
         onClick={(e) => e.stopPropagation()}
       >
         <form
@@ -60,12 +60,19 @@ export function Modal(props: {
 }
 
 /** 모달 폼의 라벨 + 입력 한 줄. */
-export function ModalField(props: { label: string; hint?: string; children: ReactNode }) {
+export function ModalField(props: { label: string; required?: boolean; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[12px] font-medium text-gray-700 dark:text-gray-300">{props.label}</span>
+      <span className="mb-1 block text-[12px] font-medium text-gray-700 dark:text-gray-300">
+        {props.label}
+        {/* 별표는 장식이라 읽어 줄 필요가 없다. 필수 여부는 입력 요소의 required 가 보조기술에 알린다 */}
+        {props.required && (
+          <span aria-hidden="true" className="ml-0.5 text-red-500">
+            *
+          </span>
+        )}
+      </span>
       {props.children}
-      {props.hint && <span className="mt-1 block text-[11px] text-gray-500 dark:text-gray-400">{props.hint}</span>}
     </label>
   )
 }

@@ -1,0 +1,52 @@
+import { useEffect, useRef, useState } from 'react'
+import type { DragEvent } from 'react'
+
+/** 끌고 오는 것이 파일일 때만 반응한다 — 글자·요소를 끌 때는 안내가 뜨지 않게 */
+const carriesFile = (e: DragEvent) => e.dataTransfer.types.includes('Files')
+
+/**
+ * 영역에 파일을 떨어뜨려 받는다. 반환한 핸들러를 받을 요소에 펼쳐 놓고, dragging 이면 안내를 덮어 그린다.
+ * 중첩해서 쓸 수 있다 — 안쪽(모달)이 이벤트를 멈추므로 바깥(화면) 안내가 함께 뜨지 않는다.
+ */
+export function useFileDrop(onFiles: (files: File[]) => void) {
+  const [dragging, setDragging] = useState(false)
+  const onFilesRef = useRef(onFiles)
+  useEffect(() => {
+    onFilesRef.current = onFiles
+  })
+
+  // 드래그가 이 영역 밖에서 끝나면(브라우저 UI 위에 떨어뜨리거나 Esc 로 취소) leave·drop 이 오지 않아
+  // 안내가 화면을 덮은 채로 남는다. 끝났다는 사실은 문서에서 듣는다.
+  useEffect(() => {
+    const stop = () => setDragging(false)
+    document.addEventListener('drop', stop)
+    document.addEventListener('dragend', stop)
+    return () => {
+      document.removeEventListener('drop', stop)
+      document.removeEventListener('dragend', stop)
+    }
+  }, [])
+
+  const dropHandlers = {
+    onDragOver: (e: DragEvent) => {
+      if (!carriesFile(e)) return
+      e.preventDefault() // 막지 않으면 브라우저가 그 파일을 열어 앱을 벗어난다
+      e.stopPropagation()
+      setDragging(true)
+    },
+    // 자식 위를 지날 때도 leave 가 오므로 영역 밖으로 나간 경우만 해제한다
+    onDragLeave: (e: DragEvent) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false)
+    },
+    onDrop: (e: DragEvent) => {
+      if (!carriesFile(e)) return
+      e.preventDefault()
+      e.stopPropagation()
+      setDragging(false)
+      const files = Array.from(e.dataTransfer.files)
+      if (files.length > 0) onFilesRef.current(files)
+    },
+  }
+
+  return { dragging, dropHandlers }
+}

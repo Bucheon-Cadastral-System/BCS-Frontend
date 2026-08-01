@@ -1,15 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { http } from '@/shared/api/http'
 import { CONTROL_POINTS_KEY } from '@/entities/control-point'
-import { SURVEY_PROJECTS_KEY } from '@/entities/survey-project'
-import type { SurveyProjectType } from '@/entities/survey-project'
-
-interface ImportSurveyCsvArgs {
-  file: File
-  name: string
-  /** 조사 계기 — 파일 서식과 별개 축이라 업로드할 때 고른다. */
-  type: SurveyProjectType
-}
+import { SURVEY_PROJECTS_KEY, SURVEY_TARGETS_KEY, toSurveyProjectPayload } from '@/entities/survey-project'
+import type { SurveyProjectDraft } from '@/entities/survey-project'
 
 export interface ImportSummary {
   projectId: number
@@ -20,21 +13,24 @@ export interface ImportSummary {
   createdRecords: number
 }
 
-/** 대상지 CSV 업로드 — 서버가 프로젝트 생성·기준점 등록·조사 대상 등록·기존조사 기록을 한 번에 처리한다. */
+/** 대상지 파일 업로드 — 서버가 프로젝트 생성·기준점 등록·조사 대상 등록·기존조사 기록을 한 번에 처리한다. */
 export function useImportSurveyCsv() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ file, name, type }: ImportSurveyCsvArgs) => {
+    mutationFn: async ({ file, draft }: { file: File; draft: SurveyProjectDraft }) => {
       const form = new FormData()
       form.append('file', file)
-      form.append('name', name)
-      form.append('type', type)
+      // 프로젝트 값은 새 조사 만들기와 같은 규칙으로 보낸다(유형 고정·서버 미지원 필드 포함).
+      for (const [key, value] of Object.entries(toSurveyProjectPayload(draft))) {
+        if (value !== null) form.append(key, String(value))
+      }
       const res = await http.post<ImportSummary>('/api/imports/survey-csv', form)
       return res.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CONTROL_POINTS_KEY })
       queryClient.invalidateQueries({ queryKey: SURVEY_PROJECTS_KEY })
+      queryClient.invalidateQueries({ queryKey: SURVEY_TARGETS_KEY })
       queryClient.invalidateQueries({ queryKey: ['survey-records'] })
     },
   })
