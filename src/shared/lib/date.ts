@@ -7,3 +7,14 @@ export function today(): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
 }
+
+/**
+ * YYYY-MM-DD 를 표시용(2026. 7. 1.)으로. 날짜 문자열 자체가 권위값이므로 Date 로 바꾸지 않는다 —
+ * `new Date('2026-07-01')` 은 UTC 자정으로 읽혀 한국 시각에선 하루 전으로 보인다.
+ */
+export function formatDate(iso: string): string {
+  const matched = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (matched === null) return iso
+  const [, year, month, day] = matched
+  return `${year}. ${Number(month)}. ${Number(day)}.`
+}

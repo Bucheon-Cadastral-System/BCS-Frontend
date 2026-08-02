@@ -3,18 +3,29 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { SURVEY_STATUS_LABEL, deriveSurveyStatus } from '@/entities/survey-record'
 import { Skeleton, SkeletonRows } from '@/shared/ui/Skeleton'
 import { percent } from '@/shared/lib/percent'
-import type { SurveyProject } from '@/entities/survey-project'
+import { formatDate } from '@/shared/lib/date'
+import { SURVEY_ONGOING_LABEL, type SurveyProject } from '@/entities/survey-project'
 import type { ControlPoint } from '@/entities/control-point'
 import { PointTypeIcon, StatusMark } from '@/entities/control-point'
 
 /** 좌측 레일에서 열 수 있는 패널 종류 */
-type PanelKey = 'project' | 'points'
+export type PanelKey = 'project' | 'points'
 /** 패널 폭(px) — 지도 오버레이 inset 계산과 동일 값 유지 */
 const PANEL_WIDTH = 300
 /** 점 목록 행 높이(h-8) — 가상 스크롤 추정치와 실제 렌더가 같아야 스크롤이 튀지 않는다 */
 const ROW_HEIGHT = 32
 /** 펼친 행에 붙는 조사·망실 버튼 영역 높이 */
 const ROW_ACTIONS_HEIGHT = 46
+/** 패널 상단 검색창 — 프로젝트·기준점 두 패널이 같은 모양을 쓴다 */
+const PANEL_SEARCH_INPUT =
+  'w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-[13px] text-gray-100 placeholder:text-gray-500 outline-none focus:border-blue-500'
+/** 패널 상단 추가 버튼 — 프로젝트·기준점 두 패널이 같은 모양을 쓴다 */
+const PANEL_ADD_BTN =
+  'flex w-full items-center justify-center gap-1.5 rounded-md border border-blue-600 bg-blue-600 py-2 text-[13px] font-medium text-white hover:bg-blue-500'
+/** 패널이 미끄러져 나가는 시간(ms) — 본문을 트리에서 빼는 시점이 애니메이션보다 빨라선 안 된다 */
+const PANEL_SLIDE_MS = 220
+/** 프로젝트 드로어가 접히는 시간(ms) — 펼칠 때보다 짧게 잡아 목록으로 돌아오는 길을 늦추지 않는다 */
+const DRAWER_CLOSE_MS = 120
 /** 조사 프로젝트를 안 고른 목록(기준점 탭)에서 상태 판정에 넘길 빈 집합 */
 const EMPTY_IDS: Set<string> = new Set()
 
@@ -38,6 +49,8 @@ interface MapSidebarProps {
   projectsLoading?: boolean
   pointsLoading?: boolean
   recordsLoading?: boolean
+  /** 고른 조사의 대상 목록을 받아오는 중 — 도착 전엔 대상이 0건이라 진행률·목록을 자리표시로 둔다 */
+  targetsLoading?: boolean
   // 도구
   /** 기준점 추가 시작 — 입력은 페이지의 모달이 받는다 */
   onStartAddPoint: () => void
@@ -48,6 +61,8 @@ interface MapSidebarProps {
   onInsetChange?: (px: number) => void
   // 외부(지도 위 활성 프로젝트 칩)에서 프로젝트 패널 열기 요청 (nonce, 증가할 때마다 열림)
   openProjectSignal?: number
+  // 열려 있는 패널 통지 (지도에 그릴 점을 정하는 데 쓴다)
+  onOpenPanelChange?: (panel: PanelKey | null) => void
 }
 
 export function MapSidebar(props: MapSidebarProps) {
@@ -57,6 +72,9 @@ export function MapSidebar(props: MapSidebarProps) {
   const toggle = (key: PanelKey) => {
     if (open === key) setOpen(null)
     else {
+      // 두 탭은 함께 서지 않는다. 기준점 탭은 전체 목록이라 고른 조사를 그대로 두면
+      // 그 조사의 대상이 아닌 점에 조사·망실을 기록할 수 있다.
+      if (key === 'points') props.onChangeActive(null)
       setLastPanel(key)
       setOpen(key)
     }
@@ -68,6 +86,12 @@ export function MapSidebar(props: MapSidebarProps) {
     onInsetChange?.(open ? PANEL_WIDTH : 0)
   }, [open, onInsetChange])
 
+  // 어느 패널이 열렸는지 알림 → 지도에 그릴 점을 부모가 정한다(기준점 탭=전체, 그 외=고른 조사의 대상)
+  const onOpenPanelChange = props.onOpenPanelChange
+  useEffect(() => {
+    onOpenPanelChange?.(open)
+  }, [open, onOpenPanelChange])
+
   // 활성 프로젝트 칩 클릭 → 프로젝트 패널 열기 (nonce 증가 시. 0=초기값이라 무시)
   const openProjectSignal = props.openProjectSignal
   useEffect(() => {
@@ -78,7 +102,7 @@ export function MapSidebar(props: MapSidebarProps) {
 
   // 패널 본문은 '열려 있을 때만' 마운트(닫히면 슬라이드 아웃 후 지연 언마운트).
   // ★ 성능: 프로젝트가 펼쳐지면 본문에 점 수천 개(PointRow)가 그려지는데, 닫혀도 마운트돼 있으면
-  //   무관한 리렌더(예: 클러스터 클릭 팬 중 매 프레임 setClusterPopup)마다 이 수천 행이 재조정돼 렉이 걸린다.
+  //   패널과 무관한 리렌더마다 이 수천 행이 재조정돼 렉이 걸린다.
   //   닫힘 상태에선 트리에서 제거해 이런 리렌더가 레일만 건드리게 함. (열림 시 1프레임 빈 상태는 슬라이드 인과 겹쳐 무시 가능)
   const [renderBody, setRenderBody] = useState(false)
   useEffect(() => {
@@ -86,7 +110,7 @@ export function MapSidebar(props: MapSidebarProps) {
       setRenderBody(true)
       return
     }
-    const t = setTimeout(() => setRenderBody(false), 220)
+    const t = setTimeout(() => setRenderBody(false), PANEL_SLIDE_MS)
     return () => clearTimeout(t)
   }, [open])
 
@@ -149,10 +173,15 @@ function RailItem(props: { label: string; active: boolean; onClick: () => void; 
   )
 }
 
-function PanelHeader(props: { title: string; onClose: () => void }) {
+function PanelHeader(props: { title: string; count?: number; onClose: () => void }) {
   return (
     <header className="flex items-center gap-2 border-b border-gray-700 px-4 py-3">
-      <h2 className="flex-1 text-sm font-bold text-gray-50">{props.title}</h2>
+      <h2 className="flex min-w-0 flex-1 items-baseline gap-1.5">
+        <span className="text-sm font-bold text-gray-50">{props.title}</span>
+        {props.count !== undefined && (
+          <span className="text-[11px] font-normal text-gray-400">총 {props.count}개</span>
+        )}
+      </h2>
       <button
         type="button"
         onClick={props.onClose}
@@ -166,20 +195,36 @@ function PanelHeader(props: { title: string; onClose: () => void }) {
 }
 
 /**
- * 프로젝트 목록. 행 클릭 = 펼침(browse)일 뿐이고, '선택(활성화)'은 드로어 안의 버튼으로 한다.
- * 선택(active)과 펼침(expand)을 분리 → '선택'이 명시적 행위가 되고, 선택중은 행에 뚜렷이 표시된다.
+ * 프로젝트 목록. 행을 펼치는 것이 곧 그 조사를 고르는 것이다.
+ * 펼쳐 놓은 조사와 지도에 반영되는 조사가 항상 같으므로, 드로어 안의 진행률·점별 기록이 늘 지금 보는 조사의 것이다.
  */
 function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
-  // 펼침(browse)은 선택(active)과 독립. 처음엔 선택된 프로젝트를 펼쳐 둔다.
+  const [q, setQ] = useState('')
+  const query = q.trim()
+  // 조사명은 그때그때 붙이는 값이라 비고에 남긴 말로 찾는 경우도 있어 함께 훑는다
+  const list = useMemo(
+    () =>
+      query === ''
+        ? props.projects
+        : props.projects.filter((p) => p.name.includes(query) || (p.note ?? '').includes(query)),
+    [props.projects, query],
+  )
+  // 펼친 조사 = 고른 조사. 패널을 열면 이미 고른 조사를 펼쳐 둔다.
   const [expandedId, setExpandedId] = useState<string | null>(props.activeProjectId)
-  // 닫힘 애니메이션: 접히는 동안에도 내용을 잠깐 유지(mountedId 지연 언마운트)
+  // 패널 밖에서도 활성 조사가 바뀐다(가져오기 성공·챗봇 안내). 따라가지 않으면 표식은 새 조사에,
+  // 펼쳐진 행은 옛 조사에 남아 진행률도 목록도 없는 빈 드로어가 된다.
+  const activeProjectId = props.activeProjectId
+  useEffect(() => {
+    setExpandedId(activeProjectId)
+  }, [activeProjectId])
+  // 접히는 동안에도 내용을 잠깐 유지(mountedId 지연 언마운트) → 높이 애니메이션이 이어진다
   const [mountedId, setMountedId] = useState<string | null>(expandedId)
   useEffect(() => {
     if (expandedId !== null) {
       setMountedId(expandedId)
       return
     }
-    const t = setTimeout(() => setMountedId(null), 220)
+    const t = setTimeout(() => setMountedId(null), DRAWER_CLOSE_MS)
     return () => clearTimeout(t)
   }, [expandedId])
 
@@ -191,38 +236,62 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
     props.onCreate()
   }
 
+  /** 펼치면 그 조사를 고르고, 접으면 고름을 푼다 — 펼쳐 놓은 조사와 지도에 반영되는 조사가 항상 같다. */
+  function toggleProject(id: string, expanded: boolean) {
+    setExpandedId(expanded ? null : id)
+    props.onChangeActive(expanded ? null : id)
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PanelHeader title="조사 프로젝트" onClose={props.onClose} />
+      <PanelHeader title="프로젝트 목록" count={props.projects.length} onClose={props.onClose} />
 
       {/* 구분선~컨트롤~목록 간격을 같게 유지(위아래 대칭) */}
-      <div className="p-3">
+      <div className="space-y-2 p-3">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="조사명·비고 검색"
+          className={PANEL_SEARCH_INPUT}
+        />
         <button
           type="button"
           onClick={handleNew}
-          className="w-full rounded-md border border-blue-600 bg-blue-600 py-2 text-[13px] font-medium text-white hover:bg-blue-500"
+          className={PANEL_ADD_BTN}
         >
-          ＋ 프로젝트 추가
+          <span className="h-4 w-4">
+            <IconAddProject />
+          </span>
+          프로젝트 추가
         </button>
       </div>
 
       <ul className="min-h-0 flex-1 overflow-y-auto">
-        {props.projects.length === 0 &&
+        {list.length === 0 &&
           (props.projectsLoading ? (
             <li>
               <SkeletonRows rows={3} />
             </li>
           ) : (
-            <li className="px-4 py-6 text-center text-[13px] text-gray-500">조사 프로젝트가 없습니다</li>
+            <li className="px-4 py-6 text-center text-[13px] text-gray-500">
+              {props.projects.length === 0 ? '프로젝트가 없습니다' : '검색 결과 없음'}
+            </li>
           ))}
-        {props.projects.map((p) => {
+        {list.map((p) => {
           const expanded = expandedId === p.id
           const selected = props.activeProjectId === p.id // ★ 선택(활성) = 지도/칩에 반영되는 프로젝트
           const mounted = mountedId === p.id
           const ptotal = props.targetPoints.length // 분모는 전체 기준점이 아니라 그 조사의 대상
+          // 대상·기록 중 하나라도 오는 중이면 0/0·0% 가 잠깐 보이므로 자리표시로 둔다
+          const progressLoading = props.recordsLoading === true || props.targetsLoading === true
           // 조사기록은 활성 프로젝트 것만 조회하므로 카운트·진행률은 선택된 조사에서만 표시
           const psurveyed = selected ? props.surveyedIds.size : 0
           const ppct = percent(psurveyed, ptotal)
+          // 망실도 '조사됨'이라 진행률에는 함께 세고, 내역에서는 결과별로 갈라 보여 준다.
+          // 대상이 아닌 점에도 기록이 남을 수 있어 음수가 되지 않게 막는다.
+          const plost = selected ? props.lostIds.size : 0
+          const pdone = Math.max(0, psurveyed - plost)
+          const ptodo = Math.max(0, ptotal - psurveyed)
           return (
             <li
               key={p.id}
@@ -230,55 +299,50 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
                 selected ? 'border-l-blue-500 bg-blue-500/10' : 'border-l-transparent'
               }`}
             >
-              {/* 행: 이름 좌측 라디오 = 선택(활성) 토글 겸 표시 · 나머지 클릭 = 펼침(browse) */}
-              <div className="flex items-stretch">
-                <span className="flex items-center py-3 pl-4 pr-1.5">
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    onClick={() => props.onChangeActive(selected ? null : p.id)}
-                    title={selected ? '선택 해제' : '이 조사 선택'}
-                    aria-label={selected ? `${p.name} 선택 해제` : `${p.name} 이 조사 선택`}
-                    className={`flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 transition-colors ${
-                      selected ? 'border-blue-400 bg-blue-500' : 'border-gray-500 hover:border-gray-300'
-                    }`}
-                  >
-                    {selected && (
-                      <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="#ffffff" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
-                        <path d="m5 12 5 5 9-10" />
-                      </svg>
-                    )}
-                  </button>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setExpandedId(expanded ? null : p.id)}
-                  aria-expanded={expanded}
-                  className={`flex min-w-0 flex-1 items-center gap-2 py-3 pr-4 text-left text-sm ${
-                    selected ? 'font-semibold text-white' : expanded ? 'text-gray-100' : 'text-gray-200 hover:bg-gray-700'
+              {/* 행 전체가 하나의 버튼이다 — 표식까지 눌리는 자리에 넣어야 행에 반응 없는 구역이 생기지 않는다.
+                  누르면 펼침과 선택이 함께 일어나므로 aria-expanded·aria-pressed 를 같이 알린다. */}
+              <button
+                type="button"
+                onClick={() => toggleProject(p.id, expanded)}
+                aria-expanded={expanded}
+                aria-pressed={selected}
+                className={`flex w-full items-center gap-4 py-2.5 pl-4 pr-4 text-left text-sm transition-colors hover:bg-white/[0.06] ${
+                  selected ? 'font-semibold text-white' : expanded ? 'text-gray-100' : 'text-gray-200'
+                }`}
+              >
+                <span
+                  aria-hidden
+                  className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                    selected ? 'border-blue-400 bg-blue-500' : 'border-gray-500'
                   }`}
                 >
-                  <span className="min-w-0 flex-1 truncate">{p.name}</span>
                   {selected && (
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ${
-                        ptotal > 0 && psurveyed >= ptotal ? 'bg-blue-500/20 text-blue-300' : 'bg-gray-700 text-gray-300'
-                      }`}
-                    >
-                      {psurveyed}/{ptotal}
-                    </span>
+                    <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="#ffffff" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m5 12 5 5 9-10" />
+                    </svg>
                   )}
-                  <span className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}>
-                    <IconChevronDown />
+                </span>
+                {/* 접어 둔 조사도 언제 하는 조사인지 알 수 있게 이름 아래 한 줄을 더 둔다 */}
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="truncate">{p.name}</span>
+                  <span className="block truncate text-[11px] font-normal tabular-nums text-gray-400">
+                    {formatDate(p.startedOn)} ~{' '}
+                    {p.endedOn === null ? (
+                      <span className="text-blue-300/90">{SURVEY_ONGOING_LABEL}</span>
+                    ) : (
+                      formatDate(p.endedOn)
+                    )}
                   </span>
-                </button>
-              </div>
+                </span>
+                <span className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}>
+                  <IconChevronDown />
+                </span>
+              </button>
 
               {/* 펼침 드로어: grid-rows 0fr↔1fr 로 높이 애니메이션(열림/닫힘 모두) */}
               <div
-                className={`grid transition-[grid-template-rows] duration-200 ease-out ${
-                  expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                className={`grid transition-[grid-template-rows] ease-out ${
+                  expanded ? 'grid-rows-[1fr] duration-200' : 'grid-rows-[0fr] duration-[120ms]'
                 }`}
               >
                 <div className="overflow-hidden">
@@ -286,9 +350,8 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
                     <div className="bg-gray-900/40 pb-2 pt-1">
                       {/* 진행률 (이 프로젝트 기준) */}
                       {selected && (
-                      <div className="px-4 py-2">
-                        {/* 조사기록을 받아오는 중엔 0/0·0%가 잠깐 보이지 않도록 자리표시로 둔다 */}
-                        {props.recordsLoading ? (
+                      <div className="px-4 pb-2 pt-2">
+                        {progressLoading ? (
                           <div className="space-y-1.5">
                             <Skeleton className="h-3 w-40" />
                             <Skeleton className="h-1.5 w-full rounded-full" />
@@ -307,32 +370,41 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
                                 style={{ width: `${ppct}%` }}
                               />
                             </div>
+
+                            {/* 결과별 내역 — 색은 아래 범례·지도 마커와 같은 뜻으로 쓴다 */}
+                            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-400">
+                              <StatusCount label={SURVEY_STATUS_LABEL.done} count={pdone} dotClass="bg-blue-500" />
+                              <StatusCount label={SURVEY_STATUS_LABEL.lost} count={plost} dotClass="bg-red-600" />
+                              <StatusCount label={SURVEY_STATUS_LABEL.todo} count={ptodo} dotClass="bg-gray-400 opacity-50" />
+                            </div>
                           </>
                         )}
                       </div>
                       )}
 
-                      {/* 점별 조사·망실 기록은 '선택된(조사 대상)' 프로젝트에서만. 리스트는 PointRowList가 내부 메모 */}
+                      <ProjectNote note={p.note ?? ''} />
+
+                      {/* 목록은 위 정보와 성격이 달라 선으로 끊고 이름표를 붙인다.
+                          점별 조사·망실 기록은 '선택된(조사 대상)' 프로젝트에서만. 리스트는 PointRowList가 내부 메모 */}
                       {selected ? (
-                        <PointRowList
-                          points={props.targetPoints}
-                          onFocus={props.onFocusPoint}
-                          survey={{
-                            surveyedIds: props.surveyedIds,
-                            lostIds: props.lostIds,
-                            expandedPointId,
-                            onExpand: setExpandedPointId,
-                            onToggleSurvey: props.onToggleSurvey,
-                            onToggleLost: props.onToggleLost,
-                          }}
-                          loading={props.pointsLoading}
-                          maxHeightClass="max-h-[45vh]"
-                        />
-                      ) : (
-                        <p className="px-4 py-2 text-[12px] leading-relaxed text-gray-500">
-                          이름 왼쪽의 <b className="text-gray-400">○</b> 를 눌러 이 조사를 선택하면, 지도에 조사 현황이 표시되고 점별로 조사·망실을 기록할 수 있습니다.
-                        </p>
-                      )}
+                        <div className="border-t border-gray-700/60 bg-gray-900/30 pt-1.5">
+                          <p className="px-4 pb-1 text-[11px] font-medium text-gray-400">대상 기준점</p>
+                          <PointRowList
+                            points={props.targetPoints}
+                            onFocus={props.onFocusPoint}
+                            survey={{
+                              surveyedIds: props.surveyedIds,
+                              lostIds: props.lostIds,
+                              expandedPointId,
+                              onExpand: setExpandedPointId,
+                              onToggleSurvey: props.onToggleSurvey,
+                              onToggleLost: props.onToggleLost,
+                            }}
+                            loading={props.pointsLoading === true || props.targetsLoading === true}
+                            maxHeightClass="max-h-[45vh]"
+                          />
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </div>
@@ -347,13 +419,39 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
   )
 }
 
+/** 조사 결과 내역 한 칸 — 점 색으로 지도 마커·범례와 같은 상태를 가리킨다. */
+function StatusCount(props: { label: string; count: number; dotClass: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <i className={`inline-block h-2 w-2 rounded-full ${props.dotClass}`} aria-hidden />
+      {props.label}
+      <b className="font-semibold tabular-nums text-gray-200">{props.count}</b>
+    </span>
+  )
+}
+
+/**
+ * 조사에 기록한 비고. 수치와 달리 서술형 문장이므로 인용문처럼 세로선을 두어 구분한다.
+ * 검색 대상 필드이므로 값이 없어도 자리는 유지한다.
+ */
+function ProjectNote(props: { note: string }) {
+  return (
+    <div className="mx-4 mb-2 border-l-2 border-gray-600 bg-gray-800/40 py-1.5 pl-2.5 pr-2 text-[12px]">
+      {props.note === '' ? (
+        <p className="text-gray-500">내용이 없습니다</p>
+      ) : (
+        <p className="whitespace-pre-wrap break-words leading-relaxed text-gray-200">{props.note}</p>
+      )}
+    </div>
+  )
+}
+
 /** 기준점 목록: 도식 아이콘 + 이름/종류 (조사여부 표시 안 함), 클릭 시 포커스 */
 function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
   const [q, setQ] = useState('')
   const query = q.trim()
-  // 지도에 보이는 것과 같은 목록이어야 한다 — 조사를 고르면 지도에서 빠진 점이 목록에만 남아
-  // 눌러도 아무 일이 없는 것처럼 보인다. 조사를 고르지 않았으면 targetPoints 가 곧 전체 기준점이다.
-  const source = props.targetPoints
+  // 이 탭은 전체 기준점 목록이다. 탭을 열면 지도도 전체를 보여주므로 목록과 지도가 어긋나지 않는다.
+  const source = props.points
   // 검색 결과도 메모 → 팬 리렌더 중 새 배열을 만들지 않아 PointRowList 메모가 유지됨
   const list = useMemo(
     () => (query ? source.filter((p) => p.name.includes(query)) : source),
@@ -362,7 +460,7 @@ function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PanelHeader title={`기준점 ${source.length}`} onClose={props.onClose} />
+      <PanelHeader title="기준점" count={source.length} onClose={props.onClose} />
 
       {/* 구분선~컨트롤~목록 간격을 같게 유지(위아래 대칭) */}
       <div className="space-y-2 p-3">
@@ -370,7 +468,7 @@ function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="이름 검색"
-          className="w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-[13px] text-gray-100 placeholder:text-gray-500 outline-none focus:border-blue-500"
+          className={PANEL_SEARCH_INPUT}
         />
         <button
           type="button"
@@ -378,7 +476,7 @@ function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
             props.onStartAddPoint()
             props.onClose() // 지도에서 위치를 찍을 수 있게 패널은 비켜 준다
           }}
-          className="flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-600 py-2 text-[13px] font-medium text-gray-100 hover:bg-gray-700"
+          className={PANEL_ADD_BTN}
         >
           <span className="h-4 w-4">
             <IconAddPoint />
@@ -644,6 +742,15 @@ function IconUsers() {
       <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </RailIcon>
+  )
+}
+
+function IconAddProject() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <path d="M12 11v6M9 14h6" />
+    </svg>
   )
 }
 

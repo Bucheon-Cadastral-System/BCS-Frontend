@@ -27,7 +27,10 @@ export interface PreviewEntry {
  */
 export function useImportPreviews(files: File[]) {
   const [entries, setEntries] = useState<PreviewEntry[]>([])
-  const [finished, setFinished] = useState(false)
+  // '끝났다'가 아니라 '무엇을 끝냈는지'를 기억한다.
+  // 불리언으로 두면 새 파일을 붙인 직후 한 프레임 동안 이전 실행의 완료 신호가 그대로 참으로 읽혀,
+  // 아직 시작도 안 한 목록을 다 읽은 것으로 보고 빈 결과를 넘긴다.
+  const [finishedFor, setFinishedFor] = useState<File[] | null>(null)
 
   useEffect(() => {
     // 개발 모드는 이 효과를 두 번 실행한다 — 첫 실행을 정리로 버리고 두 번째가 처음부터 다시 읽게 둔다.
@@ -37,7 +40,7 @@ export function useImportPreviews(files: File[]) {
 
     // 읽는 중에 파일을 다시 붙일 수 있으므로 목록을 매번 새로 세운다
     setEntries(files.map((file) => ({ file, status: { kind: 'waiting' } })))
-    setFinished(false)
+    setFinishedFor(null)
 
     const update = (index: number, status: PreviewStatus) => {
       if (cancelled) return
@@ -60,7 +63,7 @@ export function useImportPreviews(files: File[]) {
           update(index, { kind: 'failed', reason: e instanceof ApiError ? e.message : '파일을 읽지 못했습니다.' })
         }
       }
-      if (!cancelled) setFinished(true)
+      if (!cancelled) setFinishedFor(files)
     })()
 
     return () => {
@@ -69,5 +72,6 @@ export function useImportPreviews(files: File[]) {
     }
   }, [files])
 
-  return { entries, finished }
+  // 지금 넘어온 목록을 끝냈을 때만 완료다 — 렌더 중에 비교하므로 이전 실행의 신호가 새 목록에 섞이지 않는다
+  return { entries, finished: finishedFor === files }
 }

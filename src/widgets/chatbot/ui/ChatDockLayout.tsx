@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { ChatPanel } from './ChatPanel'
 import { ChatBubbleIcon } from './icons'
@@ -8,6 +8,8 @@ import { loadChatMessages, loadChatUi, saveChatMessages, saveChatUi } from '../m
 import { useDismiss } from '@/shared/lib/useDismiss'
 
 const DOCK_MIN_WIDTH = 320
+/** 도킹 폭 상한 — 지도가 대화창에 밀려 절반 아래로 좁아지지 않게 한다 */
+const dockMaxWidth = (areaWidth: number) => Math.max(DOCK_MIN_WIDTH, Math.floor(areaWidth / 2))
 const FLOAT_MIN: Size = { width: 300, height: 380 }
 const FLOAT_MAX = 900
 
@@ -33,6 +35,9 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
   const pending = chatMutation.isPending
 
   const areaRef = useRef<HTMLDivElement>(null)
+  // 도킹 폭의 상한 — 보조기술에 알려야 하고 키보드 조절도 같은 값을 써야 해 상태로 들고 있는다
+  const [areaWidth, setAreaWidth] = useState(0)
+  const dockMax = dockMaxWidth(areaWidth)
 
   const docked = open && mode === 'right'
 
@@ -43,6 +48,23 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
   useEffect(() => {
     saveChatMessages(messages)
   }, [messages])
+
+  // 창이 좁아지면 저장해 둔 폭이 절반을 넘길 수 있다 — 영역 크기가 바뀔 때마다 상한에 맞춘다.
+  // 첫 그림 전에 한 번 재어 둔다: 상한을 모르는 채로 그리면 저장해 둔 폭이 상한을 넘은 상태로 알려진다.
+  useLayoutEffect(() => {
+    const area = areaRef.current
+    if (!area) return
+    const apply = () => {
+      const width = area.getBoundingClientRect().width
+      setAreaWidth(width)
+      const max = dockMaxWidth(width)
+      setDockWidth((w) => (w > max ? max : w))
+    }
+    apply()
+    const observer = new ResizeObserver(apply)
+    observer.observe(area)
+    return () => observer.disconnect()
+  }, [])
 
   // 코너 오버레이는 ESC로 닫는다(도킹은 자리 차지라 유지)
   useDismiss({ enabled: open && mode === 'corner', onDismiss: () => setOpen(false) })
@@ -106,9 +128,8 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
     const start = dockWidth
     setResizing(true)
     function move(ev: PointerEvent) {
-      const max = rect.width - DOCK_MIN_WIDTH - 8
       // 정수 폭 — 소수 폭은 flex 반올림으로 1px 틈(밝은 배경 노출)을 만든다
-      setDockWidth(Math.round(clamp(start - (ev.clientX - startX), DOCK_MIN_WIDTH, Math.max(DOCK_MIN_WIDTH, max))))
+      setDockWidth(Math.round(clamp(start - (ev.clientX - startX), DOCK_MIN_WIDTH, dockMaxWidth(rect.width))))
     }
     function up() {
       window.removeEventListener('pointermove', move)
@@ -156,16 +177,15 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
           aria-label="채팅 패널 폭 조절"
           aria-valuenow={dockWidth}
           aria-valuemin={DOCK_MIN_WIDTH}
+          aria-valuemax={dockMax}
           aria-hidden={!docked}
           tabIndex={docked ? 0 : -1}
           onPointerDown={startSplitterDrag}
           onKeyDown={(e) => {
             if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
             e.preventDefault()
-            const area = areaRef.current
-            const max = area ? area.getBoundingClientRect().width - DOCK_MIN_WIDTH - 8 : dockWidth
             const step = e.key === 'ArrowLeft' ? 24 : -24 // 왼쪽=넓게(드래그 방향과 일치), 오른쪽=좁게
-            setDockWidth((w) => Math.round(clamp(w + step, DOCK_MIN_WIDTH, Math.max(DOCK_MIN_WIDTH, max))))
+            setDockWidth((w) => Math.round(clamp(w + step, DOCK_MIN_WIDTH, dockMax)))
           }}
           style={{ right: docked ? dockWidth : 0, opacity: docked ? 1 : 0 }}
           className={`group absolute inset-y-0 z-30 flex w-5 translate-x-1/2 items-center justify-center ${

@@ -16,7 +16,7 @@ export function LoginPage({ onKakaoLogin, onDevelopmentAccess }: LoginPageProps)
         <BrandLockup size="lg" tone="onLight" variant="mark" className="mx-auto mb-9 w-fit" />
 
         <div className="text-slate-900">
-          <h1 className="text-2xl leading-snug font-bold tracking-[-0.04em]" id="login-title">부천시 지적기준점 관리 서비스</h1>
+          <h1 className="text-2xl leading-snug font-bold tracking-[-0.04em]" id="login-title">부천시 지적기준점 관리 시스템</h1>
           <p className="mt-4 text-sm leading-7 text-slate-500">
             안전한 서비스 이용을 위해
             <br />

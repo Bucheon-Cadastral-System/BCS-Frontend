@@ -83,7 +83,7 @@ export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: C
         }}
         onFocus={() => setOpen(true)}
         onKeyDown={handleKeyDown}
-        placeholder="점 검색"
+        placeholder="기준점 검색"
         aria-label="기준점 검색"
         role="combobox"
         aria-expanded={showList}

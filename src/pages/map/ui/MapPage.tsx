@@ -5,11 +5,11 @@ import { MapToolbar } from '@/widgets/map-toolbar'
 import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
 import { MapSidebar, ActiveProjectChip } from '@/widgets/map-sidebar'
+import type { PanelKey } from '@/widgets/map-sidebar'
 import { PointSearchBar } from '@/widgets/point-search'
 import { MapLayerControl } from '@/widgets/map-layer-control'
 import { MapStatusBar } from '@/widgets/map-status-bar'
 import type OlMap from 'ol/Map'
-import { ClusterList } from '@/widgets/cluster-list'
 import { ChatDockLayout } from '@/widgets/chatbot'
 import type { ChatAction } from '@/widgets/chatbot'
 import { POINT_TYPES, useControlPointsQuery, useRegisterControlPointMutation } from '@/entities/control-point'
@@ -17,8 +17,7 @@ import type { ControlPoint } from '@/entities/control-point'
 import { useCreateSurveyProjectMutation, useSurveyProjectsQuery, useSurveyTargetsQuery } from '@/entities/survey-project'
 import type { SurveyProjectDraft } from '@/entities/survey-project'
 import { useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
-import { ImportProgressModal, useImportSurveyCsv } from '@/features/import-survey-csv'
-import type { ReadFile } from '@/features/import-survey-csv'
+import { useImportSurveyCsv } from '@/features/import-survey-csv'
 import { AddControlPointModal } from '@/features/add-control-point'
 import type { AddControlPointValues } from '@/features/add-control-point'
 import { SurveyProjectFormModal } from '@/features/survey-project-form'
@@ -37,23 +36,8 @@ interface MapPageProps {
   onOpenUserManagement: () => void
 }
 
-/** 읽어 둔 파일의 요약 한 줄 — 입력하기 전에 대상이 몇 건인지 보인다. */
-function summaryOf(read: ReadFile) {
-  const { totalRows, errors } = read.preview
-  return errors.length > 0 ? `대상 ${totalRows}건 · 오류 ${errors.length}건` : `대상 ${totalRows}건`
-}
-
-/**
- * 등록을 막아야 하는 이유 — 서버는 잘못된 행이 하나라도 있으면 파일 전체를 거부한다.
- * 보내 봐야 같은 사유로 실패하므로 미리 막고 어디를 고쳐야 하는지 알린다.
- */
-function blockingReasonOf(read: ReadFile) {
-  const { errors } = read.preview
-  if (errors.length === 0) return undefined
-  const head = errors.slice(0, 2).map((e) => `${e.row}행 ${e.message}`).join(' / ')
-  const rest = errors.length > 2 ? ` 외 ${errors.length - 2}건` : ''
-  return `잘못된 행이 있어 등록할 수 없습니다. 파일을 고쳐 다시 올려 주세요 — ${head}${rest}`
-}
+/** 아무것도 그리지 않을 때 쓰는 고정 배열 — 렌더마다 새 배열을 만들면 지도 소스가 매번 재구성된다 */
+const EMPTY_POINTS: ControlPoint[] = []
 
 export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const dispatch = useAppDispatch()
@@ -75,33 +59,33 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data])
   const records = useMemo(() => recordsQuery.data ?? [], [recordsQuery.data])
 
-  // 조사를 고르면 화면을 그 조사의 대상으로 좁힌다 — 지도·목록·진행률 분모가 모두 이 목록을 따른다.
-  // 대상 목록이 오기 전에는 좁히지 않는다: 빈 배열로 두면 응답을 기다리는 동안 지도가 비고 선택까지 풀린다.
+  // 고른 조사의 대상 점 — 진행률 분모와 프로젝트 패널 목록이 이걸 따른다.
   const targetIds = useMemo(
     () => (targetsQuery.data === undefined ? null : new Set(targetsQuery.data)),
     [targetsQuery.data],
   )
-  const targetPoints = useMemo(
-    () => (activeProjectId === null || targetIds === null ? points : points.filter((p) => targetIds.has(p.id))),
-    [activeProjectId, points, targetIds],
-  )
+  // 대상 목록이 도착하기 전에는 아무것도 대상으로 치지 않는다.
+  // 전체를 대신 내놓으면 조사를 고른 직후 한 프레임 동안 지도에 전체 기준점이 깔렸다가 걸러진다.
+  const targetPoints = useMemo(() => {
+    if (activeProjectId === null) return points
+    if (targetIds === null) return EMPTY_POINTS
+    return points.filter((p) => targetIds.has(p.id))
+  }, [activeProjectId, points, targetIds])
 
   const tmEpsg: TmEpsg = 'EPSG:5186' // 부천 = 중부원점 고정
   const [showCadastral, setShowCadastral] = useState(true)
   const [mapInstance, setMapInstance] = useState<OlMap | null>(null) // 하단 상태 표시가 직접 구독한다
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [clusterPopup, setClusterPopup] = useState<{ points: ControlPoint[]; coord: number[]; x: number; y: number; w: number; h: number; id: number } | null>(null)
   const [focusNonce, setFocusNonce] = useState(0)
   const [mapLeftInset, setMapLeftInset] = useState(0) // 좌측 패널이 지도를 가리는 폭(포커스 센터링 보정). >0 = 패널 열림
   const [openProjectNonce, setOpenProjectNonce] = useState(0) // 활성 프로젝트 칩 → 프로젝트 패널 열기 신호
+  const [openPanel, setOpenPanel] = useState<PanelKey | null>(null) // 열린 좌측 패널 — 지도에 그릴 점을 정한다
   // 기준점 추가 — 모달이 주 경로이고, '지도에서 위치 찍기'는 그 안의 한 단계(찍는 동안만 모달을 숨긴다)
   const [addOpen, setAddOpen] = useState(false)
   const [picking, setPicking] = useState(false)
   const [picked, setPicked] = useState<{ northing: number; easting: number; epsg: TmEpsg } | null>(null)
-  // 조사 프로젝트 추가 — 파일을 붙이면 먼저 읽어 보고(reading), 읽은 파일마다 차례로 입력받는다(form).
-  // 파일 없이 만들면 곧장 form 한 건.
-  const [importing, setImporting] = useState<File[] | null>(null)
-  const [projectQueue, setProjectQueue] = useState<{ items: ReadFile[]; index: number } | null>(null)
+  // 조사 프로젝트 추가 — 창 하나가 입력·파일 읽기·여러 건 넘기기를 모두 맡는다
+  const [pendingFiles, setPendingFiles] = useState<File[] | null>(null)
   const [creatingProject, setCreatingProject] = useState(false)
   // 파일을 고르기 전에 적어 두던 값 — 첫 조사 입력으로 이어 준다
   const [carriedDraft, setCarriedDraft] = useState<SurveyProjectDraft | null>(null)
@@ -116,15 +100,25 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     toastIdRef.current += 1
     setToast({ id: toastIdRef.current, message, tone })
   }
-  const clusterIdRef = useRef(0)
   const fileDrop = useFileDrop((files) => startImport(files))
 
-  // 표시되는 점이 바뀌면 클러스터가 다시 묶이므로, 열려 있던 묶음 팝오버는 더 이상 없는 뱃지를 가리킨다 → 닫는다.
-  // 고른 점도 지도에서 사라졌으면 선택을 푼다(마커 없는 상세가 남지 않게).
+  /**
+   * 지도에 그릴 점 — 기본은 아무것도 그리지 않는다.
+   * 기준점 탭을 열면 전체(목록과 지도가 같은 집합), 조사를 고르면 그 조사의 대상만.
+   * 고른 점은 어느 경우에도 함께 그린다 — 헤더 검색·챗봇 안내는 패널을 열지 않고 점을 지목하므로,
+   * 빼면 지목한 자리에 아무것도 나타나지 않는다.
+   */
+  const visiblePoints = useMemo(() => {
+    const base = openPanel === 'points' ? points : activeProjectId !== null ? targetPoints : EMPTY_POINTS
+    if (selectedId === null || base.some((p) => p.id === selectedId)) return base
+    const focused = points.find((p) => p.id === selectedId)
+    return focused === undefined ? base : [...base, focused]
+  }, [openPanel, activeProjectId, points, targetPoints, selectedId])
+
+  // 고른 점이 지도에서 사라졌으면 선택을 푼다(마커 없는 상세가 남지 않게)
   useEffect(() => {
-    setClusterPopup(null)
-    setSelectedId((cur) => (cur !== null && !targetPoints.some((p) => p.id === cur) ? null : cur))
-  }, [targetPoints])
+    setSelectedId((cur) => (cur !== null && !visiblePoints.some((p) => p.id === cur) ? null : cur))
+  }, [visiblePoints])
 
   // 활성 프로젝트의 조사기록만 조회하므로 레코드 존재=조사됨, lost=망실
   const surveyedIds = useMemo(() => new Set(records.map((r) => r.pointId)), [records])
@@ -177,22 +171,28 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     )
   }
 
-  function submitImport(file: File, draft: SurveyProjectDraft) {
-    importMutation.mutate(
-      { file, draft },
-      {
-        onSuccess: (summary) => {
-          advanceQueue()
-          dispatch(setActiveProject(String(summary.projectId)))
-          showToast(
-            `기준점 ${summary.totalRows}점(신규 ${summary.newPoints} · 기존 ${summary.existingPoints} · 갱신 ${summary.updatedPoints}), 조사기록 ${summary.createdRecords}건을 불러왔습니다.`,
-            'success',
-          )
-        },
-        onError: (e) =>
-          showToast(e instanceof ApiError ? `불러오기 실패: ${e.message}` : 'CSV 불러오기에 실패했습니다.', 'error'),
-      },
-    )
+  /**
+   * 조사 한 건 등록 — 성공으로 끝나야 창이 다음 건으로 넘어간다.
+   * 실패는 여기서 알리고 그대로 다시 던진다: 창이 이 건을 지우지 않고 남겨 고쳐 보낼 수 있어야 한다.
+   */
+  async function submitProject(draft: SurveyProjectDraft, file: File | null) {
+    try {
+      if (file) {
+        const summary = await importMutation.mutateAsync({ file, draft })
+        dispatch(setActiveProject(String(summary.projectId)))
+        showToast(
+          `기준점 ${summary.totalRows}점(신규 ${summary.newPoints} · 기존 ${summary.existingPoints} · 갱신 ${summary.updatedPoints}), 조사기록 ${summary.createdRecords}건을 불러왔습니다.`,
+          'success',
+        )
+        return
+      }
+      const project = await createProjectMutation.mutateAsync(draft)
+      dispatch(setActiveProject(project.id))
+    } catch (e) {
+      // 파일이 거부된 사유(몇 행이 왜 잘못됐는지)는 서버 응답에만 있어 그대로 보여 준다
+      showToast(e instanceof ApiError ? e.message : '조사를 등록하지 못했습니다.', 'error')
+      throw e
+    }
   }
 
   function notifySurveySaveFailed() {
@@ -217,54 +217,23 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     )
   }
 
-  /**
-   * 파일을 붙였다 — 드롭이든 선택이든 읽어 보는 단계로 들어간다.
-   * 적어 두던 값은 첫 조사 입력으로 이어 쓴다. 파일 선택은 그 값을 직접 넘기고, 화면 드롭은 ref 에서 가져온다.
-   */
-  function startImport(files: File[], carried?: SurveyProjectDraft) {
-    const draft = carried ?? openDraftRef.current
-    // 새로 붙인 파일이 우선이다 — 열려 있던 입력·대기 중인 파일은 접고 처음부터 읽는다
-    setCreatingProject(false)
-    setProjectQueue(null)
-    setCarriedDraft(draft)
+  /** 파일을 붙였다 — 프로젝트 추가 창을 열어 그 안에서 읽는다. 적어 두던 값은 이어 쓴다. */
+  function startImport(files: File[]) {
+    setCarriedDraft(openDraftRef.current)
     openDraftRef.current = null
-    setImporting(files)
-  }
-
-  /** 등록이 끝나면 다음 파일로 넘어가고, 마지막이면 흐름을 닫는다. */
-  function advanceQueue() {
-    setCreatingProject(false)
-    setProjectQueue((cur) => (cur && cur.index + 1 < cur.items.length ? { ...cur, index: cur.index + 1 } : null))
+    setPendingFiles(files)
+    setCreatingProject(true)
   }
 
   function closeProjectFlow() {
     setCreatingProject(false)
-    setProjectQueue(null)
-    setImporting(null)
+    setPendingFiles(null)
     setCarriedDraft(null)
     openDraftRef.current = null
   }
 
-  function submitProject(draft: SurveyProjectDraft, file: File | null) {
-    if (file) {
-      submitImport(file, draft)
-      return
-    }
-    createProjectMutation.mutate(
-      draft,
-      {
-        onSuccess: (project) => {
-          advanceQueue()
-          dispatch(setActiveProject(project.id))
-        },
-        onError: () => showToast('조사 프로젝트 생성에 실패했습니다.', 'error'),
-      },
-    )
-  }
-
   function focusPoint(cp: ControlPoint) {
     setSelectedId(cp.id)
-    setClusterPopup(null)
     setFocusNonce((n) => n + 1)
   }
 
@@ -280,13 +249,15 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   }
 
   const selected = points.find((p) => p.id === selectedId) ?? null
+  // 조사 기록은 그 조사의 대상 점에만 남길 수 있다. 대상이 아니면 조사 상태와 기록 버튼을 내주지 않는다.
+  const selectedIsTarget = selected !== null && targetIds !== null && targetIds.has(selected.id)
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
 
   return (
     <div className={`contents ${theme === 'dark' ? 'dark' : ''}`}>
     {/* 화면 어디에 파일을 떨어뜨려도 그 파일이 붙은 채로 조사 추가가 열린다 */}
     <div className="relative flex h-full flex-col" {...fileDrop.dropHandlers}>
-      {fileDrop.dragging && <FileDropOverlay label="대상지 파일을 놓으세요" />}
+      {fileDrop.dragging && <FileDropOverlay label="놓으면 기준점 목록을 읽습니다" hint="CSV · XLSX" />}
       <MapToolbar>
         <PointSearchBar points={points} onSelect={focusPoint} />
       </MapToolbar>
@@ -309,10 +280,12 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           projectsLoading={projectsQuery.isPending}
           pointsLoading={pointsQuery.isPending}
           recordsLoading={activeProjectId !== null && recordsQuery.isPending}
+          targetsLoading={activeProjectId !== null && targetsQuery.isPending}
           isAdmin={role === 'ADMIN'}
           onOpenUserManagement={onOpenUserManagement}
           onInsetChange={setMapLeftInset}
           openProjectSignal={openProjectNonce}
+          onOpenPanelChange={setOpenPanel}
         />
 
         <div className="flex min-h-0 flex-1 flex-col">
@@ -330,16 +303,16 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
               기준점을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
             </div>
           )}
-          {/* 대상을 못 읽으면 전체 기준점이 그대로 보이므로, 지금 보이는 것이 조사 대상이 아님을 알린다 */}
+          {/* 대상을 못 읽으면 전체를 대신 그리지 않는다 — 대상이 아닌 점에 조사·망실을 기록할 수 있게 되기 때문 */}
           {targetsQuery.isError && (
             <div className="bg-red-100 px-3.5 py-1.5 text-[13px] text-red-800">
-              조사 대상을 불러오지 못해 전체 기준점을 표시합니다. 잠시 후 다시 시도해 주세요.
+              조사 대상을 불러오지 못해 지도에 표시하지 못합니다. 잠시 후 다시 시도해 주세요.
             </div>
           )}
 
           <div className="relative min-h-0 flex-1">
             <ControlPointMap
-              points={targetPoints}
+              points={visiblePoints}
               addMode={picking}
               showCadastral={showCadastral}
               selectedId={selectedId}
@@ -349,12 +322,8 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
               theme={theme}
               focusNonce={focusNonce}
               leftInset={mapLeftInset}
-              clusterAnchor={clusterPopup?.coord ?? null}
               onAddPoint={addPoint}
-              onSelect={(id) => { setSelectedId(id); setClusterPopup(null) }}
-              onClusterClick={(members, coord, x, y, w, h) => { setSelectedId(null); setClusterPopup({ points: members, coord, x, y, w, h, id: ++clusterIdRef.current }) }}
-              onClusterAnchorMove={(x, y) => setClusterPopup((cur) => (cur ? { ...cur, x, y } : cur))}
-              onClusterAnchorOut={() => setClusterPopup(null)}
+              onSelect={setSelectedId}
               onMapReady={setMapInstance}
             />
 
@@ -395,17 +364,9 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
               </div>
             )}
 
-            <ClusterList
-              popup={clusterPopup}
-              surveyedIds={surveyedIds}
-              lostIds={lostIds}
-              surveyMode={activeProjectId !== null}
-              onFocus={focusPoint}
-              onClose={() => setClusterPopup(null)}
-            />
             <ControlPointDetail
               point={selected}
-              activeProjectName={activeProject?.name ?? null}
+              activeProjectName={selectedIsTarget ? (activeProject?.name ?? null) : null}
               surveyed={selected !== null && surveyedIds.has(selected.id)}
               lost={selected !== null && lostIds.has(selected.id)}
               onToggleSurvey={handleToggleSurvey}
@@ -430,43 +391,12 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
         />
       )}
 
-      {/* 파일을 붙였으면 먼저 읽어 본다 — 대상 건수·오류를 확인하고 입력으로 넘어간다 */}
-      {importing && !projectQueue && (
-        <ImportProgressModal
-          files={importing}
-          onReady={(read) => {
-            setImporting(null)
-            setProjectQueue({ items: read, index: 0 })
-          }}
-          onCancel={closeProjectFlow}
-        />
-      )}
-
-      {projectQueue && (
-        <SurveyProjectFormModal
-          // 다음 파일로 넘어가면 폼을 새로 연다. 형제(토스트)와 키가 겹치지 않게 접두어를 붙인다
-          key={`project-${projectQueue.index}`}
-          title="조사 프로젝트 추가"
-          submitLabel="추가"
-          attachedFile={projectQueue.items[projectQueue.index].file}
-          defaults={projectQueue.index === 0 && carriedDraft ? carriedDraft : undefined}
-          fileSummary={summaryOf(projectQueue.items[projectQueue.index])}
-          fileError={blockingReasonOf(projectQueue.items[projectQueue.index])}
-          step={projectQueue.items.length > 1
-            ? { current: projectQueue.index + 1, total: projectQueue.items.length }
-            : undefined}
-          onSkip={advanceQueue}
-          submitting={importMutation.isPending}
-          onSubmit={submitProject}
-          onCancel={closeProjectFlow}
-        />
-      )}
-
       {creatingProject && (
         <SurveyProjectFormModal
-          title="조사 프로젝트 추가"
+          title="프로젝트 추가"
           submitLabel="추가"
-          onPickFiles={startImport}
+          defaults={carriedDraft ?? undefined}
+          initialFiles={pendingFiles}
           onDraftChange={(draft) => {
             openDraftRef.current = draft
           }}

@@ -68,11 +68,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
             </button>
           </div>
         </div>
-      ) : (
-        <p className="mb-3 border-t border-gray-200 pt-2.5 text-[12px] text-gray-400 dark:border-gray-700 dark:text-gray-500">
-          조사 프로젝트를 선택하면 이 점의 조사·망실 상태를 기록할 수 있습니다.
-        </p>
-      )}
+      ) : null}
 
     </aside>
   )
