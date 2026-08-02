@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import type { ReactNode } from 'react'
 import { useDialogBehavior } from '@/shared/lib/useDialogBehavior'
 import { useFileDrop } from '@/shared/lib/useFileDrop'
+import { FileDropOverlay } from '@/shared/ui/FileDropOverlay'
 
 /**
  * 입력·확인 대화상자의 공통 셸 — 배경 딤·Esc·배경 클릭 닫기, 열릴 때 첫 요소로 포커스 이동, 닫으면 트리거로 복원.
@@ -26,7 +27,7 @@ export function Modal(props: {
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
   const onDropFile = props.onDropFile
-  const { dropHandlers } = useFileDrop((files) => onDropFile?.(files))
+  const { dragging, dropHandlers } = useFileDrop((files) => onDropFile?.(files))
   // 감춰진 동안엔 Esc·포커스 트랩을 끈다 — 안 보이는 창이 Esc를 가로채 입력하던 값을 날리면 안 된다
   useDialogBehavior({ panelRef, onClose: props.onClose, busy: props.busy, enabled: !props.hidden })
 
@@ -64,6 +65,9 @@ export function Modal(props: {
           </div>
         </form>
       </div>
+      {/* 창이 이벤트를 멈춰 화면 안내가 뜨지 않으므로, 받는 쪽이 어디인지 이 창이 직접 알린다.
+          문구는 기본값을 쓴다 — 공용 껍데기라 무슨 파일을 받는지 모른다 */}
+      {onDropFile && dragging && <FileDropOverlay />}
     </div>
   )
 }

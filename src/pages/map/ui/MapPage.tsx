@@ -168,19 +168,28 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     )
   }
 
-  /** 조사 한 건 등록 — 성공으로 끝나야 창이 다음 건으로 넘어간다. 실패하면 그 자리에 남는다. */
+  /**
+   * 조사 한 건 등록 — 성공으로 끝나야 창이 다음 건으로 넘어간다.
+   * 실패는 여기서 알리고 그대로 다시 던진다: 창이 이 건을 지우지 않고 남겨 고쳐 보낼 수 있어야 한다.
+   */
   async function submitProject(draft: SurveyProjectDraft, file: File | null) {
-    if (file) {
-      const summary = await importMutation.mutateAsync({ file, draft })
-      dispatch(setActiveProject(String(summary.projectId)))
-      showToast(
-        `기준점 ${summary.totalRows}점(신규 ${summary.newPoints} · 기존 ${summary.existingPoints} · 갱신 ${summary.updatedPoints}), 조사기록 ${summary.createdRecords}건을 불러왔습니다.`,
-        'success',
-      )
-      return
+    try {
+      if (file) {
+        const summary = await importMutation.mutateAsync({ file, draft })
+        dispatch(setActiveProject(String(summary.projectId)))
+        showToast(
+          `기준점 ${summary.totalRows}점(신규 ${summary.newPoints} · 기존 ${summary.existingPoints} · 갱신 ${summary.updatedPoints}), 조사기록 ${summary.createdRecords}건을 불러왔습니다.`,
+          'success',
+        )
+        return
+      }
+      const project = await createProjectMutation.mutateAsync(draft)
+      dispatch(setActiveProject(project.id))
+    } catch (e) {
+      // 파일이 거부된 사유(몇 행이 왜 잘못됐는지)는 서버 응답에만 있어 그대로 보여 준다
+      showToast(e instanceof ApiError ? e.message : '조사를 등록하지 못했습니다.', 'error')
+      throw e
     }
-    const project = await createProjectMutation.mutateAsync(draft)
-    dispatch(setActiveProject(project.id))
   }
 
   function notifySurveySaveFailed() {
@@ -289,10 +298,10 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
               기준점을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
             </div>
           )}
-          {/* 대상을 못 읽으면 전체 기준점이 그대로 보이므로, 지금 보이는 것이 조사 대상이 아님을 알린다 */}
+          {/* 대상을 못 읽으면 전체를 대신 그리지 않는다 — 대상이 아닌 점에 조사·망실을 기록할 수 있게 되기 때문 */}
           {targetsQuery.isError && (
             <div className="bg-red-100 px-3.5 py-1.5 text-[13px] text-red-800">
-              조사 대상을 불러오지 못해 전체 기준점을 표시합니다. 잠시 후 다시 시도해 주세요.
+              조사 대상을 불러오지 못해 지도에 표시하지 못합니다. 잠시 후 다시 시도해 주세요.
             </div>
           )}
 

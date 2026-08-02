@@ -211,6 +211,12 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
   )
   // 펼친 조사 = 고른 조사. 패널을 열면 이미 고른 조사를 펼쳐 둔다.
   const [expandedId, setExpandedId] = useState<string | null>(props.activeProjectId)
+  // 패널 밖에서도 활성 조사가 바뀐다(가져오기 성공·챗봇 안내). 따라가지 않으면 표식은 새 조사에,
+  // 펼쳐진 행은 옛 조사에 남아 진행률도 목록도 없는 빈 드로어가 된다.
+  const activeProjectId = props.activeProjectId
+  useEffect(() => {
+    setExpandedId(activeProjectId)
+  }, [activeProjectId])
   // 접히는 동안에도 내용을 잠깐 유지(mountedId 지연 언마운트) → 높이 애니메이션이 이어진다
   const [mountedId, setMountedId] = useState<string | null>(expandedId)
   useEffect(() => {

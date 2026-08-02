@@ -35,6 +35,9 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
   const pending = chatMutation.isPending
 
   const areaRef = useRef<HTMLDivElement>(null)
+  // 도킹 폭의 상한 — 보조기술에 알려야 하고 키보드 조절도 같은 값을 써야 해 상태로 들고 있는다
+  const [areaWidth, setAreaWidth] = useState(0)
+  const dockMax = dockMaxWidth(areaWidth)
 
   const docked = open && mode === 'right'
 
@@ -51,7 +54,9 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
     const area = areaRef.current
     if (!area) return
     const observer = new ResizeObserver(() => {
-      const max = dockMaxWidth(area.getBoundingClientRect().width)
+      const width = area.getBoundingClientRect().width
+      setAreaWidth(width)
+      const max = dockMaxWidth(width)
       setDockWidth((w) => (w > max ? max : w))
     })
     observer.observe(area)
@@ -169,16 +174,15 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
           aria-label="채팅 패널 폭 조절"
           aria-valuenow={dockWidth}
           aria-valuemin={DOCK_MIN_WIDTH}
+          aria-valuemax={dockMax}
           aria-hidden={!docked}
           tabIndex={docked ? 0 : -1}
           onPointerDown={startSplitterDrag}
           onKeyDown={(e) => {
             if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
             e.preventDefault()
-            const area = areaRef.current
-            const max = area ? dockMaxWidth(area.getBoundingClientRect().width) : dockWidth
             const step = e.key === 'ArrowLeft' ? 24 : -24 // 왼쪽=넓게(드래그 방향과 일치), 오른쪽=좁게
-            setDockWidth((w) => Math.round(clamp(w + step, DOCK_MIN_WIDTH, max)))
+            setDockWidth((w) => Math.round(clamp(w + step, DOCK_MIN_WIDTH, dockMax)))
           }}
           style={{ right: docked ? dockWidth : 0, opacity: docked ? 1 : 0 }}
           className={`group absolute inset-y-0 z-30 flex w-5 translate-x-1/2 items-center justify-center ${

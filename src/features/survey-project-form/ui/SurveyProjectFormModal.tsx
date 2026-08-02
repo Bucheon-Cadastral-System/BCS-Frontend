@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { MOCK_CURRENT_USER } from '@/entities/user'
 import type { SurveyProjectDraft } from '@/entities/survey-project'
 import { ImportPreviewList, blockingReasonOf, summaryOf, useImportPreviews } from '@/features/import-survey-csv'
@@ -93,10 +93,15 @@ export function SurveyProjectFormModal(props: {
 
   async function submit() {
     if (!canSubmit) return
-    await props.onSubmit(
-      { ...current.draft, name: current.draft.name.trim(), note: trimmedOrNull(current.draft.note ?? '') },
-      file,
-    )
+    try {
+      await props.onSubmit(
+        { ...current.draft, name: current.draft.name.trim(), note: trimmedOrNull(current.draft.note ?? '') },
+        file,
+      )
+    } catch {
+      // 실패는 페이지가 알린다. 이 건은 지우지 않고 그 자리에 남겨 고쳐 다시 보낼 수 있게 한다.
+      return
+    }
     // 등록을 마친 건은 목록에서 빼고 남은 건으로 넘어간다. 마지막이었으면 창을 닫는다.
     if (total === 1) {
       props.onCancel()
@@ -107,10 +112,9 @@ export function SurveyProjectFormModal(props: {
   }
 
   // 값이 바뀔 때마다 바깥에 알린다 — 받는 쪽이 ref 에 담으므로 이 알림이 다시 그림을 부르지 않는다
-  const draftListenerRef = useRef(props.onDraftChange)
-  draftListenerRef.current = props.onDraftChange
+  const notifyDraft = useEffectEvent((draft: SurveyProjectDraft) => props.onDraftChange?.(draft))
   useEffect(() => {
-    draftListenerRef.current?.(current.draft)
+    notifyDraft(current.draft)
   }, [current.draft])
 
   // 읽는 동안의 진행 상태 — 창을 새로 띄우지 않고 이 창 안에서 그대로 보여 준다
@@ -133,14 +137,12 @@ export function SurveyProjectFormModal(props: {
     setIndex(0)
   }
 
-  // 다 읽었고 실패가 없으면 곧바로 입력으로 넘어간다
-  const proceedRef = useRef(proceed)
-  proceedRef.current = proceed
+  // 다 읽었고 실패가 없으면 곧바로 입력으로 넘어간다.
+  // read 는 렌더마다 새 배열이라 의존성에 넣으면 매번 다시 실행된다 — 완료 신호만 보고, 값은 부를 때 읽는다.
+  const proceedWithRead = useEffectEvent(() => proceed(read))
   useEffect(() => {
     if (!reading || !finished || failedCount > 0) return
-    proceedRef.current(read)
-    // read 는 렌더마다 새 배열이라 의존성에 넣으면 매번 다시 실행된다 — 완료 신호만 본다
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    proceedWithRead()
   }, [reading, finished, failedCount])
 
   // 읽기 화면은 '늦게 띄우고, 띄웠으면 잠깐 남긴다' — 짧은 읽기에서 화면이 깜빡이지 않게

@@ -24,14 +24,14 @@ export function ImportPreviewList({ entries }: { entries: PreviewEntry[] }) {
 function StatusMark({ status }: { status: PreviewStatus }) {
   if (status.kind === 'done') {
     return (
-      <svg viewBox="0 0 24 24" className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-label="읽음">
+      <svg viewBox="0 0 24 24" className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" role="img" aria-label="읽음">
         <path d="m5 13 4 4L19 7" />
       </svg>
     )
   }
   if (status.kind === 'failed') {
     return (
-      <svg viewBox="0 0 24 24" className="size-4 shrink-0 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-label="실패">
+      <svg viewBox="0 0 24 24" className="size-4 shrink-0 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" role="img" aria-label="실패">
         <path d="M6 6l12 12M18 6L6 18" />
       </svg>
     )

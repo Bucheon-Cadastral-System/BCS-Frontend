@@ -13,7 +13,8 @@ export function today(): string {
  * `new Date('2026-07-01')` 은 UTC 자정으로 읽혀 한국 시각에선 하루 전으로 보인다.
  */
 export function formatDate(iso: string): string {
-  const [year, month, day] = iso.split('-')
-  if (year === undefined || month === undefined || day === undefined) return iso
+  const matched = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (matched === null) return iso
+  const [, year, month, day] = matched
   return `${year}. ${Number(month)}. ${Number(day)}.`
 }
