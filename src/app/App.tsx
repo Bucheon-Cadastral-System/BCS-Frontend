@@ -6,6 +6,7 @@ import { AdminUsersPage } from '@/pages/admin-users'
 import { completeRegistration, getMemberState, getMyProfile, type UserProfile } from '@/entities/user'
 import { RegistrationPage } from '@/pages/registration'
 import { LoginPage } from '@/pages/login'
+import { InactivePage } from '@/pages/inactive'
 import { MapPage } from '@/pages/map'
 import { WaitingPage } from '@/pages/waiting'
 import { exchangeOAuthCode, refreshAccessToken, startKakaoLogin } from '@/shared/api/auth'
@@ -14,6 +15,16 @@ type AuthState = { loading: boolean; profile: UserProfile | null }
 
 function LoadingPage() {
   return <main className="grid min-h-full place-items-center bg-slate-100 text-sm font-semibold text-slate-500">로그인 상태를 확인하고 있습니다…</main>
+}
+
+function LoginRoute() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const isInactive = new URLSearchParams(location.search).get('error') === 'inactive'
+
+  return isInactive
+    ? <InactivePage onBackToLogin={() => navigate('/login', { replace: true })} />
+    : <LoginPage onKakaoLogin={startKakaoLogin} />
 }
 
 function Protected({ auth, admin = false, children }: { auth: AuthState; admin?: boolean; children: ReactNode }) {
@@ -93,7 +104,7 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage onKakaoLogin={startKakaoLogin} />} />
+      <Route path="/login" element={<LoginRoute />} />
       <Route path="/oauth/success" element={<OAuthSuccessRoute reloadProfile={reloadProfile} />} />
       <Route path="/signup" element={<SignupRoute />} />
       <Route path="/register" element={<Navigate to="/signup" replace />} />
