@@ -1,21 +1,27 @@
 import type { PreviewEntry, PreviewStatus } from '../model/useImportPreviews'
 import { rowErrorSummary } from '../model/readFile'
+import { STATUS_ROW, STATUS_ROW_TONE } from '@/shared/ui/statusRow'
+import { StatusIcon } from '@/shared/ui/StatusIcon'
+import type { StatusTone } from '@/shared/ui/statusRow'
+
+const ROW_TONE: Partial<Record<PreviewStatus['kind'], StatusTone>> = { done: 'success', failed: 'danger' }
 
 /** 읽는 중인 파일들의 상태 목록. 창을 새로 띄우지 않고 고르는 자리에서 그대로 보여 준다. */
 export function ImportPreviewList({ entries }: { entries: PreviewEntry[] }) {
   return (
-    <ul className="w-full space-y-2">
+    // 창 너비를 다 쓰는 줄 목록 — 파일마다 테두리를 두르면 개수가 많을 때 상자가 겹겹이 쌓여 읽기 어렵다.
+    // 위아래 모두 창의 선(머리말·버튼 줄)에 바로 붙인다: 사이를 띄우면 빈 띠와 겹선이 남는다.
+    <ul className="-mx-5 -mb-4 -mt-4 w-[calc(100%+2.5rem)] divide-y divide-gray-200 dark:divide-gray-700">
       {/* 이름·수정시각이 같은 파일을 함께 올릴 수 있어 키는 붙인 순서로 잡는다 */}
       {entries.map((entry, index) => (
-        <li key={index} className="rounded-md border border-gray-200 px-3 py-2 text-left dark:border-gray-700">
-          <div className="flex items-center gap-2">
-            <span className="min-w-0 flex-1 truncate text-[13px] text-gray-800 dark:text-gray-200">
-              {entry.file.name}
-            </span>
-            <StatusMark status={entry.status} />
+        // 읽기를 마친 줄은 바탕을 옅게 물들여 결과가 목록에서 바로 읽히게 한다
+        <li key={index} className={`${STATUS_ROW} ${STATUS_ROW_TONE[ROW_TONE[entry.status.kind] ?? 'none']}`}>
+          <div className="min-w-0 flex-1">
+            <span className="block truncate text-[13px] text-gray-800 dark:text-gray-200">{entry.file.name}</span>
+            <ProgressBar status={entry.status} />
+            <StatusText status={entry.status} />
           </div>
-          <ProgressBar status={entry.status} />
-          <StatusText status={entry.status} />
+          <StatusMark status={entry.status} />
         </li>
       ))}
     </ul>
@@ -23,20 +29,8 @@ export function ImportPreviewList({ entries }: { entries: PreviewEntry[] }) {
 }
 
 function StatusMark({ status }: { status: PreviewStatus }) {
-  if (status.kind === 'done') {
-    return (
-      <svg viewBox="0 0 24 24" className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" role="img" aria-label="읽음">
-        <path d="m5 13 4 4L19 7" />
-      </svg>
-    )
-  }
-  if (status.kind === 'failed') {
-    return (
-      <svg viewBox="0 0 24 24" className="size-4 shrink-0 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" role="img" aria-label="실패">
-        <path d="M6 6l12 12M18 6L6 18" />
-      </svg>
-    )
-  }
+  if (status.kind === 'done') return <StatusIcon shape="check" label="읽음" />
+  if (status.kind === 'failed') return <StatusIcon shape="warn" label="실패" />
   return <span className="shrink-0 text-[11px] tabular-nums text-gray-500 dark:text-gray-400">{percentLabel(status)}</span>
 }
 

@@ -172,22 +172,26 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   }
 
   /**
-   * 조사 한 건 등록 — 성공으로 끝나야 창이 다음 건으로 넘어간다.
-   * 실패는 여기서 알리고 그대로 다시 던진다: 창이 이 건을 지우지 않고 남겨 고쳐 보낼 수 있어야 한다.
+   * 조사 한 건 등록.
+   * 여러 건을 등록하는 중이면 건마다 알리지 않고 마지막에 한 번만 알린다.
+   * 실패는 여기서 알리고 그대로 다시 던진다: 창이 그 건에 머물러 고쳐 보낼 수 있어야 한다.
    */
-  async function submitProject(draft: SurveyProjectDraft, file: File | null) {
+  async function submitProject(draft: SurveyProjectDraft, file: File | null, batch?: { index: number; total: number }) {
+    const batched = batch !== undefined && batch.total > 1
+    const last = batch === undefined || batch.index === batch.total - 1
     try {
       if (file) {
         const summary = await importMutation.mutateAsync({ file, draft })
-        dispatch(setActiveProject(String(summary.projectId)))
-        showToast(
-          `기준점 ${summary.totalRows}점(신규 ${summary.newPoints} · 기존 ${summary.existingPoints} · 갱신 ${summary.updatedPoints}), 조사기록 ${summary.createdRecords}건을 불러왔습니다.`,
-          'success',
-        )
-        return
+        if (!batched) {
+          showToast(
+            `기준점 ${summary.totalRows}점(신규 ${summary.newPoints} · 기존 ${summary.existingPoints} · 갱신 ${summary.updatedPoints}), 조사기록 ${summary.createdRecords}건을 불러왔습니다.`,
+            'success',
+          )
+        }
+      } else {
+        await createProjectMutation.mutateAsync(draft)
       }
-      const project = await createProjectMutation.mutateAsync(draft)
-      dispatch(setActiveProject(project.id))
+      if (batched && last) showToast(`조사 ${batch.total}건을 등록했습니다.`, 'success')
     } catch (e) {
       // 파일이 거부된 사유(몇 행이 왜 잘못됐는지)는 서버 응답에만 있어 그대로 보여 준다
       showToast(e instanceof ApiError ? e.message : '조사를 등록하지 못했습니다.', 'error')
@@ -407,6 +411,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           }}
           submitting={createProjectMutation.isPending || importMutation.isPending}
           onSubmit={submitProject}
+          onNotice={(message) => showToast(message)}
           onCancel={closeProjectFlow}
         />
       )}
