@@ -72,6 +72,9 @@ export function MapSidebar(props: MapSidebarProps) {
   const toggle = (key: PanelKey) => {
     if (open === key) setOpen(null)
     else {
+      // 두 탭은 함께 서지 않는다. 기준점 탭은 전체 목록이라 고른 조사를 그대로 두면
+      // 그 조사의 대상이 아닌 점에 조사·망실을 기록할 수 있다.
+      if (key === 'points') props.onChangeActive(null)
       setLastPanel(key)
       setOpen(key)
     }
