@@ -62,22 +62,58 @@ function svgFor(type: PointType, selected: boolean, lost: boolean, done: boolean
   return `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">${sel}${shape}${badge}</svg>`
 }
 
-function markerDataUri(type: PointType, selected: boolean, lost: boolean, done: boolean, p: Palette): string {
-  return 'data:image/svg+xml;base64,' + btoa(svgFor(type, selected, lost, done, p))
+/**
+ * 도식은 (종류·선택·망실·조사됨·테마) 조합에만 달려 있어 가짓수가 48개뿐이다.
+ * 점 수천 개를 한 화면에 그리면 스타일 함수가 그만큼 불리므로, 조합마다 한 번만 만들어 돌려 쓴다.
+ */
+const iconCache = new Map<string, Icon>()
+const plainStyleCache = new Map<string, Style>()
+
+function styleKey(type: PointType, selected: boolean, lost: boolean, done: boolean, theme: MapTheme): string {
+  return `${theme}|${type}|${selected ? 1 : 0}|${lost ? 1 : 0}|${done ? 1 : 0}`
 }
 
+function markerIcon(key: string, type: PointType, selected: boolean, lost: boolean, done: boolean, theme: MapTheme): Icon {
+  const cached = iconCache.get(key)
+  if (cached) {
+    return cached
+  }
+  const icon = new Icon({
+    src: 'data:image/svg+xml;base64,' + btoa(svgFor(type, selected, lost, done, PALETTE[theme])),
+  })
+  iconCache.set(key, icon)
+  return icon
+}
+
+/**
+ * @param withLabel 이름을 함께 그릴지. 멀리서 보면 라벨끼리 겹쳐 읽을 수 없어 도식만 남긴다.
+ */
 export function controlPointStyle(
   cp: ControlPoint,
   selected: boolean,
   survey: SurveyView = 'none',
   theme: MapTheme = 'light',
+  withLabel = true,
 ): Style {
+  // 우상단 뱃지: 망실=빨간 X, 조사완료=V (둘 다 '조사됨')
+  const lost = survey === 'lost'
+  const done = survey === 'done' || lost
+  const key = styleKey(cp.type, selected, lost, done, theme)
+
+  if (!withLabel) {
+    // 이름이 빠지면 같은 조합의 점들이 완전히 같은 스타일이라 하나를 공유할 수 있다
+    const cached = plainStyleCache.get(key)
+    if (cached) {
+      return cached
+    }
+    const style = new Style({ image: markerIcon(key, cp.type, selected, lost, done, theme) })
+    plainStyleCache.set(key, style)
+    return style
+  }
+
   const pal = PALETTE[theme]
   return new Style({
-    image: new Icon({
-      // 우상단 뱃지: 망실=빨간 X, 조사완료=V (둘 다 '조사됨')
-      src: markerDataUri(cp.type, selected, survey === 'lost', survey === 'done' || survey === 'lost', pal),
-    }),
+    image: markerIcon(key, cp.type, selected, lost, done, theme),
     text: new Text({
       text: cp.name,
       offsetY: -20,

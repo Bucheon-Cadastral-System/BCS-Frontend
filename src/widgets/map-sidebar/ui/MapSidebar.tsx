@@ -78,7 +78,7 @@ export function MapSidebar(props: MapSidebarProps) {
 
   // 패널 본문은 '열려 있을 때만' 마운트(닫히면 슬라이드 아웃 후 지연 언마운트).
   // ★ 성능: 프로젝트가 펼쳐지면 본문에 점 수천 개(PointRow)가 그려지는데, 닫혀도 마운트돼 있으면
-  //   무관한 리렌더(예: 클러스터 클릭 팬 중 매 프레임 setClusterPopup)마다 이 수천 행이 재조정돼 렉이 걸린다.
+  //   패널과 무관한 리렌더마다 이 수천 행이 재조정돼 렉이 걸린다.
   //   닫힘 상태에선 트리에서 제거해 이런 리렌더가 레일만 건드리게 함. (열림 시 1프레임 빈 상태는 슬라이드 인과 겹쳐 무시 가능)
   const [renderBody, setRenderBody] = useState(false)
   useEffect(() => {

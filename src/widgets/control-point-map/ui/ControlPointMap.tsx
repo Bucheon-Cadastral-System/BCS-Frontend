@@ -6,19 +6,26 @@ import ImageLayer from 'ol/layer/Image'
 import XYZ from 'ol/source/XYZ'
 import OSM from 'ol/source/OSM'
 import ImageWMS from 'ol/source/ImageWMS'
+import VectorLayer from 'ol/layer/Vector'
 import VectorSource from 'ol/source/Vector'
 import Feature from 'ol/Feature'
 import Point from 'ol/geom/Point'
 import { fromLonLat, toLonLat } from 'ol/proj'
 import { defaults as defaultControls } from 'ol/control/defaults'
-import AnimatedCluster from 'ol-ext/layer/AnimatedCluster'
 import type { FeatureLike } from 'ol/Feature'
 import type { Style } from 'ol/style'
 import { VWORLD_KEY, DEFAULT_CENTER, DEFAULT_ZOOM } from '@/shared/config/map'
-import { controlPointStyle, clusterStyle } from '@/entities/control-point'
+import { controlPointStyle } from '@/entities/control-point'
 import type { ControlPoint, MapTheme } from '@/entities/control-point'
 import { deriveSurveyStatus } from '@/entities/survey-record'
-import { createClusterSource, clusterMembers, computeClusterInfo, CLUSTER_DISTANCE } from '../lib/pointClustering'
+
+/** 이 줌부터 점 이름을 그린다. 더 멀리서는 라벨끼리 겹쳐 읽을 수 없어 도식만 남긴다. */
+const LABEL_MIN_ZOOM = 16
+/** 위 줌에 해당하는 EPSG:3857 해상도(m/px) — 스타일 함수는 줌이 아니라 해상도를 받는다. */
+const LABEL_MAX_RESOLUTION = 156543.03392804097 / 2 ** LABEL_MIN_ZOOM
+
+/** 목록에서 점을 고를 때 맞추는 줌. 배경 타일 네이티브 최대(라이트 19·다크 18)와 같은 눈높이. */
+const FOCUS_ZOOM = 19
 
 /**
  * 테마별 배경지도 소스 (VWorld Base/midnight, 키 없으면 OSM / CARTO dark).
@@ -49,12 +56,8 @@ interface ControlPointMapProps {
   theme: MapTheme
   focusNonce: number
   leftInset: number
-  clusterAnchor: number[] | null
   onAddPoint: (lng: number, lat: number) => void
   onSelect: (id: string | null) => void
-  onClusterClick: (members: ControlPoint[], coord: number[], x: number, y: number, w: number, h: number) => void
-  onClusterAnchorMove: (x: number, y: number) => void
-  onClusterAnchorOut: () => void
   /** 만들어진 지도 인스턴스 — 하단 상태 표시처럼 매 프레임 값이 바뀌는 UI가 직접 구독하도록 넘긴다 */
   onMapReady?: (map: Map | null) => void
 }
@@ -63,7 +66,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<Map | null>(null)
   const rawSourceRef = useRef<VectorSource | null>(null)
-  const clusterLayerRef = useRef<AnimatedCluster | null>(null)
+  const pointLayerRef = useRef<VectorLayer<VectorSource> | null>(null)
   const cadastralRef = useRef<ImageLayer<ImageWMS> | null>(null)
   const baseLayerRef = useRef<TileLayer<XYZ> | null>(null)
   const lastFocusNonceRef = useRef(props.focusNonce)
@@ -72,41 +75,32 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const addModeRef = useRef(props.addMode)
   const onAddPointRef = useRef(props.onAddPoint)
   const onSelectRef = useRef(props.onSelect)
-  const onClusterClickRef = useRef(props.onClusterClick)
   const selectedIdRef = useRef(props.selectedId)
   const surveyModeRef = useRef(props.surveyMode)
   const surveyedIdsRef = useRef(props.surveyedIds)
   const lostIdsRef = useRef(props.lostIds)
   const themeRef = useRef(props.theme)
   const leftInsetRef = useRef(props.leftInset)
-  const clusterAnchorRef = useRef(props.clusterAnchor)
   const pointsRef = useRef(props.points)
   const focusNonceRef = useRef(props.focusNonce)
   const showCadastralRef = useRef(props.showCadastral)
   const onMapReadyRef = useRef(props.onMapReady)
-  const anchorZoomRef = useRef<number | null>(null) // 팝오버 열릴 때의 줌 (줌 바뀌면=클러스터 재구성 → 닫기)
-  const onClusterAnchorMoveRef = useRef(props.onClusterAnchorMove)
-  const onClusterAnchorOutRef = useRef(props.onClusterAnchorOut)
   // 렌더 중 ref 대입은 순수하지 않음(버려지는 렌더가 미커밋 값을 남길 수 있음) → 커밋 후 effect에서 동기화.
   // OL 콜백/스타일은 커밋 뒤(비동기 상호작용·재렌더)에만 refs를 읽으므로, 이 effect를 먼저 선언해 항상 최신값을 보게 함.
   useEffect(() => {
     addModeRef.current = props.addMode
     onAddPointRef.current = props.onAddPoint
     onSelectRef.current = props.onSelect
-    onClusterClickRef.current = props.onClusterClick
     selectedIdRef.current = props.selectedId
     surveyModeRef.current = props.surveyMode
     surveyedIdsRef.current = props.surveyedIds
     lostIdsRef.current = props.lostIds
     themeRef.current = props.theme
     leftInsetRef.current = props.leftInset
-    clusterAnchorRef.current = props.clusterAnchor
     pointsRef.current = props.points
     focusNonceRef.current = props.focusNonce
     showCadastralRef.current = props.showCadastral
     onMapReadyRef.current = props.onMapReady
-    onClusterAnchorMoveRef.current = props.onClusterAnchorMove
-    onClusterAnchorOutRef.current = props.onClusterAnchorOut
   })
 
   // 초기화 (마운트 시 1회)
@@ -141,36 +135,30 @@ export function ControlPointMap(props: ControlPointMapProps) {
     const rawSource = new VectorSource()
     rawSourceRef.current = rawSource
 
-    // 단일(1개)=기존 공식 도식 / 클러스터(2개+)=조사비율 도넛+개수 뱃지 (테마 반영)
-    const layerStyle = (feature: FeatureLike): Style => {
-      const members = clusterMembers(feature)
-      if (members.length === 1) {
-        const cp = members[0]
-        const survey = surveyModeRef.current
-          ? deriveSurveyStatus(cp.id, surveyedIdsRef.current, lostIdsRef.current)
-          : 'none'
-        return controlPointStyle(cp, cp.id === selectedIdRef.current, survey, themeRef.current)
-      }
-      return clusterStyle(
-        computeClusterInfo(members, surveyModeRef.current, surveyedIdsRef.current, lostIdsRef.current),
+    // 점은 겹치더라도 하나씩 그대로 그린다. 이름은 가까이서 볼 때만 붙인다.
+    const layerStyle = (feature: FeatureLike, resolution: number): Style => {
+      const cp = feature.get('cp') as ControlPoint
+      const survey = surveyModeRef.current
+        ? deriveSurveyStatus(cp.id, surveyedIdsRef.current, lostIdsRef.current)
+        : 'none'
+      return controlPointStyle(
+        cp,
+        cp.id === selectedIdRef.current,
+        survey,
         themeRef.current,
-        surveyModeRef.current,
+        resolution < LABEL_MAX_RESOLUTION,
       )
     }
 
-    const clusterLayer = new AnimatedCluster({
-      source: createClusterSource(rawSource),
-      style: layerStyle,
-      animationDuration: 100,
-    })
-    clusterLayerRef.current = clusterLayer
+    const pointLayer = new VectorLayer({ source: rawSource, style: layerStyle })
+    pointLayerRef.current = pointLayer
 
     const map = new Map({
       target: container,
       controls: defaultControls(), // 축척은 비율과 한 칩에 묶으려고 map-status-bar 가 직접 붙인다
-      layers: [baseLayer, cadastralLayer, clusterLayer],
-      // maxZoom 22: 리스트 포커스 시 조밀한 점도 디클러스터되도록 딥줌 허용(배경은 overzoom 흐림, 마커·지적도는 선명).
-      view: new View({ center: fromLonLat(DEFAULT_CENTER), zoom: DEFAULT_ZOOM, maxZoom: 22 }),
+      layers: [baseLayer, cadastralLayer, pointLayer],
+      // maxZoom 20: 배경 타일 네이티브 최대(라이트 19·다크 18)를 크게 넘기면 확대 보정으로 흐려진다
+      view: new View({ center: fromLonLat(DEFAULT_CENTER), zoom: DEFAULT_ZOOM, maxZoom: 20 }),
     })
     mapRef.current = map
     onMapReadyRef.current?.(map)
@@ -192,25 +180,12 @@ export function ControlPointMap(props: ControlPointMapProps) {
         onAddPointRef.current(lng, lat)
         return
       }
+      // 점이 겹친 자리에서는 OL 이 위에 그려진 것 하나만 준다 — 겹친 나머지는 기준점 목록에서 찾는다
       let handled = false
       map.forEachFeatureAtPixel(evt.pixel, (f) => {
-        const members = clusterMembers(f)
-        if (members.length === 0) return false
-        if (members.length === 1) {
-          onSelectRef.current(members[0].id)
-        } else {
-          // 클러스터 클릭 → 뱃지(중심) 좌표 기준 팝오버 + 점처럼 중앙(가림 보정) 포커스(팬, 줌 유지=클러스터 안 깨지게)
-          const g = f.getGeometry()
-          const coord = g ? (g as Point).getCoordinates() : evt.coordinate
-          const center = map.getPixelFromCoordinate(coord)
-          const ax = center ? center[0] : evt.pixel[0]
-          const ay = center ? center[1] : evt.pixel[1]
-          const size = map.getSize() ?? [0, 0]
-          onClusterClickRef.current(members, coord, ax, ay, size[0], size[1])
-          const view = map.getView()
-          const res = view.getResolution() ?? 0
-          view.animate({ center: [coord[0] - (leftInsetRef.current / 2) * res, coord[1]], duration: 300 })
-        }
+        const cp = f.get('cp') as ControlPoint | undefined
+        if (!cp) return false
+        onSelectRef.current(cp.id)
         handled = true
         return true
       })
@@ -223,51 +198,13 @@ export function ControlPointMap(props: ControlPointMapProps) {
       onMapReadyRef.current?.(null)
       mapRef.current = null
       rawSourceRef.current = null
-      clusterLayerRef.current = null
+      pointLayerRef.current = null
       cadastralRef.current = null
       baseLayerRef.current = null
     }
   }, [])
 
-  // 클러스터 팝오버 앵커 추적: 지도 움직일 때마다 뱃지 좌표를 픽셀로 재투영해 팝오버가 따라오게, 화면 밖이면 닫기
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map) return
-    let lastX = -1
-    let lastY = -1
-    const update = () => {
-      const anchor = clusterAnchorRef.current
-      if (!anchor) return
-      // 줌이 바뀌면 클러스터가 재구성(확대 시 점들이 퍼짐)되어 이 뱃지가 더는 없음 → 팝오버 닫기. (팬은 줌 불변이라 유지)
-      const z = map.getView().getZoom()
-      if (anchorZoomRef.current != null && z != null && Math.abs(z - anchorZoomRef.current) > 0.01) {
-        onClusterAnchorOutRef.current()
-        return
-      }
-      const px = map.getPixelFromCoordinate(anchor)
-      const size = map.getSize()
-      if (!px || !size) return
-      if (px[0] < 0 || px[1] < 0 || px[0] > size[0] || px[1] > size[1]) {
-        onClusterAnchorOutRef.current()
-        return
-      }
-      const x = Math.round(px[0])
-      const y = Math.round(px[1])
-      if (x === lastX && y === lastY) return
-      lastX = x
-      lastY = y
-      onClusterAnchorMoveRef.current(x, y)
-    }
-    map.on('postrender', update)
-    return () => map.un('postrender', update)
-  }, [])
-
-  // 팝오버 열릴 때(anchor 지정)의 줌을 기록 → 이후 줌 변경 감지에 사용
-  useEffect(() => {
-    anchorZoomRef.current = props.clusterAnchor && mapRef.current ? (mapRef.current.getView().getZoom() ?? null) : null
-  }, [props.clusterAnchor])
-
-  // points 변경 → 원본 소스 재구성 (클러스터는 자동 갱신)
+  // points 변경 → 소스 재구성
   useEffect(() => {
     const source = rawSourceRef.current
     if (!source) return
@@ -282,9 +219,9 @@ export function ControlPointMap(props: ControlPointMapProps) {
     )
   }, [props.points])
 
-  // 선택/조사상태/테마 변경 → 클러스터 레이어 재스타일
+  // 선택/조사상태/테마 변경 → 점 레이어 재스타일
   useEffect(() => {
-    clusterLayerRef.current?.changed()
+    pointLayerRef.current?.changed()
   }, [props.selectedId, props.surveyMode, props.surveyedIds, props.lostIds, props.theme])
 
   // 테마 변경 → 배경지도 소스 교체 (새 소스에도 타일 리렌더 연결)
@@ -302,7 +239,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     cadastralRef.current?.setVisible(Boolean(VWORLD_KEY) && props.showCadastral)
   }, [props.showCadastral])
 
-  // 선택된 점으로 이동 (부드러운 팬). 단, 리스트/클러스터 포커스(focusNonce 변화)로 인한 선택이면
+  // 선택된 점으로 이동 (부드러운 팬). 단, 목록 포커스(focusNonce 변화)로 인한 선택이면
   // 여기서 팬하지 않는다 → 아래 focusNonce 이펙트가 zoom+pan 담당(팬+줌 이중 애니메이션 충돌=버벅임 방지).
   useEffect(() => {
     if (!props.selectedId || !mapRef.current) return
@@ -316,7 +253,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     view.animate({ center: [cx - (leftInsetRef.current / 2) * res, cy], duration: 300 })
   }, [props.selectedId])
 
-  // 리스트/클러스터에서 포커스 → 확대 + 이동 (단일 애니메이션). ref 갱신은 위 selectedId 이펙트보다 뒤에 실행됨.
+  // 목록에서 포커스 → 확대 + 이동 (단일 애니메이션). ref 갱신은 위 selectedId 이펙트보다 뒤에 실행됨.
   useEffect(() => {
     lastFocusNonceRef.current = props.focusNonce
     const selectedId = selectedIdRef.current
@@ -325,24 +262,8 @@ export function ControlPointMap(props: ControlPointMapProps) {
     if (!p) return
     const view = mapRef.current.getView()
     const [cx, cy] = fromLonLat([p.lng, p.lat])
-    // 가장 가까운 다른 점과의 거리(맵 단위) → 픽셀 간격이 클러스터 거리를 넘는 줌 계산(사전투영된 소스 지오메트리 사용)
-    let nearest = Infinity
-    for (const f of rawSourceRef.current?.getFeatures() ?? []) {
-      if (f.get('id') === p.id) continue
-      const g = f.getGeometry() as Point | null
-      if (!g) continue
-      const [qx, qy] = g.getCoordinates()
-      const d = Math.hypot(qx - cx, qy - cy)
-      if (d < nearest) nearest = d
-    }
-    let zoom = 19
-    if (nearest !== Infinity && nearest > 0) {
-      // 픽셀 간격 > CLUSTER_DISTANCE*1.2 가 되는 해상도의 줌 → 그 점이 분리됨. [19,22]로 클램프.
-      const z = view.getZoomForResolution(nearest / (CLUSTER_DISTANCE * 1.2))
-      if (z !== undefined) zoom = Math.min(22, Math.max(19, z))
-    }
-    const res = view.getResolutionForZoom(zoom)
-    view.animate({ center: [cx - (leftInsetRef.current / 2) * res, cy], zoom, duration: 450 })
+    const res = view.getResolutionForZoom(FOCUS_ZOOM)
+    view.animate({ center: [cx - (leftInsetRef.current / 2) * res, cy], zoom: FOCUS_ZOOM, duration: 450 })
   }, [props.focusNonce])
 
   // 패널 열림/닫힘으로 가림 폭(leftInset)이 바뀌면, 선택된 점을 새 '보이는 영역 중앙'으로 다시 이동

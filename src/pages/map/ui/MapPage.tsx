@@ -9,7 +9,6 @@ import { PointSearchBar } from '@/widgets/point-search'
 import { MapLayerControl } from '@/widgets/map-layer-control'
 import { MapStatusBar } from '@/widgets/map-status-bar'
 import type OlMap from 'ol/Map'
-import { ClusterList } from '@/widgets/cluster-list'
 import { ChatDockLayout } from '@/widgets/chatbot'
 import type { ChatAction } from '@/widgets/chatbot'
 import { POINT_TYPES, useControlPointsQuery, useRegisterControlPointMutation } from '@/entities/control-point'
@@ -90,7 +89,6 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const [showCadastral, setShowCadastral] = useState(true)
   const [mapInstance, setMapInstance] = useState<OlMap | null>(null) // 하단 상태 표시가 직접 구독한다
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [clusterPopup, setClusterPopup] = useState<{ points: ControlPoint[]; coord: number[]; x: number; y: number; w: number; h: number; id: number } | null>(null)
   const [focusNonce, setFocusNonce] = useState(0)
   const [mapLeftInset, setMapLeftInset] = useState(0) // 좌측 패널이 지도를 가리는 폭(포커스 센터링 보정). >0 = 패널 열림
   const [openProjectNonce, setOpenProjectNonce] = useState(0) // 활성 프로젝트 칩 → 프로젝트 패널 열기 신호
@@ -116,13 +114,10 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     toastIdRef.current += 1
     setToast({ id: toastIdRef.current, message, tone })
   }
-  const clusterIdRef = useRef(0)
   const fileDrop = useFileDrop((files) => startImport(files))
 
-  // 표시되는 점이 바뀌면 클러스터가 다시 묶이므로, 열려 있던 묶음 팝오버는 더 이상 없는 뱃지를 가리킨다 → 닫는다.
-  // 고른 점도 지도에서 사라졌으면 선택을 푼다(마커 없는 상세가 남지 않게).
+  // 고른 점이 지도에서 사라졌으면 선택을 푼다(마커 없는 상세가 남지 않게)
   useEffect(() => {
-    setClusterPopup(null)
     setSelectedId((cur) => (cur !== null && !targetPoints.some((p) => p.id === cur) ? null : cur))
   }, [targetPoints])
 
@@ -264,7 +259,6 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
 
   function focusPoint(cp: ControlPoint) {
     setSelectedId(cp.id)
-    setClusterPopup(null)
     setFocusNonce((n) => n + 1)
   }
 
@@ -349,12 +343,8 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
               theme={theme}
               focusNonce={focusNonce}
               leftInset={mapLeftInset}
-              clusterAnchor={clusterPopup?.coord ?? null}
               onAddPoint={addPoint}
-              onSelect={(id) => { setSelectedId(id); setClusterPopup(null) }}
-              onClusterClick={(members, coord, x, y, w, h) => { setSelectedId(null); setClusterPopup({ points: members, coord, x, y, w, h, id: ++clusterIdRef.current }) }}
-              onClusterAnchorMove={(x, y) => setClusterPopup((cur) => (cur ? { ...cur, x, y } : cur))}
-              onClusterAnchorOut={() => setClusterPopup(null)}
+              onSelect={setSelectedId}
               onMapReady={setMapInstance}
             />
 
@@ -395,14 +385,6 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
               </div>
             )}
 
-            <ClusterList
-              popup={clusterPopup}
-              surveyedIds={surveyedIds}
-              lostIds={lostIds}
-              surveyMode={activeProjectId !== null}
-              onFocus={focusPoint}
-              onClose={() => setClusterPopup(null)}
-            />
             <ControlPointDetail
               point={selected}
               activeProjectName={activeProject?.name ?? null}
