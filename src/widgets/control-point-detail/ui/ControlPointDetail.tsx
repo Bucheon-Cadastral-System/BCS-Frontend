@@ -39,8 +39,9 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
         <dt>위도</dt><dd>{p.lat.toFixed(7)}</dd>
         <dt>경도</dt><dd>{p.lng.toFixed(7)}</dd>
         <dt>TM 원점</dt><dd>{epsgLabel(p.tmEpsg)} ({p.tmEpsg})</dd>
-        <dt>TM X</dt><dd>{p.tmX.toFixed(3)} m</dd>
-        <dt>TM Y</dt><dd>{p.tmY.toFixed(3)} m</dd>
+        {/* 성과 표기는 측량 관례를 따른다 — X 가 북(northing), Y 가 동(easting)이다 */}
+        <dt>TM X</dt><dd>{p.northing.toFixed(3)} m</dd>
+        <dt>TM Y</dt><dd>{p.easting.toFixed(3)} m</dd>
       </dl>
 
       {props.activeProjectName ? (

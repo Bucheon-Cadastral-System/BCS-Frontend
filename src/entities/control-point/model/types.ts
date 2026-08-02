@@ -6,7 +6,9 @@ export type PointType = (typeof POINT_TYPES)[number]
 
 /**
  * 지적기준점 1개.
- * 성과 = TM 좌표(tmX, tmY, tmEpsg)가 권위값, lng/lat(WGS84)는 지도 표시용 파생값.
+ * 성과 = TM 좌표(northing, easting, tmEpsg)가 권위값, lng/lat(WGS84)는 지도 표시용 파생값.
+ * 축은 이름으로 못박는다 — 지적 성과 표기는 측량 관례(X=북, Y=동)라 GIS 축 순서(x=동)와 반대이므로
+ * x·y 로 부르면 어느 쪽인지 코드만 봐서는 알 수 없다.
  */
 export interface ControlPoint {
   id: string
@@ -15,7 +17,7 @@ export interface ControlPoint {
   name: string
   lng: number
   lat: number
-  tmX: number
-  tmY: number
+  northing: number
+  easting: number
   tmEpsg: TmEpsg
 }

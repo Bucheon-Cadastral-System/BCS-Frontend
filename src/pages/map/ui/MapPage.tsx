@@ -151,8 +151,8 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
         name: values.name,
         lng: values.lng,
         lat: values.lat,
-        tmX: values.easting,
-        tmY: values.northing,
+        northing: values.northing,
+        easting: values.easting,
         tmEpsg: values.tmEpsg,
       },
       {

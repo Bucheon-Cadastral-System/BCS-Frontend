@@ -46,7 +46,7 @@ interface ServerControlPoint {
   latitude: number
 }
 
-/** 서버 응답 → 프론트 모델. 축 주의: 서버 northing=북/easting=동, 프론트 tmX=동(easting)/tmY=북(northing). */
+/** 서버 응답 → 프론트 모델. */
 function toControlPoint(server: ServerControlPoint): ControlPoint {
   return {
     id: String(server.id),
@@ -55,8 +55,8 @@ function toControlPoint(server: ServerControlPoint): ControlPoint {
     name: server.name,
     lng: server.longitude,
     lat: server.latitude,
-    tmX: server.easting,
-    tmY: server.northing,
+    northing: server.northing,
+    easting: server.easting,
     tmEpsg: EPSG_FROM_CRS[server.crs],
   }
 }
@@ -72,8 +72,8 @@ export interface RegisterControlPointArgs {
   name: string
   lng: number
   lat: number
-  tmX: number
-  tmY: number
+  northing: number
+  easting: number
   tmEpsg: TmEpsg
 }
 
@@ -83,8 +83,8 @@ export async function registerControlPoint(args: RegisterControlPointArgs): Prom
     type: TYPE_TO_SERVER[args.type],
     name: args.name,
     crs: CRS_FROM_EPSG[args.tmEpsg],
-    northing: args.tmY,
-    easting: args.tmX,
+    northing: args.northing,
+    easting: args.easting,
     longitude: args.lng,
     latitude: args.lat,
   })
