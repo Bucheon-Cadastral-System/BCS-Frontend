@@ -58,55 +58,23 @@ function newEntry(defaults?: Partial<SurveyProjectDraft>): Entry {
   }
 }
 
+/** 확인·등록 목록의 상태 문구 — 등록을 시작했는지가 아니라 그 건의 상태로 정한다 */
 const SEND_LABEL: Record<Entry['status'], string> = {
-  idle: '대기',
+  idle: '등록 예정',
   sending: '등록 중',
   done: '완료',
   failed: '실패',
 }
 
-/** 확인·등록 목록의 건별 상태 표시 — 폐기는 회색 X, 실패는 붉은 느낌표로 가른다 */
-function SendMark(props: { status: Entry['status']; discarded: boolean; started: boolean }) {
-  const { status, discarded, started } = props
-  if (discarded) {
-    return (
-      <svg viewBox="0 0 24 24" className="size-4 shrink-0 text-red-500" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" role="img" aria-label="폐기">
-        <path d="M6 6l12 12M18 6L6 18" />
-      </svg>
-    )
-  }
-  if (!started) {
-    return <span className="size-4 shrink-0 rounded-full border-2 border-gray-300 dark:border-gray-500" aria-hidden />
-  }
+/** 확인·등록 목록의 건별 상태 표시 — 도형은 목록 공용 표시를 쓰고, 이 화면에만 있는 대기·진행만 직접 그린다 */
+function SendMark({ status, discarded }: { status: Entry['status']; discarded: boolean }) {
+  if (discarded) return <StatusIcon shape="cross" label="폐기" />
+  if (status === 'done') return <StatusIcon shape="check" label="완료" />
+  if (status === 'failed') return <StatusIcon shape="warn" label="실패" />
   if (status === 'sending') {
     return <span className="size-4 shrink-0 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" role="img" aria-label="등록 중" />
   }
-  if (status === 'idle') {
-    return <span className="size-4 shrink-0" aria-hidden />
-  }
-  const done = status === 'done'
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={`size-4 shrink-0 ${done ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      role="img"
-      aria-label={done ? '완료' : '실패'}
-    >
-      {done ? (
-        <path d="m5 13 4 4L19 7" />
-      ) : (
-        <>
-          <path d="M12 4 2.5 20h19L12 4z" />
-          <path d="M12 10v3.5M12 17h.01" />
-        </>
-      )}
-    </svg>
-  )
+  return <span className="size-4 shrink-0 rounded-full border-2 border-gray-300 dark:border-gray-500" aria-hidden />
 }
 
 /** 현황판 한 줄의 상태 */
@@ -475,7 +443,7 @@ export function SurveyProjectFormModal(props: {
             className={`rounded-md text-[13px] ${i === sendingIndex ? 'bg-blue-50 px-2 py-1.5 dark:bg-blue-500/15' : ''}`}
           >
             <div className="flex items-center gap-2">
-              <SendMark status={entry.status} discarded={entry.discarded} started={started} />
+              <SendMark status={entry.status} discarded={entry.discarded} />
               <span
                 className={`min-w-0 flex-1 truncate ${
                   entry.discarded ? 'text-gray-400 line-through dark:text-gray-500' : 'text-gray-800 dark:text-gray-100'
@@ -484,7 +452,7 @@ export function SurveyProjectFormModal(props: {
                 {entry.draft.name}
               </span>
               <span className="shrink-0 text-[11px] text-gray-500 dark:text-gray-400">
-                {entry.discarded ? '폐기' : started ? SEND_LABEL[entry.status] : '등록 예정'}
+                {entry.discarded ? '폐기' : SEND_LABEL[entry.status]}
               </span>
             </div>
             {entry.error !== undefined && (
