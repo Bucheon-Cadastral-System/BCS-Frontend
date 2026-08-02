@@ -19,7 +19,11 @@ export function summaryOf(read: ReadFile): string {
 export function blockingReasonOf(read: ReadFile): string | undefined {
   const { errors } = read.preview
   if (errors.length === 0) return undefined
-  const head = errors.slice(0, 2).map((e) => `${e.row}행 ${e.message}`).join(' / ')
-  const rest = errors.length > 2 ? ` 외 ${errors.length - 2}건` : ''
-  return `잘못된 행이 있어 등록할 수 없습니다. 파일을 고쳐 다시 올려 주세요 — ${head}${rest}`
+  return `잘못된 행이 있어 등록할 수 없습니다. 파일을 고쳐 다시 올려 주세요 — ${rowErrorSummary(errors)}`
+}
+
+/** 고쳐야 할 행 표기 — 목록이 길어도 앞의 몇 건만 적고 나머지는 개수로 줄인다. */
+export function rowErrorSummary(errors: SurveyCsvPreview['errors'], limit = 2): string {
+  const head = errors.slice(0, limit).map((e) => `${e.row}행 ${e.message}`).join(' / ')
+  return errors.length > limit ? `${head} 외 ${errors.length - limit}건` : head
 }

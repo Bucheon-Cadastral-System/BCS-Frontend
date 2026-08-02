@@ -21,7 +21,10 @@ import { deriveSurveyStatus } from '@/entities/survey-record'
 
 /** 이 줌부터 점 이름을 그린다. 더 멀리서는 라벨끼리 겹쳐 읽을 수 없어 도식만 남긴다. */
 const LABEL_MIN_ZOOM = 16
-/** 위 줌에 해당하는 EPSG:3857 해상도(m/px) — 스타일 함수는 줌이 아니라 해상도를 받는다. */
+/**
+ * 위 줌에 해당하는 EPSG:3857 해상도(m/px). 스타일 함수는 줌이 아니라 해상도를 받는다.
+ * 해상도는 줌이 커질수록 작아지므로 '이 값 이하'가 곧 '이 줌 이상'이고, 같을 때(정확히 줌 16)도 포함한다.
+ */
 const LABEL_MAX_RESOLUTION = 156543.03392804097 / 2 ** LABEL_MIN_ZOOM
 
 /** 목록에서 점을 고를 때 맞추는 줌. 배경 타일 네이티브 최대(라이트 19·다크 18)와 같은 눈높이. */
@@ -146,7 +149,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
         cp.id === selectedIdRef.current,
         survey,
         themeRef.current,
-        resolution < LABEL_MAX_RESOLUTION,
+        resolution <= LABEL_MAX_RESOLUTION,
       )
     }
 

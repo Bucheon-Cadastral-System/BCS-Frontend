@@ -1,4 +1,5 @@
 import type { PreviewEntry, PreviewStatus } from '../model/useImportPreviews'
+import { rowErrorSummary } from '../model/readFile'
 
 /** 읽는 중인 파일들의 상태 목록. 창을 새로 띄우지 않고 고르는 자리에서 그대로 보여 준다. */
 export function ImportPreviewList({ entries }: { entries: PreviewEntry[] }) {
@@ -75,8 +76,7 @@ function StatusText({ status }: { status: PreviewStatus }) {
   if (errors.length > 0) {
     return (
       <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">
-        {totalRows}건 중 {errors.length}건 오류 · {errors.slice(0, 2).map((e) => `${e.row}행 ${e.message}`).join(' / ')}
-        {errors.length > 2 && ` 외 ${errors.length - 2}건`}
+        {totalRows}건 중 {errors.length}건 오류 · {rowErrorSummary(errors)}
       </p>
     )
   }

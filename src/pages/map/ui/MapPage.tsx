@@ -105,12 +105,15 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   /**
    * 지도에 그릴 점 — 기본은 아무것도 그리지 않는다.
    * 기준점 탭을 열면 전체(목록과 지도가 같은 집합), 조사를 고르면 그 조사의 대상만.
+   * 고른 점은 어느 경우에도 함께 그린다 — 헤더 검색·챗봇 안내는 패널을 열지 않고 점을 지목하므로,
+   * 빼면 지목한 자리에 아무것도 나타나지 않는다.
    */
   const visiblePoints = useMemo(() => {
-    if (openPanel === 'points') return points
-    if (activeProjectId !== null) return targetPoints
-    return EMPTY_POINTS
-  }, [openPanel, activeProjectId, points, targetPoints])
+    const base = openPanel === 'points' ? points : activeProjectId !== null ? targetPoints : EMPTY_POINTS
+    if (selectedId === null || base.some((p) => p.id === selectedId)) return base
+    const focused = points.find((p) => p.id === selectedId)
+    return focused === undefined ? base : [...base, focused]
+  }, [openPanel, activeProjectId, points, targetPoints, selectedId])
 
   // 고른 점이 지도에서 사라졌으면 선택을 푼다(마커 없는 상세가 남지 않게)
   useEffect(() => {
@@ -246,6 +249,8 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   }
 
   const selected = points.find((p) => p.id === selectedId) ?? null
+  // 조사 기록은 그 조사의 대상 점에만 남길 수 있다. 대상이 아니면 조사 상태와 기록 버튼을 내주지 않는다.
+  const selectedIsTarget = selected !== null && targetIds !== null && targetIds.has(selected.id)
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
 
   return (
@@ -361,7 +366,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
 
             <ControlPointDetail
               point={selected}
-              activeProjectName={activeProject?.name ?? null}
+              activeProjectName={selectedIsTarget ? (activeProject?.name ?? null) : null}
               surveyed={selected !== null && surveyedIds.has(selected.id)}
               lost={selected !== null && lostIds.has(selected.id)}
               onToggleSurvey={handleToggleSurvey}

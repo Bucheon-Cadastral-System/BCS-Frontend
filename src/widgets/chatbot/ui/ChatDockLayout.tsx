@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { ChatPanel } from './ChatPanel'
 import { ChatBubbleIcon } from './icons'
@@ -49,16 +49,19 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
     saveChatMessages(messages)
   }, [messages])
 
-  // 창이 좁아지면 저장해 둔 폭이 절반을 넘길 수 있다 — 영역 크기가 바뀔 때마다 상한에 맞춘다
-  useEffect(() => {
+  // 창이 좁아지면 저장해 둔 폭이 절반을 넘길 수 있다 — 영역 크기가 바뀔 때마다 상한에 맞춘다.
+  // 첫 그림 전에 한 번 재어 둔다: 상한을 모르는 채로 그리면 저장해 둔 폭이 상한을 넘은 상태로 알려진다.
+  useLayoutEffect(() => {
     const area = areaRef.current
     if (!area) return
-    const observer = new ResizeObserver(() => {
+    const apply = () => {
       const width = area.getBoundingClientRect().width
       setAreaWidth(width)
       const max = dockMaxWidth(width)
       setDockWidth((w) => (w > max ? max : w))
-    })
+    }
+    apply()
+    const observer = new ResizeObserver(apply)
     observer.observe(area)
     return () => observer.disconnect()
   }, [])
