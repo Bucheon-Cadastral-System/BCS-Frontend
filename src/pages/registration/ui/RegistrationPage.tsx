@@ -4,7 +4,6 @@ import type { District, Position, Team } from '@/entities/user'
 import { BrandLockup } from '@/shared/ui/BrandLockup'
 
 export interface RegistrationData {
-  kakaoId: string
   name: string
   phone: string
   email: string
@@ -15,13 +14,14 @@ export interface RegistrationData {
 }
 
 interface RegistrationPageProps {
-  kakaoId: string
   onCancel: () => void
-  onSubmit: (registration: RegistrationData) => void
+  onSubmit: (registration: RegistrationData) => Promise<void>
 }
 
-export function RegistrationPage({ kakaoId, onCancel, onSubmit }: RegistrationPageProps) {
+export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) {
   const [phone, setPhone] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
 
   const formatPhone = (value: string) => {
     const numbers = value.replace(/\D/g, '').slice(0, 11)
@@ -30,12 +30,14 @@ export function RegistrationPage({ kakaoId, onCancel, onSubmit }: RegistrationPa
     return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
 
-    onSubmit({
-      kakaoId,
+    setSubmitting(true)
+    setError('')
+    try {
+      await onSubmit({
       name: String(form.get('name')),
       phone: String(form.get('phone')).replace(/\D/g, ''),
       email: String(form.get('email')),
@@ -43,7 +45,12 @@ export function RegistrationPage({ kakaoId, onCancel, onSubmit }: RegistrationPa
       department: '민원지적과',
       team: String(form.get('team')) as RegistrationData['team'],
       position: String(form.get('position')) as RegistrationData['position'],
-    })
+      })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '가입 신청을 처리하지 못했습니다.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -122,9 +129,11 @@ export function RegistrationPage({ kakaoId, onCancel, onSubmit }: RegistrationPa
             입력한 정보는 가입 승인과 사용자 권한 관리 목적으로만 사용됩니다.
           </p>
 
+          {error && <p className="mt-4 rounded-xl bg-rose-50 p-4 text-sm text-rose-700" role="alert">{error}</p>}
+
           <div className="mt-7 flex justify-end gap-3">
             <button type="button" className="min-h-12 rounded-xl border border-slate-200 px-7 font-bold text-slate-600 hover:bg-slate-50" onClick={onCancel}>취소</button>
-            <button type="submit" className="min-h-12 rounded-xl bg-teal-600 px-7 font-bold text-white hover:bg-teal-700">가입 신청하기</button>
+            <button type="submit" disabled={submitting} className="min-h-12 rounded-xl bg-teal-600 px-7 font-bold text-white hover:bg-teal-700 disabled:cursor-wait disabled:opacity-60">{submitting ? '신청 중…' : '가입 신청하기'}</button>
           </div>
         </form>
       </section>

@@ -1,12 +1,10 @@
-import { useMemo, useState } from 'react'
-import { DISTRICTS, POSITIONS, TEAMS } from '@/entities/user'
-import type { ManagedUser, UserStatus } from '@/entities/user'
+import { useEffect, useMemo, useState } from 'react'
+import { changeAdminMember, getAdminActivities, getAdminMembers, updateAdminMember, DISTRICTS, POSITIONS, TEAMS } from '@/entities/user'
+import type { AdminActivity, AdminMemberAction, ManagedUser, UserStatus } from '@/entities/user'
 import { AppHeader } from '@/shared/ui/AppHeader'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 
 interface AdminUsersPageProps {
-  users: ManagedUser[]
-  onChangeUsers: (users: ManagedUser[]) => void
   onBack: () => void
 }
 
@@ -23,12 +21,37 @@ function actionLabelOf(from: UserStatus, to: UserStatus): string {
   return '상태 변경'
 }
 
-export function AdminUsersPage({ users, onChangeUsers, onBack }: AdminUsersPageProps) {
+export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
+  const [users, setUsers] = useState<ManagedUser[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [activities, setActivities] = useState<AdminActivity[]>([])
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [filter, setFilter] = useState<'ALL' | UserStatus>('ALL')
   const [query, setQuery] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState<ManagedUser | null>(null)
-  const [pendingChange, setPendingChange] = useState<{ id: string; status: UserStatus; label: string } | null>(null)
+  const [pendingChange, setPendingChange] = useState<{ id: string; action: AdminMemberAction; status?: UserStatus; label: string } | null>(null)
+
+  const loadActivities = async (cursor?: string) => {
+    const result = await getAdminActivities(cursor)
+    setActivities((current) => cursor ? [...current, ...result.content] : result.content)
+    setNextCursor(result.nextCursor)
+  }
+
+  const reload = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const members = await getAdminMembers()
+      setUsers(members)
+      await loadActivities()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '관리자 정보를 불러오지 못했습니다.')
+    } finally { setLoading(false) }
+  }
+
+  useEffect(() => { void reload() }, [])
 
   const counts = useMemo(() => ({
     ALL: users.length,
@@ -55,14 +78,20 @@ export function AdminUsersPage({ users, onChangeUsers, onBack }: AdminUsersPageP
   const updateStatus = (id: string, status: UserStatus) => {
     const current = users.find((user) => user.id === id)
     if (!current) return
-    setPendingChange({ id, status, label: actionLabelOf(current.status, status) })
+    const action = status === 'INACTIVE' ? 'deactivate' : current.status === 'PENDING' ? 'approve' : 'activate'
+    setPendingChange({ id, action, status, label: actionLabelOf(current.status, status) })
   }
 
-  const applyStatusChange = () => {
+  const applyStatusChange = async () => {
     if (!pendingChange) return
-    const { id, status } = pendingChange
-    onChangeUsers(users.map((user) => user.id === id ? { ...user, status } : user))
-    setPendingChange(null)
+    const { id, action, status } = pendingChange
+    try {
+      await changeAdminMember(id, action)
+      if (action === 'reject') setUsers(users.filter((user) => user.id !== id))
+      else setUsers(users.map((user) => user.id === id ? { ...user, ...(status ? { status } : {}), ...(action === 'role/admin' ? { role: 'ADMIN' as const } : {}), ...(action === 'role/user' ? { role: 'USER' as const } : {}) } : user))
+      setPendingChange(null)
+      await loadActivities()
+    } catch (e) { setError(e instanceof Error ? e.message : '회원 상태를 변경하지 못했습니다.') }
   }
 
   const startEditing = (user: ManagedUser) => {
@@ -70,11 +99,15 @@ export function AdminUsersPage({ users, onChangeUsers, onBack }: AdminUsersPageP
     setDraft({ ...user })
   }
 
-  const saveEditing = () => {
+  const saveEditing = async () => {
     if (!draft) return
-    onChangeUsers(users.map((user) => user.id === draft.id ? draft : user))
-    setEditingId(null)
-    setDraft(null)
+    try {
+      await updateAdminMember(draft)
+      setUsers(users.map((user) => user.id === draft.id ? draft : user))
+      setEditingId(null)
+      setDraft(null)
+      await loadActivities()
+    } catch (e) { setError(e instanceof Error ? e.message : '회원 정보를 수정하지 못했습니다.') }
   }
 
   return (
@@ -100,6 +133,9 @@ export function AdminUsersPage({ users, onChangeUsers, onBack }: AdminUsersPageP
           <div><span>사용 중</span><strong className="text-teal-600">{counts.ACTIVE}</strong></div>
           <div><span>비활성</span><strong className="text-slate-400">{counts.INACTIVE}</strong></div>
         </div>
+
+        {error && <p className="mt-5 rounded-xl bg-rose-50 p-4 text-sm text-rose-700" role="alert">{error}</p>}
+        {loading && <p className="mt-5 rounded-2xl bg-white p-10 text-center text-slate-400">사용자 정보를 불러오는 중입니다…</p>}
 
         <div className="mt-6 flex flex-col justify-between gap-3 lg:flex-row">
           <div className="flex flex-wrap gap-2">
@@ -135,7 +171,7 @@ export function AdminUsersPage({ users, onChangeUsers, onBack }: AdminUsersPageP
                     <div className="grid size-11 place-items-center rounded-full bg-teal-50 font-bold text-teal-700">{current.name.slice(0, 1)}</div>
                     <div className="flex flex-col">
                       <strong>{current.name}</strong>
-                      <span className="text-xs text-slate-400">카카오 ID {current.kakaoId}</span>
+                      <span className="text-xs text-slate-400">회원 #{current.id} · {current.role}</span>
                     </div>
                   </div>
                   <span className={`rounded-full px-3 py-1 text-xs font-bold ${current.status === 'PENDING' ? 'bg-amber-50 text-amber-700' : current.status === 'ACTIVE' ? 'bg-teal-50 text-teal-700' : 'bg-slate-100 text-slate-500'}`}>
@@ -178,10 +214,7 @@ export function AdminUsersPage({ users, onChangeUsers, onBack }: AdminUsersPageP
                       {POSITIONS.map((value) => <option key={value}>{value}</option>)}
                     </select>
                   </label>
-                  <label>
-                    <span>신청일</span>
-                    <input disabled value={current.requestedAt} />
-                  </label>
+                  <label><span>권한</span><input disabled value={current.role} /></label>
                 </div>
 
                 <div className="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4 [&_button]:min-h-10 [&_button]:rounded-lg [&_button]:px-4 [&_button]:text-sm [&_button]:font-bold">
@@ -193,15 +226,19 @@ export function AdminUsersPage({ users, onChangeUsers, onBack }: AdminUsersPageP
                   ) : (
                     <>
                       <button type="button" className="border border-slate-200 text-slate-600" onClick={() => startEditing(user)}>정보 수정</button>
-                      {user.status === 'PENDING' && (
+                      {user.status === 'PENDING' && (<>
+                        <button type="button" className="border border-rose-200 text-rose-600" onClick={() => setPendingChange({ id: user.id, action: 'reject', label: '가입 거절' })}>가입 거절</button>
                         <button type="button" className="bg-teal-600 text-white" onClick={() => updateStatus(user.id, 'ACTIVE')}>가입 승인</button>
-                      )}
+                      </>)}
                       {user.status === 'ACTIVE' && (
                         <button type="button" className="bg-slate-700 text-white" onClick={() => updateStatus(user.id, 'INACTIVE')}>비활성화</button>
                       )}
                       {user.status === 'INACTIVE' && (
                         <button type="button" className="bg-teal-600 text-white" onClick={() => updateStatus(user.id, 'ACTIVE')}>다시 활성화</button>
                       )}
+                      {user.status === 'ACTIVE' && (user.role === 'ADMIN'
+                        ? <button type="button" className="border border-slate-300 text-slate-600" onClick={() => setPendingChange({ id: user.id, action: 'role/user', label: '관리자 권한 회수' })}>관리자 권한 회수</button>
+                        : <button type="button" className="border border-teal-200 text-teal-700" onClick={() => setPendingChange({ id: user.id, action: 'role/admin', label: '관리자 권한 부여' })}>관리자 권한 부여</button>)}
                     </>
                   )}
                 </div>
@@ -209,6 +246,20 @@ export function AdminUsersPage({ users, onChangeUsers, onBack }: AdminUsersPageP
             )
           })}
         </div>
+
+        <section className="mt-10" aria-labelledby="activity-title">
+          <p className="text-sm font-bold text-teal-600">감사 기록</p>
+          <h2 id="activity-title" className="mt-1 text-2xl font-bold">관리자 활동 로그</h2>
+          <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            {activities.length === 0 ? <p className="p-8 text-center text-sm text-slate-400">기록된 관리자 활동이 없습니다.</p> : activities.map((activity) => (
+              <div key={activity.id} className="flex flex-col gap-1 border-b border-slate-100 px-5 py-4 last:border-0 sm:flex-row sm:items-center sm:justify-between">
+                <div><strong className="text-sm">{activity.message}</strong><p className="mt-1 text-xs text-slate-400">관리자 #{activity.actorAdminId} · 대상 회원 #{activity.targetMemberId} · {activity.activityType}</p></div>
+                <time className="text-xs text-slate-400">{new Date(activity.createdAt).toLocaleString('ko-KR')}</time>
+              </div>
+            ))}
+          </div>
+          {nextCursor && <button type="button" className="mt-3 w-full rounded-xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-600" onClick={() => void loadActivities(nextCursor)}>활동 더 보기</button>}
+        </section>
       </section>
 
       {pendingChange && (
@@ -216,7 +267,7 @@ export function AdminUsersPage({ users, onChangeUsers, onBack }: AdminUsersPageP
           message={`해당 사용자를 ${pendingChange.label}할까요?`}
           confirmLabel={pendingChange.label}
           cancelLabel="취소"
-          danger={pendingChange.status === 'INACTIVE'}
+          danger={pendingChange.action === 'deactivate' || pendingChange.action === 'reject'}
           onConfirm={applyStatusChange}
           onCancel={() => setPendingChange(null)}
         />

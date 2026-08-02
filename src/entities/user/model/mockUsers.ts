@@ -7,7 +7,6 @@ import type { ManagedUser } from './user'
 export const MOCK_USERS: ManagedUser[] = [
   {
     id: 'user-1',
-    kakaoId: '3948217551',
     name: '김지훈',
     phone: '01012345678',
     email: 'jihun.kim@example.com',
@@ -16,11 +15,10 @@ export const MOCK_USERS: ManagedUser[] = [
     team: '지적관리팀',
     position: '주무관',
     status: 'PENDING',
-    requestedAt: '2026-07-16',
+    role: 'USER',
   },
   {
     id: 'user-2',
-    kakaoId: '3814072264',
     name: '박서연',
     phone: '01098765432',
     email: 'seoyeon.park@example.com',
@@ -29,11 +27,10 @@ export const MOCK_USERS: ManagedUser[] = [
     team: '지적정보팀',
     position: '팀장',
     status: 'ACTIVE',
-    requestedAt: '2026-07-12',
+    role: 'ADMIN',
   },
   {
     id: 'user-3',
-    kakaoId: '3729441088',
     name: '이민수',
     phone: '01024681357',
     email: 'minsu.lee@example.com',
@@ -42,11 +39,10 @@ export const MOCK_USERS: ManagedUser[] = [
     team: '부동산관리팀',
     position: '주무관',
     status: 'INACTIVE',
-    requestedAt: '2026-07-08',
+    role: 'USER',
   },
   {
     id: 'user-4',
-    kakaoId: '3690115523',
     name: '정수아',
     phone: '01033445566',
     email: 'sua.jung@example.com',
@@ -55,11 +51,10 @@ export const MOCK_USERS: ManagedUser[] = [
     team: '지적정보팀',
     position: '주무관',
     status: 'ACTIVE',
-    requestedAt: '2026-06-30',
+    role: 'USER',
   },
   {
     id: 'user-5',
-    kakaoId: '3655208814',
     name: '한도영',
     phone: '01077889900',
     email: 'doyoung.han@example.com',
@@ -68,11 +63,10 @@ export const MOCK_USERS: ManagedUser[] = [
     team: '지적관리팀',
     position: '주무관',
     status: 'ACTIVE',
-    requestedAt: '2026-06-24',
+    role: 'USER',
   },
   {
     id: 'user-6',
-    kakaoId: '3611947702',
     name: '오세진',
     phone: '01022113344',
     email: 'sejin.oh@example.com',
@@ -81,7 +75,7 @@ export const MOCK_USERS: ManagedUser[] = [
     team: '지적관리팀',
     position: '팀장',
     status: 'ACTIVE',
-    requestedAt: '2026-06-18',
+    role: 'USER',
   },
 ]
 

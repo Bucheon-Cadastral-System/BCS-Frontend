@@ -10,7 +10,6 @@ export type Position = (typeof POSITIONS)[number]
 
 export interface ManagedUser {
   id: string
-  kakaoId: string
   name: string
   phone: string
   email: string
@@ -19,5 +18,7 @@ export interface ManagedUser {
   team: Team
   position: Position
   status: UserStatus
-  requestedAt: string
+  role: UserRole
 }
+
+export interface UserProfile extends ManagedUser {}
