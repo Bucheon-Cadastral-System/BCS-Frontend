@@ -36,6 +36,8 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
       </div>
 
       <dl className="mb-3 grid last:mb-0 grid-cols-[64px_1fr] gap-x-2.5 gap-y-1 text-[13px] [&_dd]:tabular-nums [&_dd]:text-gray-900 [&_dt]:text-gray-500 dark:[&_dd]:text-gray-100 dark:[&_dt]:text-gray-400">
+        {/* 이름은 표시용이고 점을 가리키는 값은 관리번호라 좌표보다 먼저 둔다 */}
+        <dt>관리번호</dt><dd>{p.pointNo}</dd>
         <dt>위도</dt><dd>{p.lat.toFixed(7)}</dd>
         <dt>경도</dt><dd>{p.lng.toFixed(7)}</dd>
         <dt>TM 원점</dt><dd>{epsgLabel(p.tmEpsg)} ({p.tmEpsg})</dd>
