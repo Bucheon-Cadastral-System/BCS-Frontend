@@ -60,15 +60,17 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const records = useMemo(() => recordsQuery.data ?? [], [recordsQuery.data])
 
   // 고른 조사의 대상 점 — 진행률 분모와 프로젝트 패널 목록이 이걸 따른다.
-  // 대상 목록이 오기 전에는 좁히지 않는다: 빈 배열로 두면 응답을 기다리는 동안 지도가 비고 선택까지 풀린다.
   const targetIds = useMemo(
     () => (targetsQuery.data === undefined ? null : new Set(targetsQuery.data)),
     [targetsQuery.data],
   )
-  const targetPoints = useMemo(
-    () => (activeProjectId === null || targetIds === null ? points : points.filter((p) => targetIds.has(p.id))),
-    [activeProjectId, points, targetIds],
-  )
+  // 대상 목록이 도착하기 전에는 아무것도 대상으로 치지 않는다.
+  // 전체를 대신 내놓으면 조사를 고른 직후 한 프레임 동안 지도에 전체 기준점이 깔렸다가 걸러진다.
+  const targetPoints = useMemo(() => {
+    if (activeProjectId === null) return points
+    if (targetIds === null) return EMPTY_POINTS
+    return points.filter((p) => targetIds.has(p.id))
+  }, [activeProjectId, points, targetIds])
 
   const tmEpsg: TmEpsg = 'EPSG:5186' // 부천 = 중부원점 고정
   const [showCadastral, setShowCadastral] = useState(true)
@@ -264,6 +266,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           projectsLoading={projectsQuery.isPending}
           pointsLoading={pointsQuery.isPending}
           recordsLoading={activeProjectId !== null && recordsQuery.isPending}
+          targetsLoading={activeProjectId !== null && targetsQuery.isPending}
           isAdmin={role === 'ADMIN'}
           onOpenUserManagement={onOpenUserManagement}
           onInsetChange={setMapLeftInset}
