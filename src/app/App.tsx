@@ -3,8 +3,8 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from
 import 'ol/ol.css'
 import './App.css'
 import { AdminUsersPage } from '@/pages/admin-users'
-import { completeRegistration, getMyProfile, type UserProfile } from '@/entities/user'
-import { RegistrationPage, type RegistrationData } from '@/pages/registration'
+import { completeRegistration, getMemberState, getMyProfile, type UserProfile } from '@/entities/user'
+import { RegistrationPage } from '@/pages/registration'
 import { LoginPage } from '@/pages/login'
 import { MapPage } from '@/pages/map'
 import { WaitingPage } from '@/pages/waiting'
@@ -40,6 +40,39 @@ function OAuthSuccessRoute({ reloadProfile }: { reloadProfile: () => Promise<Use
     : <LoadingPage />
 }
 
+function SignupRoute() {
+  const navigate = useNavigate()
+  const [checking, setChecking] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    getMemberState()
+      .then((state) => {
+        if (state.profileCompleted) navigate('/waiting', { replace: true })
+        else setShowForm(true)
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : '가입 상태를 확인하지 못했습니다.'))
+      .finally(() => setChecking(false))
+  }, [navigate])
+
+  if (checking) return <LoadingPage />
+  if (error) {
+    return <main className="grid min-h-full place-items-center bg-slate-100"><div className="rounded-2xl bg-white p-8 text-center"><p className="text-rose-700">{error}</p><button className="mt-4 font-bold text-teal-700" onClick={() => navigate('/login')}>로그인으로 돌아가기</button></div></main>
+  }
+  if (!showForm) return <LoadingPage />
+
+  return (
+    <RegistrationPage
+      onCancel={() => navigate('/login')}
+      onSubmit={async (data) => {
+        await completeRegistration(data)
+        navigate('/waiting', { replace: true })
+      }}
+    />
+  )
+}
+
 function AppRoutes() {
   const [auth, setAuth] = useState<AuthState>({ loading: true, profile: null })
 
@@ -58,15 +91,11 @@ function AppRoutes() {
     refreshAccessToken().then((token) => token ? reloadProfile() : (setAuth({ loading: false, profile: null }), null))
   }, [reloadProfile])
 
-  const submitRegistration = async (data: RegistrationData) => {
-    await completeRegistration(data)
-  }
-
   return (
     <Routes>
       <Route path="/login" element={<LoginPage onKakaoLogin={startKakaoLogin} />} />
       <Route path="/oauth/success" element={<OAuthSuccessRoute reloadProfile={reloadProfile} />} />
-      <Route path="/signup" element={<RegistrationPage onCancel={() => window.location.assign('/login')} onSubmit={async (data) => { await submitRegistration(data); window.location.assign('/waiting') }} />} />
+      <Route path="/signup" element={<SignupRoute />} />
       <Route path="/register" element={<Navigate to="/signup" replace />} />
       <Route path="/waiting" element={<WaitingPage onBackToLogin={() => window.location.assign('/login')} />} />
       <Route path="/" element={<Protected auth={auth}><MapPage role={auth.profile?.role ?? 'USER'} onOpenUserManagement={() => window.location.assign('/admin/users')} /></Protected>} />
