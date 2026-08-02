@@ -216,6 +216,31 @@ export function SurveyProjectFormModal(props: {
 
   const formBody = (
     <>
+      {/* 여러 건을 잇달아 입력하는 동안 지금 몇 번째인지 — 제목에 괄호로 붙이면 눈에 띄지 않아 본문 맨 위에 둔다.
+          등록을 마친 건은 목록에서 빠지므로 남은 건수로 센다. */}
+      {total > 1 && (
+        <div>
+          <p className="mb-1.5 text-[12px] text-gray-500 dark:text-gray-400">
+            <b className="text-[13px] text-gray-900 dark:text-gray-100">{index + 1}번째</b> · 남은 {total}건
+          </p>
+          <div className="flex gap-1">
+            {entries.map((entry, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setIndex(i)}
+                title={entry.read?.file.name ?? entry.draft.name}
+                aria-label={`${i + 1}번째로 이동`}
+                aria-current={i === index}
+                className={`h-1.5 flex-1 rounded-full transition-colors ${
+                  i === index ? 'bg-blue-500' : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <ModalField label="조사명" required>
         <input
           className={MODAL_INPUT}
@@ -324,7 +349,7 @@ export function SurveyProjectFormModal(props: {
 
   return (
     <Modal
-      title={showReading ? '기준점 목록 읽는 중' : total > 1 ? `${props.title} (${index + 1} / ${total})` : props.title}
+      title={showReading ? '기준점 목록 읽는 중' : props.title}
       busy={props.submitting || reading !== null}
       onClose={props.onCancel}
       onSubmit={submit}
