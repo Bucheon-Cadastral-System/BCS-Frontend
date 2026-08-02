@@ -35,7 +35,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
         <button type="button" className="cursor-pointer border-0 bg-transparent text-xl leading-none text-gray-500 dark:text-gray-400" onClick={props.onClose} aria-label="닫기">×</button>
       </div>
 
-      <dl className="mb-3 grid grid-cols-[64px_1fr] gap-x-2.5 gap-y-1 text-[13px] [&_dd]:tabular-nums [&_dd]:text-gray-900 [&_dt]:text-gray-500 dark:[&_dd]:text-gray-100 dark:[&_dt]:text-gray-400">
+      <dl className="mb-3 grid last:mb-0 grid-cols-[64px_1fr] gap-x-2.5 gap-y-1 text-[13px] [&_dd]:tabular-nums [&_dd]:text-gray-900 [&_dt]:text-gray-500 dark:[&_dd]:text-gray-100 dark:[&_dt]:text-gray-400">
         <dt>위도</dt><dd>{p.lat.toFixed(7)}</dd>
         <dt>경도</dt><dd>{p.lng.toFixed(7)}</dd>
         <dt>TM 원점</dt><dd>{epsgLabel(p.tmEpsg)} ({p.tmEpsg})</dd>
@@ -45,7 +45,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
       </dl>
 
       {props.activeProjectName ? (
-        <div className="mb-3 flex flex-col gap-2 border-t border-gray-200 pt-2.5 dark:border-gray-700">
+        <div className="mb-3 flex flex-col gap-2 border-t last:mb-0 border-gray-200 pt-2.5 dark:border-gray-700">
           <div className="flex items-center gap-2">
             <span className="flex-1 text-[13px] text-gray-700 dark:text-gray-300">{props.activeProjectName}</span>
             <span
@@ -70,7 +70,6 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
           </div>
         </div>
       ) : null}
-
     </aside>
   )
 }
