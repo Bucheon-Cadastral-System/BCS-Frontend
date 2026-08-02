@@ -293,7 +293,7 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
               {/* 행 클릭 = 펼침이자 선택이다. 펼쳐 보는 조사가 곧 지도·칩에 반영되는 조사라 둘을 나누지 않는다.
                   커서를 올렸을 때의 배경은 행 전체에 건다 — 안쪽 버튼에만 걸면 표식 자리만 남아 얼룩진다. */}
               <div className="flex items-stretch transition-colors hover:bg-white/[0.06]">
-                <span className="flex items-center py-2.5 pl-4 pr-1.5" aria-hidden>
+                <span className="flex items-center px-4 py-2.5" aria-hidden>
                   <span
                     className={`flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 transition-colors ${
                       selected ? 'border-blue-400 bg-blue-500' : 'border-gray-500'
@@ -376,11 +376,7 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
                       </div>
                       )}
 
-                      {/* 기간은 접혀 있을 때도 보이므로 여기선 비고만.
-                          비고는 검색으로도 찾는 값이라, 적어 두지 않았더라도 어디를 보면 되는지 자리를 남긴다 */}
-                      <dl className="px-4 pb-2 text-[12px]">
-                        <ProjectField label="비고" value={p.note ?? ''} />
-                      </dl>
+                      <ProjectNote note={p.note ?? ''} />
 
                       {/* 목록은 위 정보와 성격이 달라 선으로 끊고 이름표를 붙인다.
                           점별 조사·망실 기록은 '선택된(조사 대상)' 프로젝트에서만. 리스트는 PointRowList가 내부 메모 */}
@@ -428,14 +424,18 @@ function StatusCount(props: { label: string; count: number; dotClass: string }) 
   )
 }
 
-/** 펼친 조사의 정보 한 줄 (라벨-값). 값이 길면 줄바꿈해 잘리지 않게 둔다. */
-function ProjectField(props: { label: string; value: string }) {
+/**
+ * 조사에 기록한 비고. 수치와 달리 서술형 문장이므로 인용문처럼 세로선을 두어 구분한다.
+ * 검색 대상 필드이므로 값이 없어도 자리는 유지한다.
+ */
+function ProjectNote(props: { note: string }) {
   return (
-    <div className="flex gap-2">
-      <dt className="w-8 shrink-0 text-gray-500">{props.label}</dt>
-      <dd className="min-w-0 flex-1 whitespace-pre-wrap break-words text-gray-300">
-        {props.value === '' ? <span className="text-gray-500">없음</span> : props.value}
-      </dd>
+    <div className="mx-4 mb-2 border-l-2 border-gray-600 bg-gray-800/40 py-1.5 pl-2.5 pr-2 text-[12px]">
+      {props.note === '' ? (
+        <p className="text-gray-500">내용이 없습니다</p>
+      ) : (
+        <p className="whitespace-pre-wrap break-words leading-relaxed text-gray-200">{props.note}</p>
+      )}
     </div>
   )
 }
