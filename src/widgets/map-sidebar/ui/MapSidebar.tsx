@@ -8,13 +8,16 @@ import type { ControlPoint } from '@/entities/control-point'
 import { PointTypeIcon, StatusMark } from '@/entities/control-point'
 
 /** 좌측 레일에서 열 수 있는 패널 종류 */
-type PanelKey = 'project' | 'points'
+export type PanelKey = 'project' | 'points'
 /** 패널 폭(px) — 지도 오버레이 inset 계산과 동일 값 유지 */
 const PANEL_WIDTH = 300
 /** 점 목록 행 높이(h-8) — 가상 스크롤 추정치와 실제 렌더가 같아야 스크롤이 튀지 않는다 */
 const ROW_HEIGHT = 32
 /** 펼친 행에 붙는 조사·망실 버튼 영역 높이 */
 const ROW_ACTIONS_HEIGHT = 46
+/** 패널 상단 추가 버튼 — 프로젝트·기준점 두 패널이 같은 모양을 쓴다 */
+const PANEL_ADD_BTN =
+  'flex w-full items-center justify-center gap-1.5 rounded-md border border-blue-600 bg-blue-600 py-2 text-[13px] font-medium text-white hover:bg-blue-500'
 /** 조사 프로젝트를 안 고른 목록(기준점 탭)에서 상태 판정에 넘길 빈 집합 */
 const EMPTY_IDS: Set<string> = new Set()
 
@@ -48,6 +51,8 @@ interface MapSidebarProps {
   onInsetChange?: (px: number) => void
   // 외부(지도 위 활성 프로젝트 칩)에서 프로젝트 패널 열기 요청 (nonce, 증가할 때마다 열림)
   openProjectSignal?: number
+  // 열려 있는 패널 통지 (지도에 그릴 점을 정하는 데 쓴다)
+  onOpenPanelChange?: (panel: PanelKey | null) => void
 }
 
 export function MapSidebar(props: MapSidebarProps) {
@@ -67,6 +72,12 @@ export function MapSidebar(props: MapSidebarProps) {
   useEffect(() => {
     onInsetChange?.(open ? PANEL_WIDTH : 0)
   }, [open, onInsetChange])
+
+  // 어느 패널이 열렸는지 알림 → 지도에 그릴 점을 부모가 정한다(기준점 탭=전체, 그 외=고른 조사의 대상)
+  const onOpenPanelChange = props.onOpenPanelChange
+  useEffect(() => {
+    onOpenPanelChange?.(open)
+  }, [open, onOpenPanelChange])
 
   // 활성 프로젝트 칩 클릭 → 프로젝트 패널 열기 (nonce 증가 시. 0=초기값이라 무시)
   const openProjectSignal = props.openProjectSignal
@@ -149,10 +160,15 @@ function RailItem(props: { label: string; active: boolean; onClick: () => void; 
   )
 }
 
-function PanelHeader(props: { title: string; onClose: () => void }) {
+function PanelHeader(props: { title: string; count?: number; onClose: () => void }) {
   return (
     <header className="flex items-center gap-2 border-b border-gray-700 px-4 py-3">
-      <h2 className="flex-1 text-sm font-bold text-gray-50">{props.title}</h2>
+      <h2 className="flex min-w-0 flex-1 items-baseline gap-1.5">
+        <span className="text-sm font-bold text-gray-50">{props.title}</span>
+        {props.count !== undefined && (
+          <span className="text-[11px] font-normal text-gray-400">총 {props.count}개</span>
+        )}
+      </h2>
       <button
         type="button"
         onClick={props.onClose}
@@ -193,16 +209,19 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PanelHeader title="조사 프로젝트" onClose={props.onClose} />
+      <PanelHeader title="프로젝트 목록" count={props.projects.length} onClose={props.onClose} />
 
       {/* 구분선~컨트롤~목록 간격을 같게 유지(위아래 대칭) */}
       <div className="p-3">
         <button
           type="button"
           onClick={handleNew}
-          className="w-full rounded-md border border-blue-600 bg-blue-600 py-2 text-[13px] font-medium text-white hover:bg-blue-500"
+          className={PANEL_ADD_BTN}
         >
-          ＋ 프로젝트 추가
+          <span className="h-4 w-4">
+            <IconAddProject />
+          </span>
+          프로젝트 추가
         </button>
       </div>
 
@@ -213,7 +232,7 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
               <SkeletonRows rows={3} />
             </li>
           ) : (
-            <li className="px-4 py-6 text-center text-[13px] text-gray-500">조사 프로젝트가 없습니다</li>
+            <li className="px-4 py-6 text-center text-[13px] text-gray-500">프로젝트가 없습니다</li>
           ))}
         {props.projects.map((p) => {
           const expanded = expandedId === p.id
@@ -351,9 +370,8 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
 function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
   const [q, setQ] = useState('')
   const query = q.trim()
-  // 지도에 보이는 것과 같은 목록이어야 한다 — 조사를 고르면 지도에서 빠진 점이 목록에만 남아
-  // 눌러도 아무 일이 없는 것처럼 보인다. 조사를 고르지 않았으면 targetPoints 가 곧 전체 기준점이다.
-  const source = props.targetPoints
+  // 이 탭은 전체 기준점 목록이다. 탭을 열면 지도도 전체를 보여주므로 목록과 지도가 어긋나지 않는다.
+  const source = props.points
   // 검색 결과도 메모 → 팬 리렌더 중 새 배열을 만들지 않아 PointRowList 메모가 유지됨
   const list = useMemo(
     () => (query ? source.filter((p) => p.name.includes(query)) : source),
@@ -362,7 +380,7 @@ function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PanelHeader title={`기준점 ${source.length}`} onClose={props.onClose} />
+      <PanelHeader title="기준점" count={source.length} onClose={props.onClose} />
 
       {/* 구분선~컨트롤~목록 간격을 같게 유지(위아래 대칭) */}
       <div className="space-y-2 p-3">
@@ -378,7 +396,7 @@ function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
             props.onStartAddPoint()
             props.onClose() // 지도에서 위치를 찍을 수 있게 패널은 비켜 준다
           }}
-          className="flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-600 py-2 text-[13px] font-medium text-gray-100 hover:bg-gray-700"
+          className={PANEL_ADD_BTN}
         >
           <span className="h-4 w-4">
             <IconAddPoint />
@@ -644,6 +662,15 @@ function IconUsers() {
       <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </RailIcon>
+  )
+}
+
+function IconAddProject() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <path d="M12 11v6M9 14h6" />
+    </svg>
   )
 }
 
