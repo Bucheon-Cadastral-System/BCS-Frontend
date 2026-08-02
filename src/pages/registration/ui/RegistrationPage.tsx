@@ -51,7 +51,7 @@ export function RegistrationPage({ kakaoId, onCancel, onSubmit }: RegistrationPa
       <header className="mx-auto mb-8 flex max-w-3xl items-center justify-between">
         {/* 가입 신청 전이라 메인으로 가는 링크를 걸지 않는다. 옆에 서비스명이 따로 있어 심볼+BCS만 노출 */}
         <BrandLockup size="md" tone="onLight" variant="mark" />
-        <span className="text-sm font-semibold text-slate-500">지적기준점 관리 서비스</span>
+        <span className="text-sm font-semibold text-slate-500">지적기준점 관리 시스템</span>
       </header>
 
       <section className="mx-auto max-w-3xl rounded-3xl border border-slate-200 bg-white p-6 shadow-lg sm:p-10" aria-labelledby="registration-title">

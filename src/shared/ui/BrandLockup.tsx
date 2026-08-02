@@ -49,7 +49,7 @@ export function BrandLockup({
         <>
           <span className={`${s.rule} w-px shrink-0 ${onDark ? 'bg-white/25' : 'bg-[#1D3A6B]/20'}`} aria-hidden="true" />
           <span className="leading-tight">
-            <span className={`block ${s.name} font-semibold`}>부천시 지적기준점 관리</span>
+            <span className={`block ${s.name} font-semibold`}>부천시 지적기준점 관리 시스템</span>
             <span
               className={`block ${s.caption} font-semibold`}
               style={{ color: onDark ? '#A9B6CC' : '#5B6B87' }}
