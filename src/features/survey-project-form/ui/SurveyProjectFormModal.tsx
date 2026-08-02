@@ -254,7 +254,7 @@ export function SurveyProjectFormModal(props: {
 
       {/* 이 칸만 label 을 쓰지 않는다 — 라벨을 누르면 안쪽 버튼이 함께 눌려 파일 선택이 두 번 열린다 */}
       <div>
-        <span className="mb-1 block text-[12px] font-medium text-gray-700 dark:text-gray-300">조사할 기준점 목록</span>
+        <span className="mb-1 block text-[12px] font-medium text-gray-700 dark:text-gray-300">대상 기준점 목록</span>
         {file ? (
           <span className="flex items-center gap-2 rounded-md border border-gray-300 bg-gray-50 px-2.5 py-1.5 dark:border-gray-600 dark:bg-gray-900/40">
             <span className="min-w-0 flex-1 truncate text-[13px] text-gray-800 dark:text-gray-200">

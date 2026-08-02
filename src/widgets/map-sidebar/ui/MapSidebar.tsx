@@ -342,15 +342,9 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
                 <div className="overflow-hidden">
                   {mounted && (
                     <div className="bg-gray-900/40 pb-2 pt-1">
-                      {/* 기간은 접혀 있을 때도 보이므로 여기선 비고만.
-                          비고는 검색으로도 찾는 값이라, 적어 두지 않았더라도 어디를 보면 되는지 자리를 남긴다 */}
-                      <dl className="px-4 py-2 text-[12px]">
-                        <ProjectField label="비고" value={p.note ?? ''} />
-                      </dl>
-
                       {/* 진행률 (이 프로젝트 기준) */}
                       {selected && (
-                      <div className="px-4 pb-3 pt-1">
+                      <div className="px-4 pb-2 pt-2">
                         {progressLoading ? (
                           <div className="space-y-1.5">
                             <Skeleton className="h-3 w-40" />
@@ -382,11 +376,17 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
                       </div>
                       )}
 
+                      {/* 기간은 접혀 있을 때도 보이므로 여기선 비고만.
+                          비고는 검색으로도 찾는 값이라, 적어 두지 않았더라도 어디를 보면 되는지 자리를 남긴다 */}
+                      <dl className="px-4 pb-2 text-[12px]">
+                        <ProjectField label="비고" value={p.note ?? ''} />
+                      </dl>
+
                       {/* 목록은 위 정보와 성격이 달라 선으로 끊고 이름표를 붙인다.
                           점별 조사·망실 기록은 '선택된(조사 대상)' 프로젝트에서만. 리스트는 PointRowList가 내부 메모 */}
                       {selected ? (
                         <div className="border-t border-gray-700/60 bg-gray-900/30 pt-1.5">
-                          <p className="px-4 pb-1 text-[11px] font-medium text-gray-400">조사할 기준점</p>
+                          <p className="px-4 pb-1 text-[11px] font-medium text-gray-400">대상 기준점</p>
                           <PointRowList
                             points={props.targetPoints}
                             onFocus={props.onFocusPoint}
