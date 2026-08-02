@@ -18,7 +18,14 @@ const READING_SHOW_DELAY_MS = 250
 /** 한번 띄웠으면 최소한 이만큼은 남긴다 — 뜨자마자 사라지면 그것대로 깜빡임이다 */
 const READING_MIN_VISIBLE_MS = 450
 
+/**
+ * 입력값을 저장 형태로 바꾼다 — 미기재는 빈 문자열이 아니라 null 이다.
+ * 치는 도중이 아니라 보낼 때만 부른다: 입력할 때마다 다듬으면 방금 친 글자가 화면에서 되돌려져
+ * 끝에 띄어쓰기를 넣을 수 없고, 한글 조합이 끊겨 지우기가 낱자가 아닌 글자 단위로 동작한다.
+ */
 const trimmedOrNull = (v: string) => (v.trim() === '' ? null : v.trim())
+/** 날짜 칸은 값이 'YYYY-MM-DD' 아니면 빈 문자열이라 다듬을 것이 없다 */
+const emptyToNull = (v: string) => (v === '' ? null : v)
 
 /** 만들 조사 하나 — 파일이 붙어 있으면 그 파일로 대상을 지정하고, 없으면 이름만 있는 조사가 된다. */
 interface Entry {
@@ -42,7 +49,7 @@ function newEntry(defaults?: Partial<SurveyProjectDraft>): Entry {
 /**
  * 조사 프로젝트 입력 — 기준점 목록 불러오기도 결국 조사를 만드는 일이라 한 창에서 처리한다.
  * 파일을 여러 개 올리면 만들 조사가 여러 건이 되고, 이전·다음으로 오가며 하나씩 입력한다.
- * 조사 유형(굴착협의·일제조사 등)은 받지 않는다. 조사마다 그때그때 이름을 붙이는 값이라
+ * 조사 유형은 받지 않는다. 조사마다 그때그때 이름을 붙이는 값이라
  * 되풀이되는 분류로 쓸 수 없고, 조사명이 그 역할을 대신한다.
  */
 export function SurveyProjectFormModal(props: {
@@ -86,7 +93,10 @@ export function SurveyProjectFormModal(props: {
 
   async function submit() {
     if (!canSubmit) return
-    await props.onSubmit({ ...current.draft, name: current.draft.name.trim() }, file)
+    await props.onSubmit(
+      { ...current.draft, name: current.draft.name.trim(), note: trimmedOrNull(current.draft.note ?? '') },
+      file,
+    )
     // 등록을 마친 건은 목록에서 빼고 남은 건으로 넘어간다. 마지막이었으면 창을 닫는다.
     if (total === 1) {
       props.onCancel()
@@ -157,6 +167,7 @@ export function SurveyProjectFormModal(props: {
   // 읽다가 실패한 파일이 있으면 사용자가 고를 때까지 멈춰 있으므로 지연과 무관하게 보여 준다
   const showReading = readingVisible || (reading !== null && finished && failedCount > 0)
 
+
   /** 창 위 어디에 떨어뜨리든, 눌러서 고르든 이 자리에서 읽는다 */
   function handleFiles(picked: File[]) {
     if (picked.length === 0) return
@@ -224,7 +235,7 @@ export function SurveyProjectFormModal(props: {
               className={MODAL_INPUT}
               value={current.draft.endedOn ?? ''}
               min={current.draft.startedOn || undefined}
-              onChange={(e) => patch({ endedOn: trimmedOrNull(e.target.value) })}
+              onChange={(e) => patch({ endedOn: emptyToNull(e.target.value) })}
             />
           </ModalField>
         </div>
@@ -247,8 +258,8 @@ export function SurveyProjectFormModal(props: {
         <textarea
           className={`${MODAL_INPUT} h-20 resize-none`}
           value={current.draft.note ?? ''}
-          onChange={(e) => patch({ note: trimmedOrNull(e.target.value) })}
-          placeholder="굴착 협의 요청에 따른 대상지 조사"
+          onChange={(e) => patch({ note: e.target.value })}
+          placeholder="조사 범위·참고 사항"
         />
       </ModalField>
 
