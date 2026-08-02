@@ -23,6 +23,14 @@ const READING_MIN_VISIBLE_MS = 450
  * 치는 도중이 아니라 보낼 때만 부른다: 입력할 때마다 다듬으면 방금 친 글자가 화면에서 되돌려져
  * 끝에 띄어쓰기를 넣을 수 없고, 한글 조합이 끊겨 지우기가 낱자가 아닌 글자 단위로 동작한다.
  */
+/**
+ * 날짜 칸이 받을 수 있는 범위.
+ * 상한을 두지 않으면 브라우저가 연도를 여섯 자리(최대 275760년)까지 받을 수 있다고 보고,
+ * 네 자리를 친 뒤에도 다음 칸으로 넘기지 않는다. 그래서 `20260803` 을 이어 치면 연도에 `202608` 이 들어간다.
+ */
+const DATE_MIN = '1900-01-01'
+const DATE_MAX = '2999-12-31'
+
 const trimmedOrNull = (v: string) => (v.trim() === '' ? null : v.trim())
 /** 날짜 칸은 값이 'YYYY-MM-DD' 아니면 빈 문자열이라 다듬을 것이 없다 */
 const emptyToNull = (v: string) => (v === '' ? null : v)
@@ -226,7 +234,8 @@ export function SurveyProjectFormModal(props: {
               type="date"
               className={MODAL_INPUT}
               value={current.draft.startedOn}
-              max={current.draft.endedOn ?? undefined}
+              min={DATE_MIN}
+              max={current.draft.endedOn ?? DATE_MAX}
               onChange={(e) => patch({ startedOn: e.target.value })}
               required
             />
@@ -236,7 +245,8 @@ export function SurveyProjectFormModal(props: {
               type="date"
               className={MODAL_INPUT}
               value={current.draft.endedOn ?? ''}
-              min={current.draft.startedOn || undefined}
+              min={current.draft.startedOn || DATE_MIN}
+              max={DATE_MAX}
               onChange={(e) => patch({ endedOn: emptyToNull(e.target.value) })}
             />
           </ModalField>
