@@ -12,6 +12,12 @@
   box-sizing: border-box;
 }
 
+/* Tailwind v4 는 버튼에 브라우저 기본 커서(화살표)를 그대로 둔다 — 누를 수 있는 요소임을 커서로 알린다 */
+button:not(:disabled),
+[role='button']:not(:disabled) {
+  cursor: pointer;
+}
+
 /* 마우스·프로그램 포커스의 잔상 링만 제거하고, 키보드 포커스(:focus-visible)는 접근성을 위해 브라우저 기본 링을 남긴다 */
 *:focus:not(:focus-visible) {
   outline: none;

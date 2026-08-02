@@ -372,6 +372,11 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
               onToggleSurvey={handleToggleSurvey}
               onClose={() => setSelectedId(null)}
               onToggleLost={handleToggleLost}
+              onCopied={(ok) =>
+                ok
+                  ? showToast('클립보드로 복사되었습니다.', 'success')
+                  : showToast('클립보드로 복사하지 못했습니다.', 'error')
+              }
             />
           </div>
         </div>

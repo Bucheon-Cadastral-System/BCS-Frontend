@@ -11,12 +11,56 @@ interface ControlPointDetailProps {
   onToggleSurvey: (id: string) => void
   onClose: () => void
   onToggleLost: (id: string) => void
+  /** 관리번호를 복사한 결과 — 알림은 화면 전체를 아는 쪽이 띄운다 */
+  onCopied: (ok: boolean) => void
 }
 
 const TYPE_BADGE: Record<PointType, string> = {
   지적삼각점: 'bg-gray-900',
   지적삼각보조점: 'bg-gray-500',
   지적도근점: 'bg-gray-700',
+}
+
+/** 값과 아이콘을 함께 눌러 클립보드로 복사한다. 복사 결과는 부모가 알린다. */
+function CopyButton(props: { value: string; label: string; onCopied: (ok: boolean) => void }) {
+  const { value, label, onCopied } = props
+
+  async function copy() {
+    try {
+      // 클립보드는 보안 컨텍스트(HTTPS·localhost)에서만 열린다
+      await navigator.clipboard.writeText(value)
+      onCopied(true)
+    } catch {
+      onCopied(false)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      title={label}
+      aria-label={label}
+      className="group inline-flex items-center gap-1.5 text-left"
+    >
+      <span className="underline decoration-gray-300 underline-offset-2 group-hover:decoration-gray-500 dark:decoration-gray-600 dark:group-hover:decoration-gray-400">
+        {value}
+      </span>
+      <svg
+        viewBox="0 0 24 24"
+        className="size-4 shrink-0 text-gray-400 transition-colors group-hover:text-gray-700 dark:group-hover:text-gray-100"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <rect x="9" y="9" width="11" height="11" rx="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      </svg>
+    </button>
+  )
 }
 
 function epsgLabel(epsg: string): string {
@@ -32,12 +76,15 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
       <div className="mb-2.5 flex items-center gap-2">
         <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold text-white ${TYPE_BADGE[p.type]}`}>{p.type}</span>
         <strong className="flex-1 text-[15px] text-gray-900 dark:text-gray-100">{p.name}</strong>
-        <button type="button" className="cursor-pointer border-0 bg-transparent text-xl leading-none text-gray-500 dark:text-gray-400" onClick={props.onClose} aria-label="닫기">×</button>
+        <button type="button" className="border-0 bg-transparent text-xl leading-none text-gray-500 dark:text-gray-400" onClick={props.onClose} aria-label="닫기">×</button>
       </div>
 
       <dl className="mb-3 grid last:mb-0 grid-cols-[64px_1fr] gap-x-2.5 gap-y-1 text-[13px] [&_dd]:tabular-nums [&_dd]:text-gray-900 [&_dt]:text-gray-500 dark:[&_dd]:text-gray-100 dark:[&_dt]:text-gray-400">
         {/* 이름은 표시용이고 점을 가리키는 값은 관리번호라 좌표보다 먼저 둔다 */}
-        <dt>관리번호</dt><dd>{p.pointNo}</dd>
+        <dt>관리번호</dt>
+        <dd>
+          <CopyButton value={p.pointNo} label="관리번호 복사" onCopied={props.onCopied} />
+        </dd>
         <dt>위도</dt><dd>{p.lat.toFixed(7)}</dd>
         <dt>경도</dt><dd>{p.lng.toFixed(7)}</dd>
         <dt>TM 원점</dt><dd>{epsgLabel(p.tmEpsg)} ({p.tmEpsg})</dd>
