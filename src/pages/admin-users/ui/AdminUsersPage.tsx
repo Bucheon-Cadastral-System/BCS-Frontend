@@ -117,7 +117,7 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
         <span className="rounded-full bg-teal-500/20 px-2.5 py-1 text-xs font-bold text-teal-300">ADMIN</span>
       </AppHeader>
 
-      <section className="mx-auto max-w-6xl px-5 py-10">
+      <section className="mx-auto max-w-[1500px] px-5 py-10">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
             <p className="text-sm font-bold text-teal-600">관리자 전용</p>
@@ -158,93 +158,54 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
           />
         </div>
 
-        <div className="mt-5 grid gap-4">
-          {visibleUsers.length === 0 && <p className="rounded-2xl bg-white p-10 text-center text-slate-400">조건에 맞는 사용자가 없습니다.</p>}
-          {visibleUsers.map((user) => {
-            const isEditing = editingId === user.id && draft
-            const current = isEditing ? draft : user
+        <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <table className="w-full min-w-[1320px] table-fixed text-left text-sm">
+            <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold text-slate-500">
+              <tr>
+                <th className="w-28 px-4 py-3">이름</th>
+                <th className="w-36 px-3 py-3">전화번호</th>
+                <th className="w-56 px-3 py-3">이메일</th>
+                <th className="w-24 px-3 py-3">구청</th>
+                <th className="w-28 px-3 py-3">소속 과</th>
+                <th className="w-32 px-3 py-3">팀명</th>
+                <th className="w-24 px-3 py-3">직위</th>
+                <th className="w-20 px-3 py-3">권한</th>
+                <th className="w-24 px-3 py-3">상태</th>
+                <th className="w-72 px-4 py-3 text-right">관리</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {visibleUsers.length === 0 && <tr><td colSpan={10} className="px-4 py-12 text-center text-slate-400">조건에 맞는 사용자가 없습니다.</td></tr>}
+              {visibleUsers.map((user) => {
+                const isEditing = editingId === user.id && draft
+                const current = isEditing ? draft : user
+                const fieldClass = 'h-9 w-full rounded-md border border-teal-300 bg-white px-2 outline-none focus:ring-2 focus:ring-teal-100'
 
-            return (
-              <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" key={user.id}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="grid size-11 place-items-center rounded-full bg-teal-50 font-bold text-teal-700">{current.name.slice(0, 1)}</div>
-                    <div className="flex flex-col">
-                      <strong>{current.name}</strong>
-                      <span className="text-xs text-slate-400">회원 #{current.id} · {current.role}</span>
-                    </div>
-                  </div>
-                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${current.status === 'PENDING' ? 'bg-amber-50 text-amber-700' : current.status === 'ACTIVE' ? 'bg-teal-50 text-teal-700' : 'bg-slate-100 text-slate-500'}`}>
-                    {STATUS_LABEL[current.status]}
-                  </span>
-                </div>
-
-                <div className="mt-5 grid gap-4 border-t border-slate-100 pt-5 sm:grid-cols-2 lg:grid-cols-4 [&_label]:flex [&_label]:flex-col [&_label>span]:mb-2 [&_label>span]:text-xs [&_label>span]:font-bold [&_label>span]:text-slate-500 [&_input]:min-h-11 [&_input]:rounded-lg [&_input]:border [&_input]:border-slate-200 [&_input]:px-3 [&_input:disabled]:bg-slate-50 [&_select]:min-h-11 [&_select]:rounded-lg [&_select]:border [&_select]:border-slate-200 [&_select]:bg-white [&_select]:px-3 [&_select:disabled]:bg-slate-50">
-                  <label>
-                    <span>이름</span>
-                    <input disabled={!isEditing} value={current.name} onChange={(e) => setDraft({ ...current, name: e.target.value })} />
-                  </label>
-                  <label>
-                    <span>전화번호</span>
-                    <input disabled={!isEditing} value={current.phone} onChange={(e) => setDraft({ ...current, phone: e.target.value.replace(/\D/g, '').slice(0, 11) })} />
-                  </label>
-                  <label>
-                    <span>이메일</span>
-                    <input disabled={!isEditing} type="email" value={current.email} onChange={(e) => setDraft({ ...current, email: e.target.value })} />
-                  </label>
-                  <label>
-                    <span>소속 구청</span>
-                    <select disabled={!isEditing} value={current.district} onChange={(e) => setDraft({ ...current, district: e.target.value as ManagedUser['district'] })}>
-                      {DISTRICTS.map((value) => <option key={value}>{value}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    <span>소속 과</span>
-                    <input disabled={!isEditing} value={current.department} onChange={(e) => setDraft({ ...current, department: e.target.value })} />
-                  </label>
-                  <label>
-                    <span>팀명</span>
-                    <select disabled={!isEditing} value={current.team} onChange={(e) => setDraft({ ...current, team: e.target.value as ManagedUser['team'] })}>
-                      {TEAMS.map((value) => <option key={value}>{value}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    <span>직위</span>
-                    <select disabled={!isEditing} value={current.position} onChange={(e) => setDraft({ ...current, position: e.target.value as ManagedUser['position'] })}>
-                      {POSITIONS.map((value) => <option key={value}>{value}</option>)}
-                    </select>
-                  </label>
-                  <label><span>권한</span><input disabled value={current.role} /></label>
-                </div>
-
-                <div className="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4 [&_button]:min-h-10 [&_button]:rounded-lg [&_button]:px-4 [&_button]:text-sm [&_button]:font-bold">
-                  {isEditing ? (
-                    <>
-                      <button type="button" className="border border-slate-200 text-slate-600" onClick={() => { setEditingId(null); setDraft(null) }}>취소</button>
-                      <button type="button" className="bg-teal-600 text-white" onClick={saveEditing}>변경사항 저장</button>
-                    </>
-                  ) : (
-                    <>
-                      <button type="button" className="border border-slate-200 text-slate-600" onClick={() => startEditing(user)}>정보 수정</button>
-                      {user.status === 'PENDING' && (<>
-                        <button type="button" className="border border-rose-200 text-rose-600" onClick={() => setPendingChange({ id: user.id, action: 'reject', label: '가입 거절' })}>가입 거절</button>
-                        <button type="button" className="bg-teal-600 text-white" onClick={() => updateStatus(user.id, 'ACTIVE')}>가입 승인</button>
-                      </>)}
-                      {user.status === 'ACTIVE' && (
-                        <button type="button" className="bg-slate-700 text-white" onClick={() => updateStatus(user.id, 'INACTIVE')}>비활성화</button>
-                      )}
-                      {user.status === 'INACTIVE' && (
-                        <button type="button" className="bg-teal-600 text-white" onClick={() => updateStatus(user.id, 'ACTIVE')}>다시 활성화</button>
-                      )}
-                      {user.status === 'ACTIVE' && (user.role === 'ADMIN'
-                        ? <button type="button" className="border border-slate-300 text-slate-600" onClick={() => setPendingChange({ id: user.id, action: 'role/user', label: '관리자 권한 회수' })}>관리자 권한 회수</button>
-                        : <button type="button" className="border border-teal-200 text-teal-700" onClick={() => setPendingChange({ id: user.id, action: 'role/admin', label: '관리자 권한 부여' })}>관리자 권한 부여</button>)}
-                    </>
-                  )}
-                </div>
-              </article>
-            )
-          })}
+                return (
+                  <tr className="transition hover:bg-slate-50/70" key={user.id}>
+                    <td className="px-4 py-3">{isEditing ? <input className={fieldClass} value={current.name} onChange={(e) => setDraft({ ...current, name: e.target.value })} /> : <><strong className="block truncate">{current.name}</strong><span className="text-[11px] text-slate-400">#{current.id}</span></>}</td>
+                    <td className="px-3 py-3">{isEditing ? <input className={fieldClass} value={current.phone} onChange={(e) => setDraft({ ...current, phone: e.target.value.replace(/\D/g, '').slice(0, 11) })} /> : <span className="whitespace-nowrap">{current.phone}</span>}</td>
+                    <td className="px-3 py-3">{isEditing ? <input className={fieldClass} type="email" value={current.email} onChange={(e) => setDraft({ ...current, email: e.target.value })} /> : <span className="block truncate" title={current.email}>{current.email}</span>}</td>
+                    <td className="px-3 py-3">{isEditing ? <select className={fieldClass} value={current.district} onChange={(e) => setDraft({ ...current, district: e.target.value as ManagedUser['district'] })}>{DISTRICTS.map((value) => <option key={value}>{value}</option>)}</select> : current.district}</td>
+                    <td className="px-3 py-3">{isEditing ? <input className={fieldClass} value={current.department} onChange={(e) => setDraft({ ...current, department: e.target.value })} /> : current.department}</td>
+                    <td className="px-3 py-3">{isEditing ? <select className={fieldClass} value={current.team} onChange={(e) => setDraft({ ...current, team: e.target.value as ManagedUser['team'] })}>{TEAMS.map((value) => <option key={value}>{value}</option>)}</select> : current.team}</td>
+                    <td className="px-3 py-3">{isEditing ? <select className={fieldClass} value={current.position} onChange={(e) => setDraft({ ...current, position: e.target.value as ManagedUser['position'] })}>{POSITIONS.map((value) => <option key={value}>{value}</option>)}</select> : current.position}</td>
+                    <td className="px-3 py-3 text-xs font-bold text-slate-500">{current.role}</td>
+                    <td className="px-3 py-3"><span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${current.status === 'PENDING' ? 'bg-amber-50 text-amber-700' : current.status === 'ACTIVE' ? 'bg-teal-50 text-teal-700' : 'bg-slate-100 text-slate-500'}`}>{STATUS_LABEL[current.status]}</span></td>
+                    <td className="px-4 py-3"><div className="flex justify-end gap-1.5 [&_button]:h-8 [&_button]:whitespace-nowrap [&_button]:rounded-md [&_button]:px-2.5 [&_button]:text-xs [&_button]:font-bold">
+                      {isEditing ? <><button type="button" className="border border-slate-200 text-slate-600" onClick={() => { setEditingId(null); setDraft(null) }}>취소</button><button type="button" className="bg-teal-600 text-white" onClick={saveEditing}>저장</button></> : <>
+                        <button type="button" className="border border-slate-200 text-slate-600" onClick={() => startEditing(user)}>수정</button>
+                        {user.status === 'PENDING' && <><button type="button" className="border border-rose-200 text-rose-600" onClick={() => setPendingChange({ id: user.id, action: 'reject', label: '가입 거절' })}>거절</button><button type="button" className="bg-teal-600 text-white" onClick={() => updateStatus(user.id, 'ACTIVE')}>승인</button></>}
+                        {user.status === 'ACTIVE' && <button type="button" className="bg-slate-700 text-white" onClick={() => updateStatus(user.id, 'INACTIVE')}>비활성</button>}
+                        {user.status === 'INACTIVE' && <button type="button" className="bg-teal-600 text-white" onClick={() => updateStatus(user.id, 'ACTIVE')}>활성화</button>}
+                        {user.status === 'ACTIVE' && (user.role === 'ADMIN' ? <button type="button" className="border border-slate-300 text-slate-600" onClick={() => setPendingChange({ id: user.id, action: 'role/user', label: '관리자 권한 회수' })}>권한 회수</button> : <button type="button" className="border border-teal-200 text-teal-700" onClick={() => setPendingChange({ id: user.id, action: 'role/admin', label: '관리자 권한 부여' })}>관리자 부여</button>)}
+                      </>}
+                    </div></td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
 
         <section className="mt-10" aria-labelledby="activity-title">
