@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { changeAdminMember, getAdminActivities, getAdminMembers, updateAdminMember, DISTRICTS, POSITIONS, TEAMS } from '@/entities/user'
-import type { AdminActivity, AdminMemberAction, ManagedUser, UserStatus } from '@/entities/user'
+import type { AdminActivity, AdminMemberAction, AdminMemberSortBy, ManagedUser, SortDirection, UserStatus } from '@/entities/user'
 import { AppHeader } from '@/shared/ui/AppHeader'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 
@@ -12,6 +12,11 @@ const STATUS_LABEL: Record<UserStatus, string> = {
   PENDING: '승인 대기',
   ACTIVE: '사용 중',
   INACTIVE: '비활성',
+}
+
+type SortField = 'name' | 'phone' | 'email' | 'district' | 'department' | 'team' | 'position' | 'role' | 'status'
+const API_SORT_FIELD: Partial<Record<SortField, AdminMemberSortBy>> = {
+  name: 'name', email: 'email', district: 'district', team: 'team', position: 'position', role: 'memberRole', status: 'memberStatus',
 }
 
 /** 확인 문구는 목표 상태만으로 정해지지 않는다 — 같은 ACTIVE라도 대기 중이면 승인, 비활성이면 재활성화다. */
@@ -29,6 +34,7 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [filter, setFilter] = useState<'ALL' | UserStatus>('ALL')
   const [query, setQuery] = useState('')
+  const [sort, setSort] = useState<{ field: SortField; direction: SortDirection }>({ field: 'name', direction: 'ASC' })
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState<ManagedUser | null>(null)
   const [pendingChange, setPendingChange] = useState<{ id: string; action: AdminMemberAction; status?: UserStatus; label: string } | null>(null)
@@ -39,11 +45,12 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
     setNextCursor(result.nextCursor)
   }
 
-  const reload = async () => {
+  const reload = async (nextSort = sort) => {
     setLoading(true)
     setError('')
     try {
-      const members = await getAdminMembers()
+      const apiSortBy = API_SORT_FIELD[nextSort.field] ?? 'name'
+      const members = await getAdminMembers(apiSortBy, nextSort.direction)
       setUsers(members)
       await loadActivities()
     } catch (e) {
@@ -62,7 +69,7 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
 
   const visibleUsers = useMemo(() => {
     const keyword = query.trim().toLowerCase()
-    return users.filter((user) => {
+    const filtered = users.filter((user) => {
       const matchesStatus = filter === 'ALL' || user.status === filter
       const matchesQuery = !keyword || [
         user.name,
@@ -73,7 +80,32 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
       ].some((value) => value.toLowerCase().includes(keyword))
       return matchesStatus && matchesQuery
     })
-  }, [filter, query, users])
+    if (sort.field !== 'phone' && sort.field !== 'department') return filtered
+    return [...filtered].sort((a, b) => {
+      const result = a[sort.field].localeCompare(b[sort.field], 'ko', { numeric: true })
+      return sort.direction === 'ASC' ? result : -result
+    })
+  }, [filter, query, sort, users])
+
+  const changeSort = (field: SortField) => {
+    const nextSort = {
+      field,
+      direction: sort.field === field && sort.direction === 'ASC' ? 'DESC' as const : 'ASC' as const,
+    }
+    setSort(nextSort)
+    if (API_SORT_FIELD[field]) void reload(nextSort)
+  }
+
+  const sortHeader = (label: string, field: SortField, className: string) => {
+    const active = sort.field === field
+    return (
+      <th className={className} aria-sort={active ? (sort.direction === 'ASC' ? 'ascending' : 'descending') : 'none'}>
+        <button type="button" className={`flex w-full items-center gap-1 text-left transition hover:text-slate-900 ${active ? 'text-teal-700' : ''}`} onClick={() => changeSort(field)}>
+          {label}<span aria-hidden="true" className="text-[10px]">{active ? (sort.direction === 'ASC' ? '▲' : '▼') : '↕'}</span>
+        </button>
+      </th>
+    )
+  }
 
   const updateStatus = (id: string, status: UserStatus) => {
     const current = users.find((user) => user.id === id)
@@ -162,15 +194,15 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
           <table className="w-full min-w-[1320px] table-fixed text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold text-slate-500">
               <tr>
-                <th className="w-28 px-4 py-3">이름</th>
-                <th className="w-36 px-3 py-3">전화번호</th>
-                <th className="w-56 px-3 py-3">이메일</th>
-                <th className="w-24 px-3 py-3">구청</th>
-                <th className="w-28 px-3 py-3">소속 과</th>
-                <th className="w-32 px-3 py-3">팀명</th>
-                <th className="w-24 px-3 py-3">직위</th>
-                <th className="w-20 px-3 py-3">권한</th>
-                <th className="w-24 px-3 py-3">상태</th>
+                {sortHeader('이름', 'name', 'w-28 px-4 py-3')}
+                {sortHeader('전화번호', 'phone', 'w-36 px-3 py-3')}
+                {sortHeader('이메일', 'email', 'w-56 px-3 py-3')}
+                {sortHeader('구청', 'district', 'w-24 px-3 py-3')}
+                {sortHeader('소속 과', 'department', 'w-28 px-3 py-3')}
+                {sortHeader('팀명', 'team', 'w-32 px-3 py-3')}
+                {sortHeader('직위', 'position', 'w-24 px-3 py-3')}
+                {sortHeader('권한', 'role', 'w-20 px-3 py-3')}
+                {sortHeader('상태', 'status', 'w-24 px-3 py-3')}
                 <th className="w-72 px-4 py-3 text-right">관리</th>
               </tr>
             </thead>

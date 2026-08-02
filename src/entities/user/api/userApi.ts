@@ -94,10 +94,14 @@ export async function updateMyProfile(input: Pick<RegistrationInput, 'phone' | '
   await http.patch('/api/members/me/update', registrationBody({ ...input, name: '', email: '' }))
 }
 
-export async function getAdminMembers(): Promise<ManagedUser[]> {
-  const first = await http.get<PageResponse<ApiMember>>('/api/admin/members', { params: { page: 0, size: 100, sortBy: 'name', direction: 'ASC' } })
+export type AdminMemberSortBy = 'name' | 'email' | 'district' | 'team' | 'position' | 'memberStatus' | 'memberRole' | 'createdAt'
+export type SortDirection = 'ASC' | 'DESC'
+
+export async function getAdminMembers(sortBy: AdminMemberSortBy = 'name', direction: SortDirection = 'ASC'): Promise<ManagedUser[]> {
+  const params = { size: 100, sortBy, direction }
+  const first = await http.get<PageResponse<ApiMember>>('/api/admin/members', { params: { ...params, page: 0 } })
   const remaining = await Promise.all(Array.from({ length: Math.max(0, first.data.totalPages - 1) }, (_, index) =>
-    http.get<PageResponse<ApiMember>>('/api/admin/members', { params: { page: index + 1, size: 100, sortBy: 'name', direction: 'ASC' } }),
+    http.get<PageResponse<ApiMember>>('/api/admin/members', { params: { ...params, page: index + 1 } }),
   ))
   return [first, ...remaining].flatMap((response) => response.data.content.map(mapMember))
 }
