@@ -8,6 +8,8 @@ import { loadChatMessages, loadChatUi, saveChatMessages, saveChatUi } from '../m
 import { useDismiss } from '@/shared/lib/useDismiss'
 
 const DOCK_MIN_WIDTH = 320
+/** 도킹 폭 상한 — 지도가 대화창에 밀려 절반 아래로 좁아지지 않게 한다 */
+const dockMaxWidth = (areaWidth: number) => Math.max(DOCK_MIN_WIDTH, Math.floor(areaWidth / 2))
 const FLOAT_MIN: Size = { width: 300, height: 380 }
 const FLOAT_MAX = 900
 
@@ -43,6 +45,18 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
   useEffect(() => {
     saveChatMessages(messages)
   }, [messages])
+
+  // 창이 좁아지면 저장해 둔 폭이 절반을 넘길 수 있다 — 영역 크기가 바뀔 때마다 상한에 맞춘다
+  useEffect(() => {
+    const area = areaRef.current
+    if (!area) return
+    const observer = new ResizeObserver(() => {
+      const max = dockMaxWidth(area.getBoundingClientRect().width)
+      setDockWidth((w) => (w > max ? max : w))
+    })
+    observer.observe(area)
+    return () => observer.disconnect()
+  }, [])
 
   // 코너 오버레이는 ESC로 닫는다(도킹은 자리 차지라 유지)
   useDismiss({ enabled: open && mode === 'corner', onDismiss: () => setOpen(false) })
@@ -106,9 +120,8 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
     const start = dockWidth
     setResizing(true)
     function move(ev: PointerEvent) {
-      const max = rect.width - DOCK_MIN_WIDTH - 8
       // 정수 폭 — 소수 폭은 flex 반올림으로 1px 틈(밝은 배경 노출)을 만든다
-      setDockWidth(Math.round(clamp(start - (ev.clientX - startX), DOCK_MIN_WIDTH, Math.max(DOCK_MIN_WIDTH, max))))
+      setDockWidth(Math.round(clamp(start - (ev.clientX - startX), DOCK_MIN_WIDTH, dockMaxWidth(rect.width))))
     }
     function up() {
       window.removeEventListener('pointermove', move)
@@ -163,9 +176,9 @@ export function ChatDockLayout({ children, onAction }: { children: ReactNode; on
             if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
             e.preventDefault()
             const area = areaRef.current
-            const max = area ? area.getBoundingClientRect().width - DOCK_MIN_WIDTH - 8 : dockWidth
+            const max = area ? dockMaxWidth(area.getBoundingClientRect().width) : dockWidth
             const step = e.key === 'ArrowLeft' ? 24 : -24 // 왼쪽=넓게(드래그 방향과 일치), 오른쪽=좁게
-            setDockWidth((w) => Math.round(clamp(w + step, DOCK_MIN_WIDTH, Math.max(DOCK_MIN_WIDTH, max))))
+            setDockWidth((w) => Math.round(clamp(w + step, DOCK_MIN_WIDTH, max)))
           }}
           style={{ right: docked ? dockWidth : 0, opacity: docked ? 1 : 0 }}
           className={`group absolute inset-y-0 z-30 flex w-5 translate-x-1/2 items-center justify-center ${
