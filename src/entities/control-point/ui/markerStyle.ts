@@ -28,7 +28,8 @@ const PALETTE: Record<MapTheme, Palette> = {
  * 후광(paper)로 배경 대비, 선택=주황 링, 망실=빨강+빨간 X 뱃지, 조사완료=파란 V 뱃지.
  */
 function svgFor(type: PointType, selected: boolean, lost: boolean, done: boolean, p: Palette): string {
-  const ink = lost ? p.lost : p.ink
+  // 조사 결과를 도식 선 색으로도 보여 준다 — 뱃지는 작아서 줌아웃에서는 잘 안 보인다. 망실 판정이 먼저.
+  const ink = lost ? p.lost : done ? p.done : p.ink
   const sel = selected ? `<circle cx="18" cy="18" r="14" fill="none" stroke="${p.sel}" stroke-width="3"/>` : ''
 
   let shape = ''
@@ -40,7 +41,7 @@ function svgFor(type: PointType, selected: boolean, lost: boolean, done: boolean
       `<line x1="${18 - r}" y1="18" x2="${18 + r}" y2="18" stroke="${ink}" stroke-width="1.6"/>` +
       `<line x1="18" y1="${18 - r}" x2="18" y2="${18 + r}" stroke="${ink}" stroke-width="1.6"/>`
   } else if (type === '지적삼각보조점') {
-    const inner = lost ? p.lost : p.aux
+    const inner = lost ? p.lost : done ? p.done : p.aux
     shape =
       `<circle cx="18" cy="18" r="9" fill="${p.paper}" stroke="${p.paper}" stroke-width="4"/>` +
       `<circle cx="18" cy="18" r="9" fill="${inner}" stroke="${ink}" stroke-width="1.8"/>`
