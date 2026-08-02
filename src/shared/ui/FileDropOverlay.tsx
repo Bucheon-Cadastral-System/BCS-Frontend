@@ -2,7 +2,7 @@
  * 파일을 끌어 오는 동안 화면 전체를 덮는 안내.
  * 열려 있는 창보다 위(z)에 그려야 가려지지 않으므로 모달(z-50)보다 높은 층에 둔다.
  */
-export function FileDropOverlay(props: { label?: string }) {
+export function FileDropOverlay(props: { label?: string; hint?: string }) {
   return (
     // 배경을 충분히 가려야 안내가 읽힌다 — 지도·목록 위에 옅게 덮으면 글자가 묻힌다
     <div className="pointer-events-none fixed inset-0 z-[60] flex flex-col items-center justify-center gap-3 border-2 border-dashed border-blue-400 bg-gray-900/70 backdrop-blur-md">
@@ -21,8 +21,9 @@ export function FileDropOverlay(props: { label?: string }) {
         <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
       </svg>
       <span className="text-[15px] font-semibold text-white drop-shadow">
-        {props.label ?? '여기에 파일을 놓으세요'}
+        {props.label ?? '놓으면 파일을 읽습니다'}
       </span>
+      {props.hint && <span className="text-[12px] text-blue-100/80">{props.hint}</span>}
     </div>
   )
 }
