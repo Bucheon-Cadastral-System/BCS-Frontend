@@ -293,48 +293,45 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
                 selected ? 'border-l-blue-500 bg-blue-500/10' : 'border-l-transparent'
               }`}
             >
-              {/* 행 클릭 = 펼침이자 선택이다. 펼쳐 보는 조사가 곧 지도·칩에 반영되는 조사라 둘을 나누지 않는다.
-                  커서를 올렸을 때의 배경은 행 전체에 건다 — 안쪽 버튼에만 걸면 표식 자리만 남아 얼룩진다. */}
-              <div className="flex items-stretch transition-colors hover:bg-white/[0.06]">
-                <span className="flex items-center px-4 py-2.5" aria-hidden>
-                  <span
-                    className={`flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 transition-colors ${
-                      selected ? 'border-blue-400 bg-blue-500' : 'border-gray-500'
-                    }`}
-                  >
-                    {selected && (
-                      <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="#ffffff" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
-                        <path d="m5 12 5 5 9-10" />
-                      </svg>
+              {/* 행 전체가 하나의 버튼이다 — 표식까지 눌리는 자리에 넣어야 행에 반응 없는 구역이 생기지 않는다.
+                  누르면 펼침과 선택이 함께 일어나므로 aria-expanded·aria-pressed 를 같이 알린다. */}
+              <button
+                type="button"
+                onClick={() => toggleProject(p.id, expanded)}
+                aria-expanded={expanded}
+                aria-pressed={selected}
+                className={`flex w-full items-center gap-4 py-2.5 pl-4 pr-4 text-left text-sm transition-colors hover:bg-white/[0.06] ${
+                  selected ? 'font-semibold text-white' : expanded ? 'text-gray-100' : 'text-gray-200'
+                }`}
+              >
+                <span
+                  aria-hidden
+                  className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                    selected ? 'border-blue-400 bg-blue-500' : 'border-gray-500'
+                  }`}
+                >
+                  {selected && (
+                    <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="#ffffff" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m5 12 5 5 9-10" />
+                    </svg>
+                  )}
+                </span>
+                {/* 접어 둔 조사도 언제 하는 조사인지 알 수 있게 이름 아래 한 줄을 더 둔다 */}
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="truncate">{p.name}</span>
+                  <span className="block truncate text-[11px] font-normal tabular-nums text-gray-400">
+                    {formatDate(p.startedOn)} ~{' '}
+                    {p.endedOn === null ? (
+                      <span className="text-blue-300/90">{SURVEY_ONGOING_LABEL}</span>
+                    ) : (
+                      formatDate(p.endedOn)
                     )}
                   </span>
                 </span>
-                <button
-                  type="button"
-                  onClick={() => toggleProject(p.id, expanded)}
-                  aria-expanded={expanded}
-                  aria-pressed={selected}
-                  className={`flex min-w-0 flex-1 items-center gap-2 py-2.5 pr-4 text-left text-sm ${
-                    selected ? 'font-semibold text-white' : expanded ? 'text-gray-100' : 'text-gray-200'
-                  }`}
-                >
-                  {/* 접어 둔 조사도 언제 하는 조사인지 알 수 있게 이름 아래 한 줄을 더 둔다 */}
-                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="truncate">{p.name}</span>
-                    <span className="block truncate text-[11px] font-normal tabular-nums text-gray-400">
-                      {formatDate(p.startedOn)} ~{' '}
-                      {p.endedOn === null ? (
-                        <span className="text-blue-300/90">{SURVEY_ONGOING_LABEL}</span>
-                      ) : (
-                        formatDate(p.endedOn)
-                      )}
-                    </span>
-                  </span>
-                  <span className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}>
-                    <IconChevronDown />
-                  </span>
-                </button>
-              </div>
+                <span className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}>
+                  <IconChevronDown />
+                </span>
+              </button>
 
               {/* 펼침 드로어: grid-rows 0fr↔1fr 로 높이 애니메이션(열림/닫힘 모두) */}
               <div
