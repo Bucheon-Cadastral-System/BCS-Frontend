@@ -1,4 +1,5 @@
 import { BrandLockup } from '@/shared/ui/BrandLockup'
+import { MODAL_SHELL } from '@/shared/ui/classes'
 
 interface LoginPageProps {
   onKakaoLogin: () => void
@@ -8,7 +9,7 @@ export function LoginPage({ onKakaoLogin }: LoginPageProps) {
   return (
     <main className="app-bg relative grid min-h-full place-items-center px-5 pb-20 pt-12 text-ink">
       <section
-        className="panel-in relative z-10 w-full max-w-[440px] rounded-pill border border-line bg-panel-strong px-6 py-10 text-center shadow-modal backdrop-blur-[14px] sm:px-12"
+        className={`panel-in relative z-10 w-full max-w-[440px] px-6 py-10 text-center sm:px-12 ${MODAL_SHELL}`}
         aria-labelledby="login-title"
       >
         {/* 아래 제목이 같은 문구를 쓰므로 심볼+BCS만 노출 */}
@@ -42,17 +43,7 @@ export function LoginPage({ onKakaoLogin }: LoginPageProps) {
       </section>
 
       <footer className="absolute bottom-5 z-10 w-full px-5 text-center text-[11px] leading-5 text-ink-4">
-        <p>본 서비스는 부천시가 제작·운영하는 공식 서비스가 아닌 비영리 업무지원 도구입니다.</p>
-        <p>
-          통합도시브랜드 출처:{' '}
-          <a className="underline hover:text-teal-text"
-            href="https://www.bucheon.go.kr/site/homepage/menu/viewMenu?menuid=148009002001"
-            target="_blank"
-            rel="noreferrer"
-          >
-            부천시청
-          </a>
-        </p>
+        본 서비스는 부천시가 제작·운영하는 공식 서비스가 아닌 비영리 업무지원 도구입니다.
       </footer>
     </main>
   )

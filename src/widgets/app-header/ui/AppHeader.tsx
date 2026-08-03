@@ -5,7 +5,7 @@ import type { UserProfile } from '@/entities/user'
 import { useDismiss } from '@/shared/lib/useDismiss'
 import { useElementWidth } from '@/shared/lib/useElementWidth'
 import { BrandMark } from '@/shared/ui/BrandMark'
-import { PILL } from '@/shared/ui/classes'
+import { PILL, POPOVER } from '@/shared/ui/classes'
 
 /** 헤더 탭 한 칸 — 화면이 무엇을 세울지 정한다(지도의 판 전환, 관리자 화면의 자리 전환) */
 export interface HeaderTab {
@@ -75,7 +75,7 @@ export function AppHeader(props: {
       <BrandMark />
       <span className="leading-[1.15]">
         <span className="block text-[14px] font-bold tracking-[-.02em] text-ink">BCS</span>
-        <span className="block text-[9.5px] text-ink-4">부천시 지적기준점 관리</span>
+        <span className="block text-[9.5px] text-ink-4">부천시 지적기준점 관리 시스템</span>
       </span>
     </>
   )
@@ -124,7 +124,8 @@ export function AppHeader(props: {
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
             aria-expanded={menuOpen}
-            className={`flex h-11 items-center gap-2 py-0 pl-1.5 pr-3 transition-colors hover:border-line-field ${PILL}`}
+            // 오른쪽 화살표는 제 상자 안에서 이미 3px 가까이 비워 두므로 왼쪽보다 적게 준다 — 값이 아니라 보이는 여백을 맞춘다
+            className={`flex h-11 items-center gap-2 py-0 pl-[7px] pr-2 transition-colors hover:border-line-field ${PILL}`}
           >
             {user ? (
               <UserAvatar name={user.name} className="size-[30px] text-[11.5px]" />
@@ -145,7 +146,7 @@ export function AppHeader(props: {
           </button>
 
           {menuOpen && (
-            <div className="panel-in absolute right-0 top-[50px] z-40 w-56 overflow-hidden rounded-pop border border-line bg-panel-strong shadow-panel backdrop-blur-[12px]">
+            <div className={`panel-in absolute right-0 top-[50px] z-40 w-56 overflow-hidden ${POPOVER}`}>
               <div className="flex items-center justify-between gap-2 px-[13px] pb-[9px] pt-2.5">
                 <span className="text-[12px] text-ink-3">권한</span>
                 <span className="font-mono text-[11px] font-semibold tracking-[.1em] text-teal-text">
