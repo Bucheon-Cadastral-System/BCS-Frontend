@@ -3,8 +3,6 @@ import type Map from 'ol/Map'
 import { toLonLat } from 'ol/proj'
 import { wgs84ToTm } from '@/shared/lib/crs'
 import type { TmEpsg } from '@/shared/lib/crs'
-import { STATUS_CHIP } from './chip'
-
 const fmt = (v: number) => v.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 /**
@@ -31,13 +29,10 @@ export function PointerCoordinates(props: { map: Map | null; tmEpsg: TmEpsg }) {
   }, [map, tmEpsg])
 
   return (
-    // 폭을 고정한다 — 자릿수에 따라 늘어나면 오른쪽 축척 칩이 흔들린다.
-    // 좁은 화면에서는 축척과 나란히 놓을 자리가 없어 숨긴다.
-    <div className={`${STATUS_CHIP} hidden w-[186px] justify-center tabular-nums sm:flex`}>
-      <span>
-        X <b className="font-semibold">{tm ? fmt(tm.northing) : '—'}</b> · Y{' '}
-        <b className="font-semibold">{tm ? fmt(tm.easting) : '—'}</b>
-      </span>
-    </div>
+    // 폭을 고정한다 — 자릿수에 따라 늘어나면 옆의 축척이 흔들린다
+    <span className="flex w-[204px] shrink-0 justify-center whitespace-nowrap font-mono text-[12px] text-ink-2">
+      X <b className="ml-1 font-semibold text-ink">{tm ? fmt(tm.northing) : '—'}</b>
+      <span className="mx-1 text-ink-4">·</span>Y <b className="ml-1 font-semibold text-ink">{tm ? fmt(tm.easting) : '—'}</b>
+    </span>
   )
 }
