@@ -19,6 +19,12 @@ export function useFormNotice() {
   const formRef = useRef<HTMLFormElement>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const shakeTimer = useRef(0)
+  /**
+   * 지금 띄운 문구가 어디서 왔는지.
+   * 브라우저가 판정한 것(native)은 값을 고치면 저절로 거둘 수 있지만,
+   * 우리가 세운 것(custom)은 브라우저가 그 조건을 모르므로 고쳐졌는지도 알 수 없어 그대로 둔다.
+   */
+  const source = useRef<'native' | 'custom'>('native')
 
   function clear() {
     setNotice(null)
@@ -42,6 +48,7 @@ export function useFormNotice() {
       return true
     }
     const invalid = Array.from(form.querySelectorAll<HTMLInputElement>(':invalid'))
+    source.current = 'native'
     setNotice(invalid.some((el) => el.validity.valueMissing) ? MISSING : INVALID)
     form.classList.add(SHOW_INVALID)
     shake(form)
@@ -51,6 +58,7 @@ export function useFormNotice() {
 
   /** 브라우저가 알 수 없는 문제(파일 오류·변환 실패)를 같은 자리에 알린다 */
   function fail(message: string) {
+    source.current = 'custom'
     setNotice(message)
   }
 
@@ -59,7 +67,7 @@ export function useFormNotice() {
   // 값을 고치는 동안 문구를 거둔다 — 다 채웠는데도 남아 있으면 잘못을 알리는 것이 아니라 잔소리가 된다
   useEffect(() => {
     const form = formRef.current
-    if (!form || notice === null) return
+    if (!form || notice === null || source.current === 'custom') return
     const recheck = () => {
       if (form.checkValidity()) clear()
     }

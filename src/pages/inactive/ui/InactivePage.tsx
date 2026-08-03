@@ -7,9 +7,9 @@ interface InactivePageProps {
 
 export function InactivePage({ onBackToLogin }: InactivePageProps) {
   return (
-    <main className="app-bg grid min-h-full place-items-center px-5 py-12 text-ink">
+    <main className="app-bg flex h-full flex-col overflow-y-auto px-5 py-12 text-ink">
       <section
-        className={`panel-in w-full max-w-[460px] px-7 py-10 text-center sm:px-12 ${MODAL_SHELL}`}
+        className={`panel-in my-auto w-full max-w-[460px] shrink-0 self-center px-7 py-10 text-center sm:px-12 ${MODAL_SHELL}`}
         aria-labelledby="inactive-title"
       >
         <BrandLockup size="md" variant="mark" className="mx-auto mb-8 w-fit" />

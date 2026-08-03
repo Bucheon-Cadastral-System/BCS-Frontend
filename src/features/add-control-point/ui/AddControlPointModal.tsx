@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useEffectEvent, useState } from 'react'
 import { POINT_TYPES } from '@/entities/control-point'
 import type { PointType } from '@/entities/control-point'
 import { TM_ORIGINS, tmToWgs84 } from '@/shared/lib/crs'
@@ -49,8 +49,11 @@ export function AddControlPointModal(props: {
 
   // 지도에서 찍어 오면 좌표만 갱신 — 모달은 마운트를 유지하므로 관리번호·이름 등 입력값은 그대로 남는다
   const picked = props.picked
+  const clearNotice = useEffectEvent(() => form.clear())
   useEffect(() => {
     if (!picked) return
+    // 값이 코드로 바뀌면 입력 이벤트가 나지 않아 문구가 저절로 거두어지지 않는다
+    clearNotice()
     setNorthing(picked.northing.toFixed(2))
     setEasting(picked.easting.toFixed(2))
     setTmEpsg(picked.epsg) // 좌표와 원점이 어긋나면 저장되는 경위도가 찍은 위치와 달라진다

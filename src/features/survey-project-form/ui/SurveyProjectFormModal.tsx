@@ -7,7 +7,7 @@ import { today } from '@/shared/lib/date'
 import { fileBaseName } from '@/shared/lib/file'
 import { percent } from '@/shared/lib/percent'
 import { PROGRESS_FILL } from '@/shared/ui/classes'
-import { MODAL_CANCEL_BTN, MODAL_DANGER_BTN, MODAL_HEADER, MODAL_INPUT, MODAL_SUBMIT_BTN, MODAL_TEXTAREA, Modal, ModalField } from '@/shared/ui/Modal'
+import { MODAL_CANCEL_BTN, MODAL_DANGER_BTN, MODAL_HEADER, MODAL_INPUT, MODAL_READONLY, MODAL_SUBMIT_BTN, MODAL_TEXTAREA, Modal, ModalField } from '@/shared/ui/Modal'
 import { StatusIcon } from '@/shared/ui/StatusIcon'
 import { FormNotice } from '@/shared/ui/FormNotice'
 import { useFormNotice } from '@/shared/lib/useFormNotice'
@@ -395,6 +395,12 @@ export function SurveyProjectFormModal(props: {
     setConfirming(true)
   }
 
+  // 보고 있는 건이 바뀌면 앞 건에서 세운 문구를 거둔다 — 값이 코드로 바뀌어 입력 이벤트가 나지 않는다
+  const clearNotice = useEffectEvent(() => form.clear())
+  useEffect(() => {
+    clearNotice()
+  }, [index])
+
   // 값이 바뀔 때마다 바깥에 알린다 — 받는 쪽이 ref 에 담으므로 이 알림이 다시 그림을 부르지 않는다
   const notifyDraft = useEffectEvent((draft: SurveyProjectDraft) => props.onDraftChange?.(draft))
   useEffect(() => {
@@ -605,7 +611,7 @@ export function SurveyProjectFormModal(props: {
       {/* 작성자는 로그인한 사람으로 정해지므로 고르지 않는다. 실제 기록은 서버가 인증 주체로 남긴다. */}
       <ModalField label="작성자" required>
         <input
-          className={`${MODAL_INPUT} cursor-default border-line-soft bg-soft text-ink-3`}
+          className={MODAL_READONLY}
           value={props.author}
           readOnly
           tabIndex={-1}

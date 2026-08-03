@@ -60,7 +60,7 @@ export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) 
   }
 
   return (
-    <main className="app-bg min-h-full px-5 py-10 text-ink">
+    <main className="app-bg h-full overflow-y-auto px-5 py-10 text-ink">
       <header className="mx-auto mb-8 flex max-w-3xl items-center justify-between">
         {/* 가입 신청 전이라 메인으로 가는 링크를 걸지 않는다. 옆에 서비스명이 따로 있어 심볼+BCS만 노출 */}
         <BrandLockup size="md" variant="mark" />

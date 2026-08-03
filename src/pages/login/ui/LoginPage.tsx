@@ -7,9 +7,9 @@ interface LoginPageProps {
 
 export function LoginPage({ onKakaoLogin }: LoginPageProps) {
   return (
-    <main className="app-bg relative grid min-h-full place-items-center px-5 pb-20 pt-12 text-ink">
+    <main className="app-bg flex h-full flex-col overflow-y-auto px-5 py-12 text-ink">
       <section
-        className={`panel-in relative z-10 w-full max-w-[440px] px-6 py-10 text-center sm:px-12 ${MODAL_SHELL}`}
+        className={`panel-in my-auto w-full max-w-[440px] shrink-0 self-center px-6 py-10 text-center sm:px-12 ${MODAL_SHELL}`}
         aria-labelledby="login-title"
       >
         {/* 아래 제목이 같은 문구를 쓰므로 심볼+BCS만 노출 */}
@@ -42,7 +42,7 @@ export function LoginPage({ onKakaoLogin }: LoginPageProps) {
         </p>
       </section>
 
-      <footer className="absolute bottom-5 z-10 w-full px-5 text-center text-[11px] leading-5 text-ink-4">
+      <footer className="shrink-0 pt-10 text-center text-[11px] leading-5 text-ink-4">
         본 서비스는 부천시가 제작·운영하는 공식 서비스가 아닌 비영리 업무지원 도구입니다.
       </footer>
     </main>

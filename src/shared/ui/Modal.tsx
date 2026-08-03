@@ -125,6 +125,7 @@ export {
   // 여러 줄 칸은 한 줄 칸과 규격이 다르다 — 고정 높이·가운데 정렬 대신 위아래 여백과 넉넉한 줄 간격을 쓴다
   FIELD_AREA as MODAL_TEXTAREA,
   FIELD_SELECT as MODAL_SELECT,
+  FIELD_READONLY as MODAL_READONLY,
   BTN_SM_SECONDARY as MODAL_CANCEL_BTN,
   BTN_SM_DANGER as MODAL_DANGER_BTN,
   BTN_SM_PRIMARY as MODAL_SUBMIT_BTN,
