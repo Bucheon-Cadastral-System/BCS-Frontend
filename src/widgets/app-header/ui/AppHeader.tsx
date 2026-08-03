@@ -1,10 +1,19 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { MOCK_CURRENT_USER } from '@/entities/user'
+import { UserAvatar } from '@/entities/user'
+import type { UserProfile } from '@/entities/user'
 import { useDismiss } from '@/shared/lib/useDismiss'
 import { useElementWidth } from '@/shared/lib/useElementWidth'
 import { PILL } from '@/shared/ui/classes'
-import type { PanelKey } from '@/shared/model/panel'
+
+/** 헤더 탭 한 칸 — 화면이 무엇을 세울지 정한다(지도의 판 전환, 관리자 화면의 자리 전환) */
+export interface HeaderTab {
+  key: string
+  label: string
+  icon: ReactNode
+  active: boolean
+  onClick: () => void
+}
 
 /**
  * 화면 위에 떠 있는 헤더.
@@ -15,13 +24,12 @@ import type { PanelKey } from '@/shared/model/panel'
 export function AppHeader(props: {
   /** 브랜드를 누르면 돌아갈 곳 — 지도 화면은 이미 그 화면이라 주지 않는다 */
   onHome?: () => void
-  /** 지도 화면의 판 전환 탭 */
-  panel?: { open: PanelKey | null; onToggle: (key: PanelKey) => void }
-  /** 지금 화면 이름 — 탭이 없는 화면이 그 자리를 대신 쓴다 */
-  title?: { label: string; icon: ReactNode }
+  /** 브랜드 옆 탭 — 지도는 판 전환, 관리자 화면은 자리 전환에 쓴다 */
+  tabs?: HeaderTab[]
   /** 우측 알약 왼쪽 자리 — 무엇을 검색할지는 화면이 정한다 */
   search?: ReactNode
-  isAdmin: boolean
+  /** 지금 로그인한 사용자 — 아직 받아오지 못했으면 자리만 지킨다 */
+  user: UserProfile | null
   /** 주지 않으면 사용자 메뉴에 그 항목을 두지 않는다(이미 그 화면인 경우) */
   onOpenUserManagement?: () => void
   /** 좌측 알약의 폭 — 그 아래 서는 칩·판이 같은 너비를 쓰도록 알린다 */
@@ -32,6 +40,21 @@ export function AppHeader(props: {
   const [menuOpen, setMenuOpen] = useState(false)
   const userRef = useRef<HTMLDivElement>(null)
   useDismiss({ enabled: menuOpen, onDismiss: () => setMenuOpen(false), ref: userRef })
+
+  const user = props.user
+  const isAdmin = user?.role === 'ADMIN'
+
+  // 켜진 탭 밑을 따라 미끄러지는 면 — 탭마다 면을 따로 켜고 끄면 자리가 옮겨 간다는 것이 보이지 않는다
+  const tabsRef = useRef<HTMLDivElement>(null)
+  const activeKey = props.tabs?.find((tab) => tab.active)?.key ?? null
+  const [marker, setMarker] = useState<{ left: number; width: number } | null>(null)
+  useLayoutEffect(() => {
+    const el = activeKey === null ? null : tabsRef.current?.querySelector<HTMLElement>(`[data-tab="${activeKey}"]`)
+    if (!el) return // 꺼진 동안에는 마지막 자리를 그대로 두고 흐리게만 한다
+    const next = { left: el.offsetLeft, width: el.offsetWidth }
+    // 같은 값으로 다시 넣으면 렌더가 끝없이 돈다(탭 배열은 렌더마다 새 참조)
+    setMarker((current) => (current && current.left === next.left && current.width === next.width ? current : next))
+  }, [activeKey, props.tabs])
 
   const brandRef = useRef<HTMLDivElement>(null)
   const utilityRef = useRef<HTMLDivElement>(null)
@@ -72,29 +95,24 @@ export function AppHeader(props: {
           <span className="flex items-center gap-2">{brand}</span>
         )}
 
-        {(props.panel || props.title) && <span className="mx-[3px] h-[22px] w-px bg-line-field" aria-hidden />}
-
-        {props.panel && (
+        {props.tabs && props.tabs.length > 0 && (
           <>
-            <Tab
-              label="프로젝트"
-              active={props.panel.open === 'project'}
-              onClick={() => props.panel?.onToggle('project')}
-            >
-              <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
-            </Tab>
-            <Tab label="기준점" active={props.panel.open === 'points'} onClick={() => props.panel?.onToggle('points')}>
-              <path d="M12 21s-6-5.686-6-10a6 6 0 1 1 12 0c0 4.314-6 10-6 10Z" />
-              <circle cx="12" cy="11" r="2" />
-            </Tab>
+            <span className="mx-[3px] h-[22px] w-px bg-line-field" aria-hidden />
+            <div ref={tabsRef} className="relative flex items-center gap-1">
+              {marker && (
+                <span
+                  aria-hidden="true"
+                  style={{ left: marker.left, width: marker.width }}
+                  className={`absolute top-0 h-[34px] rounded-ctl bg-teal-wash-strong transition-[left,width,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    activeKey === null ? 'opacity-0' : 'opacity-100'
+                  }`}
+                />
+              )}
+              {props.tabs.map(({ key, ...tab }) => (
+                <Tab key={key} tabKey={key} {...tab} />
+              ))}
+            </div>
           </>
-        )}
-
-        {props.title && (
-          <span className="flex h-[34px] items-center gap-[7px] rounded-ctl bg-teal-wash-strong px-3 text-[12px] font-semibold text-teal-text">
-            {props.title.icon}
-            {props.title.label}
-          </span>
         )}
       </div>
 
@@ -107,13 +125,17 @@ export function AppHeader(props: {
             aria-expanded={menuOpen}
             className={`flex h-11 items-center gap-2 py-0 pl-1.5 pr-3 transition-colors hover:border-line-field ${PILL}`}
           >
-            <span className="flex size-[30px] items-center justify-center rounded-full bg-teal-fill text-[11.5px] font-semibold text-[#EFFBF7]">
-              {MOCK_CURRENT_USER.name.slice(0, 1)}
-            </span>
+            {user ? (
+              <UserAvatar name={user.name} className="size-[30px] text-[11.5px]" />
+            ) : (
+              <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-soft text-[11.5px] text-ink-4" aria-hidden="true">
+                ·
+              </span>
+            )}
             <span className="text-left leading-[1.2]">
-              <span className="block text-[12px] text-ink-2">{MOCK_CURRENT_USER.name}</span>
+              <span className="block text-[12px] text-ink-2">{user?.name ?? '사용자'}</span>
               <span className="block text-[10px] text-ink-4">
-                {MOCK_CURRENT_USER.team} {MOCK_CURRENT_USER.position}
+                {user ? `${user.team} ${user.position}` : '정보를 불러오는 중'}
               </span>
             </span>
             <svg viewBox="0 0 24 24" className="size-[13px] shrink-0 text-ink-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -126,10 +148,10 @@ export function AppHeader(props: {
               <div className="flex items-center justify-between gap-2 px-[13px] pb-[9px] pt-2.5">
                 <span className="text-[12px] text-ink-3">권한</span>
                 <span className="font-mono text-[11px] font-semibold tracking-[.1em] text-teal-text">
-                  {props.isAdmin ? 'ADMIN' : 'USER'}
+                  {user?.role ?? 'USER'}
                 </span>
               </div>
-              {props.isAdmin && props.onOpenUserManagement && (
+              {isAdmin && props.onOpenUserManagement && (
                 <button
                   type="button"
                   onClick={() => {
@@ -153,26 +175,61 @@ export function AppHeader(props: {
   )
 }
 
-/** 판 전환 탭 — 켜진 탭이 곧 지금 열려 있는 판이다 */
-function Tab(props: { label: string; active: boolean; onClick: () => void; children: ReactNode }) {
+/** 헤더 탭 — 켜진 탭이 곧 지금 보고 있는 자리다. 켜진 표시(면)는 위에서 미끄러지는 하나가 맡는다 */
+function Tab({ tabKey, label, icon, active, onClick }: Omit<HeaderTab, 'key'> & { tabKey: string }) {
   return (
     <button
       type="button"
-      onClick={props.onClick}
-      aria-pressed={props.active}
-      className={`flex h-[34px] items-center gap-[7px] rounded-ctl px-3 text-[12px] font-semibold transition-colors ${
-        props.active ? 'bg-teal-wash-strong text-teal-text' : 'text-ink-3 hover:bg-hover hover:text-ink-2'
+      data-tab={tabKey}
+      onClick={onClick}
+      aria-pressed={active}
+      className={`relative z-10 flex h-[34px] items-center gap-[7px] rounded-ctl px-3 text-[12px] font-semibold transition-colors ${
+        active ? 'text-teal-text' : 'text-ink-3 hover:bg-hover hover:text-ink-2'
       }`}
     >
-      <svg viewBox="0 0 24 24" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        {props.children}
-      </svg>
-      {props.label}
+      {icon}
+      {label}
     </button>
   )
 }
 
-/** 사용자 관리 아이콘 — 헤더 이름표와 사용자 메뉴가 같은 그림을 쓴다 */
+/** 탭·메뉴가 함께 쓰는 그림 — 같은 뜻은 같은 그림으로 */
+function TabIcon({ className, children }: { className?: string; children: ReactNode }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className ?? 'size-[18px]'} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {children}
+    </svg>
+  )
+}
+
+export function ProjectIcon({ className }: { className?: string }) {
+  return (
+    <TabIcon className={className}>
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+    </TabIcon>
+  )
+}
+
+export function PointIcon({ className }: { className?: string }) {
+  return (
+    <TabIcon className={className}>
+      <path d="M12 21s-6-5.686-6-10a6 6 0 1 1 12 0c0 4.314-6 10-6 10Z" />
+      <circle cx="12" cy="11" r="2" />
+    </TabIcon>
+  )
+}
+
+/** 활동 로그 — 시각을 되짚는다는 뜻의 시계 */
+export function ActivityIcon({ className }: { className?: string }) {
+  return (
+    <TabIcon className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </TabIcon>
+  )
+}
+
+/** 사용자 관리 아이콘 — 헤더 탭과 사용자 메뉴가 같은 그림을 쓴다 */
 export function UsersIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

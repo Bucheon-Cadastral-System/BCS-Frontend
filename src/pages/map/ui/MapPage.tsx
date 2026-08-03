@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '@/app/store/hooks'
 import { setActiveProject, toggleTheme } from '@/app/store'
-import { AppHeader } from '@/widgets/app-header'
+import { AppHeader, PointIcon, ProjectIcon } from '@/widgets/app-header'
 import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
 import { MapSidebar, ActiveProjectChip } from '@/widgets/map-sidebar'
@@ -29,10 +29,11 @@ import { withoutTransition } from '@/shared/lib/instantChange'
 import { wgs84ToTm } from '@/shared/lib/crs'
 import type { TmEpsg } from '@/shared/lib/crs'
 import { VWORLD_KEY } from '@/shared/config/map'
-import type { UserRole } from '@/entities/user'
+import type { UserProfile } from '@/entities/user'
 
 interface MapPageProps {
-  role: UserRole
+  /** 지금 로그인한 사용자 — 헤더 표시와 권한 판정에 함께 쓴다 */
+  profile: UserProfile | null
   onOpenUserManagement: () => void
 }
 
@@ -60,7 +61,8 @@ function Banner(props: { tone: keyof typeof BANNER_TONE; children: React.ReactNo
   )
 }
 
-export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
+export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
+  const isAdmin = profile?.role === 'ADMIN'
   const dispatch = useAppDispatch()
   const theme = useAppSelector((state) => state.ui.theme)
   const activeProjectId = useAppSelector((state) => state.ui.activeProjectId)
@@ -305,11 +307,14 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
       <ChatDockLayout width={utilityWidth} onDockWidthChange={setChatWidth} onAction={handleChatAction}>
       <div className="relative min-h-0 min-w-0 flex-1">
         <AppHeader
-          panel={{ open: openPanel, onToggle: togglePanel }}
+          tabs={[
+            { key: 'project', label: '프로젝트', icon: <ProjectIcon />, active: openPanel === 'project', onClick: () => togglePanel('project') },
+            { key: 'points', label: '기준점', icon: <PointIcon />, active: openPanel === 'points', onClick: () => togglePanel('points') },
+          ]}
           onBrandWidthChange={setHeaderWidth}
           onUtilityWidthChange={setUtilityWidth}
           search={<PointSearchBar points={points} onSelect={focusPoint} />}
-          isAdmin={role === 'ADMIN'}
+          user={profile}
           onOpenUserManagement={onOpenUserManagement}
         />
 
@@ -330,7 +335,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           pointsLoading={pointsQuery.isPending}
           recordsLoading={activeProjectId !== null && recordsQuery.isPending}
           targetsLoading={activeProjectId !== null && targetsQuery.isPending}
-          isAdmin={role === 'ADMIN'}
+          isAdmin={isAdmin}
           onOpenUserManagement={onOpenUserManagement}
           open={openPanel}
           onClose={() => setOpenPanel(null)}
@@ -456,6 +461,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
         <SurveyProjectFormModal
           title="프로젝트 추가"
           submitLabel="추가"
+          author={profile ? `${profile.name} · ${profile.team} ${profile.position}` : ''}
           defaults={carriedDraft ?? undefined}
           initialFiles={pendingFiles}
           onDraftChange={(draft) => {
