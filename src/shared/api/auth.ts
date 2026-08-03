@@ -1,5 +1,5 @@
 import { http } from './http'
-import { setAccessToken } from './tokenStore'
+import { invalidateAuthentication, setAccessToken } from './tokenStore'
 export { refreshAccessToken } from './refreshToken'
 
 const VERIFIER_KEY = 'bcs-pkce-verifier'
@@ -8,8 +8,6 @@ let exchangeRequest: { code: string; promise: Promise<void> } | null = null
 function base64Url(bytes: Uint8Array) {
   return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
-
-export function clearAccessToken() { setAccessToken(null) }
 
 export async function startKakaoLogin() {
   const verifier = base64Url(crypto.getRandomValues(new Uint8Array(32)))
@@ -35,5 +33,6 @@ export function exchangeOAuthCode(code: string): Promise<void> {
 }
 
 export async function logout() {
-  try { await http.post('/api/auth/logout') } finally { clearAccessToken() }
+  invalidateAuthentication()
+  await http.post('/api/auth/logout')
 }
