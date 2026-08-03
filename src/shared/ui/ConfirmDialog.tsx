@@ -11,6 +11,8 @@ export function ConfirmDialog(props: {
   confirmLabel?: string
   cancelLabel?: string
   danger?: boolean
+  busy?: boolean
+  busyLabel?: string
   onConfirm: () => void
   onCancel: () => void
 }) {
@@ -18,8 +20,10 @@ export function ConfirmDialog(props: {
   const cancelRef = useRef<HTMLButtonElement>(null)
   const confirmRef = useRef<HTMLButtonElement>(null)
   const danger = props.danger ?? false
+  const busy = props.busy ?? false
+  const close = busy ? () => undefined : props.onCancel
   // 되돌릴 수 없는 작업이면 실수로 확정하지 않게 취소에 포커스를 준다
-  useDialogBehavior({ panelRef, onClose: props.onCancel, initialFocusRef: danger ? cancelRef : confirmRef })
+  useDialogBehavior({ panelRef, onClose: close, initialFocusRef: danger ? cancelRef : confirmRef })
 
   return (
     <div
@@ -27,7 +31,7 @@ export function ConfirmDialog(props: {
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-dialog-message"
-      onClick={props.onCancel}
+      onClick={close}
     >
       <div ref={panelRef} className="w-full max-w-xs rounded-xl bg-white p-5 shadow-2xl dark:bg-gray-800" onClick={(e) => e.stopPropagation()}>
         <p id="confirm-dialog-message" className="text-center text-[14px] font-medium text-gray-900 dark:text-gray-100">
@@ -38,7 +42,8 @@ export function ConfirmDialog(props: {
           <button
             ref={cancelRef}
             type="button"
-            className="flex-1 rounded-md border border-gray-300 bg-white py-2 text-[13px] text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+            disabled={busy}
+            className="flex-1 rounded-md border border-gray-300 bg-white py-2 text-[13px] text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
             onClick={props.onCancel}
           >
             {props.cancelLabel ?? '아니오'}
@@ -46,12 +51,13 @@ export function ConfirmDialog(props: {
           <button
             ref={confirmRef}
             type="button"
+            disabled={busy}
             className={`flex-1 rounded-md py-2 text-[13px] font-medium text-white ${
               danger ? 'border border-red-600 bg-red-600 hover:bg-red-500' : 'border border-blue-600 bg-blue-600 hover:bg-blue-500'
-            }`}
+            } disabled:cursor-wait disabled:opacity-60`}
             onClick={props.onConfirm}
           >
-            {props.confirmLabel ?? '예'}
+            {busy ? (props.busyLabel ?? '처리 중…') : (props.confirmLabel ?? '예')}
           </button>
         </div>
       </div>

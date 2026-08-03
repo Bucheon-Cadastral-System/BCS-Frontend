@@ -1,69 +1,136 @@
-import { useState } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import 'ol/ol.css'
 import './App.css'
 import { AdminUsersPage } from '@/pages/admin-users'
-import { MOCK_USERS } from '@/entities/user'
-import type { ManagedUser, UserRole } from '@/entities/user'
+import { completeRegistration, getMemberState, getMyProfile, type UserProfile } from '@/entities/user'
 import { RegistrationPage } from '@/pages/registration'
 import { LoginPage } from '@/pages/login'
+import { InactivePage } from '@/pages/inactive'
 import { MapPage } from '@/pages/map'
 import { WaitingPage } from '@/pages/waiting'
+import { exchangeOAuthCode, refreshAccessToken, startKakaoLogin } from '@/shared/api/auth'
+import { subscribeAuthenticationLost } from '@/shared/api/tokenStore'
 
-const DEVELOPMENT_ROLE: UserRole = 'ADMIN'
+type AuthState = { loading: boolean; profile: UserProfile | null }
 
+function LoadingPage() {
+  return <main className="grid min-h-full place-items-center bg-slate-100 text-sm font-semibold text-slate-500">로그인 상태를 확인하고 있습니다…</main>
+}
 
 function LoginRoute() {
+  const location = useLocation()
   const navigate = useNavigate()
-  return (
-    <LoginPage
-      onKakaoLogin={() => navigate('/register')}
-      onDevelopmentAccess={() => navigate('/')}
-    />
-  )
+  const isInactive = new URLSearchParams(location.search).get('error') === 'inactive'
+
+  return isInactive
+    ? <InactivePage onBackToLogin={() => navigate('/login', { replace: true })} />
+    : <LoginPage onKakaoLogin={startKakaoLogin} />
 }
 
-function RegisterRoute() {
+function Protected({ auth, admin = false, children }: { auth: AuthState; admin?: boolean; children: ReactNode }) {
+  if (auth.loading) return <LoadingPage />
+  if (!auth.profile) return <Navigate to="/login" replace />
+  if (auth.profile.status === 'PENDING') return <Navigate to="/signup" replace />
+  if (auth.profile.status === 'INACTIVE') return <Navigate to="/login?error=inactive" replace />
+  if (admin && auth.profile.role !== 'ADMIN') return <Navigate to="/" replace />
+  return children
+}
+
+function OAuthSuccessRoute({ reloadProfile }: { reloadProfile: () => Promise<UserProfile | null> }) {
   const navigate = useNavigate()
+  const location = useLocation()
+  const [error, setError] = useState('')
+  useEffect(() => {
+    const code = new URLSearchParams(location.search).get('code')
+    if (!code) { setError('로그인 코드가 없습니다.'); return }
+    exchangeOAuthCode(code)
+      .then(async () => {
+        const [profile, memberState] = await Promise.all([reloadProfile(), getMemberState()])
+        const status = memberState.status ?? profile?.status
+
+        if (status === 'INACTIVE') navigate('/login?error=inactive', { replace: true })
+        else if (!memberState.profileCompleted) navigate('/signup', { replace: true })
+        else if (status === 'PENDING') navigate('/waiting', { replace: true })
+        else navigate('/', { replace: true })
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : '로그인을 완료하지 못했습니다.'))
+  }, [location.search, navigate, reloadProfile])
+  return error
+    ? <main className="grid min-h-full place-items-center bg-slate-100"><div className="rounded-2xl bg-white p-8 text-center"><p className="text-rose-700">{error}</p><button className="mt-4 font-bold text-teal-700" onClick={() => navigate('/login')}>로그인으로 돌아가기</button></div></main>
+    : <LoadingPage />
+}
+
+function SignupRoute() {
+  const navigate = useNavigate()
+  const [checking, setChecking] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    getMemberState()
+      .then((state) => {
+        if (state.profileCompleted) navigate('/waiting', { replace: true })
+        else setShowForm(true)
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : '가입 상태를 확인하지 못했습니다.'))
+      .finally(() => setChecking(false))
+  }, [navigate])
+
+  if (checking) return <LoadingPage />
+  if (error) {
+    return <main className="grid min-h-full place-items-center bg-slate-100"><div className="rounded-2xl bg-white p-8 text-center"><p className="text-rose-700">{error}</p><button className="mt-4 font-bold text-teal-700" onClick={() => navigate('/login')}>로그인으로 돌아가기</button></div></main>
+  }
+  if (!showForm) return <LoadingPage />
+
   return (
     <RegistrationPage
-      kakaoId="development-kakao-id"
       onCancel={() => navigate('/login')}
-      // 백엔드 연동 전이라 신청 내용은 아직 보내지 않는다. 이름·연락처가 담긴 값이라 콘솔에도 남기지 않는다.
-      onSubmit={() => navigate('/waiting')}
+      onSubmit={async (data) => {
+        await completeRegistration(data)
+        navigate('/waiting', { replace: true })
+      }}
     />
   )
 }
 
-function WaitingRoute() {
+function AppRoutes() {
   const navigate = useNavigate()
-  return <WaitingPage onBackToLogin={() => navigate('/login')} />
-}
+  const [auth, setAuth] = useState<AuthState>({ loading: true, profile: null })
 
-function MapRoute() {
-  const navigate = useNavigate()
-  return <MapPage role={DEVELOPMENT_ROLE} onOpenUserManagement={() => navigate('/admin/users')} />
-}
+  const reloadProfile = useCallback(async () => {
+    try {
+      const profile = await getMyProfile()
+      setAuth({ loading: false, profile })
+      return profile
+    } catch {
+      setAuth({ loading: false, profile: null })
+      return null
+    }
+  }, [])
 
-function AdminUsersRoute(props: { users: ManagedUser[]; onChangeUsers: (users: ManagedUser[]) => void }) {
-  const navigate = useNavigate()
-  return <AdminUsersPage users={props.users} onChangeUsers={props.onChangeUsers} onBack={() => navigate('/')} />
+  useEffect(() => {
+    refreshAccessToken().then((token) => token ? reloadProfile() : (setAuth({ loading: false, profile: null }), null))
+  }, [reloadProfile])
+
+  useEffect(() => subscribeAuthenticationLost(() => {
+    setAuth({ loading: false, profile: null })
+  }), [])
+
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginRoute />} />
+      <Route path="/oauth/success" element={<OAuthSuccessRoute reloadProfile={reloadProfile} />} />
+      <Route path="/signup" element={<SignupRoute />} />
+      <Route path="/register" element={<Navigate to="/signup" replace />} />
+      <Route path="/waiting" element={<WaitingPage onBackToLogin={() => navigate('/login')} />} />
+      <Route path="/" element={<Protected auth={auth}><MapPage role={auth.profile?.role ?? 'USER'} onOpenUserManagement={() => navigate('/admin/users')} /></Protected>} />
+      <Route path="/admin/users" element={<Protected auth={auth} admin><AdminUsersPage onBack={() => navigate('/')} /></Protected>} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  )
 }
 
 export default function App() {
-  // 사용자 목록은 아직 백엔드 연동 전이라 앱 상태로 들고 있는다(라우트 이동 간 유지 목적).
-  const [users, setUsers] = useState<ManagedUser[]>(MOCK_USERS)
-
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<MapRoute />} />
-        <Route path="/login" element={<LoginRoute />} />
-        <Route path="/register" element={<RegisterRoute />} />
-        <Route path="/waiting" element={<WaitingRoute />} />
-        <Route path="/admin/users" element={<AdminUsersRoute users={users} onChangeUsers={setUsers} />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
-  )
+  return <BrowserRouter><AppRoutes /></BrowserRouter>
 }
