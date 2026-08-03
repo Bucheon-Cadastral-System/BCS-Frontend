@@ -123,8 +123,8 @@ export interface AdminMemberQuery {
   phone?: string
 }
 
-export async function getAdminMembers(query: AdminMemberQuery): Promise<PageResponse<ManagedUser>> {
-  const { data } = await http.get<PageResponse<ApiMember>>('/api/admin/members', { params: query })
+export async function getAdminMembers(query: AdminMemberQuery, signal?: AbortSignal): Promise<PageResponse<ManagedUser>> {
+  const { data } = await http.get<PageResponse<ApiMember>>('/api/admin/members', { params: query, signal })
   return { ...data, content: data.content.map(mapMember) }
 }
 

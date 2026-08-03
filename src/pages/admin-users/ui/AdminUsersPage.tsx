@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { changeAdminMember, getAdminActivities, getAdminMemberCounts, getAdminMembers, updateAdminMember, DISTRICTS, POSITIONS, TEAMS } from '@/entities/user'
 import type { AdminActivity, AdminMemberAction, AdminMemberSortBy, ManagedUser, SortDirection, UserStatus } from '@/entities/user'
 import { AppHeader } from '@/shared/ui/AppHeader'
@@ -63,6 +63,7 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
   const [draft, setDraft] = useState<ManagedUser | null>(null)
   const [saving, setSaving] = useState(false)
   const [pendingChange, setPendingChange] = useState<{ id: string; action: AdminMemberAction; status?: UserStatus; label: string } | null>(null)
+  const memberRequestId = useRef(0)
 
   const loadActivities = async (cursor?: string) => {
     const result = await getAdminActivities(cursor)
@@ -70,7 +71,8 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
     setNextCursor(result.nextCursor)
   }
 
-  const loadMembers = useCallback(async () => {
+  const loadMembers = useCallback(async (signal?: AbortSignal) => {
+    const requestId = ++memberRequestId.current
     setLoading(true)
     setError('')
     try {
@@ -82,7 +84,8 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
         direction: sort.direction,
         ...(filter !== 'ALL' ? { memberStatus: filter } : {}),
         ...(keyword ? { [searchField]: keyword } : {}),
-      })
+      }, signal)
+      if (signal?.aborted || requestId !== memberRequestId.current) return
       if (result.totalPages > 0 && page >= result.totalPages) {
         setPage(result.totalPages - 1)
         return
@@ -91,8 +94,11 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
       setTotalElements(result.totalElements)
       setTotalPages(result.totalPages)
     } catch (e) {
+      if (signal?.aborted || requestId !== memberRequestId.current) return
       setError(e instanceof Error ? e.message : '관리자 정보를 불러오지 못했습니다.')
-    } finally { setLoading(false) }
+    } finally {
+      if (!signal?.aborted && requestId === memberRequestId.current) setLoading(false)
+    }
   }, [debouncedQuery, filter, page, pageSize, searchField, sort])
 
   const loadCounts = async () => {
@@ -100,7 +106,11 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
   }
 
   useEffect(() => { const timeout = window.setTimeout(() => setDebouncedQuery(query), 300); return () => window.clearTimeout(timeout) }, [query])
-  useEffect(() => { void loadMembers() }, [loadMembers])
+  useEffect(() => {
+    const controller = new AbortController()
+    void loadMembers(controller.signal)
+    return () => controller.abort()
+  }, [loadMembers])
   useEffect(() => { void loadCounts(); void loadActivities() }, [])
 
   const changeSort = (field: SortField) => {
