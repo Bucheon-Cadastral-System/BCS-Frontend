@@ -101,7 +101,12 @@ export async function getMyProfile(): Promise<UserProfile> {
 }
 
 export async function updateMyProfile(input: Pick<RegistrationInput, 'phone' | 'district' | 'team' | 'position'>): Promise<void> {
-  await http.patch('/api/members/me/update', registrationBody({ ...input, name: '', email: '' }))
+  await http.patch('/api/members/me/update', {
+    phone: input.phone,
+    district: districtToApi[input.district],
+    team: teamToApi[input.team],
+    position: positionToApi[input.position],
+  })
 }
 
 export type AdminMemberSortBy = 'name' | 'email' | 'district' | 'team' | 'position' | 'memberStatus' | 'memberRole' | 'createdAt'
