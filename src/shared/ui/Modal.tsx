@@ -1,8 +1,9 @@
 import { useRef } from 'react'
-import type { ReactNode } from 'react'
+import type { ReactNode, RefObject } from 'react'
 import { useDialogBehavior } from '@/shared/lib/useDialogBehavior'
 import { useFileDrop } from '@/shared/lib/useFileDrop'
 import { FileDropOverlay } from '@/shared/ui/FileDropOverlay'
+import { MODAL_SHELL } from './classes'
 
 /**
  * 입력·확인 대화상자의 공통 셸 — 배경 딤·Esc·배경 클릭 닫기, 열릴 때 첫 요소로 포커스 이동, 닫으면 트리거로 복원.
@@ -27,6 +28,11 @@ export function Modal(props: {
    * 창을 접고 다른 창을 띄우는 대신 지금 보고 있는 자리에서 이어 가게 한다.
    */
   onDropFile?: (files: File[]) => void
+  /**
+   * 창 안의 폼 — 못 채운 칸을 화면 안에서 알리려면(useFormNotice) 이 폼을 잡아야 한다.
+   * 브라우저 기본 말풍선은 언제나 끈다.
+   */
+  formRef?: RefObject<HTMLFormElement | null>
   onClose: () => void
   onSubmit?: () => void
 }) {
@@ -52,8 +58,10 @@ export function Modal(props: {
       {/* 창 높이는 화면을 넘지 않는다 — 넘기면 가운데 정렬이 창을 위로 밀어 머리말이 화면 밖으로 잘린다.
           늘어나는 것은 본문뿐이고 머리말·버튼 줄은 언제나 제자리에 남는다. */}
       <div ref={panelRef} className="relative flex max-h-full w-full max-w-[448px] flex-col" onClick={(e) => e.stopPropagation()}>
-      <div className="panel-in relative flex min-h-0 flex-col overflow-hidden rounded-pill border border-line bg-panel-strong shadow-modal backdrop-blur-[14px]">
+      <div className={`panel-in relative flex min-h-0 flex-col overflow-hidden ${MODAL_SHELL}`}>
         <form
+          ref={props.formRef}
+          noValidate
           className="flex min-h-0 flex-col"
           onSubmit={(e) => {
             e.preventDefault()
@@ -76,7 +84,7 @@ export function Modal(props: {
       {props.aside && (
         // 창 오른쪽 바깥에 따로 세운다. 높이는 내용만큼만 쓰고 창 높이를 넘지 않는다 —
         // 창에 맞춰 늘이면 건이 적을 때 빈 판이 길게 남고, 창이 화면 안이므로 이 상한이면 옆판도 화면을 넘지 않는다.
-        <aside className="panel-in absolute left-full top-0 ml-4 hidden max-h-full w-64 flex-col overflow-hidden rounded-pill border border-line bg-panel-strong shadow-modal backdrop-blur-[14px] lg:flex">
+        <aside className={`panel-in absolute left-full top-0 ml-4 hidden max-h-full w-64 flex-col overflow-hidden lg:flex ${MODAL_SHELL}`}>
           {props.aside}
         </aside>
       )}

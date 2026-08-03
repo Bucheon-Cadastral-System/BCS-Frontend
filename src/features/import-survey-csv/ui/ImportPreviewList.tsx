@@ -4,6 +4,7 @@ import { STATUS_ROW, STATUS_ROW_TONE } from '@/shared/ui/statusRow'
 import { StatusIcon } from '@/shared/ui/StatusIcon'
 import type { StatusTone } from '@/shared/ui/statusRow'
 import { MODAL_BLEED } from '@/shared/ui/Modal'
+import { PROGRESS_FILL } from '@/shared/ui/classes'
 
 const ROW_TONE: Partial<Record<PreviewStatus['kind'], StatusTone>> = { done: 'success', failed: 'danger' }
 
@@ -52,7 +53,7 @@ function ProgressBar({ status }: { status: PreviewStatus }) {
         <div className="progress-wave h-full w-full rounded-full" />
       ) : (
         <div
-          className="h-full rounded-full bg-[linear-gradient(90deg,#1E9C86,#2FC0A6)] transition-[width] duration-200"
+          className={`h-full rounded-full transition-[width] duration-200 ${PROGRESS_FILL}`}
           style={{ width: `${status.kind === 'uploading' ? status.percent : 0}%` }}
         />
       )}

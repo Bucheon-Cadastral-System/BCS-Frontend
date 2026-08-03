@@ -6,8 +6,11 @@ import type { ReadFile } from '@/features/import-survey-csv'
 import { today } from '@/shared/lib/date'
 import { fileBaseName } from '@/shared/lib/file'
 import { percent } from '@/shared/lib/percent'
+import { PROGRESS_FILL } from '@/shared/ui/classes'
 import { MODAL_CANCEL_BTN, MODAL_DANGER_BTN, MODAL_HEADER, MODAL_INPUT, MODAL_SUBMIT_BTN, MODAL_TEXTAREA, Modal, ModalField } from '@/shared/ui/Modal'
 import { StatusIcon } from '@/shared/ui/StatusIcon'
+import { FormNotice } from '@/shared/ui/FormNotice'
+import { useFormNotice } from '@/shared/lib/useFormNotice'
 import type { StatusShape, StatusTone } from '@/shared/ui/statusRow'
 
 /** 읽을 파일이 없을 때 넘기는 고정 배열 — 참조가 바뀌면 훅이 처음부터 다시 읽는다 */
@@ -270,6 +273,7 @@ export function SurveyProjectFormModal(props: {
   // 마지막 건 다음에 오는 확인 단계 — 무엇을 등록하는지 훑어보고, 그 자리에서 등록 진행까지 본다
   const [confirming, setConfirming] = useState(false)
   const [started, setStarted] = useState(false)
+  const form = useFormNotice()
 
   const current = entries[index]
   const total = entries.length
@@ -283,7 +287,6 @@ export function SurveyProjectFormModal(props: {
   const pendingIndexes = entries.flatMap((e, i) => (e.discarded || e.status === 'done' ? [] : [i]))
   const invalidIndex = pendingIndexes.find((i) => !entryValid(entries[i])) ?? null
   const busy = reading !== null || props.submitting
-  const canAdvance = (current.discarded || entryValid(current)) && !busy
   const canRegister = pendingIndexes.length > 0 && invalidIndex === null && !busy
   const discardedCount = entries.filter((e) => e.discarded).length
   const sendingIndex = entries.findIndex((e) => e.status === 'sending')
@@ -370,7 +373,15 @@ export function SurveyProjectFormModal(props: {
       if (!started) void registerAll()
       return
     }
-    if (!canAdvance) return
+    if (busy) return
+    // 폐기한 건은 등록하지 않으므로 값을 따지지 않는다
+    if (!current.discarded) {
+      if (!form.validate()) return
+      if (fileError !== undefined) {
+        form.fail(fileError)
+        return
+      }
+    }
     markVisited(index)
     if (!isLast) {
       setIndex((i) => i + 1)
@@ -467,7 +478,7 @@ export function SurveyProjectFormModal(props: {
           <div className="mt-[11px] flex items-center gap-2">
             <span className="h-[5px] flex-1 overflow-hidden rounded-full bg-track">
               <span
-                className="block h-full rounded-full bg-teal transition-[width] duration-200"
+                className={`block h-full rounded-full transition-[width] duration-200 ${PROGRESS_FILL}`}
                 style={{ width: `${boardPercent}%` }}
               />
             </span>
@@ -662,6 +673,7 @@ export function SurveyProjectFormModal(props: {
       // 제목은 지금 어느 화면인지만 말한다 — 진행 상태는 본문이 알린다
       title={confirming ? '프로젝트 등록' : showReading ? '기준점 목록 파일 업로드' : props.title}
       aside={board}
+      formRef={form.formRef}
       busy={inFlight || reading !== null}
       onClose={props.onCancel}
       onSubmit={handlePrimary}
@@ -732,13 +744,14 @@ export function SurveyProjectFormModal(props: {
               {current.discarded ? '되살리기' : '폐기'}
             </button>
           )}
-          <div className="ml-auto flex gap-2">
+          <div className="ml-auto flex items-center gap-3">
+            <FormNotice message={form.notice} />
             {index > 0 && (
               <button type="button" className={MODAL_CANCEL_BTN} onClick={() => setIndex((i) => i - 1)} disabled={busy}>
                 이전
               </button>
             )}
-            <button type="submit" className={MODAL_SUBMIT_BTN} disabled={!canAdvance}>
+            <button type="submit" className={MODAL_SUBMIT_BTN} disabled={busy}>
               다음
             </button>
           </div>
