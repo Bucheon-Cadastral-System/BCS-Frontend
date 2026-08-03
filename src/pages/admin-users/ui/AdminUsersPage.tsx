@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { changeAdminMember, getAdminActivities, getAdminMemberCounts, getAdminMembers, updateAdminMember, DISTRICTS, POSITIONS, TEAMS } from '@/entities/user'
 import type { AdminActivity, AdminActivityType, AdminMemberAction, AdminMemberSortBy, ManagedUser, SortDirection, UserProfile, UserStatus } from '@/entities/user'
 import { UserAvatar } from '@/entities/user'
@@ -468,7 +469,6 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                     <UserAvatar name={detail.name} className="size-11 text-[15px]" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[17px] font-semibold text-ink">{detail.name}</span>
-                      <span className="block truncate font-mono text-[11px] text-ink-4">#{detail.id} · {detail.role}</span>
                       {isSelf && (
                         <span className="mt-1 inline-flex rounded-chip bg-teal-wash-strong px-2 py-0.5 text-[10.5px] font-semibold text-teal-text">
                           현재 접속중인 계정
@@ -481,6 +481,10 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                   </div>
 
                   <dl className="mt-5 flex-1">
+                    {/* 로그인 계정(카카오)이 아니라 이 시스템이 회원에게 매긴 번호다 */}
+                    <ValueRow label="회원 번호">
+                      <span className="block truncate font-mono text-[13px] text-ink-3">#{detail.id}</span>
+                    </ValueRow>
                     <Field label="이름" editing={editing} value={detail.name} onChange={(v) => setDraft({ ...detail, name: v })} />
                     <Field
                       label="전화번호"
@@ -745,20 +749,27 @@ function SortHeader(props: {
   )
 }
 
+/** 상세 한 줄 — 라벨과 값의 자리. 고칠 수 없는 값(아이디)은 이것만 쓴다. */
+function ValueRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 border-b border-line-row py-2">
+      <dt className="w-[78px] shrink-0 text-[11.5px] text-ink-4">{label}</dt>
+      <dd className="min-w-0 flex-1">{children}</dd>
+    </div>
+  )
+}
+
 /** 읽을 때는 값만 보이고 고칠 때만 입력칸이 된다 — 상자가 늘 서 있으면 읽기가 어렵다 */
 function Field(props: { label: string; value: string; editing: boolean; mono?: boolean; onChange: (v: string) => void }) {
   return (
-    <div className="flex items-center gap-3 border-b border-line-row py-2">
-      <dt className="w-[78px] shrink-0 text-[11.5px] text-ink-4">{props.label}</dt>
-      <dd className="min-w-0 flex-1">
-        {props.editing ? (
-          // 라벨은 dt 에 있어 입력칸과 이어지지 않는다 — 화면 낭독기가 이름을 읽도록 같은 문구를 붙인다
-          <input aria-label={props.label} value={props.value} onChange={(e) => props.onChange(e.target.value)} className={FIELD} />
-        ) : (
-          <span className={`block truncate text-[13px] text-ink-2 ${props.mono ? 'font-mono' : ''}`}>{props.value}</span>
-        )}
-      </dd>
-    </div>
+    <ValueRow label={props.label}>
+      {props.editing ? (
+        // 라벨은 dt 에 있어 입력칸과 이어지지 않는다 — 화면 낭독기가 이름을 읽도록 같은 문구를 붙인다
+        <input aria-label={props.label} value={props.value} onChange={(e) => props.onChange(e.target.value)} className={FIELD} />
+      ) : (
+        <span className={`block truncate text-[13px] text-ink-2 ${props.mono ? 'font-mono' : ''}`}>{props.value}</span>
+      )}
+    </ValueRow>
   )
 }
 
@@ -771,25 +782,22 @@ function SelectField(props: {
   onChange: (v: string) => void
 }) {
   return (
-    <div className="flex items-center gap-3 border-b border-line-row py-2">
-      <dt className="w-[78px] shrink-0 text-[11.5px] text-ink-4">{props.label}</dt>
-      <dd className="min-w-0 flex-1">
-        {props.editing ? (
-          <select
-            aria-label={props.label}
-            value={props.value}
-            onChange={(e) => props.onChange(e.target.value)}
-            className={FIELD_SELECT}
-          >
-            {!isKnownValue(props.options, props.value) && <option value={props.value} disabled>{props.value}</option>}
-            {props.options.map((value) => (
-              <option key={value}>{value}</option>
-            ))}
-          </select>
-        ) : (
-          <span className="block truncate text-[13px] text-ink-2">{props.value}</span>
-        )}
-      </dd>
-    </div>
+    <ValueRow label={props.label}>
+      {props.editing ? (
+        <select
+          aria-label={props.label}
+          value={props.value}
+          onChange={(e) => props.onChange(e.target.value)}
+          className={FIELD_SELECT}
+        >
+          {!isKnownValue(props.options, props.value) && <option value={props.value} disabled>{props.value}</option>}
+          {props.options.map((value) => (
+            <option key={value}>{value}</option>
+          ))}
+        </select>
+      ) : (
+        <span className="block truncate text-[13px] text-ink-2">{props.value}</span>
+      )}
+    </ValueRow>
   )
 }
