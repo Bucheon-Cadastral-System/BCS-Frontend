@@ -39,7 +39,7 @@ export interface RegistrationInput {
   position: Position
 }
 
-interface PageResponse<T> {
+export interface PageResponse<T> {
   content: T[]
   page: number
   size: number
@@ -112,13 +112,31 @@ export async function updateMyProfile(input: Pick<RegistrationInput, 'phone' | '
 export type AdminMemberSortBy = 'name' | 'email' | 'district' | 'team' | 'position' | 'memberStatus' | 'memberRole' | 'createdAt'
 export type SortDirection = 'ASC' | 'DESC'
 
-export async function getAdminMembers(sortBy: AdminMemberSortBy = 'name', direction: SortDirection = 'ASC'): Promise<ManagedUser[]> {
-  const params = { size: 100, sortBy, direction }
-  const first = await http.get<PageResponse<ApiMember>>('/api/admin/members', { params: { ...params, page: 0 } })
-  const remaining = await Promise.all(Array.from({ length: Math.max(0, first.data.totalPages - 1) }, (_, index) =>
-    http.get<PageResponse<ApiMember>>('/api/admin/members', { params: { ...params, page: index + 1 } }),
-  ))
-  return [first, ...remaining].flatMap((response) => response.data.content.map(mapMember))
+export interface AdminMemberQuery {
+  page: number
+  size: number
+  sortBy: AdminMemberSortBy
+  direction: SortDirection
+  memberStatus?: UserStatus
+  name?: string
+  email?: string
+  phone?: string
+}
+
+export async function getAdminMembers(query: AdminMemberQuery): Promise<PageResponse<ManagedUser>> {
+  const { data } = await http.get<PageResponse<ApiMember>>('/api/admin/members', { params: query })
+  return { ...data, content: data.content.map(mapMember) }
+}
+
+export async function getAdminMemberCounts(): Promise<Record<'ALL' | UserStatus, number>> {
+  const base = { page: 0, size: 1, sortBy: 'name' as const, direction: 'ASC' as const }
+  const [all, pending, active, inactive] = await Promise.all([
+    getAdminMembers(base),
+    getAdminMembers({ ...base, memberStatus: 'PENDING' }),
+    getAdminMembers({ ...base, memberStatus: 'ACTIVE' }),
+    getAdminMembers({ ...base, memberStatus: 'INACTIVE' }),
+  ])
+  return { ALL: all.totalElements, PENDING: pending.totalElements, ACTIVE: active.totalElements, INACTIVE: inactive.totalElements }
 }
 
 export async function updateAdminMember(member: ManagedUser): Promise<void> {

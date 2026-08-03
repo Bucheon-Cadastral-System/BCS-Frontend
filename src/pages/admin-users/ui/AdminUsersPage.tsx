@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { changeAdminMember, getAdminActivities, getAdminMembers, updateAdminMember, DISTRICTS, POSITIONS, TEAMS } from '@/entities/user'
+import { useCallback, useEffect, useState } from 'react'
+import { changeAdminMember, getAdminActivities, getAdminMemberCounts, getAdminMembers, updateAdminMember, DISTRICTS, POSITIONS, TEAMS } from '@/entities/user'
 import type { AdminActivity, AdminMemberAction, AdminMemberSortBy, ManagedUser, SortDirection, UserStatus } from '@/entities/user'
 import { AppHeader } from '@/shared/ui/AppHeader'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
@@ -14,8 +14,9 @@ const STATUS_LABEL: Record<UserStatus, string> = {
   INACTIVE: '비활성',
 }
 
-type SortField = 'name' | 'phone' | 'email' | 'district' | 'department' | 'team' | 'position' | 'role' | 'status'
-const API_SORT_FIELD: Partial<Record<SortField, AdminMemberSortBy>> = {
+type SortField = 'name' | 'email' | 'district' | 'team' | 'position' | 'role' | 'status'
+type SearchField = 'name' | 'email' | 'phone'
+const API_SORT_FIELD: Record<SortField, AdminMemberSortBy> = {
   name: 'name', email: 'email', district: 'district', team: 'team', position: 'position', role: 'memberRole', status: 'memberStatus',
 }
 
@@ -49,8 +50,15 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
   const [activities, setActivities] = useState<AdminActivity[]>([])
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [filter, setFilter] = useState<'ALL' | UserStatus>('ALL')
+  const [counts, setCounts] = useState<Record<'ALL' | UserStatus, number>>({ ALL: 0, PENDING: 0, ACTIVE: 0, INACTIVE: 0 })
   const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [searchField, setSearchField] = useState<SearchField>('name')
   const [sort, setSort] = useState<{ field: SortField; direction: SortDirection }>({ field: 'name', direction: 'ASC' })
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
+  const [totalElements, setTotalElements] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState<ManagedUser | null>(null)
   const [saving, setSaving] = useState(false)
@@ -62,47 +70,38 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
     setNextCursor(result.nextCursor)
   }
 
-  const reload = async (nextSort = sort) => {
+  const loadMembers = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const apiSortBy = API_SORT_FIELD[nextSort.field] ?? 'name'
-      const members = await getAdminMembers(apiSortBy, nextSort.direction)
-      setUsers(members)
-      await loadActivities()
+      const keyword = debouncedQuery.trim()
+      const result = await getAdminMembers({
+        page,
+        size: pageSize,
+        sortBy: API_SORT_FIELD[sort.field],
+        direction: sort.direction,
+        ...(filter !== 'ALL' ? { memberStatus: filter } : {}),
+        ...(keyword ? { [searchField]: keyword } : {}),
+      })
+      if (result.totalPages > 0 && page >= result.totalPages) {
+        setPage(result.totalPages - 1)
+        return
+      }
+      setUsers(result.content)
+      setTotalElements(result.totalElements)
+      setTotalPages(result.totalPages)
     } catch (e) {
       setError(e instanceof Error ? e.message : '관리자 정보를 불러오지 못했습니다.')
     } finally { setLoading(false) }
+  }, [debouncedQuery, filter, page, pageSize, searchField, sort])
+
+  const loadCounts = async () => {
+    try { setCounts(await getAdminMemberCounts()) } catch (e) { setError(e instanceof Error ? e.message : '회원 현황을 불러오지 못했습니다.') }
   }
 
-  useEffect(() => { void reload() }, [])
-
-  const counts = useMemo(() => ({
-    ALL: users.length,
-    PENDING: users.filter((user) => user.status === 'PENDING').length,
-    ACTIVE: users.filter((user) => user.status === 'ACTIVE').length,
-    INACTIVE: users.filter((user) => user.status === 'INACTIVE').length,
-  }), [users])
-
-  const visibleUsers = useMemo(() => {
-    const keyword = query.trim().toLowerCase()
-    const filtered = users.filter((user) => {
-      const matchesStatus = filter === 'ALL' || user.status === filter
-      const matchesQuery = !keyword || [
-        user.name,
-        user.email,
-        user.phone,
-        user.district,
-        user.team,
-      ].some((value) => value.toLowerCase().includes(keyword))
-      return matchesStatus && matchesQuery
-    })
-    if (sort.field !== 'phone' && sort.field !== 'department') return filtered
-    return [...filtered].sort((a, b) => {
-      const result = a[sort.field].localeCompare(b[sort.field], 'ko', { numeric: true })
-      return sort.direction === 'ASC' ? result : -result
-    })
-  }, [filter, query, sort, users])
+  useEffect(() => { const timeout = window.setTimeout(() => setDebouncedQuery(query), 300); return () => window.clearTimeout(timeout) }, [query])
+  useEffect(() => { void loadMembers() }, [loadMembers])
+  useEffect(() => { void loadCounts(); void loadActivities() }, [])
 
   const changeSort = (field: SortField) => {
     const nextSort = {
@@ -110,7 +109,7 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
       direction: sort.field === field && sort.direction === 'ASC' ? 'DESC' as const : 'ASC' as const,
     }
     setSort(nextSort)
-    if (API_SORT_FIELD[field]) void reload(nextSort)
+    setPage(0)
   }
 
   const sortHeader = (label: string, field: SortField, className: string) => {
@@ -124,6 +123,8 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
     )
   }
 
+  const plainHeader = (label: string, className: string, reason: string) => <th className={className} title={reason}>{label}</th>
+
   const updateStatus = (id: string, status: UserStatus) => {
     const current = users.find((user) => user.id === id)
     if (!current) return
@@ -133,13 +134,11 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
 
   const applyStatusChange = async () => {
     if (!pendingChange) return
-    const { id, action, status } = pendingChange
+    const { id, action } = pendingChange
     try {
       await changeAdminMember(id, action)
-      if (action === 'reject') setUsers(users.filter((user) => user.id !== id))
-      else setUsers(users.map((user) => user.id === id ? { ...user, ...(status ? { status } : {}), ...(action === 'role/admin' ? { role: 'ADMIN' as const } : {}), ...(action === 'role/user' ? { role: 'USER' as const } : {}) } : user))
       setPendingChange(null)
-      await loadActivities()
+      await Promise.all([loadMembers(), loadCounts(), loadActivities()])
     } catch (e) { setError(e instanceof Error ? e.message : '회원 상태를 변경하지 못했습니다.') }
   }
 
@@ -168,16 +167,18 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
     setError('')
     try {
       await updateAdminMember(normalizedDraft)
-      setUsers(users.map((user) => user.id === normalizedDraft.id ? normalizedDraft : user))
       setEditingId(null)
       setDraft(null)
-      await loadActivities()
+      await Promise.all([loadMembers(), loadActivities()])
     } catch (e) {
       setError(e instanceof Error ? e.message : '회원 정보를 수정하지 못했습니다.')
     } finally {
       setSaving(false)
     }
   }
+
+  const firstPageNumber = Math.min(Math.max(page - 2, 0), Math.max(totalPages - 5, 0))
+  const pageNumbers = Array.from({ length: Math.min(5, totalPages) }, (_, index) => firstPageNumber + index)
 
   return (
     <main className="min-h-full bg-slate-100 text-slate-900">
@@ -213,18 +214,18 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
                 type="button"
                 key={status}
                 className={`rounded-lg px-4 py-2 text-sm font-bold transition ${filter === status ? 'bg-slate-800 text-white' : 'border border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}
-                onClick={() => setFilter(status)}
+                onClick={() => { setFilter(status); setPage(0) }}
               >
                 {status === 'ALL' ? '전체' : STATUS_LABEL[status]} {counts[status]}
               </button>
             ))}
           </div>
-          <input className="min-h-11 min-w-72 rounded-xl border border-slate-200 bg-white px-4 outline-none focus:border-teal-500"
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="이름, 이메일, 전화번호, 소속 검색"
-          />
+          <div className="flex min-w-0 gap-2">
+            <select className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600" value={searchField} onChange={(event) => { setSearchField(event.target.value as SearchField); setPage(0) }}>
+              <option value="name">이름</option><option value="email">이메일</option><option value="phone">전화번호</option>
+            </select>
+            <input className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 outline-none focus:border-teal-500 lg:min-w-72" type="search" value={query} onChange={(event) => { setQuery(event.target.value); setPage(0) }} placeholder={`${searchField === 'name' ? '이름' : searchField === 'email' ? '이메일' : '전화번호'} 검색`} />
+          </div>
         </div>
 
         <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -232,10 +233,10 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
             <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold text-slate-500">
               <tr>
                 {sortHeader('이름', 'name', 'w-28 px-4 py-3')}
-                {sortHeader('전화번호', 'phone', 'w-36 px-3 py-3')}
+                {plainHeader('전화번호', 'w-36 px-3 py-3', '백엔드에서 전화번호 정렬을 지원하지 않습니다.')}
                 {sortHeader('이메일', 'email', 'w-56 px-3 py-3')}
                 {sortHeader('구청', 'district', 'w-24 px-3 py-3')}
-                {sortHeader('소속 과', 'department', 'w-28 px-3 py-3')}
+                {plainHeader('소속 과', 'w-28 px-3 py-3', '백엔드에서 소속 과 정렬을 지원하지 않습니다.')}
                 {sortHeader('팀명', 'team', 'w-32 px-3 py-3')}
                 {sortHeader('직위', 'position', 'w-24 px-3 py-3')}
                 {sortHeader('권한', 'role', 'w-20 px-3 py-3')}
@@ -244,8 +245,8 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {visibleUsers.length === 0 && <tr><td colSpan={10} className="px-4 py-12 text-center text-slate-400">조건에 맞는 사용자가 없습니다.</td></tr>}
-              {visibleUsers.map((user) => {
+              {users.length === 0 && <tr><td colSpan={10} className="px-4 py-12 text-center text-slate-400">조건에 맞는 사용자가 없습니다.</td></tr>}
+              {users.map((user) => {
                 const isEditing = editingId === user.id && draft
                 const current = isEditing ? draft : user
                 const fieldClass = 'h-9 w-full rounded-md border border-teal-300 bg-white px-2 outline-none focus:ring-2 focus:ring-teal-100'
@@ -275,6 +276,22 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
               })}
             </tbody>
           </table>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3 text-sm text-slate-500">
+            <span>총 <strong className="text-slate-800">{totalElements}</strong>명</span>
+            <label className="flex items-center gap-2">페이지당
+              <select className="h-9 rounded-lg border border-slate-200 bg-white px-2" value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(0) }}>
+                <option value={20}>20명</option><option value={50}>50명</option><option value={100}>100명</option>
+              </select>
+            </label>
+          </div>
+          <nav className="flex items-center justify-end gap-1" aria-label="회원 목록 페이지">
+            <button type="button" disabled={page === 0} className="h-9 rounded-lg border border-slate-200 px-3 text-sm font-bold text-slate-600 disabled:cursor-not-allowed disabled:opacity-40" onClick={() => setPage((current) => current - 1)}>이전</button>
+            {pageNumbers.map((pageNumber) => <button type="button" key={pageNumber} aria-current={page === pageNumber ? 'page' : undefined} className={`size-9 rounded-lg text-sm font-bold ${page === pageNumber ? 'bg-slate-800 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'}`} onClick={() => setPage(pageNumber)}>{pageNumber + 1}</button>)}
+            <button type="button" disabled={page + 1 >= totalPages} className="h-9 rounded-lg border border-slate-200 px-3 text-sm font-bold text-slate-600 disabled:cursor-not-allowed disabled:opacity-40" onClick={() => setPage((current) => current + 1)}>다음</button>
+          </nav>
         </div>
 
         <section className="mt-10" aria-labelledby="activity-title">
