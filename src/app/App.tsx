@@ -12,6 +12,7 @@ import { WaitingPage } from '@/pages/waiting'
 import { exchangeOAuthCode, refreshAccessToken, startKakaoLogin } from '@/shared/api/auth'
 import { subscribeAuthenticationLost } from '@/shared/api/tokenStore'
 import { BTN_SECONDARY, MODAL_SHELL } from '@/shared/ui/classes'
+import { ErrorBoundary } from '@/shared/ui/ErrorBoundary'
 
 type AuthState = { loading: boolean; profile: UserProfile | null }
 
@@ -109,6 +110,7 @@ function SignupRoute() {
 
 function AppRoutes() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [auth, setAuth] = useState<AuthState>({ loading: true, profile: null })
 
   const reloadProfile = useCallback(async () => {
@@ -130,17 +132,21 @@ function AppRoutes() {
     setAuth({ loading: false, profile: null })
   }), [])
 
+  // 울타리는 라우터 안쪽·화면 바깥쪽에 둔다. 바깥에 두면 화면이 죽었을 때 주소를 옮길 길까지 함께 사라지고,
+  // 로그인 상태는 이 위에 있어 화면을 옮겨도 다시 받아오지 않는다.
   return (
-    <Routes>
-      <Route path="/login" element={<LoginRoute />} />
-      <Route path="/oauth/success" element={<OAuthSuccessRoute reloadProfile={reloadProfile} />} />
-      <Route path="/signup" element={<SignupRoute />} />
-      <Route path="/register" element={<Navigate to="/signup" replace />} />
-      <Route path="/waiting" element={<WaitingPage onBackToLogin={() => navigate('/login')} />} />
-      <Route path="/" element={<Protected auth={auth}><MapPage profile={auth.profile} onOpenUserManagement={() => navigate('/admin/users')} /></Protected>} />
-      <Route path="/admin/users" element={<Protected auth={auth} admin><AdminUsersPage profile={auth.profile} onBack={() => navigate('/')} /></Protected>} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <ErrorBoundary resetKey={location.pathname}>
+      <Routes>
+        <Route path="/login" element={<LoginRoute />} />
+        <Route path="/oauth/success" element={<OAuthSuccessRoute reloadProfile={reloadProfile} />} />
+        <Route path="/signup" element={<SignupRoute />} />
+        <Route path="/register" element={<Navigate to="/signup" replace />} />
+        <Route path="/waiting" element={<WaitingPage onBackToLogin={() => navigate('/login')} />} />
+        <Route path="/" element={<Protected auth={auth}><MapPage profile={auth.profile} onOpenUserManagement={() => navigate('/admin/users')} /></Protected>} />
+        <Route path="/admin/users" element={<Protected auth={auth} admin><AdminUsersPage profile={auth.profile} onBack={() => navigate('/')} /></Protected>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </ErrorBoundary>
   )
 }
 
