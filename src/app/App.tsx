@@ -30,6 +30,8 @@ function LoginRoute() {
 function Protected({ auth, admin = false, children }: { auth: AuthState; admin?: boolean; children: ReactNode }) {
   if (auth.loading) return <LoadingPage />
   if (!auth.profile) return <Navigate to="/login" replace />
+  if (auth.profile.status === 'PENDING') return <Navigate to="/signup" replace />
+  if (auth.profile.status === 'INACTIVE') return <Navigate to="/login?error=inactive" replace />
   if (admin && auth.profile.role !== 'ADMIN') return <Navigate to="/" replace />
   return children
 }
