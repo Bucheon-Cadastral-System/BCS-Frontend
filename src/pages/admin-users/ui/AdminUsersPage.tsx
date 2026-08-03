@@ -58,6 +58,8 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [activities, setActivities] = useState<AdminActivity[]>([])
+  const [activitiesLoading, setActivitiesLoading] = useState(true)
+  const [activitiesError, setActivitiesError] = useState('')
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [filter, setFilter] = useState<'ALL' | UserStatus>('ALL')
   const [counts, setCounts] = useState<Record<'ALL' | UserStatus, number>>({ ALL: 0, PENDING: 0, ACTIVE: 0, INACTIVE: 0 })
@@ -76,11 +78,19 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
   const [pendingChange, setPendingChange] = useState<{ id: string; action: AdminMemberAction; status?: UserStatus; label: string } | null>(null)
   const memberRequestId = useRef(0)
 
-  const loadActivities = async (cursor?: string) => {
-    const result = await getAdminActivities(cursor)
-    setActivities((current) => cursor ? [...current, ...result.content] : result.content)
-    setNextCursor(result.nextCursor)
-  }
+  const loadActivities = useCallback(async (cursor?: string) => {
+    setActivitiesLoading(true)
+    setActivitiesError('')
+    try {
+      const result = await getAdminActivities(cursor)
+      setActivities((current) => cursor ? [...current, ...result.content] : result.content)
+      setNextCursor(result.nextCursor)
+    } catch (e) {
+      setActivitiesError(e instanceof Error ? e.message : '관리자 활동 로그를 불러오지 못했습니다.')
+    } finally {
+      setActivitiesLoading(false)
+    }
+  }, [])
 
   const loadMembers = useCallback(async (signal?: AbortSignal) => {
     const requestId = ++memberRequestId.current
@@ -122,7 +132,7 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
     void loadMembers(controller.signal)
     return () => controller.abort()
   }, [loadMembers])
-  useEffect(() => { void loadCounts(); void loadActivities() }, [])
+  useEffect(() => { void loadCounts(); void loadActivities() }, [loadActivities])
 
   const changeSort = (field: SortField) => {
     const nextSort = {
@@ -202,7 +212,7 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
   const pageNumbers = Array.from({ length: Math.min(5, totalPages) }, (_, index) => firstPageNumber + index)
 
   return (
-    <main className="min-h-full bg-slate-100 text-slate-900">
+    <main className="h-full overflow-y-auto bg-slate-100 text-slate-900">
       {/* 화면 이름과 지도로 돌아가기는 아래 본문에 있으므로 헤더에는 아이덴티티와 권한 표시만 둔다 */}
       <AppHeader>
         <span className="rounded-full bg-teal-500/20 px-2.5 py-1 text-xs font-bold text-teal-300">ADMIN</span>
@@ -319,14 +329,18 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
           <p className="text-sm font-bold text-teal-600">감사 기록</p>
           <h2 id="activity-title" className="mt-1 text-2xl font-bold">관리자 활동 로그</h2>
           <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-            {activities.length === 0 ? <p className="p-8 text-center text-sm text-slate-400">기록된 관리자 활동이 없습니다.</p> : activities.map((activity) => (
+            {activitiesLoading && activities.length === 0 && <p className="p-8 text-center text-sm text-slate-400">관리자 활동 로그를 불러오는 중입니다…</p>}
+            {!activitiesLoading && activitiesError && activities.length === 0 && <div className="p-8 text-center"><p className="text-sm text-rose-600">{activitiesError}</p><button type="button" className="mt-3 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600" onClick={() => void loadActivities()}>다시 시도</button></div>}
+            {!activitiesLoading && !activitiesError && activities.length === 0 && <p className="p-8 text-center text-sm text-slate-400">기록된 관리자 활동이 없습니다.</p>}
+            {activities.map((activity) => (
               <div key={activity.id} className="flex flex-col gap-1 border-b border-slate-100 px-5 py-4 last:border-0 sm:flex-row sm:items-center sm:justify-between">
                 <div><strong className="text-sm">{activity.message}</strong><p className="mt-1 text-xs text-slate-400">관리자 #{activity.actorAdminId} · 대상 회원 #{activity.targetMemberId} · {activity.activityType}</p></div>
                 <time className="text-xs text-slate-400">{new Date(activity.createdAt).toLocaleString('ko-KR')}</time>
               </div>
             ))}
           </div>
-          {nextCursor && <button type="button" className="mt-3 w-full rounded-xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-600" onClick={() => void loadActivities(nextCursor)}>활동 더 보기</button>}
+          {activitiesError && activities.length > 0 && <p className="mt-3 rounded-xl bg-rose-50 p-3 text-center text-sm text-rose-700">{activitiesError}</p>}
+          {nextCursor && <button type="button" disabled={activitiesLoading} className="mt-3 w-full rounded-xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-600 disabled:cursor-wait disabled:opacity-60" onClick={() => void loadActivities(nextCursor)}>{activitiesLoading ? '불러오는 중…' : '활동 더 보기'}</button>}
         </section>
       </section>
 
