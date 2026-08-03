@@ -1,5 +1,4 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
-import { MOCK_CURRENT_USER } from '@/entities/user'
 import type { SurveyProjectDraft } from '@/entities/survey-project'
 import { ImportPreviewList, blockingReasonOf, summaryOf, useImportPreviews } from '@/features/import-survey-csv'
 import { ApiError } from '@/shared/api/http'
@@ -181,6 +180,8 @@ function entryValid(entry: Entry): boolean {
 export function SurveyProjectFormModal(props: {
   title: string
   submitLabel: string
+  /** 작성자로 적힐 사람 — 화면 표시용이고, 실제 기록은 서버가 인증 주체로 남긴다 */
+  author: string
   defaults?: Partial<SurveyProjectDraft>
   /** 창을 열면서 함께 건네받은 파일 — 곧바로 이 자리에서 읽는다 */
   initialFiles?: File[] | null
@@ -516,7 +517,7 @@ export function SurveyProjectFormModal(props: {
       <ModalField label="작성자" required>
         <input
           className={`${MODAL_INPUT} cursor-default border-line-soft bg-soft text-ink-3`}
-          value={`${MOCK_CURRENT_USER.name} · ${MOCK_CURRENT_USER.team} ${MOCK_CURRENT_USER.position}`}
+          value={props.author}
           readOnly
           tabIndex={-1}
         />

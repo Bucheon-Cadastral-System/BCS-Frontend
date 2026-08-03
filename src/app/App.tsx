@@ -124,8 +124,8 @@ function AppRoutes() {
       <Route path="/signup" element={<SignupRoute />} />
       <Route path="/register" element={<Navigate to="/signup" replace />} />
       <Route path="/waiting" element={<WaitingPage onBackToLogin={() => navigate('/login')} />} />
-      <Route path="/" element={<Protected auth={auth}><MapPage role={auth.profile?.role ?? 'USER'} onOpenUserManagement={() => navigate('/admin/users')} /></Protected>} />
-      <Route path="/admin/users" element={<Protected auth={auth} admin><AdminUsersPage onBack={() => navigate('/')} /></Protected>} />
+      <Route path="/" element={<Protected auth={auth}><MapPage profile={auth.profile} onOpenUserManagement={() => navigate('/admin/users')} /></Protected>} />
+      <Route path="/admin/users" element={<Protected auth={auth} admin><AdminUsersPage profile={auth.profile} onBack={() => navigate('/')} /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
