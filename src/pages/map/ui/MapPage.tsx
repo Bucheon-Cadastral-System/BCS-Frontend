@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '@/app/store/hooks'
 import { setActiveProject, toggleTheme } from '@/app/store'
-import { MapToolbar } from '@/widgets/map-toolbar'
+import { AppHeader } from '@/widgets/app-header'
 import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
 import { MapSidebar, ActiveProjectChip } from '@/widgets/map-sidebar'
-import type { PanelKey } from '@/widgets/map-sidebar'
+import type { PanelKey } from '@/widgets/app-header'
 import { PointSearchBar } from '@/widgets/point-search'
-import { MapLayerControl } from '@/widgets/map-layer-control'
-import { MapStatusBar } from '@/widgets/map-status-bar'
+import { MapCommandBar } from '@/widgets/map-command-bar'
 import type OlMap from 'ol/Map'
 import { ChatDockLayout } from '@/widgets/chatbot'
 import type { ChatAction } from '@/widgets/chatbot'
@@ -26,6 +25,7 @@ import { Toast } from '@/shared/ui/Toast'
 import { FileDropOverlay } from '@/shared/ui/FileDropOverlay'
 import { useFileDrop } from '@/shared/lib/useFileDrop'
 import type { ToastTone } from '@/shared/ui/Toast'
+import { withoutTransition } from '@/shared/lib/instantChange'
 import { wgs84ToTm } from '@/shared/lib/crs'
 import type { TmEpsg } from '@/shared/lib/crs'
 import { VWORLD_KEY } from '@/shared/config/map'
@@ -38,6 +38,27 @@ interface MapPageProps {
 
 /** 아무것도 그리지 않을 때 쓰는 고정 배열 — 렌더마다 새 배열을 만들면 지도 소스가 매번 재구성된다 */
 const EMPTY_POINTS: ControlPoint[] = []
+/** 판이 화면 가장자리에서 떨어진 거리 — 지도 보정에 판 너비와 함께 쓴다 */
+const PANEL_MARGIN = 16
+/** 커맨드 바의 대표 폭(축척이 보통 길이일 때) — 바의 왼쪽 끝을 붙여 둘 기준 자리다. 좁은 화면 값은 글자를 접은 폭 */
+const COMMAND_BAR_NOMINAL = 'w-[606px] max-lg:w-[518px]'
+
+const BANNER_TONE = {
+  warn: 'border-amber/40 bg-amber-wash text-amber',
+  danger: 'border-danger-edge bg-danger-wash text-danger',
+  muted: 'border-line bg-panel text-ink-3',
+} as const
+
+/** 지도 위에 잠깐 뜨는 알림 띠 — 지도를 밀지 않도록 떠 있는 알약으로 둔다 */
+function Banner(props: { tone: keyof typeof BANNER_TONE; children: React.ReactNode }) {
+  return (
+    <p
+      className={`pointer-events-auto rounded-pop border px-3.5 py-1.5 text-[12px] shadow-pill backdrop-blur-[10px] [&_code]:rounded [&_code]:bg-black/20 [&_code]:px-1 ${BANNER_TONE[props.tone]}`}
+    >
+      {props.children}
+    </p>
+  )
+}
 
 export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const dispatch = useAppDispatch()
@@ -77,9 +98,16 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const [mapInstance, setMapInstance] = useState<OlMap | null>(null) // 하단 상태 표시가 직접 구독한다
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [focusNonce, setFocusNonce] = useState(0)
-  const [mapLeftInset, setMapLeftInset] = useState(0) // 좌측 패널이 지도를 가리는 폭(포커스 센터링 보정). >0 = 패널 열림
-  const [openProjectNonce, setOpenProjectNonce] = useState(0) // 활성 프로젝트 칩 → 프로젝트 패널 열기 신호
-  const [openPanel, setOpenPanel] = useState<PanelKey | null>(null) // 열린 좌측 패널 — 지도에 그릴 점을 정한다
+  const [openPanel, setOpenPanel] = useState<PanelKey | null>(null) // 열린 좌측 판 — 지도에 그릴 점도 이 값이 정한다
+  // 헤더 알약 폭 — 그 아래 서는 활성 조사 칩과 좌측 판이 같은 너비를 쓴다
+  const [headerWidth, setHeaderWidth] = useState(0)
+  // 헤더 우측 묶음(검색+사용자) 폭 — 그 아래 서는 대화 판이 같은 너비를 쓴다
+  const [utilityWidth, setUtilityWidth] = useState(0)
+  // 대화 판이 지도를 가리는 폭(닫혀 있으면 0)
+  const [chatWidth, setChatWidth] = useState(0)
+  // 판이 지도를 가리는 폭 — 포커스 센터링과 지도 위 요소 배치가 '보이는 영역'을 쓰게 한다
+  const mapLeftInset = openPanel === null ? 0 : headerWidth + PANEL_MARGIN * 2
+  const mapRightInset = chatWidth === 0 ? 0 : chatWidth + PANEL_MARGIN * 2
   // 기준점 추가 — 모달이 주 경로이고, '지도에서 위치 찍기'는 그 안의 한 단계(찍는 동안만 모달을 숨긴다)
   const [addOpen, setAddOpen] = useState(false)
   const [picking, setPicking] = useState(false)
@@ -101,6 +129,19 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
     setToast({ id: toastIdRef.current, message, tone })
   }
   const fileDrop = useFileDrop((files) => startImport(files))
+
+  /**
+   * 헤더 탭 — 같은 탭을 다시 누르면 닫는다.
+   * 두 탭은 함께 서지 않는다: 기준점 탭은 전체 목록이라 고른 조사를 그대로 두면
+   * 그 조사의 대상이 아닌 점에 조사·망실을 기록할 수 있다.
+   */
+  function togglePanel(key: PanelKey) {
+    setOpenPanel((cur) => {
+      if (cur === key) return null
+      if (key === 'points') dispatch(setActiveProject(null))
+      return key
+    })
+  }
 
   /**
    * 지도에 그릴 점 — 기본은 아무것도 그리지 않는다.
@@ -248,7 +289,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
       if (cp) focusPoint(cp)
     } else {
       dispatch(setActiveProject(String(action.projectId)))
-      setOpenProjectNonce((n) => n + 1)
+      setOpenPanel('project')
     }
   }
 
@@ -258,16 +299,22 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
 
   return (
-    <div className={`contents ${theme === 'dark' ? 'dark' : ''}`}>
+    <div className={`contents ${theme === 'dark' ? 'dark' : 'theme-light'}`}>
     {/* 화면 어디에 파일을 떨어뜨려도 그 파일이 붙은 채로 조사 추가가 열린다 */}
-    <div className="relative flex h-full flex-col" {...fileDrop.dropHandlers}>
+    <div className="app-bg relative flex h-full flex-col text-ink" {...fileDrop.dropHandlers}>
       {fileDrop.dragging && <FileDropOverlay label="놓으면 기준점 목록을 읽습니다" hint="CSV · XLSX" />}
-      <MapToolbar>
-        <PointSearchBar points={points} onSelect={focusPoint} />
-      </MapToolbar>
 
-      <ChatDockLayout onAction={handleChatAction}>
-      <div className="flex min-h-0 flex-1">
+      <ChatDockLayout width={utilityWidth} onDockWidthChange={setChatWidth} onAction={handleChatAction}>
+      <div className="relative min-h-0 min-w-0 flex-1">
+        <AppHeader
+          panel={{ open: openPanel, onToggle: togglePanel }}
+          onBrandWidthChange={setHeaderWidth}
+          onUtilityWidthChange={setUtilityWidth}
+          search={<PointSearchBar points={points} onSelect={focusPoint} />}
+          isAdmin={role === 'ADMIN'}
+          onOpenUserManagement={onOpenUserManagement}
+        />
+
         <MapSidebar
           projects={projects}
           activeProjectId={activeProjectId}
@@ -287,34 +334,28 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
           targetsLoading={activeProjectId !== null && targetsQuery.isPending}
           isAdmin={role === 'ADMIN'}
           onOpenUserManagement={onOpenUserManagement}
-          onInsetChange={setMapLeftInset}
-          openProjectSignal={openProjectNonce}
-          onOpenPanelChange={setOpenPanel}
+          open={openPanel}
+          onClose={() => setOpenPanel(null)}
+          width={headerWidth}
         />
 
-        <div className="flex min-h-0 flex-1 flex-col">
+        {/* 알림 띠 — 지도를 밀지 않고 헤더 아래에 겹쳐 둔다 */}
+        <div className="pointer-events-none absolute inset-x-0 top-[76px] z-10 flex flex-col items-center gap-1.5 px-4">
           {!VWORLD_KEY && (
-            <div className="bg-amber-100 px-3.5 py-1.5 text-[13px] text-amber-800 [&_code]:rounded [&_code]:bg-black/10 [&_code]:px-1 [&_code]:py-px">
-              VWorld API 키가 없어 배경지도를 OSM으로 대체합니다. <code>.env</code>에 <code>VITE_VWORLD_KEY</code>를 넣으면 VWorld 배경지도·지적도가 표시됩니다.
-            </div>
+            <Banner tone="warn">
+              VWorld API 키가 없어 배경지도를 OSM으로 대체합니다. <code>.env</code>에 <code>VITE_VWORLD_KEY</code>를 넣으면
+              VWorld 배경지도·지적도가 표시됩니다.
+            </Banner>
           )}
-
-          {pointsQuery.isPending && (
-            <div className="bg-gray-100 px-3.5 py-1.5 text-[13px] text-gray-600">기준점을 불러오는 중…</div>
-          )}
-          {pointsQuery.isError && (
-            <div className="bg-red-100 px-3.5 py-1.5 text-[13px] text-red-800">
-              기준점을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
-            </div>
-          )}
+          {pointsQuery.isPending && <Banner tone="muted">기준점을 불러오는 중…</Banner>}
+          {pointsQuery.isError && <Banner tone="danger">기준점을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</Banner>}
           {/* 대상을 못 읽으면 전체를 대신 그리지 않는다 — 대상이 아닌 점에 조사·망실을 기록할 수 있게 되기 때문 */}
           {targetsQuery.isError && (
-            <div className="bg-red-100 px-3.5 py-1.5 text-[13px] text-red-800">
-              조사 대상을 불러오지 못해 지도에 표시하지 못합니다. 잠시 후 다시 시도해 주세요.
-            </div>
+            <Banner tone="danger">조사 대상을 불러오지 못해 지도에 표시하지 못합니다. 잠시 후 다시 시도해 주세요.</Banner>
           )}
+        </div>
 
-          <div className="relative min-h-0 flex-1">
+        <div className="absolute inset-0">
             <ControlPointMap
               points={visiblePoints}
               addMode={picking}
@@ -326,48 +367,61 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
               theme={theme}
               focusNonce={focusNonce}
               leftInset={mapLeftInset}
+              rightInset={mapRightInset}
               onAddPoint={addPoint}
               onSelect={setSelectedId}
               onMapReady={setMapInstance}
             />
 
-            {/* 포인터 성과 좌표·축척 비율 — 지도 인스턴스를 직접 구독해 페이지는 리렌더되지 않는다 */}
-            <MapStatusBar map={mapInstance} tmEpsg={tmEpsg} />
-            {/* 지도 표시 설정 — 줌·축척과 같은 좌하단 묶음 */}
-            <MapLayerControl
-              showCadastral={showCadastral}
-              onToggleCadastral={() => setShowCadastral((v) => !v)}
-              theme={theme}
-              onToggleTheme={() => dispatch(toggleTheme())}
-            />
+            {/* 커맨드 바 — 표시 설정과 읽을거리를 지도 아래 한 줄에 모은다.
+                판은 이 줄 위에서 끝나므로 판이 열려도 자리를 옮기지 않는다.
+                포인터 좌표·축척은 지도 인스턴스를 직접 구독해 페이지는 리렌더되지 않는다. */}
+            <div className="pointer-events-none absolute inset-x-4 bottom-[18px] z-[15] flex justify-center">
+              {/* 축척 막대는 배율에 따라 길이가 변한다. 대표 폭만큼의 빈 자리를 가운데 두고 바를 그 왼쪽 끝에 붙여
+                  바 자신은 자리 계산에서 빠지게 한다 — 왼쪽 끝은 고정되고 오른쪽만 늘고 준다.
+                  폭을 재서 맞추면 한 프레임 늦게 반영돼 축척이 바뀔 때마다 바가 떤다. */}
+              <div className={`relative h-[34px] ${COMMAND_BAR_NOMINAL}`}>
+                <div className="pointer-events-auto absolute left-0 top-0">
+                  <MapCommandBar
+                    map={mapInstance}
+                    tmEpsg={tmEpsg}
+                    showCadastral={showCadastral}
+                    onToggleCadastral={() => setShowCadastral((v) => !v)}
+                    theme={theme}
+                    onToggleTheme={() => withoutTransition(() => dispatch(toggleTheme()))}
+                  />
+                </div>
+              </div>
+            </div>
 
-            {/* 좌상단 상태 칩 — 조사 중인 프로젝트와 추가할 종류를 세로로 쌓는다 */}
-            <div className="absolute left-3 top-3 z-[5] flex flex-col items-start gap-2">
-              {activeProject && mapLeftInset === 0 && (
+            {/* 활성 조사 칩 — 판을 접어 두어도 무엇을 조사 중인지 알 수 있게 헤더 아래에 둔다 */}
+            {activeProject && openPanel === null && (
+              <div className="absolute left-4 top-[76px] z-[15]" style={{ width: headerWidth || undefined }}>
                 <ActiveProjectChip
                   name={activeProject.name}
                   surveyed={surveyedIds.size}
                   total={targetPoints.length}
-                  onOpen={() => setOpenProjectNonce((n) => n + 1)}
+                  onOpen={() => setOpenPanel('project')}
                   onClear={() => dispatch(setActiveProject(null))}
                 />
-              )}
-            </div>
+              </div>
+            )}
 
             {/* 위치 찍기 중 — 모달은 숨어 있으므로 지도 위에서 무엇을 해야 하는지 알려 준다 */}
             {picking && (
-              <div className="absolute left-1/2 top-3 z-[5] flex -translate-x-1/2 items-center gap-3 rounded-full bg-gray-900/85 py-2 pl-4 pr-2 text-[13px] text-white shadow-lg backdrop-blur">
+              <div className="absolute left-1/2 top-[76px] z-[25] flex -translate-x-1/2 items-center gap-3 rounded-pill border border-line-pill bg-pill py-2 pl-4 pr-2 text-[13px] text-ink shadow-pill backdrop-blur-[10px]">
                 지도를 클릭해 위치를 지정하세요
-                <button
-                  type="button"
-                  onClick={() => setPicking(false)}
-                  className="rounded-full bg-white/10 px-2.5 py-1 text-[12px] hover:bg-white/20"
-                >
+                <button type="button" onClick={() => setPicking(false)} className="rounded-chip px-2.5 py-1 text-[12px] text-ink-3 transition-colors hover:bg-hover hover:text-ink">
                   취소
                 </button>
               </div>
             )}
 
+            {/* 상세 카드 — 지도 위 우측. 대화 판이 열리면 그 옆으로 비켜 선다 */}
+            <div
+              className="absolute top-[76px] z-[15]"
+              style={{ right: PANEL_MARGIN + (chatWidth === 0 ? 0 : chatWidth + PANEL_MARGIN) }}
+            >
             <ControlPointDetail
               point={selected}
               activeProjectName={selectedIsTarget ? (activeProject?.name ?? null) : null}
@@ -382,7 +436,7 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
                   : showToast('클립보드로 복사하지 못했습니다.', 'error')
               }
             />
-          </div>
+            </div>
         </div>
       </div>
       </ChatDockLayout>

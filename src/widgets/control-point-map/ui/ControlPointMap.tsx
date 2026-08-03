@@ -48,6 +48,11 @@ function makeBaseSource(theme: MapTheme): XYZ {
     : new OSM()
 }
 
+/** 판이 가린 만큼 지도 중심을 옮길 거리 — 좌우가 가린 폭의 차이 절반이 보이는 자리의 중앙이다 */
+function centerShift(leftInset: number, rightInset: number, resolution: number): number {
+  return ((leftInset - rightInset) / 2) * resolution
+}
+
 interface ControlPointMapProps {
   points: ControlPoint[]
   addMode: boolean
@@ -58,7 +63,9 @@ interface ControlPointMapProps {
   lostIds: Set<string>
   theme: MapTheme
   focusNonce: number
+  /** 좌·우 판이 지도를 가린 폭 — 점을 '가려지지 않은 자리'의 중앙에 세우는 데 쓴다 */
   leftInset: number
+  rightInset: number
   onAddPoint: (lng: number, lat: number) => void
   onSelect: (id: string | null) => void
   /** 만들어진 지도 인스턴스 — 하단 상태 표시처럼 매 프레임 값이 바뀌는 UI가 직접 구독하도록 넘긴다 */
@@ -84,6 +91,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const lostIdsRef = useRef(props.lostIds)
   const themeRef = useRef(props.theme)
   const leftInsetRef = useRef(props.leftInset)
+  const rightInsetRef = useRef(props.rightInset)
   const pointsRef = useRef(props.points)
   const focusNonceRef = useRef(props.focusNonce)
   const showCadastralRef = useRef(props.showCadastral)
@@ -100,6 +108,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     lostIdsRef.current = props.lostIds
     themeRef.current = props.theme
     leftInsetRef.current = props.leftInset
+    rightInsetRef.current = props.rightInset
     pointsRef.current = props.points
     focusNonceRef.current = props.focusNonce
     showCadastralRef.current = props.showCadastral
@@ -113,6 +122,8 @@ export function ControlPointMap(props: ControlPointMapProps) {
 
     const baseSource = makeBaseSource(themeRef.current)
     const baseLayer = new TileLayer({ source: baseSource })
+    // 어느 테마의 배경인지 레이어에 적어 둔다 — 아래 교체 이펙트가 이미 그 테마면 아무것도 하지 않게
+    baseLayer.set('theme', themeRef.current)
     baseLayerRef.current = baseLayer
 
     // 지적도 ImageWMS(뷰당 1 요청) — TileWMS(~20 요청)는 실패 시 연결 풀을 막아 배경 타일까지 굶김.
@@ -227,14 +238,49 @@ export function ControlPointMap(props: ControlPointMapProps) {
     pointLayerRef.current?.changed()
   }, [props.selectedId, props.surveyMode, props.surveyedIds, props.lostIds, props.theme])
 
-  // 테마 변경 → 배경지도 소스 교체 (새 소스에도 타일 리렌더 연결)
+  /**
+   * 테마 변경 → 배경지도 교체.
+   * 소스만 갈아 끼우면 새 타일이 도착할 때까지 지도가 빈 바탕으로 남아, 판·글자는 이미 바뀌었는데 지도만 비는 중간 화면이 보인다.
+   * 그래서 새 배경을 **옛 배경 아래**에 미리 깔아 두고(위의 불투명한 옛 타일이 가린다), 다 받은 뒤 옛 배경을 걷어 한 번에 드러낸다.
+   */
   useEffect(() => {
     const map = mapRef.current
-    const layer = baseLayerRef.current
-    if (!map || !layer) return
-    const src = makeBaseSource(props.theme)
-    src.on('tileloadend', () => map.render())
-    layer.setSource(src)
+    const previous = baseLayerRef.current
+    if (!map || !previous || previous.get('theme') === props.theme) return
+
+    const source = makeBaseSource(props.theme)
+    source.on('tileloadend', () => map.render())
+    const next = new TileLayer({ source })
+    next.set('theme', props.theme)
+    map.getLayers().insertAt(Math.max(map.getLayers().getArray().indexOf(previous), 0), next)
+    baseLayerRef.current = next
+
+    let pending = 0
+    let settled = false
+    const reveal = () => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timer)
+      source.un('tileloadstart', onStart)
+      source.un('tileloadend', onEnd)
+      source.un('tileloaderror', onEnd)
+      map.removeLayer(previous)
+      map.render()
+    }
+    const onStart = () => {
+      pending += 1
+    }
+    const onEnd = () => {
+      pending -= 1
+      if (pending <= 0) reveal()
+    }
+    source.on('tileloadstart', onStart)
+    source.on('tileloadend', onEnd)
+    source.on('tileloaderror', onEnd)
+    // 요청이 하나도 나가지 않거나(캐시) 응답이 늦는 경우의 상한 — 옛 배경을 무한정 두지 않는다
+    const timer = window.setTimeout(reveal, 1500)
+
+    return () => reveal()
   }, [props.theme])
 
   // 지적도 레이어 토글 (VWORLD_KEY 없으면 항상 off)
@@ -252,8 +298,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     const view = mapRef.current.getView()
     const res = view.getResolution() ?? 0
     const [cx, cy] = fromLonLat([p.lng, p.lat])
-    // 좌측 패널이 가린 폭(leftInset)의 절반만큼 중심을 왼쪽으로 → 점이 '보이는 영역' 중앙에 오게
-    view.animate({ center: [cx - (leftInsetRef.current / 2) * res, cy], duration: 300 })
+    view.animate({ center: [cx - centerShift(leftInsetRef.current, rightInsetRef.current, res), cy], duration: 300 })
   }, [props.selectedId])
 
   // 목록에서 포커스 → 확대 + 이동 (단일 애니메이션). ref 갱신은 위 selectedId 이펙트보다 뒤에 실행됨.
@@ -266,11 +311,15 @@ export function ControlPointMap(props: ControlPointMapProps) {
     const view = mapRef.current.getView()
     const [cx, cy] = fromLonLat([p.lng, p.lat])
     const res = view.getResolutionForZoom(FOCUS_ZOOM)
-    view.animate({ center: [cx - (leftInsetRef.current / 2) * res, cy], zoom: FOCUS_ZOOM, duration: 450 })
+    view.animate({
+      center: [cx - centerShift(leftInsetRef.current, rightInsetRef.current, res), cy],
+      zoom: FOCUS_ZOOM,
+      duration: 450,
+    })
   }, [props.focusNonce])
 
-  // 패널 열림/닫힘으로 가림 폭(leftInset)이 바뀌면, 선택된 점을 새 '보이는 영역 중앙'으로 다시 이동
-  // (닫으면 지도 전체 중앙으로, 열면 가려지지 않은 영역 중앙으로)
+  // 판 열림/닫힘으로 가림 폭이 바뀌면, 선택된 점을 새 '보이는 자리 중앙'으로 다시 이동
+  // (닫으면 지도 전체 중앙으로, 열면 가려지지 않은 자리 중앙으로)
   useEffect(() => {
     const selectedId = selectedIdRef.current
     if (!selectedId || !mapRef.current) return
@@ -279,8 +328,8 @@ export function ControlPointMap(props: ControlPointMapProps) {
     const view = mapRef.current.getView()
     const res = view.getResolution() ?? 0
     const [cx, cy] = fromLonLat([p.lng, p.lat])
-    view.animate({ center: [cx - (props.leftInset / 2) * res, cy], duration: 200 })
-  }, [props.leftInset])
+    view.animate({ center: [cx - centerShift(props.leftInset, props.rightInset, res), cy], duration: 200 })
+  }, [props.leftInset, props.rightInset])
 
   return <div ref={containerRef} className={`absolute inset-0 ${props.addMode ? 'cursor-crosshair' : ''}`} />
 }

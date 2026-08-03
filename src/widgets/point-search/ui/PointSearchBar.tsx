@@ -72,7 +72,7 @@ export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: C
   }
 
   return (
-    <div ref={rootRef} className="relative w-64">
+    <div ref={rootRef} className="relative w-[250px]">
       <input
         type="text"
         value={query}
@@ -91,29 +91,29 @@ export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: C
         aria-autocomplete="list"
         aria-activedescendant={results.length > 0 ? `point-search-option-${active}` : undefined}
         autoComplete="off"
-        className="w-full rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 pr-10 text-[13px] text-white backdrop-blur-md transition-all placeholder:text-white/30 focus:border-blue-400/50 focus:outline-none focus:ring-2 focus:ring-blue-400/20"
+        className="h-11 w-full rounded-ctl border border-line-pill bg-pill pl-10 pr-3 text-[13px] text-ink shadow-pill outline-none backdrop-blur-[10px] transition-colors placeholder:text-ink-4 focus:border-teal-edge"
       />
-      <button
-        type="button"
-        onClick={() => results.length > 0 && choose(results[active])}
-        aria-label="검색"
-        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-white/40 transition-colors hover:text-blue-300"
+      <svg
+        viewBox="0 0 24 24"
+        className="pointer-events-none absolute left-3.5 top-1/2 size-[15px] -translate-y-1/2 text-ink-4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.3-4.3" />
-        </svg>
-      </button>
+        <circle cx="11" cy="11" r="7.5" />
+        <path d="m21 21-4.3-4.3" />
+      </svg>
 
       {showList && (
-        <div className="absolute left-0 right-0 top-full z-20 mt-1.5 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800">
+        <div className="panel-in absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-pop border border-line bg-panel-strong shadow-panel backdrop-blur-[12px]">
           {results.length === 0 ? (
-            <p className="px-3 py-3 text-center text-[12px] text-gray-500 dark:text-gray-400">검색 결과 없음</p>
+            <p className="px-3 py-3 text-center text-[12px] text-ink-4">검색 결과 없음</p>
           ) : (
             <>
-              <p className="border-b border-gray-200 px-3 py-1.5 text-[11px] text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                {results.length}개
-              </p>
+              <p className="border-b border-line-soft px-3 py-1.5 font-mono text-[11px] text-ink-4">{results.length}개</p>
               <div ref={listRef} className="max-h-72 overflow-y-auto">
                 <ul id="point-search-results" role="listbox" className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
                   {virtualizer.getVirtualItems().map((item) => {
@@ -132,15 +132,15 @@ export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: C
                           onClick={() => choose(cp)}
                           onMouseEnter={() => setActiveIndex(item.index)}
                           className={`flex h-full w-full items-center gap-2 px-3 text-left ${
-                            item.index === active ? 'bg-gray-100 dark:bg-gray-700' : ''
+                            item.index === active ? 'bg-teal-wash' : ''
                           }`}
                         >
-                          <PointTypeIcon type={cp.type} className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+                          <PointTypeIcon type={cp.type} className="h-4 w-4 text-teal-text" />
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[13px] text-gray-900 dark:text-gray-100">{cp.name}</span>
-                            <span className="block truncate text-[11px] text-gray-400 dark:text-gray-500">{cp.pointNo}</span>
+                            <span className="block truncate text-[13px] text-ink">{cp.name}</span>
+                            <span className="block truncate font-mono text-[11px] text-ink-4">{cp.pointNo}</span>
                           </span>
-                          <span className="shrink-0 text-[11px] text-gray-400 dark:text-gray-500">{cp.type}</span>
+                          <span className="shrink-0 text-[11px] text-ink-4">{cp.type}</span>
                         </button>
                       </li>
                     )
