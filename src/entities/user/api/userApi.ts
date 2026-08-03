@@ -15,15 +15,20 @@ const teamFromApi = Object.fromEntries(Object.entries(teamToApi).map(([label, va
 const positionToApi: Record<Position, ApiPosition> = { 팀장: 'TEAM_LEADER', 주무관: 'OFFICER' }
 const positionFromApi: Record<ApiPosition, Position> = { TEAM_LEADER: '팀장', OFFICER: '주무관' }
 
+/**
+ * 서버가 주는 회원 한 명.
+ * 카카오 로그인만 하고 회원 정보 입력을 마치지 않은 계정은 이름부터 직위까지가 비어 있다 —
+ * 승인 대기 목록에는 그 계정도 함께 서므로 빈 값을 받을 수 있어야 한다.
+ */
 interface ApiMember {
   id: number
-  name: string
-  phone: string
-  email: string
-  district: string
-  department?: string
-  team: string
-  position: string
+  name: string | null
+  phone: string | null
+  email: string | null
+  district: string | null
+  department?: string | null
+  team: string | null
+  position: string | null
   memberStatus?: UserStatus
   memberRole?: UserRole
   status?: UserStatus
@@ -53,14 +58,16 @@ export interface MemberState { status: UserStatus; profileCompleted: boolean }
 
 function mapMember(member: ApiMember): ManagedUser {
   return {
-    id: String(member.id), name: member.name, phone: member.phone, email: member.email,
+    id: String(member.id), name: member.name ?? '', phone: member.phone ?? '', email: member.email ?? '',
     district: enumDisplayValue(districtFromApi, member.district), department: member.department ?? '민원지적과',
     team: enumDisplayValue(teamFromApi, member.team), position: enumDisplayValue(positionFromApi, member.position),
     status: member.memberStatus ?? member.status ?? 'PENDING', role: member.memberRole ?? member.role ?? 'USER',
   }
 }
 
-function enumDisplayValue<T extends string>(values: Record<string, T>, value: string): T | UnknownEnumValue {
+/** 아직 고르지 않은 값(회원 정보 입력 전)은 빈 칸으로 두고, 우리가 모르는 값이 왔을 때만 원문을 드러낸다 */
+function enumDisplayValue<T extends string>(values: Record<string, T>, value: string | null | undefined): T | UnknownEnumValue | '' {
+  if (!value) return ''
   return values[value] ?? `알 수 없음 (${value})`
 }
 

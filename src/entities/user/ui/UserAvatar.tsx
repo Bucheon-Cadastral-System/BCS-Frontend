@@ -6,6 +6,17 @@ import { avatarColor } from '../model/avatarColor'
  * 크기·글자 크기는 쓰는 자리가 정한다(className).
  */
 export function UserAvatar({ name, className }: { name: string; className?: string }) {
+  // 회원 정보 입력을 마치지 않은 계정은 이름이 없다 — 글자 없는 표식을 쓰고 색도 뽑지 않는다
+  if (!name) {
+    return (
+      <span
+        aria-hidden="true"
+        className={`flex shrink-0 items-center justify-center rounded-full bg-soft text-ink-4 ${className ?? ''}`}
+      >
+        ·
+      </span>
+    )
+  }
   return (
     <span
       aria-hidden="true"

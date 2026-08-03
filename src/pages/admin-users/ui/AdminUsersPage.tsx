@@ -33,6 +33,9 @@ const API_SORT_FIELD: Record<SortField, AdminMemberSortBy> = {
 }
 const SEARCH_LABEL: Record<SearchField, string> = { name: '이름', email: '이메일', phone: '전화번호' }
 
+/** 카카오 로그인만 하고 회원 정보 입력을 마치지 않은 계정 — 이름부터 직위까지가 비어 있다 */
+const NO_PROFILE = '정보 미입력'
+
 /** 화면 안에서 갈라지는 두 자리 — 사용자 관리와 활동 로그는 같은 계층이다 */
 type AdminTab = 'members' | 'activities'
 
@@ -461,7 +464,9 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                   <div className="flex items-center gap-3 pr-8">
                     <UserAvatar name={detail.name} className="size-11 text-[15px]" />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[17px] font-semibold text-ink">{detail.name}</span>
+                      <span className={`block truncate text-[17px] ${detail.name ? 'font-semibold text-ink' : 'text-ink-4'}`}>
+                        {detail.name || NO_PROFILE}
+                      </span>
                       {isSelf && (
                         <span className="mt-1 inline-flex rounded-chip bg-teal-wash-strong px-2 py-0.5 text-[10.5px] font-semibold text-teal-text">
                           현재 접속중인 계정
@@ -675,7 +680,9 @@ function Cell({ column, user }: { column: ColumnKey; user: ManagedUser }) {
     return (
       <span className="flex items-center gap-2.5">
         <UserAvatar name={user.name} className="size-[30px] text-[11.5px]" />
-        <span className="truncate text-[13px] font-semibold text-ink">{user.name}</span>
+        <span className={`truncate text-[13px] ${user.name ? 'font-semibold text-ink' : 'text-ink-4'}`}>
+          {user.name || NO_PROFILE}
+        </span>
       </span>
     )
   }
