@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios'
-import { getAccessToken, setAccessToken } from './tokenStore'
+import { getAccessToken } from './tokenStore'
+import { refreshAccessToken } from './refreshToken'
 
 /** API 기본 주소 — 기본은 동일 오리진(개발=Vite 프록시, 배포=Caddy 프록시). 별도 오리진이 필요할 때만 지정. */
 const BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? ''
@@ -30,17 +31,12 @@ http.interceptors.request.use((config) => {
   return config
 })
 
-let refreshRequest: Promise<string | null> | null = null
 http.interceptors.response.use(undefined, async (error: AxiosError) => {
   const config = error.config as (typeof error.config & { _retried?: boolean })
   const isAuthEndpoint = typeof config?.url === 'string' && config.url.startsWith('/api/auth/')
   if (error.response?.status === 401 && config && !config._retried && !isAuthEndpoint) {
     config._retried = true
-    refreshRequest ??= axios.post<{ accessToken: string }>(`${BASE_URL}/api/auth/token/refresh`, undefined, { withCredentials: true })
-      .then(({ data }) => { setAccessToken(data.accessToken); return data.accessToken })
-      .catch(() => { setAccessToken(null); return null })
-      .finally(() => { refreshRequest = null })
-    const token = await refreshRequest
+    const token = await refreshAccessToken()
     if (token) return http(config)
   }
   return Promise.reject(error)

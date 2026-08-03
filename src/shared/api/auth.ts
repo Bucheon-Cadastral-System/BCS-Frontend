@@ -1,8 +1,8 @@
 import { http } from './http'
 import { setAccessToken } from './tokenStore'
+export { refreshAccessToken } from './refreshToken'
 
 const VERIFIER_KEY = 'bcs-pkce-verifier'
-let refreshRequest: Promise<string | null> | null = null
 let exchangeRequest: { code: string; promise: Promise<void> } | null = null
 
 function base64Url(bytes: Uint8Array) {
@@ -32,17 +32,6 @@ export function exchangeOAuthCode(code: string): Promise<void> {
   const promise = performExchange(code)
   exchangeRequest = { code, promise }
   return promise
-}
-
-export function refreshAccessToken(): Promise<string | null> {
-  if (!refreshRequest) {
-    const request = http.post<{ accessToken: string }>('/api/auth/token/refresh')
-      .then(({ data }) => { setAccessToken(data.accessToken); return data.accessToken })
-      .catch(() => { setAccessToken(null); return null })
-      .finally(() => { refreshRequest = null })
-    refreshRequest = request
-  }
-  return refreshRequest!
 }
 
 export async function logout() {
