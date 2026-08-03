@@ -4,9 +4,7 @@ import { MOCK_CURRENT_USER } from '@/entities/user'
 import { useDismiss } from '@/shared/lib/useDismiss'
 import { useElementWidth } from '@/shared/lib/useElementWidth'
 import { PILL } from '@/shared/ui/classes'
-
-/** 헤더에서 열 수 있는 판 — 지도에 그릴 점도 이 값이 정한다 */
-export type PanelKey = 'project' | 'points'
+import type { PanelKey } from '@/shared/model/panel'
 
 /**
  * 화면 위에 떠 있는 헤더.
@@ -74,7 +72,7 @@ export function AppHeader(props: {
           <span className="flex items-center gap-2">{brand}</span>
         )}
 
-        <span className="mx-[3px] h-[22px] w-px bg-line-field" aria-hidden />
+        {(props.panel || props.title) && <span className="mx-[3px] h-[22px] w-px bg-line-field" aria-hidden />}
 
         {props.panel && (
           <>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { PanelKey } from '@/shared/model/panel'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { SURVEY_STATUS_LABEL, deriveSurveyStatus } from '@/entities/survey-record'
 import { Skeleton, SkeletonRows } from '@/shared/ui/Skeleton'
@@ -9,7 +10,7 @@ import type { ControlPoint } from '@/entities/control-point'
 import { PointTypeIcon, StatusMark } from '@/entities/control-point'
 
 /** 좌측 레일에서 열 수 있는 패널 종류 */
-export type PanelKey = 'project' | 'points'
+
 /** 점 목록 행 높이(h-8) — 가상 스크롤 추정치와 실제 렌더가 같아야 스크롤이 튀지 않는다 */
 const ROW_HEIGHT = 32
 /** 펼친 행에 붙는 조사·망실 버튼 영역 높이 */

@@ -54,8 +54,8 @@ export function MapCommandBar(props: {
         type="button"
         onClick={props.onToggleTheme}
         aria-pressed={dark}
-        title={dark ? '다크' : '라이트'}
-        aria-label={dark ? '다크' : '라이트'}
+        title="배경 밝기"
+        aria-label="배경 밝기"
         className={`${CTL} text-ink-2 hover:text-ink`}
       >
         {dark ? (

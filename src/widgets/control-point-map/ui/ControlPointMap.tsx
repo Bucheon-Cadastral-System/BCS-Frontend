@@ -255,29 +255,18 @@ export function ControlPointMap(props: ControlPointMapProps) {
     map.getLayers().insertAt(Math.max(map.getLayers().getArray().indexOf(previous), 0), next)
     baseLayerRef.current = next
 
-    let pending = 0
     let settled = false
     const reveal = () => {
       if (settled) return
       settled = true
       window.clearTimeout(timer)
-      source.un('tileloadstart', onStart)
-      source.un('tileloadend', onEnd)
-      source.un('tileloaderror', onEnd)
+      map.un('rendercomplete', reveal)
       map.removeLayer(previous)
       map.render()
     }
-    const onStart = () => {
-      pending += 1
-    }
-    const onEnd = () => {
-      pending -= 1
-      if (pending <= 0) reveal()
-    }
-    source.on('tileloadstart', onStart)
-    source.on('tileloadend', onEnd)
-    source.on('tileloaderror', onEnd)
-    // 요청이 하나도 나가지 않거나(캐시) 응답이 늦는 경우의 상한 — 옛 배경을 무한정 두지 않는다
+    // 한 프레임을 다 그린 시점에 걷는다. 타일을 몇 번에 나눠 받아도 그 사이에 걷히지 않는다.
+    map.once('rendercomplete', reveal)
+    // 화면이 그려지지 않는 상황(다른 탭 등)까지 옛 배경을 두지 않도록 상한을 둔다
     const timer = window.setTimeout(reveal, 1500)
 
     return () => reveal()

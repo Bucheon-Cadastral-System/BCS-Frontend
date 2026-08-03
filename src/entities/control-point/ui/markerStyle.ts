@@ -19,7 +19,7 @@ interface Palette {
 // 마커는 라이트·다크 모두 흰 칩을 유지한다(지도 위 대비). 조사완료는 화면 강조색인 청록, 망실은 붉은색,
 // 선택은 밝은 청록 링으로 나타낸다. 라벨만 테마에 따라 밝기를 바꾼다.
 const PALETTE: Record<MapTheme, Palette> = {
-  light: { paper: '#ffffff', ink: '#111827', aux: '#4b5563', lost: '#dc2626', sel: '#0E6B5C', done: '#0E6B5C', label: '#16302c', labelHalo: '#ffffff' },
+  light: { paper: '#ffffff', ink: '#111827', aux: '#4b5563', lost: '#dc2626', sel: '#23A88F', done: '#0E6B5C', label: '#16302c', labelHalo: '#ffffff' },
   dark: { paper: '#ffffff', ink: '#111827', aux: '#4b5563', lost: '#dc2626', sel: '#38B8A0', done: '#23A88F', label: '#f8fafc', labelHalo: '#0f172a' },
 }
 

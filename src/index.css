@@ -187,6 +187,15 @@ button:not(:disabled),
   outline: none;
 }
 
+/* 입력칸은 테두리 색만 바꾸려고 유틸리티로 아웃라인을 끈다.
+   그 유틸리티가 키보드 포커스까지 지우므로, 요소 선택자(클래스보다 뒤에 오는 자리)로 링을 되살린다. */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-teal-edge);
+  outline-offset: 1px;
+}
+
 /* 챗봇 메시지 등장 — 아래에서 올라오며 흐림→선명 */
 @keyframes chat-msg-in {
   from {

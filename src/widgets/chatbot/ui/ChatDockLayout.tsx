@@ -135,6 +135,8 @@ export function ChatDockLayout({
       {/* 우측 판 — 좌측 판과 같은 규격으로 헤더 밑에서 떠오른다(지도를 밀지 않는다) */}
       {mode === 'right' && (
         <aside
+          aria-hidden={!open}
+          inert={!open}
           style={{ width: dockWidth }}
           className={`absolute bottom-bar-clear right-4 top-[76px] z-40 overflow-hidden rounded-pill border border-line bg-panel shadow-panel backdrop-blur-[12px] transition-[opacity,transform] duration-200 ease-out ${
             open ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'
@@ -149,6 +151,8 @@ export function ChatDockLayout({
           닫혀도 마운트를 유지하고 open에 따라 우하단(버블 위치) 기준 scale+opacity로 열림/닫힘을 애니한다 */}
       {mode === 'corner' && (
         <div
+          aria-hidden={!open}
+          inert={!open}
           className={`absolute bottom-[88px] right-6 z-40 origin-bottom-right overflow-hidden rounded-pill border border-line bg-panel shadow-panel backdrop-blur-[12px] transition-[translate,scale,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
             open ? 'translate-y-0 scale-100 opacity-100' : 'pointer-events-none translate-y-3 scale-90 opacity-0'
           }`}

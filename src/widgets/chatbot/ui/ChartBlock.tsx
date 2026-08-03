@@ -116,7 +116,7 @@ export function ChartBlock({ json }: { json: string }) {
         onClick={download}
         aria-label="차트 이미지 저장"
         title="차트 이미지 저장"
-        className="absolute right-1.5 top-1.5 rounded-chip bg-pill p-1 text-ink-4 opacity-0 transition-opacity hover:text-ink-2 group-hover:opacity-100 focus-visible:opacity-100"
+        className="absolute right-1.5 top-1.5 rounded-chip bg-pill p-1 text-ink-4 transition-opacity hover:text-ink-2 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:hover)]:opacity-0"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />

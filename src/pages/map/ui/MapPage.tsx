@@ -5,7 +5,7 @@ import { AppHeader } from '@/widgets/app-header'
 import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
 import { MapSidebar, ActiveProjectChip } from '@/widgets/map-sidebar'
-import type { PanelKey } from '@/widgets/app-header'
+import type { PanelKey } from '@/shared/model/panel'
 import { PointSearchBar } from '@/widgets/point-search'
 import { MapCommandBar } from '@/widgets/map-command-bar'
 import type OlMap from 'ol/Map'
@@ -136,11 +136,9 @@ export function MapPage({ role, onOpenUserManagement }: MapPageProps) {
    * 그 조사의 대상이 아닌 점에 조사·망실을 기록할 수 있다.
    */
   function togglePanel(key: PanelKey) {
-    setOpenPanel((cur) => {
-      if (cur === key) return null
-      if (key === 'points') dispatch(setActiveProject(null))
-      return key
-    })
+    const next = openPanel === key ? null : key
+    setOpenPanel(next)
+    if (next === 'points') dispatch(setActiveProject(null))
   }
 
   /**

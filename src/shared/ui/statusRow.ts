@@ -9,8 +9,8 @@ export const STATUS_ROW = 'flex w-full items-center gap-3 px-5 py-2.5 text-left'
 /** 결과가 난 줄의 바탕 — 글자보다 한 단계 아래로 깔아 줄을 훑을 때 결과가 먼저 잡히게 한다 */
 export const STATUS_ROW_TONE = {
   none: '',
-  success: 'bg-emerald-50 dark:bg-emerald-500/10',
-  danger: 'bg-red-50 dark:bg-red-500/10',
+  success: 'bg-teal-wash',
+  danger: 'bg-danger-wash',
 } as const
 
 export type StatusTone = keyof typeof STATUS_ROW_TONE
@@ -20,8 +20,8 @@ export type StatusTone = keyof typeof STATUS_ROW_TONE
 export type StatusShape = 'check' | 'cross' | 'warn' | 'muted-check'
 
 export const SHAPE_COLOR: Record<StatusShape, string> = {
-  check: 'text-emerald-600 dark:text-emerald-400',
-  'muted-check': 'text-gray-400 dark:text-gray-500',
-  cross: 'text-red-500',
-  warn: 'text-red-600 dark:text-red-400',
+  check: 'text-teal-text',
+  'muted-check': 'text-ink-4',
+  cross: 'text-danger',
+  warn: 'text-danger',
 }
