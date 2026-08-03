@@ -42,6 +42,9 @@ export const FIELD =
 /** 여러 줄 입력칸 */
 export const FIELD_AREA =
   'w-full resize-none rounded-ctl border border-line-field bg-field px-3 py-2 text-[13px] leading-relaxed text-ink placeholder:text-ink-4 outline-none transition-colors focus:border-teal-edge'
+/** 고르는 칸 — 화살표는 select-chevron 이 그린다(오른쪽 여백 확보) */
+export const FIELD_SELECT =
+  'select-chevron h-[38px] w-full rounded-ctl border border-line-field bg-field pl-3 pr-9 text-[13px] text-ink outline-none transition-colors focus:border-teal-edge'
 /** 고쳐 쓸 수 없는 입력칸 */
 export const FIELD_READONLY = `${FIELD} cursor-default border-line-soft bg-soft text-ink-3`
 

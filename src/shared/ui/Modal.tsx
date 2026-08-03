@@ -112,11 +112,12 @@ export const MODAL_HEADER = 'shrink-0 border-b-2 border-b-teal px-[18px] pb-[13p
 /** 창 본문의 좌우·위아래 여백을 되물려 판 끝까지 닿는 목록 — 여백 값이 바뀌면 여기만 고친다 */
 export const MODAL_BLEED = '-mx-[18px] -mb-4 -mt-3.5 w-[calc(100%+36px)]'
 
-export const MODAL_INPUT =
-  'h-[38px] w-full rounded-ctl border border-line-field bg-field px-3 text-[13px] text-ink placeholder:text-ink-4 outline-none transition-colors focus:border-teal-edge'
-
-/** 모달 안 셀렉트 — 화살표는 select-chevron 이 그린다(오른쪽 여백 확보) */
-export const MODAL_SELECT =
-  'select-chevron h-[38px] w-full rounded-ctl border border-line-field bg-field pl-3 pr-9 text-[13px] text-ink outline-none transition-colors focus:border-teal-edge'
-
-export { BTN_SM_SECONDARY as MODAL_CANCEL_BTN, BTN_SM_DANGER as MODAL_DANGER_BTN, BTN_SM_PRIMARY as MODAL_SUBMIT_BTN } from './classes'
+export {
+  FIELD as MODAL_INPUT,
+  // 여러 줄 칸은 한 줄 칸과 규격이 다르다 — 고정 높이·가운데 정렬 대신 위아래 여백과 넉넉한 줄 간격을 쓴다
+  FIELD_AREA as MODAL_TEXTAREA,
+  FIELD_SELECT as MODAL_SELECT,
+  BTN_SM_SECONDARY as MODAL_CANCEL_BTN,
+  BTN_SM_DANGER as MODAL_DANGER_BTN,
+  BTN_SM_PRIMARY as MODAL_SUBMIT_BTN,
+} from './classes'
