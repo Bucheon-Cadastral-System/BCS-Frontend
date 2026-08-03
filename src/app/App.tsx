@@ -44,8 +44,15 @@ function OAuthSuccessRoute({ reloadProfile }: { reloadProfile: () => Promise<Use
     const code = new URLSearchParams(location.search).get('code')
     if (!code) { setError('로그인 코드가 없습니다.'); return }
     exchangeOAuthCode(code)
-      .then(reloadProfile)
-      .then((profile) => navigate(profile?.status === 'ACTIVE' ? '/' : '/waiting', { replace: true }))
+      .then(async () => {
+        const [profile, memberState] = await Promise.all([reloadProfile(), getMemberState()])
+        const status = memberState.status ?? profile?.status
+
+        if (status === 'INACTIVE') navigate('/login?error=inactive', { replace: true })
+        else if (!memberState.profileCompleted) navigate('/signup', { replace: true })
+        else if (status === 'PENDING') navigate('/waiting', { replace: true })
+        else navigate('/', { replace: true })
+      })
       .catch((e) => setError(e instanceof Error ? e.message : '로그인을 완료하지 못했습니다.'))
   }, [location.search, navigate, reloadProfile])
   return error
