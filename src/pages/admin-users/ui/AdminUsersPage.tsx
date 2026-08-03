@@ -314,7 +314,9 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
         user={profile}
       />
 
-      <section className="absolute inset-x-0 bottom-0 top-[76px] flex flex-col bg-panel backdrop-blur-[12px]">
+      {/* 지도 화면과 같이 머리띠를 두지 않는다 — 바탕은 화면 전체가 하나이고 헤더는 그 위에 떠 있다.
+          내용만 헤더 높이만큼 내려 시작해 알약에 가리지 않는다. */}
+      <section className="absolute inset-0 flex flex-col pt-[76px]">
         {/* 머리말 묶음 — 아래 청록 선이 본문과의 경계다(좌측 판·대화 판과 같은 규칙) */}
         <div className="shrink-0 border-b-2 border-b-teal">
         <header className="px-[22px] py-[15px]">
