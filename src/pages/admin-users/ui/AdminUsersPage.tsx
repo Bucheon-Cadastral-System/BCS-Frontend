@@ -38,6 +38,10 @@ function validateMemberDraft(member: ManagedUser): string | null {
   return null
 }
 
+function isKnownValue(values: readonly string[], value: string): boolean {
+  return values.includes(value)
+}
+
 export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
   const [users, setUsers] = useState<ManagedUser[]>([])
   const [loading, setLoading] = useState(true)
@@ -251,10 +255,10 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
                     <td className="px-4 py-3">{isEditing ? <input className={fieldClass} value={current.name} onChange={(e) => setDraft({ ...current, name: e.target.value })} /> : <><strong className="block truncate">{current.name}</strong><span className="text-[11px] text-slate-400">#{current.id}</span></>}</td>
                     <td className="px-3 py-3">{isEditing ? <input className={fieldClass} value={current.phone} onChange={(e) => setDraft({ ...current, phone: e.target.value.replace(/\D/g, '').slice(0, 11) })} /> : <span className="whitespace-nowrap">{current.phone}</span>}</td>
                     <td className="px-3 py-3">{isEditing ? <input className={fieldClass} type="email" value={current.email} onChange={(e) => setDraft({ ...current, email: e.target.value })} /> : <span className="block truncate" title={current.email}>{current.email}</span>}</td>
-                    <td className="px-3 py-3">{isEditing ? <select className={fieldClass} value={current.district} onChange={(e) => setDraft({ ...current, district: e.target.value as ManagedUser['district'] })}>{DISTRICTS.map((value) => <option key={value}>{value}</option>)}</select> : current.district}</td>
+                    <td className="px-3 py-3">{isEditing ? <select className={fieldClass} value={current.district} onChange={(e) => setDraft({ ...current, district: e.target.value as ManagedUser['district'] })}>{!isKnownValue(DISTRICTS, current.district) && <option value={current.district} disabled>{current.district}</option>}{DISTRICTS.map((value) => <option key={value}>{value}</option>)}</select> : current.district}</td>
                     <td className="px-3 py-3">{isEditing ? <input className={fieldClass} value={current.department} onChange={(e) => setDraft({ ...current, department: e.target.value })} /> : current.department}</td>
-                    <td className="px-3 py-3">{isEditing ? <select className={fieldClass} value={current.team} onChange={(e) => setDraft({ ...current, team: e.target.value as ManagedUser['team'] })}>{TEAMS.map((value) => <option key={value}>{value}</option>)}</select> : current.team}</td>
-                    <td className="px-3 py-3">{isEditing ? <select className={fieldClass} value={current.position} onChange={(e) => setDraft({ ...current, position: e.target.value as ManagedUser['position'] })}>{POSITIONS.map((value) => <option key={value}>{value}</option>)}</select> : current.position}</td>
+                    <td className="px-3 py-3">{isEditing ? <select className={fieldClass} value={current.team} onChange={(e) => setDraft({ ...current, team: e.target.value as ManagedUser['team'] })}>{!isKnownValue(TEAMS, current.team) && <option value={current.team} disabled>{current.team}</option>}{TEAMS.map((value) => <option key={value}>{value}</option>)}</select> : current.team}</td>
+                    <td className="px-3 py-3">{isEditing ? <select className={fieldClass} value={current.position} onChange={(e) => setDraft({ ...current, position: e.target.value as ManagedUser['position'] })}>{!isKnownValue(POSITIONS, current.position) && <option value={current.position} disabled>{current.position}</option>}{POSITIONS.map((value) => <option key={value}>{value}</option>)}</select> : current.position}</td>
                     <td className="px-3 py-3 text-xs font-bold text-slate-500">{current.role}</td>
                     <td className="px-3 py-3"><span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${current.status === 'PENDING' ? 'bg-amber-50 text-amber-700' : current.status === 'ACTIVE' ? 'bg-teal-50 text-teal-700' : 'bg-slate-100 text-slate-500'}`}>{STATUS_LABEL[current.status]}</span></td>
                     <td className="px-4 py-3"><div className="flex justify-end gap-1.5 [&_button]:h-8 [&_button]:whitespace-nowrap [&_button]:rounded-md [&_button]:px-2.5 [&_button]:text-xs [&_button]:font-bold">

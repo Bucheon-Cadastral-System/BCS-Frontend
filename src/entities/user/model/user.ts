@@ -7,16 +7,17 @@ export type UserStatus = 'PENDING' | 'ACTIVE' | 'INACTIVE'
 export type District = (typeof DISTRICTS)[number]
 export type Team = (typeof TEAMS)[number]
 export type Position = (typeof POSITIONS)[number]
+export type UnknownEnumValue = `알 수 없음 (${string})`
 
 export interface ManagedUser {
   id: string
   name: string
   phone: string
   email: string
-  district: District
+  district: District | UnknownEnumValue
   department: string
-  team: Team
-  position: Position
+  team: Team | UnknownEnumValue
+  position: Position | UnknownEnumValue
   status: UserStatus
   role: UserRole
 }

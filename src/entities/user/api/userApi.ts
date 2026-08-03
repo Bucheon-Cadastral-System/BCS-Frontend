@@ -1,5 +1,5 @@
 import { http } from '@/shared/api/http'
-import type { District, ManagedUser, Position, Team, UserProfile, UserRole, UserStatus } from '../model/user'
+import type { District, ManagedUser, Position, Team, UnknownEnumValue, UserProfile, UserRole, UserStatus } from '../model/user'
 
 type ApiDistrict = 'WONMI' | 'SOSA' | 'OJEONG'
 type ApiTeam = 'CIVIL_ADMINISTRATION' | 'FAMILY_RELATION' | 'CADASTRAL_INFORMATION' | 'CADASTRAL_MANAGEMENT' | 'REAL_ESTATE_MANAGEMENT'
@@ -20,10 +20,10 @@ interface ApiMember {
   name: string
   phone: string
   email: string
-  district: ApiDistrict
+  district: string
   department?: string
-  team: ApiTeam
-  position: ApiPosition
+  team: string
+  position: string
   memberStatus?: UserStatus
   memberRole?: UserRole
   status?: UserStatus
@@ -54,10 +54,20 @@ export interface MemberState { status: UserStatus; profileCompleted: boolean }
 function mapMember(member: ApiMember): ManagedUser {
   return {
     id: String(member.id), name: member.name, phone: member.phone, email: member.email,
-    district: districtFromApi[member.district], department: member.department ?? '민원지적과',
-    team: teamFromApi[member.team], position: positionFromApi[member.position],
+    district: enumDisplayValue(districtFromApi, member.district), department: member.department ?? '민원지적과',
+    team: enumDisplayValue(teamFromApi, member.team), position: enumDisplayValue(positionFromApi, member.position),
     status: member.memberStatus ?? member.status ?? 'PENDING', role: member.memberRole ?? member.role ?? 'USER',
   }
+}
+
+function enumDisplayValue<T extends string>(values: Record<string, T>, value: string): T | UnknownEnumValue {
+  return values[value] ?? `알 수 없음 (${value})`
+}
+
+function enumApiValue<T extends string>(values: Record<string, T>, value: string, label: string): T {
+  const mapped = values[value]
+  if (!mapped) throw new Error(`${label}에 지원하지 않는 값이 있습니다. 값을 다시 선택해 주세요.`)
+  return mapped
 }
 
 function registrationBody(input: RegistrationInput) {
@@ -108,8 +118,8 @@ export async function getAdminMembers(sortBy: AdminMemberSortBy = 'name', direct
 
 export async function updateAdminMember(member: ManagedUser): Promise<void> {
   await http.patch(`/api/admin/members/${member.id}/profile`, {
-    name: member.name, phone: member.phone, email: member.email, district: districtToApi[member.district],
-    department: member.department, team: teamToApi[member.team], position: positionToApi[member.position],
+    name: member.name, phone: member.phone, email: member.email, district: enumApiValue(districtToApi, member.district, '구청'),
+    department: member.department, team: enumApiValue(teamToApi, member.team, '팀'), position: enumApiValue(positionToApi, member.position, '직위'),
   })
 }
 
