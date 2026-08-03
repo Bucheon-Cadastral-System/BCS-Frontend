@@ -12,8 +12,12 @@ import { PointTypeIcon, StatusMark } from '@/entities/control-point'
 
 /** 좌측 레일에서 열 수 있는 패널 종류 */
 
-/** 점 목록 행 높이(h-8) — 가상 스크롤 추정치와 실제 렌더가 같아야 스크롤이 튀지 않는다 */
-const ROW_HEIGHT = 32
+/**
+ * 접힌 점 목록 행의 높이(px). 아래 PointRow 의 h-[34px] 와 반드시 같아야 한다 —
+ * 가상 스크롤은 이 추정으로 전체 높이를 잡아 두고 그려진 행을 실측해 고치는데,
+ * 둘이 어긋나면 굴리는 동안 전체 높이가 계속 고쳐져 막대와 손 위치가 밀린다.
+ */
+const ROW_HEIGHT = 34
 /** 펼친 행에 붙는 조사·망실 버튼 영역 높이 */
 const ROW_ACTIONS_HEIGHT = 46
 /** 패널 상단 검색창 — 프로젝트·기준점 두 패널이 같은 모양을 쓴다 */
@@ -301,8 +305,9 @@ function ProjectPanel(props: MapSidebarProps) {
                 <div className="overflow-hidden">
                   {mounted && (
                     <>
-                    {/* 띠는 행에서 이어져 정보 칸에서 끝난다 — 대상 기준점부터는 성격이 다른 목록이라 잇지 않는다 */}
-                    <div className={selected ? ROW_ACCENT : ''}>
+                    {/* 띠는 행에서 이어져 정보 칸에서 끝난다 — 대상 기준점부터는 성격이 다른 목록이라 잇지 않는다.
+                        위아래 여백은 이 칸이 직접 같은 값으로 쥔다 — 안쪽에서 바깥 여백으로 두면 그만큼이 칸 밖으로 빠져 띠가 먼저 끊긴다. */}
+                    <div className={`py-3 ${selected ? ROW_ACCENT : ''}`}>
                       {/* 진행률 (이 프로젝트 기준) */}
                       {selected && (
                       <div className="px-3.5 pb-[13px] pt-0">
@@ -392,7 +397,7 @@ function StatusCount(props: { label: string; count: number; dotClass: string }) 
  */
 function ProjectNote(props: { note: string }) {
   return (
-    <div className="mx-3.5 mb-3 border-l-2 border-line-btn bg-soft px-2.5 py-2 text-[11.5px] leading-[1.6]">
+    <div className="mx-3.5 border-l-2 border-line-btn bg-soft px-2.5 py-2 text-[11.5px] leading-[1.6]">
       {props.note === '' ? (
         <p className="text-ink-4">내용이 없습니다</p>
       ) : (
@@ -597,7 +602,7 @@ function PointRow(props: {
 }) {
   const hasActions = Boolean(props.onToggleSurvey && props.onToggleLost)
   // 바깥 <li>는 가상 스크롤 래퍼가 그린다(위치·높이 측정 대상).
-  // 행 높이는 h-8로 고정 — 가상 스크롤 추정 높이와 어긋나면 스크롤 도중 총 높이가 재계산돼 막대와 손 위치가 밀린다.
+  // 행 높이는 고정이고 ROW_HEIGHT 와 같은 값이어야 한다 — 어긋나면 굴리는 동안 위치가 밀린다.
   return (
     <div>
       <button
