@@ -47,22 +47,22 @@ export function RegistrationPage({ kakaoId, onCancel, onSubmit }: RegistrationPa
   }
 
   return (
-    <main className="min-h-full bg-slate-100 px-5 py-10">
+    <main className="app-bg min-h-full px-5 py-10 text-ink">
       <header className="mx-auto mb-8 flex max-w-3xl items-center justify-between">
         {/* 가입 신청 전이라 메인으로 가는 링크를 걸지 않는다. 옆에 서비스명이 따로 있어 심볼+BCS만 노출 */}
-        <BrandLockup size="md" tone="onLight" variant="mark" />
-        <span className="text-sm font-semibold text-slate-500">지적기준점 관리 시스템</span>
+        <BrandLockup size="md" tone="onDark" variant="mark" />
+        <span className="text-[12.5px] text-ink-4">지적기준점 관리 시스템</span>
       </header>
 
-      <section className="mx-auto max-w-3xl rounded-3xl border border-slate-200 bg-white p-6 shadow-lg sm:p-10" aria-labelledby="registration-title">
-        <div className="border-b border-slate-200 pb-7">
+      <section className="panel-in mx-auto max-w-3xl rounded-pill border border-line bg-panel-strong p-6 shadow-modal backdrop-blur-[14px] sm:p-10" aria-labelledby="registration-title">
+        <div className="border-b border-line-soft pb-7">
           <p className="text-sm font-bold text-teal-600">카카오 로그인 완료</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-[-0.04em] text-slate-900" id="registration-title">회원 정보 입력</h1>
-          <p className="mt-3 text-sm text-slate-500">서비스 이용과 관리자 승인을 위해 정확한 소속 정보를 입력해 주세요.</p>
+          <h1 className="mt-2 text-[26px] font-semibold tracking-[-.02em] text-ink" id="registration-title">회원 정보 입력</h1>
+          <p className="mt-3 text-[13px] text-ink-3">서비스 이용과 관리자 승인을 위해 정확한 소속 정보를 입력해 주세요.</p>
         </div>
 
         <form className="pt-8" onSubmit={handleSubmit}>
-          <div className="grid gap-5 sm:grid-cols-2 [&_b]:text-rose-500 [&_input]:mt-2 [&_input]:min-h-12 [&_input]:w-full [&_input]:rounded-xl [&_input]:border [&_input]:border-slate-200 [&_input]:px-4 [&_input]:outline-none [&_input:focus]:border-teal-500 [&_select]:mt-2 [&_select]:min-h-12 [&_select]:w-full [&_select]:rounded-xl [&_select]:border [&_select]:border-slate-200 [&_select]:bg-white [&_select]:px-4 [&_select]:outline-none [&_select:focus]:border-teal-500">
+          <div className="grid gap-5 text-[12px] text-ink-3 sm:grid-cols-2 [&_b]:text-danger [&_input:focus]:border-teal-edge [&_input]:mt-2 [&_input]:h-11 [&_input]:w-full [&_input]:rounded-ctl [&_input]:border [&_input]:border-line-field [&_input]:bg-field [&_input]:px-3.5 [&_input]:text-[13px] [&_input]:text-ink [&_input]:outline-none [&_select:focus]:border-teal-edge [&_select]:mt-2 [&_select]:h-11 [&_select]:w-full [&_select]:rounded-ctl [&_select]:border [&_select]:border-line-field [&_select]:bg-field [&_select]:px-3.5 [&_select]:text-[13px] [&_select]:text-ink [&_select]:outline-none">
             <label>
               <span>이름 <b>*</b></span>
               <input name="name" type="text" placeholder="이름을 입력해 주세요" autoComplete="name" required />
@@ -118,13 +118,13 @@ export function RegistrationPage({ kakaoId, onCancel, onSubmit }: RegistrationPa
             </label>
           </div>
 
-          <p className="mt-7 rounded-xl bg-slate-50 p-4 text-xs text-slate-500">
+          <p className="mt-7 rounded-ctl border border-line-soft bg-soft p-4 text-[11.5px] leading-6 text-ink-3">
             입력한 정보는 가입 승인과 사용자 권한 관리 목적으로만 사용됩니다.
           </p>
 
           <div className="mt-7 flex justify-end gap-3">
-            <button type="button" className="min-h-12 rounded-xl border border-slate-200 px-7 font-bold text-slate-600 hover:bg-slate-50" onClick={onCancel}>취소</button>
-            <button type="submit" className="min-h-12 rounded-xl bg-teal-600 px-7 font-bold text-white hover:bg-teal-700">가입 신청하기</button>
+            <button type="button" className="h-11 rounded-ctl border-[1.5px] border-line-btn px-7 text-[13px] font-semibold text-ink-2 transition-colors hover:bg-hover" onClick={onCancel}>취소</button>
+            <button type="submit" className="h-11 rounded-ctl border-[1.5px] border-teal-btn-edge bg-teal-wash px-7 text-[13px] font-semibold text-teal-label transition-colors hover:border-teal-text hover:bg-teal-wash-strong">가입 신청하기</button>
           </div>
         </form>
       </section>

@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { DISTRICTS, POSITIONS, TEAMS } from '@/entities/user'
 import type { ManagedUser, UserStatus } from '@/entities/user'
-import { AppHeader } from '@/shared/ui/AppHeader'
+import { AppHeader, UsersIcon } from '@/widgets/app-header'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
+import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY, FIELD } from '@/shared/ui/classes'
 
 interface AdminUsersPageProps {
   users: ManagedUser[]
@@ -16,6 +17,19 @@ const STATUS_LABEL: Record<UserStatus, string> = {
   INACTIVE: '비활성',
 }
 
+/** 상태별 색 — 승인 대기는 브랜드 앰버, 사용 중은 청록, 비활성은 죽인 회색 */
+const STATUS_TONE: Record<UserStatus, string> = {
+  PENDING: 'bg-amber-wash text-amber',
+  ACTIVE: 'bg-teal-wash-strong text-teal-text',
+  INACTIVE: 'bg-soft text-ink-3',
+}
+
+const AVATAR_TONE: Record<UserStatus, string> = {
+  PENDING: 'bg-amber-wash text-amber',
+  ACTIVE: 'bg-teal-fill text-[#EFFBF7]',
+  INACTIVE: 'bg-soft text-ink-3',
+}
+
 /** 확인 문구는 목표 상태만으로 정해지지 않는다 — 같은 ACTIVE라도 대기 중이면 승인, 비활성이면 재활성화다. */
 function actionLabelOf(from: UserStatus, to: UserStatus): string {
   if (to === 'ACTIVE') return from === 'INACTIVE' ? '다시 활성화' : '승인'
@@ -26,188 +40,227 @@ function actionLabelOf(from: UserStatus, to: UserStatus): string {
 export function AdminUsersPage({ users, onChangeUsers, onBack }: AdminUsersPageProps) {
   const [filter, setFilter] = useState<'ALL' | UserStatus>('ALL')
   const [query, setQuery] = useState('')
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(users[0]?.id ?? null)
   const [draft, setDraft] = useState<ManagedUser | null>(null)
   const [pendingChange, setPendingChange] = useState<{ id: string; status: UserStatus; label: string } | null>(null)
 
-  const counts = useMemo(() => ({
-    ALL: users.length,
-    PENDING: users.filter((user) => user.status === 'PENDING').length,
-    ACTIVE: users.filter((user) => user.status === 'ACTIVE').length,
-    INACTIVE: users.filter((user) => user.status === 'INACTIVE').length,
-  }), [users])
+  const counts = useMemo(
+    () => ({
+      ALL: users.length,
+      PENDING: users.filter((user) => user.status === 'PENDING').length,
+      ACTIVE: users.filter((user) => user.status === 'ACTIVE').length,
+      INACTIVE: users.filter((user) => user.status === 'INACTIVE').length,
+    }),
+    [users],
+  )
 
   const visibleUsers = useMemo(() => {
     const keyword = query.trim().toLowerCase()
     return users.filter((user) => {
       const matchesStatus = filter === 'ALL' || user.status === filter
-      const matchesQuery = !keyword || [
-        user.name,
-        user.email,
-        user.phone,
-        user.district,
-        user.team,
-      ].some((value) => value.toLowerCase().includes(keyword))
+      const matchesQuery =
+        !keyword ||
+        [user.name, user.email, user.phone, user.district, user.team].some((value) =>
+          value.toLowerCase().includes(keyword),
+        )
       return matchesStatus && matchesQuery
     })
   }, [filter, query, users])
 
-  const updateStatus = (id: string, status: UserStatus) => {
-    const current = users.find((user) => user.id === id)
-    if (!current) return
-    setPendingChange({ id, status, label: actionLabelOf(current.status, status) })
+  const selected = users.find((user) => user.id === selectedId) ?? null
+  const editing = draft !== null && draft.id === selectedId
+  const shown = editing ? draft : selected
+
+  function askStatusChange(user: ManagedUser, status: UserStatus) {
+    setPendingChange({ id: user.id, status, label: actionLabelOf(user.status, status) })
   }
 
-  const applyStatusChange = () => {
+  function applyStatusChange() {
     if (!pendingChange) return
     const { id, status } = pendingChange
-    onChangeUsers(users.map((user) => user.id === id ? { ...user, status } : user))
+    onChangeUsers(users.map((user) => (user.id === id ? { ...user, status } : user)))
     setPendingChange(null)
   }
 
-  const startEditing = (user: ManagedUser) => {
-    setEditingId(user.id)
-    setDraft({ ...user })
-  }
-
-  const saveEditing = () => {
+  function saveEditing() {
     if (!draft) return
-    onChangeUsers(users.map((user) => user.id === draft.id ? draft : user))
-    setEditingId(null)
+    onChangeUsers(users.map((user) => (user.id === draft.id ? draft : user)))
     setDraft(null)
   }
 
   return (
-    <main className="min-h-full bg-slate-100 text-slate-900">
-      {/* 화면 이름과 지도로 돌아가기는 아래 본문에 있으므로 헤더에는 아이덴티티와 권한 표시만 둔다 */}
-      <AppHeader>
-        <span className="rounded-full bg-teal-500/20 px-2.5 py-1 text-xs font-bold text-teal-300">ADMIN</span>
-      </AppHeader>
+    <main className="app-bg relative h-full text-ink">
+      {/* 헤더는 지도 화면과 같은 것을 쓴다 — 탭 자리만 이 화면의 이름으로 바꾼다 */}
+      <AppHeader
+        onHome={onBack}
+        title={{ label: '사용자 관리', icon: <UsersIcon className="size-[18px]" /> }}
+        isAdmin
+      />
 
-      <section className="mx-auto max-w-6xl px-5 py-10">
-        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-          <div>
-            <p className="text-sm font-bold text-teal-600">관리자 전용</p>
-            <h1 className="mt-1 text-3xl font-bold tracking-[-0.04em]">사용자 관리</h1>
-            <span className="mt-2 block text-sm text-slate-500">가입 신청을 승인하고 사용자 정보와 서비스 이용 상태를 관리합니다.</span>
-          </div>
-          <button className="min-h-11 rounded-xl border border-slate-300 bg-white px-5 font-bold text-slate-600 hover:bg-slate-50" type="button" onClick={onBack}>지도로 돌아가기</button>
-        </div>
-
-        <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4 [&>div]:flex [&>div]:flex-col [&>div]:rounded-2xl [&>div]:border [&>div]:border-slate-200 [&>div]:bg-white [&>div]:p-5 [&_span]:text-sm [&_span]:text-slate-500 [&_strong]:mt-2 [&_strong]:text-3xl">
-          <div><span>전체 사용자</span><strong>{counts.ALL}</strong></div>
-          <div><span>승인 대기</span><strong className="text-amber-600">{counts.PENDING}</strong></div>
-          <div><span>사용 중</span><strong className="text-teal-600">{counts.ACTIVE}</strong></div>
-          <div><span>비활성</span><strong className="text-slate-400">{counts.INACTIVE}</strong></div>
-        </div>
-
-        <div className="mt-6 flex flex-col justify-between gap-3 lg:flex-row">
-          <div className="flex flex-wrap gap-2">
-            {(['ALL', 'PENDING', 'ACTIVE', 'INACTIVE'] as const).map((status) => (
-              <button
-                type="button"
-                key={status}
-                className={`rounded-lg px-4 py-2 text-sm font-bold transition ${filter === status ? 'bg-slate-800 text-white' : 'border border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}
-                onClick={() => setFilter(status)}
-              >
-                {status === 'ALL' ? '전체' : STATUS_LABEL[status]} {counts[status]}
-              </button>
-            ))}
-          </div>
-          <input className="min-h-11 min-w-72 rounded-xl border border-slate-200 bg-white px-4 outline-none focus:border-teal-500"
+      <section className="absolute inset-x-0 bottom-0 top-[76px] flex flex-col border-t-2 border-t-teal bg-panel backdrop-blur-[12px]">
+        <header className="flex shrink-0 items-center gap-3 px-[22px] py-[15px]">
+          <h1 className="flex-1 text-[23px] font-semibold tracking-[-.02em] text-ink">사용자 관리</h1>
+          <input
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="이름, 이메일, 전화번호, 소속 검색"
+            className="h-[38px] w-[320px] rounded-ctl border border-line-field bg-field px-4 text-[12.5px] text-ink outline-none transition-colors placeholder:text-ink-4 focus:border-teal-edge"
           />
+        </header>
+
+        <div className="flex shrink-0 gap-2 border-b border-line-soft px-[22px] pb-[11px]">
+          {(['ALL', 'PENDING', 'ACTIVE', 'INACTIVE'] as const).map((status) => (
+            <button
+              type="button"
+              key={status}
+              onClick={() => setFilter(status)}
+              aria-pressed={filter === status}
+              className={`flex h-[30px] items-center gap-1.5 rounded-chip px-3 text-[12px] font-medium transition-colors ${
+                filter === status ? 'bg-teal-wash-strong text-teal-text' : 'text-ink-3 hover:bg-hover hover:text-ink-2'
+              }`}
+            >
+              {status === 'ALL' ? '전체' : STATUS_LABEL[status]}
+              <span className="font-mono">{counts[status]}</span>
+            </button>
+          ))}
         </div>
 
-        <div className="mt-5 grid gap-4">
-          {visibleUsers.length === 0 && <p className="rounded-2xl bg-white p-10 text-center text-slate-400">조건에 맞는 사용자가 없습니다.</p>}
-          {visibleUsers.map((user) => {
-            const isEditing = editingId === user.id && draft
-            const current = isEditing ? draft : user
+        <div className="flex min-h-0 flex-1">
+          <div className="min-w-0 flex-1 overflow-y-auto">
+            <div className="flex h-[34px] items-center gap-3 border-b border-line-soft px-[22px] text-[11px] font-medium tracking-[.08em] text-ink-4">
+              <span className="flex-1">사용자</span>
+              <span className="w-[200px]">소속</span>
+              <span className="w-[86px]">상태</span>
+              <span className="w-[90px] text-right">신청일</span>
+            </div>
 
-            return (
-              <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" key={user.id}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="grid size-11 place-items-center rounded-full bg-teal-50 font-bold text-teal-700">{current.name.slice(0, 1)}</div>
-                    <div className="flex flex-col">
-                      <strong>{current.name}</strong>
-                      <span className="text-xs text-slate-400">카카오 ID {current.kakaoId}</span>
-                    </div>
-                  </div>
-                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${current.status === 'PENDING' ? 'bg-amber-50 text-amber-700' : current.status === 'ACTIVE' ? 'bg-teal-50 text-teal-700' : 'bg-slate-100 text-slate-500'}`}>
-                    {STATUS_LABEL[current.status]}
+            {visibleUsers.length === 0 && (
+              <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-4">조건에 맞는 사용자가 없습니다.</p>
+            )}
+
+            {visibleUsers.map((user) => (
+              <button
+                type="button"
+                key={user.id}
+                onClick={() => {
+                  setSelectedId(user.id)
+                  setDraft(null)
+                }}
+                aria-current={user.id === selectedId}
+                className={`flex h-14 w-full items-center gap-3 border-b border-line-row px-[22px] text-left transition-colors hover:bg-white/[0.03] ${
+                  user.id === selectedId ? 'bg-teal-wash shadow-[inset_3px_0_0_var(--color-teal)]' : ''
+                }`}
+              >
+                <span
+                  className={`flex size-[34px] shrink-0 items-center justify-center rounded-full text-[12px] font-semibold ${AVATAR_TONE[user.status]}`}
+                >
+                  {user.name.slice(0, 1)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13.5px] font-semibold text-ink">{user.name}</span>
+                  <span className="block truncate font-mono text-[10.5px] text-ink-4">카카오 ID {user.kakaoId}</span>
+                </span>
+                <span className="w-[200px] truncate text-[12.5px] text-ink-3">
+                  {user.district} {user.department} {user.team} {user.position}
+                </span>
+                <span className="w-[86px]">
+                  <span className={`inline-flex rounded-chip px-2 py-0.5 text-[10.5px] font-semibold ${STATUS_TONE[user.status]}`}>
+                    {STATUS_LABEL[user.status]}
                   </span>
-                </div>
+                </span>
+                <span className="w-[90px] text-right font-mono text-[11.5px] text-ink-3">{user.requestedAt}</span>
+              </button>
+            ))}
+          </div>
 
-                <div className="mt-5 grid gap-4 border-t border-slate-100 pt-5 sm:grid-cols-2 lg:grid-cols-4 [&_label]:flex [&_label]:flex-col [&_label>span]:mb-2 [&_label>span]:text-xs [&_label>span]:font-bold [&_label>span]:text-slate-500 [&_input]:min-h-11 [&_input]:rounded-lg [&_input]:border [&_input]:border-slate-200 [&_input]:px-3 [&_input:disabled]:bg-slate-50 [&_select]:min-h-11 [&_select]:rounded-lg [&_select]:border [&_select]:border-slate-200 [&_select]:bg-white [&_select]:px-3 [&_select:disabled]:bg-slate-50">
-                  <label>
-                    <span>이름</span>
-                    <input disabled={!isEditing} value={current.name} onChange={(e) => setDraft({ ...current, name: e.target.value })} />
-                  </label>
-                  <label>
-                    <span>전화번호</span>
-                    <input disabled={!isEditing} value={current.phone} onChange={(e) => setDraft({ ...current, phone: e.target.value.replace(/\D/g, '').slice(0, 11) })} />
-                  </label>
-                  <label>
-                    <span>이메일</span>
-                    <input disabled={!isEditing} type="email" value={current.email} onChange={(e) => setDraft({ ...current, email: e.target.value })} />
-                  </label>
-                  <label>
-                    <span>소속 구청</span>
-                    <select disabled={!isEditing} value={current.district} onChange={(e) => setDraft({ ...current, district: e.target.value as ManagedUser['district'] })}>
-                      {DISTRICTS.map((value) => <option key={value}>{value}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    <span>소속 과</span>
-                    <input disabled={!isEditing} value={current.department} onChange={(e) => setDraft({ ...current, department: e.target.value })} />
-                  </label>
-                  <label>
-                    <span>팀명</span>
-                    <select disabled={!isEditing} value={current.team} onChange={(e) => setDraft({ ...current, team: e.target.value as ManagedUser['team'] })}>
-                      {TEAMS.map((value) => <option key={value}>{value}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    <span>직위</span>
-                    <select disabled={!isEditing} value={current.position} onChange={(e) => setDraft({ ...current, position: e.target.value as ManagedUser['position'] })}>
-                      {POSITIONS.map((value) => <option key={value}>{value}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    <span>신청일</span>
-                    <input disabled value={current.requestedAt} />
-                  </label>
-                </div>
+          {shown && (
+            <aside className="flex w-[400px] shrink-0 flex-col overflow-y-auto border-l border-line px-5 py-[18px]">
+              <div className="flex items-center gap-3">
+                <span
+                  className={`flex size-11 shrink-0 items-center justify-center rounded-full text-[15px] font-semibold ${AVATAR_TONE[shown.status]}`}
+                >
+                  {shown.name.slice(0, 1)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[17px] font-semibold text-ink">{shown.name}</span>
+                  <span className="block truncate font-mono text-[11px] text-ink-4">카카오 ID {shown.kakaoId}</span>
+                </span>
+                <span className={`shrink-0 rounded-chip px-2.5 py-1 text-[10.5px] font-semibold ${STATUS_TONE[shown.status]}`}>
+                  {STATUS_LABEL[shown.status]}
+                </span>
+              </div>
 
-                <div className="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4 [&_button]:min-h-10 [&_button]:rounded-lg [&_button]:px-4 [&_button]:text-sm [&_button]:font-bold">
-                  {isEditing ? (
-                    <>
-                      <button type="button" className="border border-slate-200 text-slate-600" onClick={() => { setEditingId(null); setDraft(null) }}>취소</button>
-                      <button type="button" className="bg-teal-600 text-white" onClick={saveEditing}>변경사항 저장</button>
-                    </>
-                  ) : (
-                    <>
-                      <button type="button" className="border border-slate-200 text-slate-600" onClick={() => startEditing(user)}>정보 수정</button>
-                      {user.status === 'PENDING' && (
-                        <button type="button" className="bg-teal-600 text-white" onClick={() => updateStatus(user.id, 'ACTIVE')}>가입 승인</button>
-                      )}
-                      {user.status === 'ACTIVE' && (
-                        <button type="button" className="bg-slate-700 text-white" onClick={() => updateStatus(user.id, 'INACTIVE')}>비활성화</button>
-                      )}
-                      {user.status === 'INACTIVE' && (
-                        <button type="button" className="bg-teal-600 text-white" onClick={() => updateStatus(user.id, 'ACTIVE')}>다시 활성화</button>
-                      )}
-                    </>
-                  )}
-                </div>
-              </article>
-            )
-          })}
+              <dl className="mt-5 flex-1">
+                <Field label="이름" editing={editing} value={shown.name} onChange={(v) => setDraft({ ...shown, name: v })} />
+                <Field
+                  label="전화번호"
+                  editing={editing}
+                  mono
+                  value={shown.phone}
+                  onChange={(v) => setDraft({ ...shown, phone: v.replace(/\D/g, '').slice(0, 11) })}
+                />
+                <Field label="이메일" editing={editing} value={shown.email} onChange={(v) => setDraft({ ...shown, email: v })} />
+                <SelectField
+                  label="소속 구청"
+                  editing={editing}
+                  value={shown.district}
+                  options={DISTRICTS}
+                  onChange={(v) => setDraft({ ...shown, district: v as ManagedUser['district'] })}
+                />
+                <Field label="소속 과" editing={editing} value={shown.department} onChange={(v) => setDraft({ ...shown, department: v })} />
+                <SelectField
+                  label="팀명"
+                  editing={editing}
+                  value={shown.team}
+                  options={TEAMS}
+                  onChange={(v) => setDraft({ ...shown, team: v as ManagedUser['team'] })}
+                />
+                <SelectField
+                  label="직위"
+                  editing={editing}
+                  value={shown.position}
+                  options={POSITIONS}
+                  onChange={(v) => setDraft({ ...shown, position: v as ManagedUser['position'] })}
+                />
+                <Field label="신청일" editing={false} mono value={shown.requestedAt} onChange={() => {}} />
+              </dl>
+
+              <div className="mt-5 flex justify-end gap-2">
+                {editing ? (
+                  <>
+                    <button type="button" className={BTN_SM_SECONDARY} onClick={() => setDraft(null)}>
+                      취소
+                    </button>
+                    <button type="button" className={BTN_SM_PRIMARY} onClick={saveEditing}>
+                      변경사항 저장
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button type="button" className={BTN_SM_SECONDARY} onClick={() => setDraft({ ...shown })}>
+                      정보 수정
+                    </button>
+                    {shown.status === 'PENDING' && (
+                      <button type="button" className={BTN_SM_PRIMARY} onClick={() => askStatusChange(shown, 'ACTIVE')}>
+                        가입 승인
+                      </button>
+                    )}
+                    {shown.status === 'ACTIVE' && (
+                      <button type="button" className={BTN_SM_DANGER} onClick={() => askStatusChange(shown, 'INACTIVE')}>
+                        비활성화
+                      </button>
+                    )}
+                    {shown.status === 'INACTIVE' && (
+                      <button type="button" className={BTN_SM_PRIMARY} onClick={() => askStatusChange(shown, 'ACTIVE')}>
+                        다시 활성화
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </aside>
+          )}
         </div>
       </section>
 
@@ -222,5 +275,50 @@ export function AdminUsersPage({ users, onChangeUsers, onBack }: AdminUsersPageP
         />
       )}
     </main>
+  )
+}
+
+/** 읽을 때는 값만 보이고 고칠 때만 입력칸이 된다 — 상자가 늘 서 있으면 읽기가 어렵다 */
+function Field(props: { label: string; value: string; editing: boolean; mono?: boolean; onChange: (v: string) => void }) {
+  return (
+    <div className="flex items-center gap-3 border-b border-line-row py-2">
+      <dt className="w-[78px] shrink-0 text-[11.5px] text-ink-4">{props.label}</dt>
+      <dd className="min-w-0 flex-1">
+        {props.editing ? (
+          <input value={props.value} onChange={(e) => props.onChange(e.target.value)} className={FIELD} />
+        ) : (
+          <span className={`block truncate text-[13px] text-ink-2 ${props.mono ? 'font-mono' : ''}`}>{props.value}</span>
+        )}
+      </dd>
+    </div>
+  )
+}
+
+function SelectField(props: {
+  label: string
+  value: string
+  options: readonly string[]
+  editing: boolean
+  onChange: (v: string) => void
+}) {
+  return (
+    <div className="flex items-center gap-3 border-b border-line-row py-2">
+      <dt className="w-[78px] shrink-0 text-[11.5px] text-ink-4">{props.label}</dt>
+      <dd className="min-w-0 flex-1">
+        {props.editing ? (
+          <select
+            value={props.value}
+            onChange={(e) => props.onChange(e.target.value)}
+            className="select-chevron h-[38px] w-full rounded-ctl border border-line-field bg-field pl-3 pr-9 text-[13px] text-ink outline-none transition-colors focus:border-teal-edge"
+          >
+            {props.options.map((value) => (
+              <option key={value}>{value}</option>
+            ))}
+          </select>
+        ) : (
+          <span className="block truncate text-[13px] text-ink-2">{props.value}</span>
+        )}
+      </dd>
+    </div>
   )
 }
