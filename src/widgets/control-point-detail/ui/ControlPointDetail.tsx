@@ -1,7 +1,8 @@
 import { TM_ORIGINS } from '@/shared/lib/crs'
-import type { ControlPoint, PointType } from '@/entities/control-point'
+import { CHIP_BTN, CHIP_BTN_DANGER, PANEL } from '@/shared/ui/classes'
+import type { ControlPoint } from '@/entities/control-point'
+import { PointTypeIcon } from '@/entities/control-point'
 import { SURVEY_STATUS_LABEL } from '@/entities/survey-record'
-import { btn } from '@/shared/ui/classes'
 
 interface ControlPointDetailProps {
   point: ControlPoint | null
@@ -15,13 +16,11 @@ interface ControlPointDetailProps {
   onCopied: (ok: boolean) => void
 }
 
-const TYPE_BADGE: Record<PointType, string> = {
-  지적삼각점: 'bg-gray-900',
-  지적삼각보조점: 'bg-gray-500',
-  지적도근점: 'bg-gray-700',
+function epsgLabel(epsg: string): string {
+  return TM_ORIGINS.find((o) => o.epsg === epsg)?.label ?? epsg
 }
 
-/** 값과 아이콘을 함께 눌러 클립보드로 복사한다. 복사 결과는 부모가 알린다. */
+/** 값을 클립보드로 복사한다. 복사 결과는 부모가 알린다. */
 function CopyButton(props: { value: string; label: string; onCopied: (ok: boolean) => void }) {
   const { value, label, onCopied } = props
 
@@ -41,14 +40,11 @@ function CopyButton(props: { value: string; label: string; onCopied: (ok: boolea
       onClick={copy}
       title={label}
       aria-label={label}
-      className="group inline-flex items-center gap-1.5 text-left"
+      className="flex size-6 shrink-0 items-center justify-center rounded-chip bg-field text-ink-3 transition-colors hover:text-teal-text"
     >
-      <span className="underline decoration-gray-300 underline-offset-2 group-hover:decoration-gray-500 dark:decoration-gray-600 dark:group-hover:decoration-gray-400">
-        {value}
-      </span>
       <svg
         viewBox="0 0 24 24"
-        className="size-4 shrink-0 text-gray-400 transition-colors group-hover:text-gray-700 dark:group-hover:text-gray-100"
+        className="size-[13px]"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.8"
@@ -63,62 +59,93 @@ function CopyButton(props: { value: string; label: string; onCopied: (ok: boolea
   )
 }
 
-function epsgLabel(epsg: string): string {
-  return TM_ORIGINS.find((o) => o.epsg === epsg)?.label ?? epsg
-}
-
+/** 고른 기준점의 성과와 조사 상태. 지도 위 우측에 떠 있는 카드다. */
 export function ControlPointDetail(props: ControlPointDetailProps) {
   const p = props.point
   if (!p) return null
 
+  const status = props.lost ? 'lost' : props.surveyed ? 'done' : 'todo'
+  const chipTone =
+    status === 'lost'
+      ? 'bg-danger-wash text-danger'
+      : status === 'done'
+        ? 'bg-teal-wash-strong text-teal-text'
+        : 'bg-soft text-ink-3'
+
   return (
-    <aside className="absolute right-3 top-3 z-[5] w-[300px] max-w-[calc(100%-24px)] rounded-lg border border-gray-200 bg-white p-3.5 shadow-xl dark:border-gray-700 dark:bg-gray-800 max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:w-auto max-sm:max-w-none max-sm:rounded-b-none max-sm:rounded-t-2xl">
-      <div className="mb-2.5 flex items-center gap-2">
-        <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold text-white ${TYPE_BADGE[p.type]}`}>{p.type}</span>
-        <strong className="flex-1 text-[15px] text-gray-900 dark:text-gray-100">{p.name}</strong>
-        <button type="button" className="border-0 bg-transparent text-xl leading-none text-gray-500 dark:text-gray-400" onClick={props.onClose} aria-label="닫기">×</button>
+    <aside className={`panel-in w-[300px] max-w-[calc(100%-24px)] overflow-hidden ${PANEL}`}>
+      <div className="flex items-center gap-[9px] border-b border-line-soft py-3 pl-3.5 pr-2.5">
+        <span className="flex shrink-0 text-teal-text">
+          <PointTypeIcon type={p.type} className="size-[18px]" />
+        </span>
+        <span className="min-w-0 flex-1 leading-tight">
+          <span className="block truncate text-[14.5px] font-semibold text-ink">{p.name}</span>
+          <span className="block text-[10.5px] text-ink-4">{p.type}</span>
+        </span>
+        <button
+          type="button"
+          onClick={props.onClose}
+          title="닫기"
+          aria-label="닫기"
+          className="flex size-[26px] items-center justify-center rounded-chip text-ink-3 transition-colors hover:bg-danger-wash hover:text-danger"
+        >
+          <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
       </div>
 
-      <dl className="mb-3 grid last:mb-0 grid-cols-[64px_1fr] gap-x-2.5 gap-y-1 text-[13px] [&_dd]:tabular-nums [&_dd]:text-gray-900 [&_dt]:text-gray-500 dark:[&_dd]:text-gray-100 dark:[&_dt]:text-gray-400">
+      <div className="px-3.5 pb-[13px] pt-3">
         {/* 이름은 표시용이고 점을 가리키는 값은 관리번호라 좌표보다 먼저 둔다 */}
-        <dt>관리번호</dt>
-        <dd>
+        <div className="mb-3 flex items-center gap-[9px] rounded-chip border border-line-pill bg-field py-[7px] pl-2.5 pr-2">
+          <span className="shrink-0 text-[10.5px] text-ink-4">관리번호</span>
+          <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-ink">{p.pointNo}</span>
           <CopyButton value={p.pointNo} label="관리번호 복사" onCopied={props.onCopied} />
-        </dd>
-        <dt>위도</dt><dd>{p.lat.toFixed(7)}</dd>
-        <dt>경도</dt><dd>{p.lng.toFixed(7)}</dd>
-        <dt>TM 원점</dt><dd>{epsgLabel(p.tmEpsg)} ({p.tmEpsg})</dd>
-        {/* 성과 표기는 측량 관례를 따른다 — X 가 북(northing), Y 가 동(easting)이다 */}
-        <dt>TM X</dt><dd>{p.northing.toFixed(3)} m</dd>
-        <dt>TM Y</dt><dd>{p.easting.toFixed(3)} m</dd>
-      </dl>
+        </div>
 
-      {props.activeProjectName ? (
-        <div className="mb-3 flex flex-col gap-2 border-t last:mb-0 border-gray-200 pt-2.5 dark:border-gray-700">
-          <div className="flex items-center gap-2">
-            <span className="flex-1 text-[13px] text-gray-700 dark:text-gray-300">{props.activeProjectName}</span>
-            <span
-              className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                props.lost
-                  ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300'
-                  : props.surveyed
-                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300'
-                    : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300'
-              }`}
-            >
-              {SURVEY_STATUS_LABEL[props.lost ? 'lost' : props.surveyed ? 'done' : 'todo']}
+        <dl className="grid grid-cols-[64px_1fr] gap-x-2.5 gap-y-[7px] text-[12.5px] [&_dd]:font-mono [&_dd]:text-ink-2 [&_dt]:text-ink-3">
+          <dt>위도</dt>
+          <dd>{p.lat.toFixed(7)}</dd>
+          <dt>경도</dt>
+          <dd>{p.lng.toFixed(7)}</dd>
+          <dt>TM 원점</dt>
+          <dd className="font-sans text-[12px]">
+            {epsgLabel(p.tmEpsg)} <span className="font-mono text-ink-3">({p.tmEpsg})</span>
+          </dd>
+          {/* 성과 표기는 측량 관례를 따른다 — X 가 북(northing), Y 가 동(easting)이다 */}
+          <dt>TM X</dt>
+          <dd>{p.northing.toFixed(3)} m</dd>
+          <dt>TM Y</dt>
+          <dd>{p.easting.toFixed(3)} m</dd>
+        </dl>
+      </div>
+
+      {props.activeProjectName !== null && (
+        <div className="border-t border-line-soft bg-soft px-3.5 pb-[13px] pt-[11px]">
+          <div className="mb-2.5 flex items-center gap-2">
+            <span className="min-w-0 flex-1 truncate text-[12px] text-ink-2">{props.activeProjectName}</span>
+            <span className={`shrink-0 rounded-chip px-[9px] py-[3px] text-[10.5px] font-semibold ${chipTone}`}>
+              {SURVEY_STATUS_LABEL[status]}
             </span>
           </div>
           <div className="flex gap-2">
-            <button type="button" className={`flex-1 text-center ${btn(props.surveyed ? undefined : 'on')}`} onClick={() => props.onToggleSurvey(p.id)}>
+            <button
+              type="button"
+              onClick={() => props.onToggleSurvey(p.id)}
+              className={`${CHIP_BTN} h-9 flex-1 text-[12.5px]`}
+            >
               {props.surveyed ? '조사 취소' : '조사 완료'}
             </button>
-            <button type="button" className={`flex-1 text-center ${btn(props.lost ? 'on' : 'danger')}`} onClick={() => props.onToggleLost(p.id)}>
+            <button
+              type="button"
+              onClick={() => props.onToggleLost(p.id)}
+              className={`${CHIP_BTN_DANGER} h-9 flex-1 text-[12.5px]`}
+            >
               {props.lost ? '망실 해제' : '망실'}
             </button>
           </div>
         </div>
-      ) : null}
+      )}
     </aside>
   )
 }

@@ -1,23 +1,91 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { changeAdminMember, getAdminActivities, getAdminMemberCounts, getAdminMembers, updateAdminMember, DISTRICTS, POSITIONS, TEAMS } from '@/entities/user'
-import type { AdminActivity, AdminMemberAction, AdminMemberSortBy, ManagedUser, SortDirection, UserStatus } from '@/entities/user'
-import { AppHeader } from '@/shared/ui/AppHeader'
+import type { AdminActivity, AdminActivityType, AdminMemberAction, AdminMemberSortBy, ManagedUser, SortDirection, UserProfile, UserStatus } from '@/entities/user'
+import { UserAvatar } from '@/entities/user'
+import { ActivityIcon, AppHeader, UsersIcon } from '@/widgets/app-header'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
+import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY, FIELD, FIELD_SELECT, FIELD_SM, FIELD_SM_SELECT, ROW_ACCENT } from '@/shared/ui/classes'
 
 interface AdminUsersPageProps {
+  /** 지금 로그인한 관리자 — 헤더 표시에 쓴다 */
+  profile: UserProfile | null
   onBack: () => void
 }
 
 const STATUS_LABEL: Record<UserStatus, string> = {
   PENDING: '승인 대기',
-  ACTIVE: '사용 중',
-  INACTIVE: '비활성',
+  ACTIVE: '활성화',
+  INACTIVE: '비활성화',
+}
+
+/** 상태별 색 — 승인 대기는 앰버, 사용 중은 청록, 비활성은 죽인 회색 */
+const STATUS_TONE: Record<UserStatus, string> = {
+  PENDING: 'bg-amber-wash text-amber',
+  ACTIVE: 'bg-teal-wash-strong text-teal-text',
+  INACTIVE: 'bg-soft text-ink-3',
 }
 
 type SortField = 'name' | 'email' | 'district' | 'team' | 'position' | 'role' | 'status'
 type SearchField = 'name' | 'email' | 'phone'
 const API_SORT_FIELD: Record<SortField, AdminMemberSortBy> = {
   name: 'name', email: 'email', district: 'district', team: 'team', position: 'position', role: 'memberRole', status: 'memberStatus',
+}
+const SEARCH_LABEL: Record<SearchField, string> = { name: '이름', email: '이메일', phone: '전화번호' }
+
+/** 화면 안에서 갈라지는 두 자리 — 사용자 관리와 활동 로그는 같은 계층이다 */
+type AdminTab = 'members' | 'activities'
+
+/** 상세가 미끄러져 나가는 시간(ms) — 내용을 트리에서 빼는 시점이 이보다 빨라선 안 된다 */
+const DETAIL_LEAVE_MS = 200
+
+/**
+ * 목록 열 — 이름·기본 너비·정렬 가능 여부를 한 곳에서 정한다.
+ * 열 머리와 줄이 같은 배열을 돌기 때문에 폭을 바꿔도 두 줄이 어긋나지 않는다.
+ */
+type ColumnKey = SortField | 'department'
+/** grow=넓게 쓰는 열(남은 자리를 나눠 갖는다), 나머지는 값 길이에 맞춘 고정 폭 */
+type Column<K> = { key: K; label: string; width?: number; grow?: boolean }
+const COLUMNS: (Column<ColumnKey> & { sortable: boolean })[] = [
+  // 이름은 표식과 두세 글자면 충분하고, 이메일은 길어 잘리기 쉬우므로 남은 자리를 이메일이 갖는다
+  { key: 'name', label: '이름', width: 150, sortable: true },
+  { key: 'email', label: '이메일', grow: true, sortable: true },
+  { key: 'district', label: '소속', width: 76, sortable: true },
+  // 소속 과는 백엔드가 정렬을 지원하지 않는다
+  { key: 'department', label: '소속 과', width: 96, sortable: false },
+  { key: 'team', label: '소속 팀', width: 96, sortable: true },
+  { key: 'position', label: '직위', width: 64, sortable: true },
+  { key: 'role', label: '권한', width: 56, sortable: true },
+  { key: 'status', label: '상태', width: 82, sortable: true },
+]
+
+/** 활동 로그 열 — 무엇을 했는지(내용)가 먼저 읽히고, 언제인지는 줄 끝에서 받는다 */
+type ActivityColumnKey = 'createdAt' | 'activityType' | 'actor' | 'target' | 'message'
+const ACTIVITY_COLUMNS: Column<ActivityColumnKey>[] = [
+  { key: 'message', label: '내용', grow: true },
+  { key: 'activityType', label: '유형', width: 108 },
+  { key: 'actor', label: '관리자', width: 72 },
+  { key: 'target', label: '대상 회원', width: 80 },
+  { key: 'createdAt', label: '시각', width: 180 },
+]
+
+/** 열 한 칸의 자리 — 머리와 줄이 같은 규칙을 쓴다 */
+function columnStyle<K>(column: Column<K>) {
+  return {
+    className: column.grow ? 'min-w-0 flex-1' : 'shrink-0',
+    style: column.grow ? undefined : { width: column.width },
+  }
+}
+
+/** 활동 유형 — 서버가 새 값을 보내면 원문을 그대로 보여 준다 */
+const ACTIVITY_LABEL: Record<AdminActivityType, string> = {
+  MEMBER_APPROVED: '가입 승인',
+  MEMBER_REJECTED: '가입 거절',
+  MEMBER_ACTIVATED: '활성화',
+  MEMBER_DEACTIVATED: '비활성화',
+  MEMBER_PROFILE_UPDATED: '정보 수정',
+  MEMBER_PROMOTED_TO_ADMIN: '관리자 부여',
+  MEMBER_DEMOTED_TO_USER: '권한 회수',
 }
 
 /** 확인 문구는 목표 상태만으로 정해지지 않는다 — 같은 ACTIVE라도 대기 중이면 승인, 비활성이면 재활성화다. */
@@ -53,7 +121,7 @@ function normalizeMemberDraft(member: ManagedUser): ManagedUser {
   }
 }
 
-export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
+export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
   const [users, setUsers] = useState<ManagedUser[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -71,12 +139,15 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
   const [pageSize, setPageSize] = useState(20)
   const [totalElements, setTotalElements] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
-  const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState<ManagedUser | null>(null)
   const [saving, setSaving] = useState(false)
   const [changingStatus, setChangingStatus] = useState(false)
+  // 상태 변경 실패는 확인 창 안에서 알린다 — 뒤쪽 배너에 띄우면 배경 딤에 가려 사용자가 이유를 볼 수 없다
+  const [changeError, setChangeError] = useState('')
   const [pendingChange, setPendingChange] = useState<{ id: string; action: AdminMemberAction; status?: UserStatus; label: string } | null>(null)
   const memberRequestId = useRef(0)
+  const [tab, setTab] = useState<AdminTab>('members')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const loadActivities = useCallback(async (cursor?: string) => {
     setActivitiesLoading(true)
@@ -134,27 +205,11 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
   }, [loadMembers])
   useEffect(() => { void loadCounts(); void loadActivities() }, [loadActivities])
 
-  const changeSort = (field: SortField) => {
-    const nextSort = {
-      field,
-      direction: sort.field === field && sort.direction === 'ASC' ? 'DESC' as const : 'ASC' as const,
-    }
-    setSort(nextSort)
-    setPage(0)
+  /** 상세를 닫는다 — 고르던 사람과 고치던 값을 함께 놓는다 */
+  const closeDetail = () => {
+    setSelectedId(null)
+    setDraft(null)
   }
-
-  const sortHeader = (label: string, field: SortField, className: string) => {
-    const active = sort.field === field
-    return (
-      <th className={className} aria-sort={active ? (sort.direction === 'ASC' ? 'ascending' : 'descending') : 'none'}>
-        <button type="button" className={`flex w-full items-center gap-1 text-left transition hover:text-slate-900 ${active ? 'text-teal-700' : ''}`} onClick={() => changeSort(field)}>
-          {label}<span aria-hidden="true" className="text-[10px]">{active ? (sort.direction === 'ASC' ? '▲' : '▼') : '↕'}</span>
-        </button>
-      </th>
-    )
-  }
-
-  const plainHeader = (label: string, className: string, reason: string) => <th className={className} title={reason}>{label}</th>
 
   const updateStatus = (id: string, status: UserStatus) => {
     const current = users.find((user) => user.id === id)
@@ -168,12 +223,14 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
     const { id, action } = pendingChange
     setChangingStatus(true)
     setError('')
+    setChangeError('')
     try {
       await changeAdminMember(id, action)
       setPendingChange(null)
       await Promise.all([loadMembers(), loadCounts(), loadActivities()])
     } catch (e) {
-      setError(e instanceof Error ? e.message : '회원 상태를 변경하지 못했습니다.')
+      // 창은 열어 둔다 — 사유를 읽고 그 자리에서 다시 시도할 수 있게
+      setChangeError(e instanceof Error ? e.message : '회원 상태를 변경하지 못했습니다.')
     } finally {
       setChangingStatus(false)
     }
@@ -181,7 +238,6 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
 
   const startEditing = (user: ManagedUser) => {
     setError('')
-    setEditingId(user.id)
     setDraft(normalizeMemberDraft(user))
   }
 
@@ -198,7 +254,6 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
     setError('')
     try {
       await updateAdminMember(normalizedDraft)
-      setEditingId(null)
       setDraft(null)
       await Promise.all([loadMembers(), loadActivities()])
     } catch (e) {
@@ -208,140 +263,393 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
     }
   }
 
+  const changeSort = (field: SortField) => {
+    setSort((current) => ({
+      field,
+      direction: current.field === field && current.direction === 'ASC' ? 'DESC' : 'ASC',
+    }))
+    setPage(0)
+  }
+
+  // 선택은 지금 목록 안에서만 유효하다 — 필터·페이지가 바뀌어 사라진 사용자를 상세에 남겨 두지 않는다
+  const selected = users.find((user) => user.id === selectedId) ?? null
+  const editing = draft !== null && draft.id === selected?.id
+  const shown = editing ? draft : selected
+  // 본인 계정 — 스스로 비활성하거나 권한을 회수하면 관리 화면으로 돌아올 길이 사라진다
+  const isSelf = shown !== null && shown.id === profile?.id
+
+  // 목록에서 사라진 사람은 고른 것도 고치던 값도 놓는다 —
+  // 필터를 되돌려 그 사람이 다시 나타나면 낡은 초안이 편집 상태로 되살아나, 그동안 바뀐 서버 값을 덮어쓴다.
+  useEffect(() => {
+    if (selectedId !== null && selected === null) {
+      setSelectedId(null)
+      setDraft(null)
+    }
+  }, [selectedId, selected])
+
+  // 상세는 닫히는 동안에도 내용을 들고 있어야 미끄러져 나가는 모습이 이어진다
+  const detailOpen = shown !== null
+  const shownRef = useRef<ManagedUser | null>(null)
+  useEffect(() => {
+    if (shown) shownRef.current = shown
+  })
+  const [leaving, setLeaving] = useState<ManagedUser | null>(null)
+  useEffect(() => {
+    if (detailOpen) {
+      setLeaving(null)
+      return
+    }
+    const last = shownRef.current
+    if (!last) return
+    setLeaving(last)
+    const timeout = window.setTimeout(() => setLeaving(null), DETAIL_LEAVE_MS)
+    return () => window.clearTimeout(timeout)
+  }, [detailOpen])
+  const detail = shown ?? leaving
+
   const firstPageNumber = Math.min(Math.max(page - 2, 0), Math.max(totalPages - 5, 0))
   const pageNumbers = Array.from({ length: Math.min(5, totalPages) }, (_, index) => firstPageNumber + index)
 
   return (
-    <main className="h-full overflow-y-auto bg-slate-100 text-slate-900">
-      {/* 화면 이름과 지도로 돌아가기는 아래 본문에 있으므로 헤더에는 아이덴티티와 권한 표시만 둔다 */}
-      <AppHeader>
-        <span className="rounded-full bg-teal-500/20 px-2.5 py-1 text-xs font-bold text-teal-300">ADMIN</span>
-      </AppHeader>
+    <main className="app-bg relative h-full min-w-app-min text-ink">
+      {/* 헤더는 지도 화면과 같은 것을 쓴다 — 탭 자리만 이 화면의 이름으로 바꾼다 */}
+      <AppHeader
+        onHome={onBack}
+        tabs={[
+          { key: 'members', label: '사용자 관리', icon: <UsersIcon className="size-[18px]" />, active: tab === 'members', onClick: () => setTab('members') },
+          { key: 'activities', label: '활동 로그', icon: <ActivityIcon />, active: tab === 'activities', onClick: () => setTab('activities') },
+        ]}
+        user={profile}
+      />
 
-      <section className="mx-auto max-w-[1500px] px-5 py-10">
-        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-          <div>
-            <p className="text-sm font-bold text-teal-600">관리자 전용</p>
-            <h1 className="mt-1 text-3xl font-bold tracking-[-0.04em]">사용자 관리</h1>
-            <span className="mt-2 block text-sm text-slate-500">가입 신청을 승인하고 사용자 정보와 서비스 이용 상태를 관리합니다.</span>
-          </div>
-          <button className="min-h-11 rounded-xl border border-slate-300 bg-white px-5 font-bold text-slate-600 hover:bg-slate-50" type="button" onClick={onBack}>지도로 돌아가기</button>
-        </div>
+      {/* 머리띠를 두지 않는다 — 바탕은 화면 전체가 하나이고 헤더는 그 위에 떠 있다.
+          내용만 헤더 높이만큼 내려 시작해 알약에 가리지 않는다. */}
+      <section className="absolute inset-0 flex flex-col pt-[76px]">
+        {/* 머리말 묶음 — 아래 청록 선이 본문과의 경계다(좌측 판·대화 판과 같은 규칙) */}
+        <div className="shrink-0 border-b-2 border-b-teal">
+        <header className="px-[22px] py-[15px]">
+          <h1 className="min-w-0 text-[23px] font-semibold tracking-[-.02em] text-ink">
+            {tab === 'members' ? '사용자 관리' : '활동 로그'}
+          </h1>
+        </header>
 
-        <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4 [&>div]:flex [&>div]:flex-col [&>div]:rounded-2xl [&>div]:border [&>div]:border-slate-200 [&>div]:bg-white [&>div]:p-5 [&_span]:text-sm [&_span]:text-slate-500 [&_strong]:mt-2 [&_strong]:text-3xl">
-          <div><span>전체 사용자</span><strong>{counts.ALL}</strong></div>
-          <div><span>승인 대기</span><strong className="text-amber-600">{counts.PENDING}</strong></div>
-          <div><span>사용 중</span><strong className="text-teal-600">{counts.ACTIVE}</strong></div>
-          <div><span>비활성</span><strong className="text-slate-400">{counts.INACTIVE}</strong></div>
-        </div>
-
-        {error && <p className="mt-5 rounded-xl bg-rose-50 p-4 text-sm text-rose-700" role="alert">{error}</p>}
-        {loading && <p className="mt-5 rounded-2xl bg-white p-10 text-center text-slate-400">사용자 정보를 불러오는 중입니다…</p>}
-
-        <div className="mt-6 flex flex-col justify-between gap-3 lg:flex-row">
-          <div className="flex flex-wrap gap-2">
+        {/* 걸러 보기와 찾기는 제목 아래 한 단계 낮은 줄에 함께 둔다 */}
+        {tab === 'members' && (
+          <div className="flex items-center gap-2 px-[22px] pb-[11px]">
             {(['ALL', 'PENDING', 'ACTIVE', 'INACTIVE'] as const).map((status) => (
               <button
                 type="button"
                 key={status}
-                className={`rounded-lg px-4 py-2 text-sm font-bold transition ${filter === status ? 'bg-slate-800 text-white' : 'border border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}
                 onClick={() => { setFilter(status); setPage(0) }}
+                aria-pressed={filter === status}
+                className={`flex h-[30px] items-center gap-1.5 rounded-chip px-3 text-[12px] font-medium transition-colors ${
+                  filter === status ? 'bg-teal-wash-strong text-teal-text' : 'text-ink-3 hover:bg-hover hover:text-ink-2'
+                }`}
               >
-                {status === 'ALL' ? '전체' : STATUS_LABEL[status]} {counts[status]}
+                {status === 'ALL' ? '전체' : STATUS_LABEL[status]}
+                <span className="font-mono">{counts[status]}</span>
               </button>
             ))}
+
+            <div className="ml-auto flex min-w-0 gap-2">
+              <select
+                className={FIELD_SM_SELECT}
+                value={searchField}
+                onChange={(event) => { setSearchField(event.target.value as SearchField); setPage(0) }}
+              >
+                {(['name', 'email', 'phone'] as const).map((value) => (
+                  <option key={value} value={value}>{SEARCH_LABEL[value]}</option>
+                ))}
+              </select>
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => { setQuery(event.target.value); setPage(0) }}
+                placeholder={`${SEARCH_LABEL[searchField]} 검색`}
+                className={`${FIELD_SM} w-[240px]`}
+              />
+            </div>
           </div>
-          <div className="flex min-w-0 gap-2">
-            <select className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600" value={searchField} onChange={(event) => { setSearchField(event.target.value as SearchField); setPage(0) }}>
-              <option value="name">이름</option><option value="email">이메일</option><option value="phone">전화번호</option>
-            </select>
-            <input className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 outline-none focus:border-teal-500 lg:min-w-72" type="search" value={query} onChange={(event) => { setQuery(event.target.value); setPage(0) }} placeholder={`${searchField === 'name' ? '이름' : searchField === 'email' ? '이메일' : '전화번호'} 검색`} />
-          </div>
+        )}
         </div>
 
-        <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <table className="w-full min-w-[1320px] table-fixed text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold text-slate-500">
-              <tr>
-                {sortHeader('이름', 'name', 'w-28 px-4 py-3')}
-                {plainHeader('전화번호', 'w-36 px-3 py-3', '백엔드에서 전화번호 정렬을 지원하지 않습니다.')}
-                {sortHeader('이메일', 'email', 'w-56 px-3 py-3')}
-                {sortHeader('구청', 'district', 'w-24 px-3 py-3')}
-                {plainHeader('소속 과', 'w-28 px-3 py-3', '백엔드에서 소속 과 정렬을 지원하지 않습니다.')}
-                {sortHeader('팀명', 'team', 'w-32 px-3 py-3')}
-                {sortHeader('직위', 'position', 'w-24 px-3 py-3')}
-                {sortHeader('권한', 'role', 'w-20 px-3 py-3')}
-                {sortHeader('상태', 'status', 'w-24 px-3 py-3')}
-                <th className="w-72 px-4 py-3 text-right">관리</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {!loading && users.length === 0 && <tr><td colSpan={10} className="px-4 py-12 text-center text-slate-400">조건에 맞는 사용자가 없습니다.</td></tr>}
-              {users.map((user) => {
-                const isEditing = editingId === user.id && draft
-                const current = isEditing ? draft : user
-                const fieldClass = 'h-9 w-full rounded-md border border-teal-300 bg-white px-2 outline-none focus:ring-2 focus:ring-teal-100'
+        {error && (
+          <p className="mx-[22px] mt-3 shrink-0 rounded-pop border border-danger-btn-edge bg-danger-wash px-4 py-2.5 text-[12.5px] text-danger" role="alert">
+            {error}
+          </p>
+        )}
 
+        {tab === 'members' ? (
+          <>
+            <div className="flex min-h-0 flex-1">
+              <div
+                className="min-w-0 flex-1 overflow-y-auto"
+                onClick={(event) => { if (event.target === event.currentTarget) closeDetail() }}
+              >
+                <div className="flex h-[34px] items-center gap-3 border-b border-line-soft px-[22px] text-[11px] font-medium tracking-[.08em] text-ink-4">
+                  {COLUMNS.map((column) => {
+                    const place = columnStyle(column)
+                    return column.sortable ? (
+                      <SortHeader
+                        key={column.key}
+                        field={column.key as SortField}
+                        label={column.label}
+                        sort={sort}
+                        onSort={changeSort}
+                        className={place.className}
+                        style={place.style}
+                      />
+                    ) : (
+                      <span key={column.key} className={`${place.className} truncate`} style={place.style}>
+                        {column.label}
+                      </span>
+                    )
+                  })}
+                </div>
+
+                {loading && <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-4">사용자 정보를 불러오는 중입니다…</p>}
+                {!loading && users.length === 0 && (
+                  <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-4">조건에 맞는 사용자가 없습니다.</p>
+                )}
+
+                {!loading && users.map((user) => (
+                  <button
+                    type="button"
+                    key={user.id}
+                    onClick={() => { setSelectedId((current) => (current === user.id ? null : user.id)); setDraft(null) }}
+                    aria-current={user.id === selectedId}
+                    className={`flex h-14 w-full items-center gap-3 border-b border-line-row px-[22px] text-left transition-colors hover:bg-hover ${
+                      user.id === selectedId ? `bg-teal-wash ${ROW_ACCENT}` : ''
+                    }`}
+                  >
+                    {COLUMNS.map((column) => {
+                      const place = columnStyle(column)
+                      return (
+                        <span key={column.key} className={place.className} style={place.style}>
+                          <Cell column={column.key} user={user} />
+                        </span>
+                      )
+                    })}
+                  </button>
+                ))}
+              </div>
+
+              <div
+                className={`shrink-0 overflow-hidden transition-[width] duration-200 ease-out ${detailOpen ? 'w-[400px]' : 'w-0'}`}
+                aria-hidden={!detailOpen}
+                inert={!detailOpen}
+              >
+              {detail && (
+                <aside
+                  className={`relative flex h-full w-[400px] flex-col border-l border-line transition-[opacity,transform] duration-200 ease-out ${
+                    detailOpen ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={closeDetail}
+                    aria-label="닫기"
+                    title="닫기"
+                    className="absolute right-3 top-3 z-10 flex size-[26px] items-center justify-center rounded-chip text-ink-3 transition-colors hover:bg-danger-wash hover:text-danger"
+                  >
+                    <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                      <path d="M18 6 6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+
+                  <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-[18px]">
+                  <div className="flex items-center gap-3 pr-8">
+                    <UserAvatar name={detail.name} className="size-11 text-[15px]" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[17px] font-semibold text-ink">{detail.name}</span>
+                      {isSelf && (
+                        <span className="mt-1 inline-flex rounded-chip bg-teal-wash-strong px-2 py-0.5 text-[10.5px] font-semibold text-teal-text">
+                          현재 접속중인 계정
+                        </span>
+                      )}
+                    </span>
+                    <span className={`shrink-0 rounded-chip px-2.5 py-1 text-[10.5px] font-semibold ${STATUS_TONE[detail.status]}`}>
+                      {STATUS_LABEL[detail.status]}
+                    </span>
+                  </div>
+
+                  <dl className="mt-5 flex-1">
+                    {/* 로그인 계정(카카오)이 아니라 이 시스템이 회원에게 매긴 번호다 */}
+                    <ValueRow label="회원 번호">
+                      <span className="block truncate font-mono text-[13px] text-ink-3">#{detail.id}</span>
+                    </ValueRow>
+                    <Field label="이름" editing={editing} value={detail.name} onChange={(v) => setDraft({ ...detail, name: v })} />
+                    <Field
+                      label="전화번호"
+                      editing={editing}
+                      mono
+                      value={detail.phone}
+                      onChange={(v) => setDraft({ ...detail, phone: v.replace(/\D/g, '').slice(0, 11) })}
+                    />
+                    <Field label="이메일" editing={editing} value={detail.email} onChange={(v) => setDraft({ ...detail, email: v })} />
+                    <SelectField
+                      label="소속 구청"
+                      editing={editing}
+                      value={detail.district}
+                      options={DISTRICTS}
+                      onChange={(v) => setDraft({ ...detail, district: v as ManagedUser['district'] })}
+                    />
+                    <Field label="소속 과" editing={editing} value={detail.department} onChange={(v) => setDraft({ ...detail, department: v })} />
+                    <SelectField
+                      label="소속 팀"
+                      editing={editing}
+                      value={detail.team}
+                      options={TEAMS}
+                      onChange={(v) => setDraft({ ...detail, team: v as ManagedUser['team'] })}
+                    />
+                    <SelectField
+                      label="직위"
+                      editing={editing}
+                      value={detail.position}
+                      options={POSITIONS}
+                      onChange={(v) => setDraft({ ...detail, position: v as ManagedUser['position'] })}
+                    />
+                  </dl>
+
+                  <div className="mt-5 flex flex-wrap justify-end gap-2">
+                    {editing ? (
+                      <>
+                        <button type="button" disabled={saving} className={BTN_SM_SECONDARY} onClick={() => setDraft(null)}>
+                          취소
+                        </button>
+                        <button type="button" disabled={saving} className={BTN_SM_PRIMARY} onClick={saveEditing}>
+                          {saving ? '저장 중…' : '변경사항 저장'}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button type="button" className={BTN_SM_SECONDARY} onClick={() => startEditing(detail)}>
+                          정보 수정
+                        </button>
+                        {!isSelf && detail.status === 'PENDING' && (
+                          <>
+                            <button type="button" className={BTN_SM_DANGER} onClick={() => setPendingChange({ id: detail.id, action: 'reject', label: '가입 거절' })}>
+                              가입 거절
+                            </button>
+                            <button type="button" className={BTN_SM_PRIMARY} onClick={() => updateStatus(detail.id, 'ACTIVE')}>
+                              가입 승인
+                            </button>
+                          </>
+                        )}
+                        {!isSelf && detail.status === 'ACTIVE' && (
+                          <>
+                            <button
+                              type="button"
+                              className={BTN_SM_SECONDARY}
+                              onClick={() => setPendingChange(
+                                detail.role === 'ADMIN'
+                                  ? { id: detail.id, action: 'role/user', label: '관리자 권한 회수' }
+                                  : { id: detail.id, action: 'role/admin', label: '관리자 권한 부여' },
+                              )}
+                            >
+                              {detail.role === 'ADMIN' ? '권한 회수' : '관리자 부여'}
+                            </button>
+                            <button type="button" className={BTN_SM_DANGER} onClick={() => updateStatus(detail.id, 'INACTIVE')}>
+                              비활성화
+                            </button>
+                          </>
+                        )}
+                        {!isSelf && detail.status === 'INACTIVE' && (
+                          <button type="button" className={BTN_SM_PRIMARY} onClick={() => updateStatus(detail.id, 'ACTIVE')}>
+                            다시 활성화
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  </div>
+                </aside>
+              )}
+              </div>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-3 border-t border-line-soft px-[22px] py-2.5 text-[12px] text-ink-3">
+              <span>총 <strong className="font-mono font-semibold text-ink">{totalElements}</strong>명</span>
+              <label className="flex items-center gap-2">
+                페이지당
+                <select
+                  className={FIELD_SM_SELECT}
+                  value={pageSize}
+                  onChange={(event) => { setPageSize(Number(event.target.value)); setPage(0) }}
+                >
+                  <option value={20}>20명</option><option value={50}>50명</option><option value={100}>100명</option>
+                </select>
+              </label>
+              <nav className="ml-auto flex items-center gap-1" aria-label="회원 목록 페이지">
+                <button type="button" disabled={page === 0} className="h-8 rounded-ctl border border-line-btn px-2.5 text-[12px] font-semibold text-ink-2 transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-40" onClick={() => setPage((current) => current - 1)}>이전</button>
+                {pageNumbers.map((pageNumber) => (
+                  <button
+                    type="button"
+                    key={pageNumber}
+                    aria-current={page === pageNumber ? 'page' : undefined}
+                    className={`size-8 rounded-ctl font-mono text-[12px] font-semibold transition-colors ${
+                      page === pageNumber ? 'border border-teal-btn-edge bg-teal-wash-strong text-teal-text' : 'border border-line-btn text-ink-2 hover:bg-hover'
+                    }`}
+                    onClick={() => setPage(pageNumber)}
+                  >
+                    {pageNumber + 1}
+                  </button>
+                ))}
+                <button type="button" disabled={page + 1 >= totalPages} className="h-8 rounded-ctl border border-line-btn px-2.5 text-[12px] font-semibold text-ink-2 transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-40" onClick={() => setPage((current) => current + 1)}>다음</button>
+              </nav>
+            </div>
+          </>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="flex h-[34px] items-center gap-3 border-b border-line-soft px-[22px] text-[11px] font-medium tracking-[.08em] text-ink-4">
+              {ACTIVITY_COLUMNS.map((column) => {
+                const place = columnStyle(column)
                 return (
-                  <tr className="transition hover:bg-slate-50/70" key={user.id}>
-                    <td className="px-4 py-3">{isEditing ? <input className={fieldClass} value={current.name} onChange={(e) => setDraft({ ...current, name: e.target.value })} /> : <><strong className="block truncate">{current.name}</strong><span className="text-[11px] text-slate-400">#{current.id}</span></>}</td>
-                    <td className="px-3 py-3">{isEditing ? <input className={fieldClass} value={current.phone} onChange={(e) => setDraft({ ...current, phone: e.target.value.replace(/\D/g, '').slice(0, 11) })} /> : <span className="whitespace-nowrap">{current.phone}</span>}</td>
-                    <td className="px-3 py-3">{isEditing ? <input className={fieldClass} type="email" value={current.email} onChange={(e) => setDraft({ ...current, email: e.target.value })} /> : <span className="block truncate" title={current.email}>{current.email}</span>}</td>
-                    <td className="px-3 py-3">{isEditing ? <select className={fieldClass} value={current.district} onChange={(e) => setDraft({ ...current, district: e.target.value as ManagedUser['district'] })}>{!isKnownValue(DISTRICTS, current.district) && <option value={current.district} disabled>{current.district}</option>}{DISTRICTS.map((value) => <option key={value}>{value}</option>)}</select> : current.district}</td>
-                    <td className="px-3 py-3">{isEditing ? <input className={fieldClass} value={current.department} onChange={(e) => setDraft({ ...current, department: e.target.value })} /> : current.department}</td>
-                    <td className="px-3 py-3">{isEditing ? <select className={fieldClass} value={current.team} onChange={(e) => setDraft({ ...current, team: e.target.value as ManagedUser['team'] })}>{!isKnownValue(TEAMS, current.team) && <option value={current.team} disabled>{current.team}</option>}{TEAMS.map((value) => <option key={value}>{value}</option>)}</select> : current.team}</td>
-                    <td className="px-3 py-3">{isEditing ? <select className={fieldClass} value={current.position} onChange={(e) => setDraft({ ...current, position: e.target.value as ManagedUser['position'] })}>{!isKnownValue(POSITIONS, current.position) && <option value={current.position} disabled>{current.position}</option>}{POSITIONS.map((value) => <option key={value}>{value}</option>)}</select> : current.position}</td>
-                    <td className="px-3 py-3 text-xs font-bold text-slate-500">{current.role}</td>
-                    <td className="px-3 py-3"><span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${current.status === 'PENDING' ? 'bg-amber-50 text-amber-700' : current.status === 'ACTIVE' ? 'bg-teal-50 text-teal-700' : 'bg-slate-100 text-slate-500'}`}>{STATUS_LABEL[current.status]}</span></td>
-                    <td className="px-4 py-3"><div className="flex justify-end gap-1.5 [&_button]:h-8 [&_button]:whitespace-nowrap [&_button]:rounded-md [&_button]:px-2.5 [&_button]:text-xs [&_button]:font-bold">
-                      {isEditing ? <><button type="button" disabled={saving} className="border border-slate-200 text-slate-600 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => { setEditingId(null); setDraft(null) }}>취소</button><button type="button" disabled={saving} className="bg-teal-600 text-white disabled:cursor-wait disabled:opacity-60" onClick={saveEditing}>{saving ? '저장 중…' : '저장'}</button></> : <>
-                        <button type="button" className="border border-slate-200 text-slate-600" onClick={() => startEditing(user)}>수정</button>
-                        {user.status === 'PENDING' && <><button type="button" className="border border-rose-200 text-rose-600" onClick={() => setPendingChange({ id: user.id, action: 'reject', label: '가입 거절' })}>거절</button><button type="button" className="bg-teal-600 text-white" onClick={() => updateStatus(user.id, 'ACTIVE')}>승인</button></>}
-                        {user.status === 'ACTIVE' && <button type="button" className="bg-slate-700 text-white" onClick={() => updateStatus(user.id, 'INACTIVE')}>비활성</button>}
-                        {user.status === 'INACTIVE' && <button type="button" className="bg-teal-600 text-white" onClick={() => updateStatus(user.id, 'ACTIVE')}>활성화</button>}
-                        {user.status === 'ACTIVE' && (user.role === 'ADMIN' ? <button type="button" className="border border-slate-300 text-slate-600" onClick={() => setPendingChange({ id: user.id, action: 'role/user', label: '관리자 권한 회수' })}>권한 회수</button> : <button type="button" className="border border-teal-200 text-teal-700" onClick={() => setPendingChange({ id: user.id, action: 'role/admin', label: '관리자 권한 부여' })}>관리자 부여</button>)}
-                      </>}
-                    </div></td>
-                  </tr>
+                  <span key={column.key} className={`${place.className} truncate`} style={place.style}>
+                    {column.label}
+                  </span>
                 )
               })}
-            </tbody>
-          </table>
-        </div>
+            </div>
 
-        <div className="mt-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3 text-sm text-slate-500">
-            <span>총 <strong className="text-slate-800">{totalElements}</strong>명</span>
-            <label className="flex items-center gap-2">페이지당
-              <select className="h-9 rounded-lg border border-slate-200 bg-white px-2" value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(0) }}>
-                <option value={20}>20명</option><option value={50}>50명</option><option value={100}>100명</option>
-              </select>
-            </label>
-          </div>
-          <nav className="flex items-center justify-end gap-1" aria-label="회원 목록 페이지">
-            <button type="button" disabled={page === 0} className="h-9 rounded-lg border border-slate-200 px-3 text-sm font-bold text-slate-600 disabled:cursor-not-allowed disabled:opacity-40" onClick={() => setPage((current) => current - 1)}>이전</button>
-            {pageNumbers.map((pageNumber) => <button type="button" key={pageNumber} aria-current={page === pageNumber ? 'page' : undefined} className={`size-9 rounded-lg text-sm font-bold ${page === pageNumber ? 'bg-slate-800 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'}`} onClick={() => setPage(pageNumber)}>{pageNumber + 1}</button>)}
-            <button type="button" disabled={page + 1 >= totalPages} className="h-9 rounded-lg border border-slate-200 px-3 text-sm font-bold text-slate-600 disabled:cursor-not-allowed disabled:opacity-40" onClick={() => setPage((current) => current + 1)}>다음</button>
-          </nav>
-        </div>
+            {activitiesLoading && activities.length === 0 && (
+              <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-4">관리자 활동 로그를 불러오는 중입니다…</p>
+            )}
+            {!activitiesLoading && activitiesError && activities.length === 0 && (
+              <div className="px-[22px] py-10 text-center">
+                <p className="text-[12.5px] text-danger">{activitiesError}</p>
+                <button type="button" className={`${BTN_SM_SECONDARY} mt-3`} onClick={() => void loadActivities()}>다시 시도</button>
+              </div>
+            )}
+            {!activitiesLoading && !activitiesError && activities.length === 0 && (
+              <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-4">기록된 관리자 활동이 없습니다.</p>
+            )}
 
-        <section className="mt-10" aria-labelledby="activity-title">
-          <p className="text-sm font-bold text-teal-600">감사 기록</p>
-          <h2 id="activity-title" className="mt-1 text-2xl font-bold">관리자 활동 로그</h2>
-          <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-            {activitiesLoading && activities.length === 0 && <p className="p-8 text-center text-sm text-slate-400">관리자 활동 로그를 불러오는 중입니다…</p>}
-            {!activitiesLoading && activitiesError && activities.length === 0 && <div className="p-8 text-center"><p className="text-sm text-rose-600">{activitiesError}</p><button type="button" className="mt-3 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600" onClick={() => void loadActivities()}>다시 시도</button></div>}
-            {!activitiesLoading && !activitiesError && activities.length === 0 && <p className="p-8 text-center text-sm text-slate-400">기록된 관리자 활동이 없습니다.</p>}
             {activities.map((activity) => (
-              <div key={activity.id} className="flex flex-col gap-1 border-b border-slate-100 px-5 py-4 last:border-0 sm:flex-row sm:items-center sm:justify-between">
-                <div><strong className="text-sm">{activity.message}</strong><p className="mt-1 text-xs text-slate-400">관리자 #{activity.actorAdminId} · 대상 회원 #{activity.targetMemberId} · {activity.activityType}</p></div>
-                <time className="text-xs text-slate-400">{new Date(activity.createdAt).toLocaleString('ko-KR')}</time>
+              <div key={activity.id} className="flex h-11 w-full items-center gap-3 border-b border-line-row px-[22px]">
+                {ACTIVITY_COLUMNS.map((column) => {
+                  const place = columnStyle(column)
+                  return (
+                    <span key={column.key} className={place.className} style={place.style}>
+                      <ActivityCell column={column.key} activity={activity} />
+                    </span>
+                  )
+                })}
               </div>
             ))}
+
+            {activitiesError && activities.length > 0 && (
+              <p className="mx-[22px] mt-3 rounded-pop border border-danger-btn-edge bg-danger-wash px-4 py-2.5 text-center text-[12.5px] text-danger">{activitiesError}</p>
+            )}
+            {nextCursor && (
+              <div className="px-[22px] py-4">
+                <button type="button" disabled={activitiesLoading} className={`${BTN_SM_SECONDARY} h-10 w-full`} onClick={() => void loadActivities(nextCursor)}>
+                  {activitiesLoading ? '불러오는 중…' : '활동 더 보기'}
+                </button>
+              </div>
+            )}
           </div>
-          {activitiesError && activities.length > 0 && <p className="mt-3 rounded-xl bg-rose-50 p-3 text-center text-sm text-rose-700">{activitiesError}</p>}
-          {nextCursor && <button type="button" disabled={activitiesLoading} className="mt-3 w-full rounded-xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-600 disabled:cursor-wait disabled:opacity-60" onClick={() => void loadActivities(nextCursor)}>{activitiesLoading ? '불러오는 중…' : '활동 더 보기'}</button>}
-        </section>
+        )}
       </section>
 
       {pendingChange && (
@@ -352,10 +660,137 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
           danger={pendingChange.action === 'deactivate' || pendingChange.action === 'reject'}
           busy={changingStatus}
           busyLabel="처리 중…"
+          error={changeError}
           onConfirm={applyStatusChange}
-          onCancel={() => setPendingChange(null)}
+          onCancel={() => { setPendingChange(null); setChangeError('') }}
         />
       )}
     </main>
+  )
+}
+
+/** 열 하나의 값 — 열 구성과 같은 순서로 돌기 때문에 머리와 줄이 어긋나지 않는다 */
+function Cell({ column, user }: { column: ColumnKey; user: ManagedUser }) {
+  if (column === 'name') {
+    return (
+      <span className="flex items-center gap-2.5">
+        <UserAvatar name={user.name} className="size-[30px] text-[11.5px]" />
+        <span className="truncate text-[13px] font-semibold text-ink">{user.name}</span>
+      </span>
+    )
+  }
+  if (column === 'email') return <span className="block truncate font-mono text-[11.5px] text-ink-3">{user.email}</span>
+  if (column === 'role') {
+    return <span className="block truncate font-mono text-[11px] font-semibold tracking-[.06em] text-ink-3">{user.role}</span>
+  }
+  if (column === 'status') {
+    return (
+      <span className={`inline-flex rounded-chip px-2 py-0.5 text-[10.5px] font-semibold ${STATUS_TONE[user.status]}`}>
+        {STATUS_LABEL[user.status]}
+      </span>
+    )
+  }
+  return <span className="block truncate text-[12.5px] text-ink-3">{user[column]}</span>
+}
+
+/** 활동 로그 한 칸 */
+function ActivityCell({ column, activity }: { column: ActivityColumnKey; activity: AdminActivity }) {
+  if (column === 'createdAt') {
+    return <span className="block truncate font-mono text-[11.5px] text-ink-3">{new Date(activity.createdAt).toLocaleString('ko-KR')}</span>
+  }
+  if (column === 'activityType') {
+    return (
+      <span className="inline-flex max-w-full truncate rounded-chip border border-line-field bg-hover px-2 py-0.5 text-[10.5px] font-semibold text-ink-2">
+        {ACTIVITY_LABEL[activity.activityType] ?? activity.activityType}
+      </span>
+    )
+  }
+  // 응답이 id 만 주므로 id 만 보여 준다 — 이름을 함께 세우려면 응답에 이름이 실려야 한다
+  if (column === 'actor') return <span className="block truncate font-mono text-[11.5px] text-ink-3">#{activity.actorAdminId}</span>
+  if (column === 'target') return <span className="block truncate font-mono text-[11.5px] text-ink-3">#{activity.targetMemberId}</span>
+  return <span className="block truncate text-[12.5px] text-ink-2">{activity.message}</span>
+}
+
+/** 열 이름이 곧 정렬 버튼이다 — 같은 열을 다시 누르면 방향이 뒤집힌다 */
+function SortHeader(props: {
+  field: SortField
+  label: string
+  sort: { field: SortField; direction: SortDirection }
+  onSort: (field: SortField) => void
+  className?: string
+  style?: { width?: number }
+}) {
+  const active = props.sort.field === props.field
+  const nextDirection = active && props.sort.direction === 'ASC' ? '내림차순' : '오름차순'
+  return (
+    <button
+      type="button"
+      onClick={() => props.onSort(props.field)}
+      title={`${props.label} ${nextDirection} 정렬`}
+      aria-label={`${props.label} ${nextDirection} 정렬`}
+      style={props.style}
+      className={`flex items-center gap-1 text-left transition-colors hover:text-ink-2 ${active ? 'text-teal-text' : ''} ${props.className ?? ''}`}
+    >
+      <span className="truncate">{props.label}</span>
+      {/* 켜진 열에만 방향을 표시한다 — 나머지 열까지 표를 채우면 이름이 묻힌다 */}
+      {active && (
+        <svg viewBox="0 0 24 24" className="size-3 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          {props.sort.direction === 'ASC' ? <path d="M12 19V5M6 11l6-6 6 6" /> : <path d="M12 5v14M18 13l-6 6-6-6" />}
+        </svg>
+      )}
+    </button>
+  )
+}
+
+/** 상세 한 줄 — 라벨과 값의 자리. 고칠 수 없는 값(아이디)은 이것만 쓴다. */
+function ValueRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 border-b border-line-row py-2">
+      <dt className="w-[78px] shrink-0 text-[11.5px] text-ink-4">{label}</dt>
+      <dd className="min-w-0 flex-1">{children}</dd>
+    </div>
+  )
+}
+
+/** 읽을 때는 값만 보이고 고칠 때만 입력칸이 된다 — 상자가 늘 서 있으면 읽기가 어렵다 */
+function Field(props: { label: string; value: string; editing: boolean; mono?: boolean; onChange: (v: string) => void }) {
+  return (
+    <ValueRow label={props.label}>
+      {props.editing ? (
+        // 라벨은 dt 에 있어 입력칸과 이어지지 않는다 — 화면 낭독기가 이름을 읽도록 같은 문구를 붙인다
+        <input aria-label={props.label} value={props.value} onChange={(e) => props.onChange(e.target.value)} className={FIELD} />
+      ) : (
+        <span className={`block truncate text-[13px] text-ink-2 ${props.mono ? 'font-mono' : ''}`}>{props.value}</span>
+      )}
+    </ValueRow>
+  )
+}
+
+/** 값이 목록에 없을 수 있다(백엔드에 새 값이 생긴 경우) — 그 값도 고를 수 있게 함께 세운다 */
+function SelectField(props: {
+  label: string
+  value: string
+  options: readonly string[]
+  editing: boolean
+  onChange: (v: string) => void
+}) {
+  return (
+    <ValueRow label={props.label}>
+      {props.editing ? (
+        <select
+          aria-label={props.label}
+          value={props.value}
+          onChange={(e) => props.onChange(e.target.value)}
+          className={FIELD_SELECT}
+        >
+          {!isKnownValue(props.options, props.value) && <option value={props.value} disabled>{props.value}</option>}
+          {props.options.map((value) => (
+            <option key={value}>{value}</option>
+          ))}
+        </select>
+      ) : (
+        <span className="block truncate text-[13px] text-ink-2">{props.value}</span>
+      )}
+    </ValueRow>
   )
 }

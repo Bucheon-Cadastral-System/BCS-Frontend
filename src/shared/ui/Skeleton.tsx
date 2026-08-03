@@ -1,6 +1,6 @@
 /** 로딩 자리표시 막대. 밝은 배경·어두운 배경 양쪽에서 보이게 중립 회색 반투명을 쓴다. */
 export function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse rounded bg-gray-400/25 ${className}`} aria-hidden="true" />
+  return <div className={`animate-pulse rounded bg-[rgba(143,168,173,.18)] ${className}`} aria-hidden="true" />
 }
 
 /** 목록 자리표시 — 아이콘 + 두 줄 텍스트 형태의 행을 rows개 그린다. */

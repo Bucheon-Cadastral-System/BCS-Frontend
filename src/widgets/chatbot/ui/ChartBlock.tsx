@@ -79,7 +79,7 @@ export function ChartBlock({ json }: { json: string }) {
   }, [spec])
 
   if (!spec) {
-    return <pre className="my-1 overflow-x-auto rounded bg-black/10 p-2 text-xs dark:bg-white/10">{json.trim()}</pre>
+    return <pre className="my-1 overflow-x-auto rounded bg-soft p-2 text-xs text-ink-3">{json.trim()}</pre>
   }
 
   // 차트 캔버스를 흰 배경 PNG로 저장(상하 여백 추가)
@@ -109,14 +109,14 @@ export function ChartBlock({ json }: { json: string }) {
       .join(' / ')
 
   return (
-    <div className="group relative my-1 rounded-lg border border-gray-200 bg-white p-2 dark:border-gray-700 dark:bg-gray-800" style={{ height: 200 }}>
+    <div className="group relative my-1 rounded-ctl border border-line-soft bg-soft p-2" style={{ height: 200 }}>
       <canvas ref={canvasRef} role="img" aria-label={summary} />
       <button
         type="button"
         onClick={download}
         aria-label="차트 이미지 저장"
         title="차트 이미지 저장"
-        className="absolute right-1.5 top-1.5 rounded-md bg-white/80 p-1 text-gray-400 opacity-0 shadow-sm transition-opacity hover:text-gray-700 group-hover:opacity-100 focus-visible:opacity-100 dark:bg-gray-900/70 dark:hover:text-gray-200"
+        className="absolute right-1.5 top-1.5 rounded-chip bg-pill p-1 text-ink-4 transition-opacity hover:text-ink-2 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:hover)]:opacity-0"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />

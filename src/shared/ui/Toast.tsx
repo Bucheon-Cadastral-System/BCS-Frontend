@@ -57,13 +57,13 @@ export function Toast(props: {
   const C = 2 * Math.PI * R // 링 둘레
   const tone = props.tone ?? 'info'
   // 실패는 눈에 띄어야 하고, 성공·안내는 지도 위에서 과하지 않게 기본 톤을 쓴다
-  const toneRing = tone === 'error' ? 'ring-red-400/40' : tone === 'success' ? 'ring-blue-400/40' : 'ring-white/10'
+  const toneRing = tone === 'error' ? 'border-danger-edge' : tone === 'success' ? 'border-teal-edge' : 'border-line-pill'
 
   return (
     <div
       role="status"
       aria-live={tone === 'error' ? 'assertive' : 'polite'}
-      className={`fixed bottom-6 left-1/2 z-50 flex max-w-[90vw] items-center gap-2 rounded-full bg-gray-900 py-2 pl-4 pr-2 text-[13px] text-white shadow-xl ring-1 ${toneRing}`}
+      className={`fixed bottom-6 left-1/2 z-50 flex max-w-[90vw] items-center gap-2 rounded-pill border bg-pill py-2 pl-4 pr-2 text-[12.5px] text-ink shadow-pill backdrop-blur-[10px] ${toneRing}`}
       style={{
         transform: `translateX(-50%) translateY(${visible ? '0px' : '24px'})`,
         opacity: visible ? 1 : 0,
@@ -77,7 +77,7 @@ export function Toast(props: {
           onClick={close}
           aria-label="알림 닫기"
           title="닫기"
-          className="flex h-9 w-9 items-center justify-center rounded-full text-gray-300 hover:bg-white/10"
+          className="flex size-9 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-hover hover:text-ink"
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden="true">
             <path d="M18 6 6 18M6 6l12 12" />
@@ -89,11 +89,11 @@ export function Toast(props: {
         onClick={handleUndo}
         aria-label={props.actionLabel}
         title={props.actionLabel}
-        className="relative flex h-9 w-9 items-center justify-center rounded-full text-blue-300 hover:bg-white/10"
+        className="relative flex size-9 items-center justify-center rounded-full text-teal-text transition-colors hover:bg-hover"
       >
         {/* 링 게이지 (카운트다운) */}
         <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
-          <circle cx="18" cy="18" r={R} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="2.5" />
+          <circle cx="18" cy="18" r={R} fill="none" className="stroke-track" strokeWidth="2.5" />
           <circle
             cx="18"
             cy="18"

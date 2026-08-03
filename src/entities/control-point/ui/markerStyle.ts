@@ -16,16 +16,17 @@ interface Palette {
   labelHalo: string // 이름 후광
 }
 
+// 마커는 라이트·다크 모두 흰 칩을 유지한다(지도 위 대비). 조사완료는 화면 강조색인 청록, 망실은 붉은색,
+// 선택은 밝은 청록 링으로 나타낸다. 라벨만 테마에 따라 밝기를 바꾼다.
 const PALETTE: Record<MapTheme, Palette> = {
-  light: { paper: '#ffffff', ink: '#111827', aux: '#4b5563', lost: '#dc2626', sel: '#f59e0b', done: '#2563eb', label: '#111827', labelHalo: '#ffffff' },
-  // 다크맵에서도 마커는 흰 칩 유지(대비 위해). 완료=초록(파랑은 다크맵과 뭉개짐), 라벨만 밝게.
-  dark: { paper: '#ffffff', ink: '#111827', aux: '#4b5563', lost: '#dc2626', sel: '#f59e0b', done: '#22c55e', label: '#f8fafc', labelHalo: '#0f172a' },
+  light: { paper: '#ffffff', ink: '#16302C', aux: '#4D6963', lost: '#A6402F', sel: '#23A88F', done: '#0E6B5C', label: '#16302C', labelHalo: '#ffffff' },
+  dark: { paper: '#ffffff', ink: '#16302C', aux: '#4D6963', lost: '#A6402F', sel: '#38B8A0', done: '#23A88F', label: '#E6EFF1', labelHalo: '#04080A' },
 }
 
 /**
  * 지적기준점 공식 도식 마커 (36x36 · 중심 18,18). 라이트/다크 팔레트 대응.
  * 삼각점=크로스헤어 원(⊕) / 삼각보조점=채운 원(●) / 도근점=작은 빈 원(○).
- * 후광(paper)로 배경 대비, 선택=주황 링, 망실=빨강+빨간 X 뱃지, 조사완료=파란 V 뱃지.
+ * 후광(paper)로 배경 대비, 선택=청록 링, 망실=빨강+빨간 X 뱃지, 조사완료=청록 V 뱃지.
  */
 function svgFor(type: PointType, selected: boolean, lost: boolean, done: boolean, p: Palette): string {
   // 조사 결과를 도식 선 색으로도 보여 준다 — 뱃지는 작아서 줌아웃에서는 잘 안 보인다. 망실 판정이 먼저.

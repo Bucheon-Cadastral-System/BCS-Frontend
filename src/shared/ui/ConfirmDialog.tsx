@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { useDialogBehavior } from '@/shared/lib/useDialogBehavior'
+import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY, MODAL_SHELL } from './classes'
 
 /**
  * 실행 전 한 번 묻는 확인 대화상자. Esc·배경클릭=취소.
@@ -7,7 +8,8 @@ import { useDialogBehavior } from '@/shared/lib/useDialogBehavior'
  */
 export function ConfirmDialog(props: {
   message: string
-  detail?: string
+  /** 실행이 실패한 이유 — 창을 닫지 않고 이 자리에서 알린다. 뒤쪽 화면에 띄우면 배경 딤에 가려 보이지 않는다. */
+  error?: string
   confirmLabel?: string
   cancelLabel?: string
   danger?: boolean
@@ -33,17 +35,21 @@ export function ConfirmDialog(props: {
       aria-labelledby="confirm-dialog-message"
       onClick={close}
     >
-      <div ref={panelRef} className="w-full max-w-xs rounded-xl bg-white p-5 shadow-2xl dark:bg-gray-800" onClick={(e) => e.stopPropagation()}>
-        <p id="confirm-dialog-message" className="text-center text-[14px] font-medium text-gray-900 dark:text-gray-100">
+      <div ref={panelRef} className={`panel-in w-[320px] max-w-full p-5 ${MODAL_SHELL}`} onClick={(e) => e.stopPropagation()}>
+        <p id="confirm-dialog-message" className="text-center text-[13.5px] font-medium text-ink">
           {props.message}
         </p>
-        {props.detail && <p className="mt-1 text-center text-[12px] text-gray-500 dark:text-gray-400">{props.detail}</p>}
+        {props.error && (
+          <p className="mt-2.5 rounded-chip bg-danger-wash px-2.5 py-1.5 text-center text-[11.5px] text-danger" role="alert">
+            {props.error}
+          </p>
+        )}
         <div className="mt-4 flex gap-2">
           <button
             ref={cancelRef}
             type="button"
             disabled={busy}
-            className="flex-1 rounded-md border border-gray-300 bg-white py-2 text-[13px] text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+            className={`${BTN_SM_SECONDARY} flex-1 disabled:cursor-not-allowed`}
             onClick={props.onCancel}
           >
             {props.cancelLabel ?? '아니오'}
@@ -52,9 +58,7 @@ export function ConfirmDialog(props: {
             ref={confirmRef}
             type="button"
             disabled={busy}
-            className={`flex-1 rounded-md py-2 text-[13px] font-medium text-white ${
-              danger ? 'border border-red-600 bg-red-600 hover:bg-red-500' : 'border border-blue-600 bg-blue-600 hover:bg-blue-500'
-            } disabled:cursor-wait disabled:opacity-60`}
+            className={`${danger ? BTN_SM_DANGER : BTN_SM_PRIMARY} flex-1 disabled:cursor-wait`}
             onClick={props.onConfirm}
           >
             {busy ? (props.busyLabel ?? '처리 중…') : (props.confirmLabel ?? '예')}

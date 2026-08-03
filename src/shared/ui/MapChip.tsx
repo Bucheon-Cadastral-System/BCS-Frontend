@@ -22,8 +22,8 @@ export function MapChip(props: {
   const active = props.accent === 'active'
   return (
     <div
-      className={`relative flex max-w-[360px] items-center rounded-xl border bg-white/95 shadow-lg backdrop-blur dark:bg-gray-800/95 ${
-        active ? 'border-blue-300 dark:border-blue-500/60' : 'border-gray-200 dark:border-gray-700'
+      className={`relative flex w-full items-center rounded-pop border bg-pill shadow-pill backdrop-blur-[10px] ${
+        active ? 'border-teal-edge' : 'border-line-pill'
       }`}
     >
       <button
@@ -32,16 +32,16 @@ export function MapChip(props: {
         title={props.title}
         aria-expanded={props['aria-expanded']}
         // 오른쪽 동작 버튼은 자리를 차지하지 않고 겹쳐 있으므로, 글자가 그 밑에 깔리지 않게 여백으로 자리를 비운다
-        className={`flex min-w-0 flex-1 items-center gap-3 rounded-xl py-2.5 pl-3.5 transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.06] ${
+        className={`flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-pop pl-3.5 transition-colors hover:bg-white/[0.04] ${
           props.action ? 'pr-11' : 'pr-4'
         }`}
       >
         {props.leading}
         <span className="min-w-0 text-left">
-          <span className="block text-[11px] font-medium leading-tight text-gray-500 dark:text-gray-400">
+          <span className="block text-[10px] font-medium leading-tight text-ink-4">
             {props.label}
           </span>
-          <span className="block truncate text-[15px] font-semibold leading-snug text-gray-900 dark:text-gray-100">
+          <span className="block truncate text-[12.5px] font-semibold leading-snug text-ink">
             {props.value}
           </span>
         </span>

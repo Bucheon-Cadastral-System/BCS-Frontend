@@ -22,7 +22,7 @@ export function ActionBlock({ json, onAction }: { json: string; onAction?: (acti
     <button
       type="button"
       onClick={() => onAction?.(action)}
-      className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-blue-500/40 bg-blue-500/5 px-3 py-1.5 text-[13px] font-medium text-blue-600 transition-colors hover:bg-blue-500/10 dark:border-blue-400/40 dark:text-blue-400"
+      className="mt-1 inline-flex items-center gap-1.5 rounded-chip border border-teal-edge bg-teal-wash px-3 py-1.5 text-[13px] font-medium text-teal-text transition-colors hover:bg-teal-wash-strong"
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
         <path d="M7 17 17 7" />

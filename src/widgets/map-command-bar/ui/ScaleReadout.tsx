@@ -2,18 +2,16 @@ import { useEffect, useRef, useState } from 'react'
 import type Map from 'ol/Map'
 import ScaleLine from 'ol/control/ScaleLine'
 import { getPointResolution } from 'ol/proj'
-import { STATUS_CHIP } from './chip'
-
 /** 축척 비율(1:N)은 '화면 1픽셀이 실제 몇 m인가'를 인치/DPI로 환산해 구한다 */
 const DPI = 96
 const INCH_IN_METERS = 0.0254
 
 /**
- * 축척 — 막대(미터)와 비율(1:N)을 한 칩에 담는다.
+ * 축척 — 비율(1:N)과 막대(미터)를 커맨드 바 한 칸에 담는다.
  * OL 의 ScaleLine 을 지도 기본 컨트롤로 두면 지도 구석에 따로 떠서 비율과 떨어지므로,
  * target 으로 이 칩 안에 심고 위치·색은 App.css 의 `.bcs-scale-host` 규칙에서 맞춘다.
  */
-export function ScaleBar(props: { map: Map | null }) {
+export function ScaleReadout(props: { map: Map | null }) {
   const { map } = props
   const hostRef = useRef<HTMLDivElement>(null)
   const [denominator, setDenominator] = useState<number | null>(null)
@@ -51,9 +49,11 @@ export function ScaleBar(props: { map: Map | null }) {
   }, [map])
 
   return (
-    <div className={STATUS_CHIP}>
-      <span className="font-semibold tabular-nums">{denominator ? `1:${denominator.toLocaleString('ko-KR')}` : '—'}</span>
-      <span className="text-gray-300 dark:text-gray-600">|</span>
+    // 막대 길이는 축척에 따라 달라진다 — 칸을 내용에 맞춰 두어 카드가 함께 늘고 줄게 한다
+    <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
+      <span className="shrink-0 font-mono text-[12px] font-semibold text-ink">
+        {denominator ? `1:${denominator.toLocaleString('ko-KR')}` : '—'}
+      </span>
       <div ref={hostRef} className="bcs-scale-host" />
     </div>
   )

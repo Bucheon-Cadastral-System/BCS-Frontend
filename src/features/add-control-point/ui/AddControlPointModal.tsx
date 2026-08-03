@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useEffectEvent, useState } from 'react'
 import { POINT_TYPES } from '@/entities/control-point'
 import type { PointType } from '@/entities/control-point'
 import { TM_ORIGINS, tmToWgs84 } from '@/shared/lib/crs'
 import type { TmEpsg } from '@/shared/lib/crs'
 import { MODAL_CANCEL_BTN, MODAL_INPUT, MODAL_SELECT, MODAL_SUBMIT_BTN, Modal, ModalField } from '@/shared/ui/Modal'
+import { FormNotice } from '@/shared/ui/FormNotice'
+import { useFormNotice } from '@/shared/lib/useFormNotice'
 
 export interface AddControlPointValues {
   pointNo: string
@@ -43,11 +45,15 @@ export function AddControlPointModal(props: {
   const [tmEpsg, setTmEpsg] = useState<TmEpsg>(props.defaultEpsg)
   const [northing, setNorthing] = useState('')
   const [easting, setEasting] = useState('')
+  const form = useFormNotice()
 
   // 지도에서 찍어 오면 좌표만 갱신 — 모달은 마운트를 유지하므로 관리번호·이름 등 입력값은 그대로 남는다
   const picked = props.picked
+  const clearNotice = useEffectEvent(() => form.clear())
   useEffect(() => {
     if (!picked) return
+    // 값이 코드로 바뀌면 입력 이벤트가 나지 않아 문구가 저절로 거두어지지 않는다
+    clearNotice()
     setNorthing(picked.northing.toFixed(2))
     setEasting(picked.easting.toFixed(2))
     setTmEpsg(picked.epsg) // 좌표와 원점이 어긋나면 저장되는 경위도가 찍은 위치와 달라진다
@@ -59,10 +65,14 @@ export function AddControlPointModal(props: {
   const coordsValid = northing.trim() !== '' && easting.trim() !== '' && Number.isFinite(n) && Number.isFinite(e)
   // 경위도는 TM에서 한 방향으로만 파생한다(따로 수정하면 두 값이 어긋나 권위가 모호해진다)
   const geo = coordsValid ? tmToWgs84(e, n, tmEpsg) : null
-  const canSubmit = pointNo.trim() !== '' && name.trim() !== '' && geo !== null && !props.submitting
-
   function submit() {
-    if (!canSubmit || !geo) return
+    if (props.submitting) return
+    // 못 채운 칸은 창 안에서 알린다 — 브라우저 기본 말풍선은 우리 규격 밖에서 그려진다
+    if (!form.validate()) return
+    if (!geo) {
+      form.fail('좌표를 숫자로 입력해 주세요.')
+      return
+    }
     props.onSubmit({
       pointNo: pointNo.trim(),
       name: name.trim(),
@@ -83,12 +93,16 @@ export function AddControlPointModal(props: {
       hidden={props.picking}
       onClose={props.onCancel}
       onSubmit={submit}
+      formRef={form.formRef}
       footer={
         <>
           <button type="button" className={MODAL_CANCEL_BTN} onClick={props.onCancel} disabled={props.submitting}>
             취소
           </button>
-          <button type="submit" className={MODAL_SUBMIT_BTN} disabled={!canSubmit}>
+          <span className="ml-auto flex min-w-0 items-center">
+            <FormNotice message={form.notice} />
+          </span>
+          <button type="submit" className={MODAL_SUBMIT_BTN} disabled={props.submitting}>
             {props.submitting ? '등록 중…' : '등록'}
           </button>
         </>
@@ -134,7 +148,7 @@ export function AddControlPointModal(props: {
       <button
         type="button"
         onClick={props.onPick}
-        className="flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-300 bg-white py-1.5 text-[13px] text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+        className={`${MODAL_CANCEL_BTN} w-full`}
       >
         <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M12 21s-6-5.686-6-10a6 6 0 1 1 12 0c0 4.314-6 10-6 10Z" />
@@ -143,7 +157,7 @@ export function AddControlPointModal(props: {
         지도에서 위치 찍기
       </button>
 
-      <div className="rounded-md bg-gray-50 px-3 py-2 text-[12px] text-gray-600 dark:bg-gray-900/40 dark:text-gray-400">
+      <div className="rounded-ctl border border-line-soft bg-soft px-3 py-2 text-[11.5px] text-ink-3">
         <span className="font-medium">경위도(자동 계산)</span>
         <span className="ml-2 tabular-nums">
           {geo ? `${geo.lng.toFixed(6)}, ${geo.lat.toFixed(6)}` : '좌표를 입력하거나 지도에서 찍어 주세요'}
