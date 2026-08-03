@@ -26,6 +26,18 @@ function actionLabelOf(from: UserStatus, to: UserStatus): string {
   return '상태 변경'
 }
 
+function validateMemberDraft(member: ManagedUser): string | null {
+  const name = member.name.trim()
+  const email = member.email.trim()
+  const department = member.department.trim()
+
+  if (name.length < 2 || name.length > 20) return '이름은 2자 이상 20자 이하로 입력해 주세요.'
+  if (!/^01[016789]\d{7,8}$/.test(member.phone)) return '전화번호는 하이픈 없이 올바른 휴대전화 번호로 입력해 주세요.'
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return '올바른 이메일 주소를 입력해 주세요.'
+  if (department.length > 50) return '소속 과는 50자 이하로 입력해 주세요.'
+  return null
+}
+
 export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
   const [users, setUsers] = useState<ManagedUser[]>([])
   const [loading, setLoading] = useState(true)
@@ -37,6 +49,7 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
   const [sort, setSort] = useState<{ field: SortField; direction: SortDirection }>({ field: 'name', direction: 'ASC' })
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState<ManagedUser | null>(null)
+  const [saving, setSaving] = useState(false)
   const [pendingChange, setPendingChange] = useState<{ id: string; action: AdminMemberAction; status?: UserStatus; label: string } | null>(null)
 
   const loadActivities = async (cursor?: string) => {
@@ -127,19 +140,39 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
   }
 
   const startEditing = (user: ManagedUser) => {
+    setError('')
     setEditingId(user.id)
     setDraft({ ...user })
   }
 
   const saveEditing = async () => {
-    if (!draft) return
+    if (!draft || saving) return
+    const validationError = validateMemberDraft(draft)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    const normalizedDraft = {
+      ...draft,
+      name: draft.name.trim(),
+      email: draft.email.trim(),
+      department: draft.department.trim(),
+    }
+
+    setSaving(true)
+    setError('')
     try {
-      await updateAdminMember(draft)
-      setUsers(users.map((user) => user.id === draft.id ? draft : user))
+      await updateAdminMember(normalizedDraft)
+      setUsers(users.map((user) => user.id === normalizedDraft.id ? normalizedDraft : user))
       setEditingId(null)
       setDraft(null)
       await loadActivities()
-    } catch (e) { setError(e instanceof Error ? e.message : '회원 정보를 수정하지 못했습니다.') }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '회원 정보를 수정하지 못했습니다.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -225,7 +258,7 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
                     <td className="px-3 py-3 text-xs font-bold text-slate-500">{current.role}</td>
                     <td className="px-3 py-3"><span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${current.status === 'PENDING' ? 'bg-amber-50 text-amber-700' : current.status === 'ACTIVE' ? 'bg-teal-50 text-teal-700' : 'bg-slate-100 text-slate-500'}`}>{STATUS_LABEL[current.status]}</span></td>
                     <td className="px-4 py-3"><div className="flex justify-end gap-1.5 [&_button]:h-8 [&_button]:whitespace-nowrap [&_button]:rounded-md [&_button]:px-2.5 [&_button]:text-xs [&_button]:font-bold">
-                      {isEditing ? <><button type="button" className="border border-slate-200 text-slate-600" onClick={() => { setEditingId(null); setDraft(null) }}>취소</button><button type="button" className="bg-teal-600 text-white" onClick={saveEditing}>저장</button></> : <>
+                      {isEditing ? <><button type="button" disabled={saving} className="border border-slate-200 text-slate-600 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => { setEditingId(null); setDraft(null) }}>취소</button><button type="button" disabled={saving} className="bg-teal-600 text-white disabled:cursor-wait disabled:opacity-60" onClick={saveEditing}>{saving ? '저장 중…' : '저장'}</button></> : <>
                         <button type="button" className="border border-slate-200 text-slate-600" onClick={() => startEditing(user)}>수정</button>
                         {user.status === 'PENDING' && <><button type="button" className="border border-rose-200 text-rose-600" onClick={() => setPendingChange({ id: user.id, action: 'reject', label: '가입 거절' })}>거절</button><button type="button" className="bg-teal-600 text-white" onClick={() => updateStatus(user.id, 'ACTIVE')}>승인</button></>}
                         {user.status === 'ACTIVE' && <button type="button" className="bg-slate-700 text-white" onClick={() => updateStatus(user.id, 'INACTIVE')}>비활성</button>}
