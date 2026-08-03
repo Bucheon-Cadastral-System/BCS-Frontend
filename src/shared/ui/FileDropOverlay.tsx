@@ -5,10 +5,10 @@
 export function FileDropOverlay(props: { label?: string; hint?: string }) {
   return (
     // 배경을 충분히 가려야 안내가 읽힌다 — 지도·목록 위에 옅게 덮으면 글자가 묻힌다
-    <div className="pointer-events-none fixed inset-0 z-[60] flex flex-col items-center justify-center gap-3 border-2 border-dashed border-blue-400 bg-gray-900/70 backdrop-blur-md">
+    <div className="pointer-events-none fixed inset-0 z-[60] flex flex-col items-center justify-center gap-3 border-2 border-dashed border-teal bg-[rgba(4,9,11,.72)] backdrop-blur-md">
       <svg
         viewBox="0 0 24 24"
-        className="size-12 text-blue-300"
+        className="size-12 text-teal-text"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.5"
@@ -20,10 +20,10 @@ export function FileDropOverlay(props: { label?: string; hint?: string }) {
         <path d="m7 9 5-5 5 5" />
         <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
       </svg>
-      <span className="text-[15px] font-semibold text-white drop-shadow">
+      <span className="text-[15px] font-semibold text-[#EAF6F3] drop-shadow">
         {props.label ?? '놓으면 파일을 읽습니다'}
       </span>
-      {props.hint && <span className="text-[12px] text-blue-100/80">{props.hint}</span>}
+      {props.hint && <span className="font-mono text-[12px] text-ink-3">{props.hint}</span>}
     </div>
   )
 }

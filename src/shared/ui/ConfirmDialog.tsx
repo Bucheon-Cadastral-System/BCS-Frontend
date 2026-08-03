@@ -29,16 +29,16 @@ export function ConfirmDialog(props: {
       aria-labelledby="confirm-dialog-message"
       onClick={props.onCancel}
     >
-      <div ref={panelRef} className="w-full max-w-xs rounded-xl bg-white p-5 shadow-2xl dark:bg-gray-800" onClick={(e) => e.stopPropagation()}>
-        <p id="confirm-dialog-message" className="text-center text-[14px] font-medium text-gray-900 dark:text-gray-100">
+      <div ref={panelRef} className="panel-in w-[320px] max-w-full rounded-pill border border-line bg-panel-strong p-5 shadow-modal backdrop-blur-[14px]" onClick={(e) => e.stopPropagation()}>
+        <p id="confirm-dialog-message" className="text-center text-[13.5px] font-medium text-ink">
           {props.message}
         </p>
-        {props.detail && <p className="mt-1 text-center text-[12px] text-gray-500 dark:text-gray-400">{props.detail}</p>}
+        {props.detail && <p className="mt-1.5 text-center text-[11.5px] text-ink-4">{props.detail}</p>}
         <div className="mt-4 flex gap-2">
           <button
             ref={cancelRef}
             type="button"
-            className="flex-1 rounded-md border border-gray-300 bg-white py-2 text-[13px] text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+            className="h-9 flex-1 rounded-ctl border-[1.5px] border-line-btn text-[12.5px] font-semibold text-ink-2 transition-colors hover:bg-hover"
             onClick={props.onCancel}
           >
             {props.cancelLabel ?? '아니오'}
@@ -46,8 +46,10 @@ export function ConfirmDialog(props: {
           <button
             ref={confirmRef}
             type="button"
-            className={`flex-1 rounded-md py-2 text-[13px] font-medium text-white ${
-              danger ? 'border border-red-600 bg-red-600 hover:bg-red-500' : 'border border-blue-600 bg-blue-600 hover:bg-blue-500'
+            className={`h-9 flex-1 rounded-ctl border-[1.5px] text-[12.5px] font-semibold transition-colors ${
+              danger
+                ? 'border-danger-edge bg-danger-wash text-danger hover:bg-danger-wash-strong'
+                : 'border-teal-btn-edge bg-teal-wash text-teal-label hover:border-teal-text hover:bg-teal-wash-strong'
             }`}
             onClick={props.onConfirm}
           >
