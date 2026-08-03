@@ -10,6 +10,7 @@ import { InactivePage } from '@/pages/inactive'
 import { MapPage } from '@/pages/map'
 import { WaitingPage } from '@/pages/waiting'
 import { exchangeOAuthCode, refreshAccessToken, startKakaoLogin } from '@/shared/api/auth'
+import { subscribeAuthenticationLost } from '@/shared/api/tokenStore'
 
 type AuthState = { loading: boolean; profile: UserProfile | null }
 
@@ -111,6 +112,10 @@ function AppRoutes() {
   useEffect(() => {
     refreshAccessToken().then((token) => token ? reloadProfile() : (setAuth({ loading: false, profile: null }), null))
   }, [reloadProfile])
+
+  useEffect(() => subscribeAuthenticationLost(() => {
+    setAuth({ loading: false, profile: null })
+  }), [])
 
   return (
     <Routes>
