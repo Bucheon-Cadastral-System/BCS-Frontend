@@ -255,7 +255,7 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {users.length === 0 && <tr><td colSpan={10} className="px-4 py-12 text-center text-slate-400">조건에 맞는 사용자가 없습니다.</td></tr>}
+              {!loading && users.length === 0 && <tr><td colSpan={10} className="px-4 py-12 text-center text-slate-400">조건에 맞는 사용자가 없습니다.</td></tr>}
               {users.map((user) => {
                 const isEditing = editingId === user.id && draft
                 const current = isEditing ? draft : user
