@@ -30,10 +30,11 @@ export function CloseIcon({ className }: IconProps) {
 }
 
 export function NewChatIcon({ className }: IconProps) {
+  // 되돌아가는 화살표 — 지금 대화를 비우고 처음으로 돌린다는 뜻이다
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-      <path d="M12 7v6M9 10h6" />
+      <path d="M20.5 13a8.5 8.5 0 1 1-2.6-6.6" />
+      <path d="M20.9 3.6v4.2h-4.2" />
     </svg>
   )
 }

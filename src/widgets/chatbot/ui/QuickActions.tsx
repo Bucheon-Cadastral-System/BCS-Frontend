@@ -17,9 +17,9 @@ export function QuickActions({ onQuery, disabled }: { onQuery: (text: string) =>
           type="button"
           disabled={disabled}
           onClick={() => onQuery(q)}
-          className="inline-flex items-center gap-1 rounded-full border border-gray-300 bg-white px-2.5 py-1 text-[12px] text-gray-600 transition-colors hover:border-blue-400 hover:bg-blue-50 hover:text-gray-900 disabled:pointer-events-none disabled:opacity-40 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-400 dark:hover:bg-blue-500/10 dark:hover:text-gray-100"
+          className="inline-flex items-center gap-1 rounded-full border border-line-field bg-soft px-2.5 py-1 text-[12px] text-ink-3 transition-colors hover:border-teal-edge hover:bg-teal-wash hover:text-ink disabled:pointer-events-none disabled:opacity-40"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-3 text-gray-400">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-3 text-ink-4">
             <circle cx="11" cy="11" r="7" />
             <path d="m21 21-4.3-4.3" />
           </svg>

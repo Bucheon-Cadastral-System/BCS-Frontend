@@ -12,7 +12,7 @@ function AssistantAvatar() {
   return (
     <span
       aria-hidden="true"
-      className="flex size-6 shrink-0 items-center justify-center self-start rounded-full bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300"
+      className="flex size-6 shrink-0 items-center justify-center self-start rounded-full bg-teal-wash-strong text-teal-text"
     >
       <SparkleIcon className="size-3.5" />
     </span>
@@ -30,8 +30,8 @@ interface ChatPanelProps {
   onAction?: (action: ChatAction) => void
 }
 
-const HEADER_BTN = 'flex size-7 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-500/10 hover:text-gray-600 dark:hover:text-gray-200'
-const CLOSE_BTN = 'flex size-7 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400'
+const HEADER_BTN = 'flex size-7 items-center justify-center rounded-ctl text-ink-4 transition-colors hover:bg-hover hover:text-ink-2'
+const CLOSE_BTN = 'flex size-7 items-center justify-center rounded-ctl text-ink-4 transition-colors hover:bg-danger-wash hover:text-danger'
 
 /**
  * 상태 없는 대화 셸 — 글래스 헤더·입력이 스크롤 위에 떠 있고 메시지는 그 아래로 흐른다(참고 디자인).
@@ -64,13 +64,13 @@ export function ChatPanel(props: ChatPanelProps) {
   }
 
   return (
-    <div className="relative h-full overflow-hidden bg-gray-50 dark:bg-gray-900">
+    <div className="relative h-full overflow-hidden bg-panel">
       {/* 스크롤 영역 — 글래스 헤더·입력 아래로 메시지가 흐르도록 상·하 여백을 준다 */}
-      <div ref={scrollRef} className="chat-scroll absolute inset-0 space-y-3 overflow-y-auto px-3 pb-28 pt-14">
+      <div ref={scrollRef} className="chat-scroll absolute inset-0 space-y-3 overflow-y-auto px-3.5 pb-28 pt-[70px]">
         {/* 웰컴 메시지 — 대화 맨 위에 항상 표시(진행 중에도 최상단에 남는다) */}
         <div className="flex justify-start gap-2">
           <AssistantAvatar />
-          <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-tl-sm bg-white px-3 py-2 text-[13px] leading-relaxed text-gray-800 shadow-sm dark:bg-gray-800 dark:text-gray-100">
+          <div className="max-w-[85%] whitespace-pre-wrap rounded-pop rounded-tl-[2px] border border-line-soft bg-soft px-3 py-2 text-[13px] leading-relaxed text-ink-2">
             {WELCOME_MESSAGE}
           </div>
         </div>
@@ -83,10 +83,10 @@ export function ChatPanel(props: ChatPanelProps) {
             <div className={`flex gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {m.role === 'assistant' && <AssistantAvatar />}
               <div
-                className={`max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed ${
+                className={`max-w-[85%] rounded-pop px-3 py-2 text-[13px] leading-relaxed ${
                   m.role === 'user'
-                    ? 'whitespace-pre-wrap rounded-tr-sm bg-blue-600 text-white'
-                    : 'rounded-tl-sm bg-white text-gray-800 shadow-sm dark:bg-gray-800 dark:text-gray-100'
+                    ? 'whitespace-pre-wrap rounded-tr-[2px] bg-teal-fill text-[#EFFBF7]'
+                    : 'rounded-tl-[2px] border border-line-soft bg-soft text-ink-2'
                 }`}
               >
                 {m.role === 'assistant' ? <MessageContent text={m.text} onAction={props.onAction} /> : m.text}
@@ -100,18 +100,19 @@ export function ChatPanel(props: ChatPanelProps) {
         {props.pending && (
           <div className="chat-msg-in flex justify-start gap-2">
             <AssistantAvatar />
-            <div className="flex items-center gap-1 rounded-2xl rounded-tl-sm bg-white px-3 py-2.5 shadow-sm dark:bg-gray-800">
-              <span className="size-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.3s]" />
-              <span className="size-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.15s]" />
-              <span className="size-1.5 animate-bounce rounded-full bg-gray-400" />
+            <div className="flex items-center gap-1 rounded-pop rounded-tl-[2px] border border-line-soft bg-soft px-3 py-2.5">
+              <span className="size-1.5 animate-bounce rounded-full bg-ink-4 [animation-delay:-0.3s]" />
+              <span className="size-1.5 animate-bounce rounded-full bg-ink-4 [animation-delay:-0.15s]" />
+              <span className="size-1.5 animate-bounce rounded-full bg-ink-4" />
             </div>
           </div>
         )}
       </div>
 
       {/* 글래스 헤더 — 스크롤 위에 떠 있다. 코너 모드에선 좌상단 리사이즈 힌트와 이름을 띄운다 */}
-      <header className="absolute inset-x-0 top-0 z-20 flex items-center gap-1 bg-white/75 px-3.5 py-3 backdrop-blur-xl dark:bg-gray-900/70">
-        <strong className={`min-w-0 flex-1 select-none truncate text-[13px] font-semibold text-gray-900 dark:text-gray-100 ${props.expanded ? '' : 'pl-4'}`}>BCS 어시스턴트</strong>
+      {/* 아래 경계는 청록 — 좌측 판이 목록 위에 두는 것과 같은 뜻의 구분선이다 */}
+      <header className="absolute inset-x-0 top-0 z-20 flex items-center gap-1 border-b-2 border-b-teal bg-pill px-3.5 py-3 backdrop-blur-[10px]">
+        <strong className={`min-w-0 flex-1 select-none truncate text-[13px] font-semibold text-ink ${props.expanded ? '' : 'pl-4'}`}>BCS 어시스턴트</strong>
         <button type="button" onClick={props.onToggleExpand} aria-label={props.expanded ? '코너로 축소' : '우측으로 확장'} aria-pressed={props.expanded} title={props.expanded ? '코너로 축소' : '우측으로 확장'} className={HEADER_BTN}>
           {props.expanded ? <CollapseIcon className="size-4" /> : <ExpandIcon className="size-4" />}
         </button>
@@ -124,7 +125,7 @@ export function ChatPanel(props: ChatPanelProps) {
       </header>
 
       {/* 글래스 입력 — 스크롤 위에 떠 있다 */}
-      <div className="absolute inset-x-0 bottom-0 z-20 flex items-end gap-2 bg-white/75 px-3 py-2.5 backdrop-blur-xl dark:bg-gray-900/70">
+      <div className="absolute inset-x-0 bottom-0 z-20 flex items-end gap-2 border-t border-line-soft bg-pill px-3 py-2.5 backdrop-blur-[10px]">
         <textarea
           ref={inputRef}
           value={input}
@@ -139,14 +140,14 @@ export function ChatPanel(props: ChatPanelProps) {
           }}
           rows={1}
           placeholder="메시지를 입력하세요"
-          className="max-h-28 flex-1 resize-none rounded-xl border border-gray-300 bg-white/80 px-3 py-2 text-[13px] text-gray-900 placeholder:text-gray-400 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800/80 dark:text-gray-100"
+          className="max-h-28 flex-1 resize-none rounded-ctl border border-line-field bg-field px-3 py-2 text-[13px] text-ink outline-none transition-colors placeholder:text-ink-4 focus:border-teal-edge"
         />
         <button
           type="button"
           onClick={send}
           disabled={!input.trim() || props.pending}
           aria-label="전송"
-          className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40"
+          className="flex size-9 shrink-0 items-center justify-center rounded-ctl border-[1.5px] border-teal-btn-edge bg-teal-wash text-teal-text transition-colors hover:border-teal-text hover:bg-teal-wash-strong disabled:opacity-40"
         >
           <SendIcon className="size-4" />
         </button>
