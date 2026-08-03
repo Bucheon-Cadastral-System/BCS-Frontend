@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="520" height="128" viewBox="0 0 520 128">
   <g transform="translate(28 34) scale(0.9375)">
-    <rect x="7" y="7" width="50" height="50" rx="9" fill="none" stroke="#FFFFFF" stroke-width="3.4"></rect>
-    <line x1="30" y1="7" x2="30" y2="57" stroke="#FFFFFF" stroke-width="2" opacity="0.6"></line>
-    <line x1="30" y1="34" x2="57" y2="34" stroke="#FFFFFF" stroke-width="2" opacity="0.6"></line>
-    <line x1="7" y1="22" x2="30" y2="22" stroke="#FFFFFF" stroke-width="2" opacity="0.6"></line>
-    <circle cx="30" cy="34" r="5" fill="#E0A020"></circle>
-    <circle cx="30" cy="22" r="2.4" fill="#FFFFFF"></circle>
+    <rect x="7" y="7" width="50" height="50" rx="9" fill="none" stroke="#E6EFF1" stroke-width="3.4"></rect>
+    <line x1="30" y1="7" x2="30" y2="57" stroke="#E6EFF1" stroke-width="2" opacity="0.6"></line>
+    <line x1="30" y1="34" x2="57" y2="34" stroke="#E6EFF1" stroke-width="2" opacity="0.6"></line>
+    <line x1="7" y1="22" x2="30" y2="22" stroke="#E6EFF1" stroke-width="2" opacity="0.6"></line>
+    <circle cx="30" cy="34" r="5" fill="#23A88F"></circle>
+    <circle cx="30" cy="22" r="2.4" fill="#E6EFF1"></circle>
   </g>
-  <text x="104" y="80" font-family="&#39;Public Sans&#39;,sans-serif" font-weight="800" font-size="46" letter-spacing="-1" fill="#FFFFFF">BCS</text>
-  <line x1="214" y1="46" x2="214" y2="82" stroke="#FFFFFF" stroke-width="1.5" opacity="0.3"></line>
-  <text x="232" y="61" font-family="&#39;Pretendard&#39;,&#39;Malgun Gothic&#39;,sans-serif" font-weight="600" font-size="16" letter-spacing="-0.3" fill="#FFFFFF">부천시 지적기준점 관리</text>
-  <text x="232" y="79" font-family="&#39;Public Sans&#39;,sans-serif" font-weight="600" font-size="10" letter-spacing="1.6" fill="#A9B6CC">BUCHEON CADASTRAL SYSTEM</text>
+  <text x="104" y="80" font-family="'IBM Plex Sans KR','Malgun Gothic',sans-serif" font-weight="700" font-size="46" letter-spacing="-1" fill="#E6EFF1">BCS</text>
+  <line x1="214" y1="46" x2="214" y2="82" stroke="#334A4E" stroke-width="1.5"></line>
+  <text x="232" y="61" font-family="'IBM Plex Sans KR','Malgun Gothic',sans-serif" font-weight="600" font-size="16" letter-spacing="-0.3" fill="#E6EFF1">부천시 지적기준점 관리</text>
+  <text x="232" y="79" font-family="'IBM Plex Sans KR','Malgun Gothic',sans-serif" font-weight="600" font-size="10" letter-spacing="1.6" fill="#8FA8AD">BUCHEON CADASTRAL SYSTEM</text>
 </svg>

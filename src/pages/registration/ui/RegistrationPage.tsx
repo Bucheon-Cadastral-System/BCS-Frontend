@@ -57,7 +57,7 @@ export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) 
     <main className="app-bg min-h-full px-5 py-10 text-ink">
       <header className="mx-auto mb-8 flex max-w-3xl items-center justify-between">
         {/* 가입 신청 전이라 메인으로 가는 링크를 걸지 않는다. 옆에 서비스명이 따로 있어 심볼+BCS만 노출 */}
-        <BrandLockup size="md" tone="onDark" variant="mark" />
+        <BrandLockup size="md" variant="mark" />
         <span className="text-[12.5px] text-ink-4">지적기준점 관리 시스템</span>
       </header>
 

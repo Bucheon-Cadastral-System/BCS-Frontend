@@ -12,7 +12,7 @@ export function LoginPage({ onKakaoLogin }: LoginPageProps) {
         aria-labelledby="login-title"
       >
         {/* 아래 제목이 같은 문구를 쓰므로 심볼+BCS만 노출 */}
-        <BrandLockup size="lg" tone="onDark" variant="mark" className="mx-auto mb-9 w-fit" />
+        <BrandLockup size="lg" variant="mark" className="mx-auto mb-9 w-fit" />
 
         <div>
           <h1 className="text-[24px] font-semibold leading-snug tracking-[-.02em] text-ink" id="login-title">부천시 지적기준점 관리 시스템</h1>

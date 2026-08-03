@@ -11,7 +11,7 @@ export function InactivePage({ onBackToLogin }: InactivePageProps) {
         className="panel-in w-full max-w-[460px] rounded-pill border border-line bg-panel-strong px-7 py-10 text-center shadow-modal backdrop-blur-[14px] sm:px-12"
         aria-labelledby="inactive-title"
       >
-        <BrandLockup size="md" tone="onDark" variant="mark" className="mx-auto mb-8 w-fit" />
+        <BrandLockup size="md" variant="mark" className="mx-auto mb-8 w-fit" />
 
         <div className="mx-auto grid size-16 place-items-center rounded-full bg-danger-wash text-danger" aria-hidden="true">
           <svg className="size-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">

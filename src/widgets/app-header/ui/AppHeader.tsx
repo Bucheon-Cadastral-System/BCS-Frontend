@@ -4,6 +4,7 @@ import { UserAvatar } from '@/entities/user'
 import type { UserProfile } from '@/entities/user'
 import { useDismiss } from '@/shared/lib/useDismiss'
 import { useElementWidth } from '@/shared/lib/useElementWidth'
+import { BrandMark } from '@/shared/ui/BrandMark'
 import { PILL } from '@/shared/ui/classes'
 
 /** 헤더 탭 한 칸 — 화면이 무엇을 세울지 정한다(지도의 판 전환, 관리자 화면의 자리 전환) */
@@ -241,16 +242,3 @@ export function UsersIcon({ className }: { className?: string }) {
   )
 }
 
-/** 지적 격자 + 기준점(앰버) 심볼 — 브랜드 색은 배경 톤과 무관하게 고정한다 */
-function BrandMark() {
-  return (
-    <svg viewBox="5 5 54 54" className="size-6 shrink-0" aria-hidden="true">
-      <rect x="7" y="7" width="50" height="50" rx="9" fill="none" stroke="currentColor" strokeWidth="3.4" className="text-ink" />
-      <line x1="30" y1="7" x2="30" y2="57" stroke="currentColor" strokeWidth="2" opacity=".55" className="text-ink" />
-      <line x1="30" y1="34" x2="57" y2="34" stroke="currentColor" strokeWidth="2" opacity=".55" className="text-ink" />
-      <line x1="7" y1="22" x2="30" y2="22" stroke="currentColor" strokeWidth="2" opacity=".55" className="text-ink" />
-      <circle cx="30" cy="34" r="5" fill="#E0A020" />
-      <circle cx="30" cy="22" r="2.4" fill="currentColor" className="text-ink" />
-    </svg>
-  )
-}
