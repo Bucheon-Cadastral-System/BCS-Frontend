@@ -87,6 +87,7 @@ function SignupRoute() {
 }
 
 function AppRoutes() {
+  const navigate = useNavigate()
   const [auth, setAuth] = useState<AuthState>({ loading: true, profile: null })
 
   const reloadProfile = useCallback(async () => {
@@ -110,9 +111,9 @@ function AppRoutes() {
       <Route path="/oauth/success" element={<OAuthSuccessRoute reloadProfile={reloadProfile} />} />
       <Route path="/signup" element={<SignupRoute />} />
       <Route path="/register" element={<Navigate to="/signup" replace />} />
-      <Route path="/waiting" element={<WaitingPage onBackToLogin={() => window.location.assign('/login')} />} />
-      <Route path="/" element={<Protected auth={auth}><MapPage role={auth.profile?.role ?? 'USER'} onOpenUserManagement={() => window.location.assign('/admin/users')} /></Protected>} />
-      <Route path="/admin/users" element={<Protected auth={auth} admin><AdminUsersPage onBack={() => window.location.assign('/')} /></Protected>} />
+      <Route path="/waiting" element={<WaitingPage onBackToLogin={() => navigate('/login')} />} />
+      <Route path="/" element={<Protected auth={auth}><MapPage role={auth.profile?.role ?? 'USER'} onOpenUserManagement={() => navigate('/admin/users')} /></Protected>} />
+      <Route path="/admin/users" element={<Protected auth={auth} admin><AdminUsersPage onBack={() => navigate('/')} /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
