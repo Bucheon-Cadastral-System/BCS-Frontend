@@ -1,2 +1,2 @@
 export { MapSidebar } from './ui/MapSidebar'
-export { ActiveProjectChip } from './ui/ActiveProjectChip'
+export { MinimizedPanelChip } from './ui/ActiveProjectChip'

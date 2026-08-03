@@ -58,6 +58,9 @@ interface MapSidebarProps {
   onOpenUserManagement: () => void
   /** 지금 열려 있는 판 — 헤더 탭이 정한다 */
   open: PanelKey | null
+  /** 접어 두기 — 고른 것은 그대로 두고 판만 칩으로 줄인다 */
+  onMinimize: () => void
+  /** 닫기 — 고른 것을 놓고 판을 끈다 */
   onClose: () => void
   /** 판 너비 — 위에 선 헤더 알약과 같은 값을 쓴다 */
   width: number
@@ -99,15 +102,15 @@ export function MapSidebar(props: MapSidebarProps) {
       >
         {renderBody &&
           (lastPanel === 'project' ? (
-            <ProjectPanel {...props} onClose={props.onClose} />
+            <ProjectPanel {...props} />
           ) : (
-            <PointListPanel {...props} onClose={props.onClose} />
+            <PointListPanel {...props} />
           ))}
       </aside>
   )
 }
 
-function PanelHeader(props: { title: string; count?: number; onClose: () => void }) {
+function PanelHeader(props: { title: string; count?: number; onMinimize: () => void; onClose: () => void }) {
   return (
     <header className="flex shrink-0 items-baseline gap-[7px] pb-[11px] pl-3.5 pr-2.5 pt-[13px]">
       <h2 className="flex min-w-0 flex-1 items-baseline gap-[7px]">
@@ -120,10 +123,21 @@ function PanelHeader(props: { title: string; count?: number; onClose: () => void
       </h2>
       <button
         type="button"
-        onClick={props.onClose}
+        onClick={props.onMinimize}
         aria-label="판 접기"
         title="접기"
         className="flex size-[26px] shrink-0 items-center justify-center self-center rounded-chip text-ink-3 transition-colors hover:bg-hover hover:text-ink-2"
+      >
+        <span className="flex size-4 items-center justify-center">
+          <IconMinimize />
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={props.onClose}
+        aria-label="판 닫기"
+        title="닫기"
+        className="flex size-[26px] shrink-0 items-center justify-center self-center rounded-chip text-ink-3 transition-colors hover:bg-danger-wash hover:text-danger"
       >
         <span className="size-4">
           <IconClose />
@@ -137,7 +151,7 @@ function PanelHeader(props: { title: string; count?: number; onClose: () => void
  * 프로젝트 목록. 행을 펼치는 것이 곧 그 조사를 고르는 것이다.
  * 펼쳐 놓은 조사와 지도에 반영되는 조사가 항상 같으므로, 드로어 안의 진행률·점별 기록이 늘 지금 보는 조사의 것이다.
  */
-function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
+function ProjectPanel(props: MapSidebarProps) {
   const [q, setQ] = useState('')
   const query = q.trim()
   // 조사명은 그때그때 붙이는 값이라 비고에 남긴 말로 찾는 경우도 있어 함께 훑는다
@@ -183,7 +197,7 @@ function ProjectPanel(props: MapSidebarProps & { onClose: () => void }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PanelHeader title="프로젝트 목록" count={props.projects.length} onClose={props.onClose} />
+      <PanelHeader title="프로젝트 목록" count={props.projects.length} onMinimize={props.onMinimize} onClose={props.onClose} />
 
       <div className="flex shrink-0 flex-col gap-[9px] px-3 pb-3">
         <span className="relative block">
@@ -388,7 +402,7 @@ function ProjectNote(props: { note: string }) {
 }
 
 /** 기준점 목록: 도식 아이콘 + 이름/종류 (조사여부 표시 안 함), 클릭 시 포커스 */
-function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
+function PointListPanel(props: MapSidebarProps) {
   const [q, setQ] = useState('')
   const query = q.trim()
   // 이 탭은 전체 기준점 목록이다. 탭을 열면 지도도 전체를 보여주므로 목록과 지도가 어긋나지 않는다.
@@ -401,7 +415,7 @@ function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PanelHeader title="기준점" count={source.length} onClose={props.onClose} />
+      <PanelHeader title="기준점" count={source.length} onMinimize={props.onMinimize} onClose={props.onClose} />
 
       <div className="flex shrink-0 flex-col gap-[9px] px-3 pb-3">
         <span className="relative block">
@@ -419,7 +433,7 @@ function PointListPanel(props: MapSidebarProps & { onClose: () => void }) {
           type="button"
           onClick={() => {
             props.onStartAddPoint()
-            props.onClose() // 지도에서 위치를 찍을 수 있게 패널은 비켜 준다
+            props.onMinimize() // 지도에서 위치를 찍을 수 있게 판은 접어 둔다
           }}
           className={PANEL_ADD_BTN}
         >
@@ -636,6 +650,15 @@ function IconSearch() {
     <svg viewBox="0 0 24 24" className="h-full w-full" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="11" cy="11" r="7.5" />
       <path d="m21 21-4.3-4.3" />
+    </svg>
+  )
+}
+
+/** 접기 — 창을 줄여 칩으로 보내는 뜻의 밑줄 */
+function IconMinimize() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-full" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+      <path d="M6 18h12" />
     </svg>
   )
 }

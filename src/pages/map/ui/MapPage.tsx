@@ -4,7 +4,7 @@ import { setActiveProject, toggleTheme } from '@/app/store'
 import { AppHeader, PointIcon, ProjectIcon } from '@/widgets/app-header'
 import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
-import { MapSidebar, ActiveProjectChip } from '@/widgets/map-sidebar'
+import { MapSidebar, MinimizedPanelChip } from '@/widgets/map-sidebar'
 import type { PanelKey } from '@/shared/model/panel'
 import { PointSearchBar } from '@/widgets/point-search'
 import { MapCommandBar } from '@/widgets/map-command-bar'
@@ -100,7 +100,12 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   const [mapInstance, setMapInstance] = useState<OlMap | null>(null) // 하단 상태 표시가 직접 구독한다
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [focusNonce, setFocusNonce] = useState(0)
-  const [openPanel, setOpenPanel] = useState<PanelKey | null>(null) // 열린 좌측 판 — 지도에 그릴 점도 이 값이 정한다
+  /**
+   * 좌측 판 — 켜진 판이 지도에 그릴 점도 정한다.
+   * 접어 두면(minimized) 고른 것은 그대로 두고 판만 칩으로 줄인다. 끄면 고른 것도 놓는다.
+   */
+  const [panel, setPanel] = useState<{ key: PanelKey; minimized: boolean } | null>(null)
+  const openPanel = panel !== null && !panel.minimized ? panel.key : null
   // 헤더 알약 폭 — 그 아래 서는 활성 조사 칩과 좌측 판이 같은 너비를 쓴다
   const [headerWidth, setHeaderWidth] = useState(0)
   // 헤더 우측 묶음(검색+사용자) 폭 — 그 아래 서는 대화 판이 같은 너비를 쓴다
@@ -138,9 +143,20 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
    * 그 조사의 대상이 아닌 점에 조사·망실을 기록할 수 있다.
    */
   function togglePanel(key: PanelKey) {
-    const next = openPanel === key ? null : key
-    setOpenPanel(next)
-    if (next === 'points') dispatch(setActiveProject(null))
+    // 접어 둔 판의 탭을 다시 누르면 끄지 않고 펼친다 — 칩으로 줄여 둔 것을 되돌리는 길이다
+    if (panel?.key === key) {
+      if (panel.minimized) setPanel({ key, minimized: false })
+      else closePanel()
+      return
+    }
+    setPanel({ key, minimized: false })
+    if (key === 'points') dispatch(setActiveProject(null))
+  }
+
+  /** 판을 끈다 — 고른 것도 함께 놓는다(조사 선택 해제) */
+  function closePanel() {
+    setPanel(null)
+    dispatch(setActiveProject(null))
   }
 
   /**
@@ -150,11 +166,11 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
    * 빼면 지목한 자리에 아무것도 나타나지 않는다.
    */
   const visiblePoints = useMemo(() => {
-    const base = openPanel === 'points' ? points : activeProjectId !== null ? targetPoints : EMPTY_POINTS
+    const base = panel?.key === 'points' ? points : activeProjectId !== null ? targetPoints : EMPTY_POINTS
     if (selectedId === null || base.some((p) => p.id === selectedId)) return base
     const focused = points.find((p) => p.id === selectedId)
     return focused === undefined ? base : [...base, focused]
-  }, [openPanel, activeProjectId, points, targetPoints, selectedId])
+  }, [panel, activeProjectId, points, targetPoints, selectedId])
 
   // 고른 점이 지도에서 사라졌으면 선택을 푼다(마커 없는 상세가 남지 않게)
   useEffect(() => {
@@ -289,7 +305,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
       if (cp) focusPoint(cp)
     } else {
       dispatch(setActiveProject(String(action.projectId)))
-      setOpenPanel('project')
+      setPanel({ key: 'project', minimized: false })
     }
   }
 
@@ -338,7 +354,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
           isAdmin={isAdmin}
           onOpenUserManagement={onOpenUserManagement}
           open={openPanel}
-          onClose={() => setOpenPanel(null)}
+          onMinimize={() => panel && setPanel({ key: panel.key, minimized: true })}
+          onClose={closePanel}
           width={headerWidth}
         />
 
@@ -397,16 +414,26 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               </div>
             </div>
 
-            {/* 활성 조사 칩 — 판을 접어 두어도 무엇을 조사 중인지 알 수 있게 헤더 아래에 둔다 */}
-            {activeProject && openPanel === null && (
+            {/* 접어 둔 판을 대신하는 칩 — 무엇을 보고 있는지 알리고, 누르면 판이 다시 펼쳐진다 */}
+            {panel?.minimized && (
               <div className="absolute left-4 top-[76px] z-[15]" style={{ width: headerWidth || undefined }}>
-                <ActiveProjectChip
-                  name={activeProject.name}
-                  surveyed={surveyedIds.size}
-                  total={targetPoints.length}
-                  onOpen={() => setOpenPanel('project')}
-                  onClear={() => dispatch(setActiveProject(null))}
-                />
+                {panel.key === 'project' ? (
+                  <MinimizedPanelChip
+                    label="조사 프로젝트"
+                    value={activeProject?.name ?? '선택중인 프로젝트가 없습니다.'}
+                    trailing={activeProject ? { surveyed: surveyedIds.size, total: targetPoints.length } : undefined}
+                    onOpen={() => setPanel({ key: 'project', minimized: false })}
+                    onClose={closePanel}
+                  />
+                ) : (
+                  <MinimizedPanelChip
+                    label="기준점"
+                    value="지도에 표시 중"
+                    trailing={{ count: points.length }}
+                    onOpen={() => setPanel({ key: 'points', minimized: false })}
+                    onClose={closePanel}
+                  />
+                )}
               </div>
             )}
 
