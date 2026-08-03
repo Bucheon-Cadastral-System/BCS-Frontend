@@ -63,7 +63,7 @@ export function Toast(props: {
     <div
       role="status"
       aria-live={tone === 'error' ? 'assertive' : 'polite'}
-      className={`fixed bottom-6 left-1/2 z-50 flex max-w-[90vw] items-center gap-2 rounded-full border bg-pill py-2 pl-4 pr-2 text-[12.5px] text-ink shadow-pill backdrop-blur-[10px] ${toneRing}`}
+      className={`fixed bottom-6 left-1/2 z-50 flex max-w-[90vw] items-center gap-2 rounded-pill border bg-pill py-2 pl-4 pr-2 text-[12.5px] text-ink shadow-pill backdrop-blur-[10px] ${toneRing}`}
       style={{
         transform: `translateX(-50%) translateY(${visible ? '0px' : '24px'})`,
         opacity: visible ? 1 : 0,
@@ -93,7 +93,7 @@ export function Toast(props: {
       >
         {/* 링 게이지 (카운트다운) */}
         <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
-          <circle cx="18" cy="18" r={R} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="2.5" />
+          <circle cx="18" cy="18" r={R} fill="none" className="stroke-track" strokeWidth="2.5" />
           <circle
             cx="18"
             cy="18"

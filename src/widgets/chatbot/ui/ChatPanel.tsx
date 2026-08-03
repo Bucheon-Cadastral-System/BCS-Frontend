@@ -3,6 +3,7 @@ import type { ChatAction, ChatMessage } from '../model/types'
 import { CloseIcon, CollapseIcon, ExpandIcon, NewChatIcon, SendIcon, SparkleIcon } from './icons'
 import { MessageContent } from './MessageContent'
 import { QuickActions } from './QuickActions'
+import { FIELD_AREA } from '@/shared/ui/classes'
 
 // 대화 시작 전부터 맨 위에 두는 웰컴 안내(어시스턴트 말풍선). 메시지 배열 밖이라 저장·전송되지 않는다.
 const WELCOME_MESSAGE = ['안녕하세요! BCS 어시스턴트입니다.', '무엇을 도와드릴까요?'].join('\n')
@@ -85,7 +86,7 @@ export function ChatPanel(props: ChatPanelProps) {
               <div
                 className={`max-w-[85%] rounded-pop px-3 py-2 text-[13px] leading-relaxed ${
                   m.role === 'user'
-                    ? 'whitespace-pre-wrap rounded-tr-[2px] bg-teal-fill text-[#EFFBF7]'
+                    ? 'whitespace-pre-wrap rounded-tr-[2px] bg-teal-fill text-on-teal'
                     : 'rounded-tl-[2px] border border-line-soft bg-soft text-ink-2'
                 }`}
               >
@@ -140,7 +141,7 @@ export function ChatPanel(props: ChatPanelProps) {
           }}
           rows={1}
           placeholder="메시지를 입력하세요"
-          className="max-h-28 flex-1 resize-none rounded-ctl border border-line-field bg-field px-3 py-2 text-[13px] text-ink outline-none transition-colors placeholder:text-ink-4 focus:border-teal-edge"
+          className={`${FIELD_AREA} max-h-28 flex-1`}
         />
         <button
           type="button"

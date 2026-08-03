@@ -6,6 +6,7 @@ import { useSendChatMutation } from '../api/chat'
 import type { ChatAction, ChatMessage, ChatMode, Size } from '../model/types'
 import { loadChatMessages, loadChatUi, saveChatMessages, saveChatUi } from '../model/storage'
 import { useDismiss } from '@/shared/lib/useDismiss'
+import { PANEL } from '@/shared/ui/classes'
 
 /** 우측 판 기본 폭 — 헤더 우측 묶음을 아직 재지 못했을 때만 쓴다 */
 const DOCK_WIDTH = 420
@@ -138,7 +139,7 @@ export function ChatDockLayout({
           aria-hidden={!open}
           inert={!open}
           style={{ width: dockWidth }}
-          className={`absolute bottom-bar-clear right-4 top-[76px] z-40 overflow-hidden rounded-pill border border-line bg-panel shadow-panel backdrop-blur-[12px] transition-[opacity,transform] duration-200 ease-out ${
+          className={`absolute bottom-bar-clear right-4 top-[76px] z-40 overflow-hidden transition-[opacity,transform] duration-200 ease-out ${PANEL} ${
             open ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'
           }`}
         >
@@ -153,7 +154,7 @@ export function ChatDockLayout({
         <div
           aria-hidden={!open}
           inert={!open}
-          className={`absolute bottom-[88px] right-6 z-40 origin-bottom-right overflow-hidden rounded-pill border border-line bg-panel shadow-panel backdrop-blur-[12px] transition-[translate,scale,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          className={`absolute bottom-[88px] right-6 z-40 origin-bottom-right overflow-hidden transition-[translate,scale,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${PANEL} ${
             open ? 'translate-y-0 scale-100 opacity-100' : 'pointer-events-none translate-y-3 scale-90 opacity-0'
           }`}
           style={{ width: floatSize.width, height: floatSize.height }}

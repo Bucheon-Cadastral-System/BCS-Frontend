@@ -5,7 +5,7 @@ import type { AdminActivity, AdminActivityType, AdminMemberAction, AdminMemberSo
 import { UserAvatar } from '@/entities/user'
 import { ActivityIcon, AppHeader, UsersIcon } from '@/widgets/app-header'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
-import { BTN_SM_SECONDARY, FIELD, FIELD_SELECT } from '@/shared/ui/classes'
+import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY, FIELD, FIELD_SELECT, FIELD_SM, FIELD_SM_SELECT, ROW_ACCENT } from '@/shared/ui/classes'
 
 interface AdminUsersPageProps {
   /** 지금 로그인한 관리자 — 헤더 표시에 쓴다 */
@@ -25,12 +25,6 @@ const STATUS_TONE: Record<UserStatus, string> = {
   ACTIVE: 'bg-teal-wash-strong text-teal-text',
   INACTIVE: 'bg-soft text-ink-3',
 }
-
-/** 상세 패널 버튼 — 창 아래 버튼과 같은 규격 */
-const PANEL_BTN = 'h-9 whitespace-nowrap rounded-ctl border-[1.5px] px-3 text-[12.5px] font-semibold transition-colors disabled:opacity-40'
-const PANEL_BTN_NEUTRAL = `${PANEL_BTN} border-line-btn text-ink-2 hover:bg-hover`
-const PANEL_BTN_PRIMARY = `${PANEL_BTN} border-teal-btn-edge bg-teal-wash text-teal-label hover:bg-teal-wash-strong`
-const PANEL_BTN_DANGER = `${PANEL_BTN} border-danger-btn-edge bg-danger-wash text-danger hover:bg-danger-wash-strong`
 
 type SortField = 'name' | 'email' | 'district' | 'team' | 'position' | 'role' | 'status'
 type SearchField = 'name' | 'email' | 'phone'
@@ -317,7 +311,6 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
   const pageNumbers = Array.from({ length: Math.min(5, totalPages) }, (_, index) => firstPageNumber + index)
 
   return (
-    // min-w-app-min — 지도 화면과 같은 하한. 좁아지면 열을 짜부라뜨리지 않고 잘라 낸다
     <main className="app-bg relative h-full min-w-app-min text-ink">
       {/* 헤더는 지도 화면과 같은 것을 쓴다 — 탭 자리만 이 화면의 이름으로 바꾼다 */}
       <AppHeader
@@ -329,7 +322,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
         user={profile}
       />
 
-      {/* 지도 화면과 같이 머리띠를 두지 않는다 — 바탕은 화면 전체가 하나이고 헤더는 그 위에 떠 있다.
+      {/* 머리띠를 두지 않는다 — 바탕은 화면 전체가 하나이고 헤더는 그 위에 떠 있다.
           내용만 헤더 높이만큼 내려 시작해 알약에 가리지 않는다. */}
       <section className="absolute inset-0 flex flex-col pt-[76px]">
         {/* 머리말 묶음 — 아래 청록 선이 본문과의 경계다(좌측 판·대화 판과 같은 규칙) */}
@@ -360,7 +353,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
 
             <div className="ml-auto flex min-w-0 gap-2">
               <select
-                className="select-chevron h-[34px] rounded-ctl border border-line-field bg-field pl-3 pr-9 text-[12px] font-medium text-ink outline-none transition-colors focus:border-teal-edge"
+                className={FIELD_SM_SELECT}
                 value={searchField}
                 onChange={(event) => { setSearchField(event.target.value as SearchField); setPage(0) }}
               >
@@ -373,7 +366,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                 value={query}
                 onChange={(event) => { setQuery(event.target.value); setPage(0) }}
                 placeholder={`${SEARCH_LABEL[searchField]} 검색`}
-                className="h-[34px] w-[240px] rounded-ctl border border-line-field bg-field px-3.5 text-[12px] text-ink outline-none transition-colors placeholder:text-ink-4 focus:border-teal-edge"
+                className={`${FIELD_SM} w-[240px]`}
               />
             </div>
           </div>
@@ -426,7 +419,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                     onClick={() => { setSelectedId((current) => (current === user.id ? null : user.id)); setDraft(null) }}
                     aria-current={user.id === selectedId}
                     className={`flex h-14 w-full items-center gap-3 border-b border-line-row px-[22px] text-left transition-colors hover:bg-hover ${
-                      user.id === selectedId ? 'bg-teal-wash shadow-[inset_3px_0_0_var(--color-teal)]' : ''
+                      user.id === selectedId ? `bg-teal-wash ${ROW_ACCENT}` : ''
                     }`}
                   >
                     {COLUMNS.map((column) => {
@@ -521,24 +514,24 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                   <div className="mt-5 flex flex-wrap justify-end gap-2">
                     {editing ? (
                       <>
-                        <button type="button" disabled={saving} className={PANEL_BTN_NEUTRAL} onClick={() => setDraft(null)}>
+                        <button type="button" disabled={saving} className={BTN_SM_SECONDARY} onClick={() => setDraft(null)}>
                           취소
                         </button>
-                        <button type="button" disabled={saving} className={PANEL_BTN_PRIMARY} onClick={saveEditing}>
+                        <button type="button" disabled={saving} className={BTN_SM_PRIMARY} onClick={saveEditing}>
                           {saving ? '저장 중…' : '변경사항 저장'}
                         </button>
                       </>
                     ) : (
                       <>
-                        <button type="button" className={PANEL_BTN_NEUTRAL} onClick={() => startEditing(detail)}>
+                        <button type="button" className={BTN_SM_SECONDARY} onClick={() => startEditing(detail)}>
                           정보 수정
                         </button>
                         {!isSelf && detail.status === 'PENDING' && (
                           <>
-                            <button type="button" className={PANEL_BTN_DANGER} onClick={() => setPendingChange({ id: detail.id, action: 'reject', label: '가입 거절' })}>
+                            <button type="button" className={BTN_SM_DANGER} onClick={() => setPendingChange({ id: detail.id, action: 'reject', label: '가입 거절' })}>
                               가입 거절
                             </button>
-                            <button type="button" className={PANEL_BTN_PRIMARY} onClick={() => updateStatus(detail.id, 'ACTIVE')}>
+                            <button type="button" className={BTN_SM_PRIMARY} onClick={() => updateStatus(detail.id, 'ACTIVE')}>
                               가입 승인
                             </button>
                           </>
@@ -547,7 +540,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                           <>
                             <button
                               type="button"
-                              className={PANEL_BTN_NEUTRAL}
+                              className={BTN_SM_SECONDARY}
                               onClick={() => setPendingChange(
                                 detail.role === 'ADMIN'
                                   ? { id: detail.id, action: 'role/user', label: '관리자 권한 회수' }
@@ -556,13 +549,13 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                             >
                               {detail.role === 'ADMIN' ? '권한 회수' : '관리자 부여'}
                             </button>
-                            <button type="button" className={PANEL_BTN_DANGER} onClick={() => updateStatus(detail.id, 'INACTIVE')}>
+                            <button type="button" className={BTN_SM_DANGER} onClick={() => updateStatus(detail.id, 'INACTIVE')}>
                               비활성화
                             </button>
                           </>
                         )}
                         {!isSelf && detail.status === 'INACTIVE' && (
-                          <button type="button" className={PANEL_BTN_PRIMARY} onClick={() => updateStatus(detail.id, 'ACTIVE')}>
+                          <button type="button" className={BTN_SM_PRIMARY} onClick={() => updateStatus(detail.id, 'ACTIVE')}>
                             다시 활성화
                           </button>
                         )}
@@ -580,7 +573,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
               <label className="flex items-center gap-2">
                 페이지당
                 <select
-                  className="select-chevron h-8 rounded-ctl border border-line-field bg-field pl-2.5 pr-8 text-[12px] text-ink outline-none transition-colors focus:border-teal-edge"
+                  className={FIELD_SM_SELECT}
                   value={pageSize}
                   onChange={(event) => { setPageSize(Number(event.target.value)); setPage(0) }}
                 >

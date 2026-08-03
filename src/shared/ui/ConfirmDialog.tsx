@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { useDialogBehavior } from '@/shared/lib/useDialogBehavior'
+import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY, MODAL_SHELL } from './classes'
 
 /**
  * 실행 전 한 번 묻는 확인 대화상자. Esc·배경클릭=취소.
@@ -34,7 +35,7 @@ export function ConfirmDialog(props: {
       aria-labelledby="confirm-dialog-message"
       onClick={close}
     >
-      <div ref={panelRef} className="panel-in w-[320px] max-w-full rounded-pill border border-line bg-panel-strong p-5 shadow-modal backdrop-blur-[14px]" onClick={(e) => e.stopPropagation()}>
+      <div ref={panelRef} className={`panel-in w-[320px] max-w-full p-5 ${MODAL_SHELL}`} onClick={(e) => e.stopPropagation()}>
         <p id="confirm-dialog-message" className="text-center text-[13.5px] font-medium text-ink">
           {props.message}
         </p>
@@ -48,7 +49,7 @@ export function ConfirmDialog(props: {
             ref={cancelRef}
             type="button"
             disabled={busy}
-            className="h-9 flex-1 rounded-ctl border-[1.5px] border-line-btn text-[12.5px] font-semibold text-ink-2 transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className={`${BTN_SM_SECONDARY} flex-1 disabled:cursor-not-allowed`}
             onClick={props.onCancel}
           >
             {props.cancelLabel ?? '아니오'}
@@ -57,11 +58,7 @@ export function ConfirmDialog(props: {
             ref={confirmRef}
             type="button"
             disabled={busy}
-            className={`h-9 flex-1 rounded-ctl border-[1.5px] text-[12.5px] font-semibold transition-colors disabled:cursor-wait disabled:opacity-40 ${
-              danger
-                ? 'border-danger-edge bg-danger-wash text-danger hover:bg-danger-wash-strong'
-                : 'border-teal-btn-edge bg-teal-wash text-teal-label hover:border-teal-text hover:bg-teal-wash-strong'
-            }`}
+            className={`${danger ? BTN_SM_DANGER : BTN_SM_PRIMARY} flex-1 disabled:cursor-wait`}
             onClick={props.onConfirm}
           >
             {busy ? (props.busyLabel ?? '처리 중…') : (props.confirmLabel ?? '예')}

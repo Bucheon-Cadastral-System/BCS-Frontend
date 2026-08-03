@@ -11,6 +11,14 @@ export const PILL =
 export const PANEL =
   'rounded-pill border border-line bg-panel shadow-panel backdrop-blur-[12px]'
 
+/** 화면 한가운데 서는 판(창·확인 대화상자·로그인 카드) — 판보다 한 겹 위라 더 짙고 더 깊은 그늘을 쓴다 */
+export const MODAL_SHELL =
+  'rounded-pill border border-line bg-panel-strong shadow-modal backdrop-blur-[14px]'
+
+/** 무언가를 눌러 그 아래 펼쳐지는 작은 판(사용자 메뉴·검색 결과) */
+export const POPOVER =
+  'rounded-pop border border-line bg-panel-strong shadow-panel backdrop-blur-[12px]'
+
 const BTN_BASE =
   'inline-flex h-[42px] items-center justify-center gap-1.5 rounded-ctl border-[1.5px] px-3.5 text-[13px] font-semibold transition-colors disabled:opacity-40'
 
@@ -28,6 +36,15 @@ const BTN_SM_BASE =
 export const BTN_SM_PRIMARY = `${BTN_SM_BASE} border-teal-btn-edge bg-teal-wash text-teal-label hover:border-teal-text hover:bg-teal-wash-strong`
 export const BTN_SM_SECONDARY = `${BTN_SM_BASE} border-line-btn bg-transparent text-ink-2 hover:bg-hover`
 export const BTN_SM_DANGER = `${BTN_SM_BASE} border-danger-edge bg-danger-wash text-danger hover:bg-danger-wash-strong`
+
+/**
+ * 카드·목록 줄 안에 놓이는 작은 토글(조사 완료·망실).
+ * 창 아래 버튼보다 한 단계 조용해야 해서 면을 채우고 테두리를 얇게 둔다. 크기는 놓이는 자리가 정한다.
+ */
+export const CHIP_BTN =
+  'rounded-chip border border-line-btn bg-btn text-center font-medium text-ink-2 transition-colors hover:bg-hover'
+export const CHIP_BTN_DANGER =
+  'rounded-chip border border-danger-btn-edge bg-danger-wash text-center font-medium text-danger transition-colors hover:bg-danger-wash-strong'
 
 /** 지도 위 컨트롤(커맨드 바 안의 토글·줌) */
 export const BTN_CTL =
@@ -48,5 +65,17 @@ export const FIELD_SELECT =
 /** 고쳐 쓸 수 없는 입력칸 */
 export const FIELD_READONLY = `${FIELD} cursor-default border-line-soft bg-soft text-ink-3`
 
+/** 목록 위에 얹는 작은 입력칸(검색·거르기) — 목록이 주인공이라 한 단계 낮춰 세운다. 너비는 쓰는 자리가 정한다 */
+export const FIELD_SM =
+  'h-[34px] rounded-ctl border border-line-field bg-field px-3 text-[12px] text-ink placeholder:text-ink-4 outline-none transition-colors focus:border-teal-edge'
+export const FIELD_SM_SELECT =
+  'select-chevron h-[34px] rounded-ctl border border-line-field bg-field pl-3 pr-9 text-[12px] font-medium text-ink outline-none transition-colors focus:border-teal-edge'
+
 /** 입력칸 위 라벨 */
 export const FIELD_LABEL = 'mb-1.5 block text-[11px] font-medium tracking-[.08em] text-ink-4'
+
+/** 고른 줄 왼쪽에 서는 청록 띠 — 줄 바깥으로 삐져나오지 않게 테두리가 아니라 안쪽 그림자로 그린다 */
+export const ROW_ACCENT = 'shadow-[inset_3px_0_0_var(--color-teal)]'
+
+/** 진행률 막대의 채움 — 왼쪽에서 오른쪽으로 밝아져 나아가는 방향이 보인다 */
+export const PROGRESS_FILL = 'bg-[linear-gradient(90deg,var(--color-teal-edge),var(--color-teal-bright))]'

@@ -1,4 +1,5 @@
 import { BrandLockup } from '@/shared/ui/BrandLockup'
+import { BTN_SECONDARY, MODAL_SHELL } from '@/shared/ui/classes'
 
 interface InactivePageProps {
   onBackToLogin: () => void
@@ -8,7 +9,7 @@ export function InactivePage({ onBackToLogin }: InactivePageProps) {
   return (
     <main className="app-bg grid min-h-full place-items-center px-5 py-12 text-ink">
       <section
-        className="panel-in w-full max-w-[460px] rounded-pill border border-line bg-panel-strong px-7 py-10 text-center shadow-modal backdrop-blur-[14px] sm:px-12"
+        className={`panel-in w-full max-w-[460px] px-7 py-10 text-center sm:px-12 ${MODAL_SHELL}`}
         aria-labelledby="inactive-title"
       >
         <BrandLockup size="md" variant="mark" className="mx-auto mb-8 w-fit" />
@@ -31,7 +32,7 @@ export function InactivePage({ onBackToLogin }: InactivePageProps) {
 
         <button
           type="button"
-          className="mt-7 h-[46px] w-full rounded-ctl border-[1.5px] border-line-btn text-[13px] font-semibold text-ink-2 transition-colors hover:bg-hover"
+          className={`${BTN_SECONDARY} mt-7 w-full`}
           onClick={onBackToLogin}
         >
           로그인 화면으로 돌아가기

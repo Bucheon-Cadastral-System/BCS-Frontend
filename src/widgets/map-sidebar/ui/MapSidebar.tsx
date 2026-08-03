@@ -3,6 +3,7 @@ import type { PanelKey } from '@/shared/model/panel'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { SURVEY_STATUS_LABEL, deriveSurveyStatus } from '@/entities/survey-record'
 import { Skeleton, SkeletonRows } from '@/shared/ui/Skeleton'
+import { CHIP_BTN, CHIP_BTN_DANGER, PANEL, PROGRESS_FILL, ROW_ACCENT } from '@/shared/ui/classes'
 import { percent } from '@/shared/lib/percent'
 import { formatDate } from '@/shared/lib/date'
 import { SURVEY_ONGOING_LABEL, type SurveyProject } from '@/entities/survey-project'
@@ -96,7 +97,7 @@ export function MapSidebar(props: MapSidebarProps) {
         aria-hidden={!open}
         inert={!open}
         style={{ width: props.width || undefined }}
-        className={`absolute bottom-bar-clear left-4 top-[76px] z-20 flex flex-col overflow-hidden rounded-pill border border-line bg-panel text-ink shadow-panel backdrop-blur-[12px] transition-[opacity,transform] duration-200 ease-out ${
+        className={`absolute bottom-bar-clear left-4 top-[76px] z-20 flex flex-col overflow-hidden text-ink transition-[opacity,transform] duration-200 ease-out ${PANEL} ${
           open ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'
         }`}
       >
@@ -259,7 +260,7 @@ function ProjectPanel(props: MapSidebarProps) {
                 aria-expanded={expanded}
                 aria-pressed={selected}
                 className={`flex w-full items-center gap-[11px] py-3 pl-[13px] pr-3.5 text-left transition-colors hover:bg-white/[0.03] ${
-                  selected ? 'shadow-[inset_3px_0_0_var(--color-teal)]' : ''
+                  selected ? ROW_ACCENT : ''
                 }`}
               >
                 <span
@@ -301,7 +302,7 @@ function ProjectPanel(props: MapSidebarProps) {
                   {mounted && (
                     <>
                     {/* 띠는 행에서 이어져 정보 칸에서 끝난다 — 대상 기준점부터는 성격이 다른 목록이라 잇지 않는다 */}
-                    <div className={selected ? 'shadow-[inset_3px_0_0_var(--color-teal)]' : ''}>
+                    <div className={selected ? ROW_ACCENT : ''}>
                       {/* 진행률 (이 프로젝트 기준) */}
                       {selected && (
                       <div className="px-3.5 pb-[13px] pt-0">
@@ -321,7 +322,7 @@ function ProjectPanel(props: MapSidebarProps) {
                             </div>
                             <div className="h-1.5 overflow-hidden rounded-full bg-track">
                               <div
-                                className="h-full rounded-full bg-[linear-gradient(90deg,#1E9C86,#2FC0A6)] transition-[width] duration-500 ease-out"
+                                className={`h-full rounded-full transition-[width] duration-500 ease-out ${PROGRESS_FILL}`}
                                 style={{ width: `${ppct}%` }}
                               />
                             </div>
@@ -566,7 +567,7 @@ function PointRowList(props: {
         onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
         aria-hidden={!scrolled}
         tabIndex={scrolled ? 0 : -1}
-        className={`absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full border border-line-pill bg-pill py-1.5 pl-2.5 pr-3 text-[12px] font-medium text-ink-2 shadow-pill backdrop-blur-[10px] transition-all duration-200 hover:text-ink ${
+        className={`absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-pill border border-line-pill bg-pill py-1.5 pl-2.5 pr-3 text-[12px] font-medium text-ink-2 shadow-pill backdrop-blur-[10px] transition-all duration-200 hover:text-ink ${
           scrolled ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-3 opacity-0'
         }`}
       >
@@ -604,7 +605,7 @@ function PointRow(props: {
         onClick={props.onClick}
         aria-expanded={hasActions ? Boolean(props.expanded) : undefined}
         className={`flex h-[34px] w-full items-center gap-2 px-3.5 text-left transition-colors hover:bg-white/[0.03] ${
-          props.expanded ? 'bg-teal-wash shadow-[inset_3px_0_0_var(--color-teal)]' : ''
+          props.expanded ? `bg-teal-wash ${ROW_ACCENT}` : ''
         }`}
       >
         {props.status && <StatusMark status={props.status} />}
@@ -618,14 +619,14 @@ function PointRow(props: {
           <button
             type="button"
             onClick={props.onToggleSurvey}
-            className="flex-1 rounded-chip border border-line-btn bg-btn py-1.5 text-center text-[12px] font-medium text-ink-2 transition-colors hover:bg-hover"
+            className={`${CHIP_BTN} flex-1 py-1.5 text-[12px]`}
           >
             {props.surveyed ? '조사 취소' : '조사 완료'}
           </button>
           <button
             type="button"
             onClick={props.onToggleLost}
-            className="flex-1 rounded-chip border border-danger-btn-edge bg-danger-wash py-1.5 text-center text-[12px] font-medium text-danger transition-colors hover:bg-[rgba(222,136,117,.2)]"
+            className={`${CHIP_BTN_DANGER} flex-1 py-1.5 text-[12px]`}
           >
             {props.lost ? '망실 해제' : '망실'}
           </button>

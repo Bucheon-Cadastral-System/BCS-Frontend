@@ -9,7 +9,7 @@ export function UserAvatar({ name, className }: { name: string; className?: stri
   return (
     <span
       aria-hidden="true"
-      className={`flex shrink-0 items-center justify-center rounded-full font-semibold text-[#EFFBF7] ${className ?? ''}`}
+      className={`flex shrink-0 items-center justify-center rounded-full font-semibold text-on-teal ${className ?? ''}`}
       style={{ backgroundColor: avatarColor(name) }}
     >
       {name.slice(0, 1)}

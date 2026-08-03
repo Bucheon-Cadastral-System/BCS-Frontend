@@ -11,11 +11,26 @@ import { MapPage } from '@/pages/map'
 import { WaitingPage } from '@/pages/waiting'
 import { exchangeOAuthCode, refreshAccessToken, startKakaoLogin } from '@/shared/api/auth'
 import { subscribeAuthenticationLost } from '@/shared/api/tokenStore'
+import { BTN_SECONDARY, MODAL_SHELL } from '@/shared/ui/classes'
 
 type AuthState = { loading: boolean; profile: UserProfile | null }
 
 function LoadingPage() {
-  return <main className="grid min-h-full place-items-center bg-slate-100 text-sm font-semibold text-slate-500">로그인 상태를 확인하고 있습니다…</main>
+  return <main className="app-bg grid min-h-full place-items-center text-[13px] font-semibold text-ink-3">로그인 상태를 확인하고 있습니다…</main>
+}
+
+/** 로그인 길목에서 막혔을 때 — 이 화면들은 다른 화면과 같은 껍데기를 쓴다 */
+function AuthErrorPage({ message, onBack }: { message: string; onBack: () => void }) {
+  return (
+    <main className="app-bg grid min-h-full place-items-center px-5 text-ink">
+      <div className={`panel-in w-full max-w-[400px] px-7 py-9 text-center ${MODAL_SHELL}`}>
+        <p className="text-[13px] leading-7 text-danger">{message}</p>
+        <button type="button" className={`${BTN_SECONDARY} mt-6 w-full`} onClick={onBack}>
+          로그인으로 돌아가기
+        </button>
+      </div>
+    </main>
+  )
 }
 
 function LoginRoute() {
@@ -57,7 +72,7 @@ function OAuthSuccessRoute({ reloadProfile }: { reloadProfile: () => Promise<Use
       .catch((e) => setError(e instanceof Error ? e.message : '로그인을 완료하지 못했습니다.'))
   }, [location.search, navigate, reloadProfile])
   return error
-    ? <main className="grid min-h-full place-items-center bg-slate-100"><div className="rounded-2xl bg-white p-8 text-center"><p className="text-rose-700">{error}</p><button className="mt-4 font-bold text-teal-700" onClick={() => navigate('/login')}>로그인으로 돌아가기</button></div></main>
+    ? <AuthErrorPage message={error} onBack={() => navigate('/login')} />
     : <LoadingPage />
 }
 
@@ -78,9 +93,7 @@ function SignupRoute() {
   }, [navigate])
 
   if (checking) return <LoadingPage />
-  if (error) {
-    return <main className="grid min-h-full place-items-center bg-slate-100"><div className="rounded-2xl bg-white p-8 text-center"><p className="text-rose-700">{error}</p><button className="mt-4 font-bold text-teal-700" onClick={() => navigate('/login')}>로그인으로 돌아가기</button></div></main>
-  }
+  if (error) return <AuthErrorPage message={error} onBack={() => navigate('/login')} />
   if (!showForm) return <LoadingPage />
 
   return (

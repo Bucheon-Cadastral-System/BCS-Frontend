@@ -1,4 +1,5 @@
 import { TM_ORIGINS } from '@/shared/lib/crs'
+import { CHIP_BTN, CHIP_BTN_DANGER, PANEL } from '@/shared/ui/classes'
 import type { ControlPoint } from '@/entities/control-point'
 import { PointTypeIcon } from '@/entities/control-point'
 import { SURVEY_STATUS_LABEL } from '@/entities/survey-record'
@@ -72,7 +73,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
         : 'bg-soft text-ink-3'
 
   return (
-    <aside className="panel-in w-[300px] max-w-[calc(100%-24px)] overflow-hidden rounded-pill border border-line bg-panel shadow-panel backdrop-blur-[12px]">
+    <aside className={`panel-in w-[300px] max-w-[calc(100%-24px)] overflow-hidden ${PANEL}`}>
       <div className="flex items-center gap-[9px] border-b border-line-soft py-3 pl-3.5 pr-2.5">
         <span className="flex shrink-0 text-teal-text">
           <PointTypeIcon type={p.type} className="size-[18px]" />
@@ -131,14 +132,14 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
             <button
               type="button"
               onClick={() => props.onToggleSurvey(p.id)}
-              className="h-9 flex-1 rounded-chip border border-line-btn bg-btn text-[12.5px] font-medium text-ink-2 transition-colors hover:bg-hover"
+              className={`${CHIP_BTN} h-9 flex-1 text-[12.5px]`}
             >
               {props.surveyed ? '조사 취소' : '조사 완료'}
             </button>
             <button
               type="button"
               onClick={() => props.onToggleLost(p.id)}
-              className="h-9 flex-1 rounded-chip border border-danger-btn-edge bg-danger-wash text-[12.5px] font-medium text-danger transition-colors hover:bg-danger-wash-strong"
+              className={`${CHIP_BTN_DANGER} h-9 flex-1 text-[12.5px]`}
             >
               {props.lost ? '망실 해제' : '망실'}
             </button>

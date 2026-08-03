@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import type { ControlPoint } from '@/entities/control-point'
 import { PointTypeIcon } from '@/entities/control-point'
 import { useDismiss } from '@/shared/lib/useDismiss'
+import { PILL, POPOVER } from '@/shared/ui/classes'
 
 /** 결과 한 줄 높이 — 가상 스크롤 추정치와 실제가 같아야 스크롤이 튀지 않는다 */
 const ROW_HEIGHT = 48
@@ -91,7 +92,7 @@ export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: C
         aria-autocomplete="list"
         aria-activedescendant={results.length > 0 ? `point-search-option-${active}` : undefined}
         autoComplete="off"
-        className="h-11 w-full rounded-ctl border border-line-pill bg-pill pl-10 pr-3 text-[13px] text-ink shadow-pill outline-none backdrop-blur-[10px] transition-colors placeholder:text-ink-4 focus:border-teal-edge"
+        className={`h-11 w-full pl-10 pr-3 text-[13px] text-ink outline-none transition-colors placeholder:text-ink-4 focus:border-teal-edge ${PILL}`}
       />
       <svg
         viewBox="0 0 24 24"
@@ -108,7 +109,7 @@ export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: C
       </svg>
 
       {showList && (
-        <div className="panel-in absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-pop border border-line bg-panel-strong shadow-panel backdrop-blur-[12px]">
+        <div className={`panel-in absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden ${POPOVER}`}>
           {results.length === 0 ? (
             <p className="px-3 py-3 text-center text-[12px] text-ink-4">검색 결과 없음</p>
           ) : (
