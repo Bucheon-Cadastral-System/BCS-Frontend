@@ -43,6 +43,16 @@ function isKnownValue(values: readonly string[], value: string): boolean {
   return values.includes(value)
 }
 
+function normalizeMemberDraft(member: ManagedUser): ManagedUser {
+  return {
+    ...member,
+    name: member.name.trim(),
+    phone: member.phone.replace(/\D/g, ''),
+    email: member.email.trim(),
+    department: member.department.trim(),
+  }
+}
+
 export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
   const [users, setUsers] = useState<ManagedUser[]>([])
   const [loading, setLoading] = useState(true)
@@ -155,22 +165,16 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
   const startEditing = (user: ManagedUser) => {
     setError('')
     setEditingId(user.id)
-    setDraft({ ...user })
+    setDraft(normalizeMemberDraft(user))
   }
 
   const saveEditing = async () => {
     if (!draft || saving) return
-    const validationError = validateMemberDraft(draft)
+    const normalizedDraft = normalizeMemberDraft(draft)
+    const validationError = validateMemberDraft(normalizedDraft)
     if (validationError) {
       setError(validationError)
       return
-    }
-
-    const normalizedDraft = {
-      ...draft,
-      name: draft.name.trim(),
-      email: draft.email.trim(),
-      department: draft.department.trim(),
     }
 
     setSaving(true)
