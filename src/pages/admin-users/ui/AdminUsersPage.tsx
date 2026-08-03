@@ -72,6 +72,7 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState<ManagedUser | null>(null)
   const [saving, setSaving] = useState(false)
+  const [changingStatus, setChangingStatus] = useState(false)
   const [pendingChange, setPendingChange] = useState<{ id: string; action: AdminMemberAction; status?: UserStatus; label: string } | null>(null)
   const memberRequestId = useRef(0)
 
@@ -153,13 +154,19 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
   }
 
   const applyStatusChange = async () => {
-    if (!pendingChange) return
+    if (!pendingChange || changingStatus) return
     const { id, action } = pendingChange
+    setChangingStatus(true)
+    setError('')
     try {
       await changeAdminMember(id, action)
       setPendingChange(null)
       await Promise.all([loadMembers(), loadCounts(), loadActivities()])
-    } catch (e) { setError(e instanceof Error ? e.message : '회원 상태를 변경하지 못했습니다.') }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '회원 상태를 변경하지 못했습니다.')
+    } finally {
+      setChangingStatus(false)
+    }
   }
 
   const startEditing = (user: ManagedUser) => {
@@ -329,6 +336,8 @@ export function AdminUsersPage({ onBack }: AdminUsersPageProps) {
           confirmLabel={pendingChange.label}
           cancelLabel="취소"
           danger={pendingChange.action === 'deactivate' || pendingChange.action === 'reject'}
+          busy={changingStatus}
+          busyLabel="처리 중…"
           onConfirm={applyStatusChange}
           onCancel={() => setPendingChange(null)}
         />
