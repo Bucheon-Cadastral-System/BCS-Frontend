@@ -715,7 +715,8 @@ export function SurveyProjectFormModal(props: {
                 `${read.length}건 입력하기`
               ) : (
                 <span className="flex items-center gap-1.5">
-                  <span className="size-3.5 animate-spin rounded-full border-2 border-teal/40 border-t-teal-text" aria-hidden />
+                  {/* 버튼 전경색을 그대로 쓴다 — 색을 따로 정하면 버튼 색 규칙이 테마마다 갈릴 때 함께 따라오지 않는다 */}
+                  <span className="size-3.5 animate-spin rounded-full border-2 border-current/40 border-t-current" aria-hidden />
                   읽는 중
                 </span>
               )}

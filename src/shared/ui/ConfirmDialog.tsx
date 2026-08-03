@@ -7,7 +7,8 @@ import { useDialogBehavior } from '@/shared/lib/useDialogBehavior'
  */
 export function ConfirmDialog(props: {
   message: string
-  detail?: string
+  /** 실행이 실패한 이유 — 창을 닫지 않고 이 자리에서 알린다. 뒤쪽 화면에 띄우면 배경 딤에 가려 보이지 않는다. */
+  error?: string
   confirmLabel?: string
   cancelLabel?: string
   danger?: boolean
@@ -37,7 +38,11 @@ export function ConfirmDialog(props: {
         <p id="confirm-dialog-message" className="text-center text-[13.5px] font-medium text-ink">
           {props.message}
         </p>
-        {props.detail && <p className="mt-1.5 text-center text-[11.5px] text-ink-4">{props.detail}</p>}
+        {props.error && (
+          <p className="mt-2.5 rounded-chip bg-danger-wash px-2.5 py-1.5 text-center text-[11.5px] text-danger" role="alert">
+            {props.error}
+          </p>
+        )}
         <div className="mt-4 flex gap-2">
           <button
             ref={cancelRef}

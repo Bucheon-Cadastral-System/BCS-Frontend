@@ -4,7 +4,7 @@ import type { AdminActivity, AdminActivityType, AdminMemberAction, AdminMemberSo
 import { UserAvatar } from '@/entities/user'
 import { ActivityIcon, AppHeader, UsersIcon } from '@/widgets/app-header'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
-import { BTN_SM_SECONDARY, FIELD } from '@/shared/ui/classes'
+import { BTN_SM_SECONDARY, FIELD, FIELD_SELECT } from '@/shared/ui/classes'
 
 interface AdminUsersPageProps {
   /** 지금 로그인한 관리자 — 헤더 표시에 쓴다 */
@@ -147,6 +147,8 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
   const [draft, setDraft] = useState<ManagedUser | null>(null)
   const [saving, setSaving] = useState(false)
   const [changingStatus, setChangingStatus] = useState(false)
+  // 상태 변경 실패는 확인 창 안에서 알린다 — 뒤쪽 배너에 띄우면 배경 딤에 가려 사용자가 이유를 볼 수 없다
+  const [changeError, setChangeError] = useState('')
   const [pendingChange, setPendingChange] = useState<{ id: string; action: AdminMemberAction; status?: UserStatus; label: string } | null>(null)
   const memberRequestId = useRef(0)
   const [tab, setTab] = useState<AdminTab>('members')
@@ -226,12 +228,14 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
     const { id, action } = pendingChange
     setChangingStatus(true)
     setError('')
+    setChangeError('')
     try {
       await changeAdminMember(id, action)
       setPendingChange(null)
       await Promise.all([loadMembers(), loadCounts(), loadActivities()])
     } catch (e) {
-      setError(e instanceof Error ? e.message : '회원 상태를 변경하지 못했습니다.')
+      // 창은 열어 둔다 — 사유를 읽고 그 자리에서 다시 시도할 수 있게
+      setChangeError(e instanceof Error ? e.message : '회원 상태를 변경하지 못했습니다.')
     } finally {
       setChangingStatus(false)
     }
@@ -278,6 +282,15 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
   const shown = editing ? draft : selected
   // 본인 계정 — 스스로 비활성하거나 권한을 회수하면 관리 화면으로 돌아올 길이 사라진다
   const isSelf = shown !== null && shown.id === profile?.id
+
+  // 목록에서 사라진 사람은 고른 것도 고치던 값도 놓는다 —
+  // 필터를 되돌려 그 사람이 다시 나타나면 낡은 초안이 편집 상태로 되살아나, 그동안 바뀐 서버 값을 덮어쓴다.
+  useEffect(() => {
+    if (selectedId !== null && selected === null) {
+      setSelectedId(null)
+      setDraft(null)
+    }
+  }, [selectedId, selected])
 
   // 상세는 닫히는 동안에도 내용을 들고 있어야 미끄러져 나가는 모습이 이어진다
   const detailOpen = shown !== null
@@ -649,8 +662,9 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
           danger={pendingChange.action === 'deactivate' || pendingChange.action === 'reject'}
           busy={changingStatus}
           busyLabel="처리 중…"
+          error={changeError}
           onConfirm={applyStatusChange}
-          onCancel={() => setPendingChange(null)}
+          onCancel={() => { setPendingChange(null); setChangeError('') }}
         />
       )}
     </main>
@@ -737,7 +751,8 @@ function Field(props: { label: string; value: string; editing: boolean; mono?: b
       <dt className="w-[78px] shrink-0 text-[11.5px] text-ink-4">{props.label}</dt>
       <dd className="min-w-0 flex-1">
         {props.editing ? (
-          <input value={props.value} onChange={(e) => props.onChange(e.target.value)} className={FIELD} />
+          // 라벨은 dt 에 있어 입력칸과 이어지지 않는다 — 화면 낭독기가 이름을 읽도록 같은 문구를 붙인다
+          <input aria-label={props.label} value={props.value} onChange={(e) => props.onChange(e.target.value)} className={FIELD} />
         ) : (
           <span className={`block truncate text-[13px] text-ink-2 ${props.mono ? 'font-mono' : ''}`}>{props.value}</span>
         )}
@@ -760,9 +775,10 @@ function SelectField(props: {
       <dd className="min-w-0 flex-1">
         {props.editing ? (
           <select
+            aria-label={props.label}
             value={props.value}
             onChange={(e) => props.onChange(e.target.value)}
-            className="select-chevron h-[38px] w-full rounded-ctl border border-line-field bg-field pl-3 pr-9 text-[13px] text-ink outline-none transition-colors focus:border-teal-edge"
+            className={FIELD_SELECT}
           >
             {!isKnownValue(props.options, props.value) && <option value={props.value} disabled>{props.value}</option>}
             {props.options.map((value) => (
