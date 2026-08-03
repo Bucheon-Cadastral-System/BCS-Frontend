@@ -134,7 +134,7 @@ export function AddControlPointModal(props: {
       <button
         type="button"
         onClick={props.onPick}
-        className="flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-300 bg-white py-1.5 text-[13px] text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+        className="flex h-9 w-full items-center justify-center gap-1.5 rounded-ctl border-[1.5px] border-line-btn text-[12.5px] font-semibold text-ink-2 transition-colors hover:bg-hover"
       >
         <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M12 21s-6-5.686-6-10a6 6 0 1 1 12 0c0 4.314-6 10-6 10Z" />
@@ -143,7 +143,7 @@ export function AddControlPointModal(props: {
         지도에서 위치 찍기
       </button>
 
-      <div className="rounded-md bg-gray-50 px-3 py-2 text-[12px] text-gray-600 dark:bg-gray-900/40 dark:text-gray-400">
+      <div className="rounded-ctl border border-line-soft bg-soft px-3 py-2 text-[11.5px] text-ink-3">
         <span className="font-medium">경위도(자동 계산)</span>
         <span className="ml-2 tabular-nums">
           {geo ? `${geo.lng.toFixed(6)}, ${geo.lat.toFixed(6)}` : '좌표를 입력하거나 지도에서 찍어 주세요'}

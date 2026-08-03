@@ -6,7 +6,7 @@ import { ApiError } from '@/shared/api/http'
 import type { ReadFile } from '@/features/import-survey-csv'
 import { today } from '@/shared/lib/date'
 import { fileBaseName } from '@/shared/lib/file'
-import { MODAL_CANCEL_BTN, MODAL_DANGER_BTN, MODAL_INPUT, MODAL_SUBMIT_BTN, Modal, ModalField } from '@/shared/ui/Modal'
+import { MODAL_CANCEL_BTN, MODAL_DANGER_BTN, MODAL_HEADER, MODAL_INPUT, MODAL_SUBMIT_BTN, Modal, ModalField } from '@/shared/ui/Modal'
 import { STATUS_ROW, STATUS_ROW_TONE } from '@/shared/ui/statusRow'
 import { StatusIcon } from '@/shared/ui/StatusIcon'
 import type { StatusShape, StatusTone } from '@/shared/ui/statusRow'
@@ -72,9 +72,9 @@ function SendMark({ status, discarded }: { status: Entry['status']; discarded: b
   if (status === 'done') return <StatusIcon shape="check" label="완료" />
   if (status === 'failed') return <StatusIcon shape="warn" label="실패" />
   if (status === 'sending') {
-    return <span className="size-4 shrink-0 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" role="img" aria-label="등록 중" />
+    return <span className="size-4 shrink-0 animate-spin rounded-full border-2 border-teal border-t-transparent" role="img" aria-label="등록 중" />
   }
-  return <span className="size-4 shrink-0 rounded-full border-2 border-gray-300 dark:border-gray-500" aria-hidden />
+  return <span className="size-4 shrink-0 rounded-full border-2 border-idle" aria-hidden />
 }
 
 /** 현황판 한 줄의 상태 */
@@ -124,7 +124,7 @@ function StepList(props: {
   }, [props.current])
 
   return (
-    <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+    <ul className="divide-y divide-line-row">
       {props.entries.map((entry, i) => {
         const state = stepState(entry)
         const look =
@@ -141,16 +141,16 @@ function StepList(props: {
               // 바탕색은 곧바로 바뀌어야 한다 — 서서히 물들이면 다음으로 넘어간 뒤에도 한 박자 늦게 따라오는 것처럼 보인다
               className={`${STATUS_ROW} border-l-2 text-[12px] ${
                 isCurrent
-                  ? 'border-l-blue-500 bg-blue-50 dark:bg-blue-500/15'
+                  ? 'border-l-teal bg-teal-wash'
                   : `border-l-transparent ${look === null ? '' : STATUS_ROW_TONE[look.tone]}`
               }`}
             >
-              <span className="w-5 shrink-0 tabular-nums text-gray-400 dark:text-gray-500">{i + 1}</span>
+              <span className="w-5 shrink-0 font-mono text-ink-4">{i + 1}</span>
               <span
                 className={`min-w-0 flex-1 truncate ${
                   entry.discarded
-                    ? 'text-gray-400 line-through dark:text-gray-500'
-                    : 'text-gray-800 dark:text-gray-100'
+                    ? 'text-ink-4 line-through'
+                    : 'text-ink-2'
                 }`}
               >
                 {entry.draft.name || entry.read?.file.name || '이름 없음'}
@@ -376,18 +376,18 @@ export function SurveyProjectFormModal(props: {
     total > 1 && !showReading ? (
       <>
         {/* 머리말·본문의 글자 크기와 여백은 창과 똑같이 쓴다 — 나란히 선 판이라 규격이 어긋나면 바로 보인다 */}
-        <div className="border-b-2 border-gray-200 px-5 pb-3.5 pt-5 dark:border-gray-700">
-          <h2 className="flex items-baseline gap-1.5 text-[15px] font-semibold text-gray-900 dark:text-gray-100">
+        <div className={MODAL_HEADER}>
+          <h2 className="flex items-baseline gap-1.5 text-[15px] font-semibold text-ink">
             {confirming ? (
               // 등록이 진행되어도 숫자가 흔들리지 않도록 폐기하지 않은 건수로 센다
               `${total - discardedCount}건 등록, ${discardedCount}건 폐기`
             ) : (
               <>
                 <span>
-                  {total}건 중 <span className="text-blue-600 dark:text-blue-400">{index + 1}</span>번째
+                  {total}건 중 <span className="text-teal-text">{index + 1}</span>번째
                 </span>
                 {discardedCount > 0 && (
-                  <span className="text-[12px] font-normal text-gray-500 dark:text-gray-400">
+                  <span className="text-[11.5px] font-normal text-ink-4">
                     폐기 {discardedCount}건
                   </span>
                 )}
@@ -413,7 +413,7 @@ export function SurveyProjectFormModal(props: {
    */
   const confirmBody = (
     <>
-      <p className="text-[13px] text-gray-600 dark:text-gray-300">
+      <p className="text-[12.5px] text-ink-3">
         {allDone
           ? `${doneCount}건을 등록했습니다.`
           : started
@@ -423,12 +423,12 @@ export function SurveyProjectFormModal(props: {
           (started ? ` 폐기한 ${discardedCount}건은 등록하지 않았습니다.` : ` 폐기한 ${discardedCount}건은 등록하지 않습니다.`)}
       </p>
       {!started && entries.every((e) => e.discarded) && (
-        <p className="rounded-md bg-gray-100 px-2.5 py-1.5 text-[12px] text-gray-600 dark:bg-gray-700/50 dark:text-gray-300">
+        <p className="rounded-chip bg-soft px-2.5 py-1.5 text-[12px] text-ink-3">
           모두 폐기해 등록할 프로젝트가 없습니다.
         </p>
       )}
       {!started && invalidIndex !== null && (
-        <p className="text-[12px] text-red-600 dark:text-red-400">
+        <p className="text-[12px] text-danger">
           {invalidIndex + 1}번째에 채우지 않은 값이 있습니다.{' '}
           <button type="button" className="underline underline-offset-2" onClick={() => jumpToEntry(invalidIndex)}>
             그 건으로 이동
@@ -440,23 +440,23 @@ export function SurveyProjectFormModal(props: {
           <li
             key={i}
             ref={i === sendingIndex ? sendingRowRef : null}
-            className={`rounded-md text-[13px] ${i === sendingIndex ? 'bg-blue-50 px-2 py-1.5 dark:bg-blue-500/15' : ''}`}
+            className={`rounded-chip text-[12.5px] ${i === sendingIndex ? 'bg-teal-wash px-2 py-1.5' : ''}`}
           >
             <div className="flex items-center gap-2">
               <SendMark status={entry.status} discarded={entry.discarded} />
               <span
                 className={`min-w-0 flex-1 truncate ${
-                  entry.discarded ? 'text-gray-400 line-through dark:text-gray-500' : 'text-gray-800 dark:text-gray-100'
+                  entry.discarded ? 'text-ink-4 line-through' : 'text-ink-2'
                 }`}
               >
                 {entry.draft.name}
               </span>
-              <span className="shrink-0 text-[11px] text-gray-500 dark:text-gray-400">
+              <span className="shrink-0 text-[11px] text-ink-4">
                 {entry.discarded ? '폐기' : SEND_LABEL[entry.status]}
               </span>
             </div>
             {entry.error !== undefined && (
-              <p className="mt-0.5 pl-6 text-[11px] text-red-600 dark:text-red-400">{entry.error}</p>
+              <p className="mt-0.5 pl-6 text-[11px] text-danger">{entry.error}</p>
             )}
           </li>
         ))}
@@ -467,7 +467,7 @@ export function SurveyProjectFormModal(props: {
   const formBody = (
     <>
       {current.discarded && (
-        <p className="rounded-md bg-red-50 px-2.5 py-1.5 text-[12px] text-red-700 dark:bg-red-500/10 dark:text-red-300">
+        <p className="rounded-chip bg-danger-wash px-2.5 py-1.5 text-[12px] text-danger">
           폐기한 건이므로 등록되지 않습니다.
         </p>
       )}
@@ -508,14 +508,14 @@ export function SurveyProjectFormModal(props: {
           </ModalField>
         </div>
         {periodReversed && (
-          <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">종료일이 시작일보다 빠릅니다.</p>
+          <p className="mt-1 text-[11px] text-danger">종료일이 시작일보다 빠릅니다.</p>
         )}
       </div>
 
       {/* 작성자는 로그인한 사람으로 정해지므로 고르지 않는다. 실제 기록은 서버가 인증 주체로 남긴다. */}
       <ModalField label="작성자" required>
         <input
-          className={`${MODAL_INPUT} cursor-default bg-gray-50 text-gray-500 dark:bg-gray-800 dark:text-gray-400`}
+          className={`${MODAL_INPUT} cursor-default border-line-soft bg-soft text-ink-3`}
           value={`${MOCK_CURRENT_USER.name} · ${MOCK_CURRENT_USER.team} ${MOCK_CURRENT_USER.position}`}
           readOnly
           tabIndex={-1}
@@ -533,13 +533,13 @@ export function SurveyProjectFormModal(props: {
 
       {/* 이 칸만 label 을 쓰지 않는다 — 라벨을 누르면 안쪽 버튼이 함께 눌려 파일 선택이 두 번 열린다 */}
       <div>
-        <span className="mb-1 block text-[12px] font-medium text-gray-700 dark:text-gray-300">기준점 목록 파일</span>
+        <span className="mb-1.5 block text-[11px] font-medium tracking-[.08em] text-ink-4">기준점 목록 파일</span>
         {file ? (
-          <span className="flex items-center gap-2 rounded-md border border-gray-300 bg-gray-50 px-2.5 py-1.5 dark:border-gray-600 dark:bg-gray-900/40">
-            <span className="min-w-0 flex-1 truncate text-[13px] text-gray-800 dark:text-gray-200">
+          <span className="flex items-center gap-2 rounded-ctl border border-line-field bg-field px-2.5 py-2">
+            <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">
               {file.name}
               {fileSummary && (
-                <span className="ml-1.5 text-[11px] text-gray-500 dark:text-gray-400">{fileSummary}</span>
+                <span className="ml-1.5 font-mono text-[11px] text-ink-4">{fileSummary}</span>
               )}
             </span>
             {/* 빼면 대상 없이 이름만 있는 조사가 된다 — 대상은 나중에 다시 올려 채울 수 있다 */}
@@ -547,7 +547,7 @@ export function SurveyProjectFormModal(props: {
               type="button"
               onClick={detachFile}
               aria-label="파일 빼기"
-              className="shrink-0 rounded p-1 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/15 dark:hover:text-red-400"
+              className="shrink-0 rounded-chip p-1 text-ink-4 transition-colors hover:bg-danger-wash hover:text-danger"
             >
               <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M4 7h16" />
@@ -562,7 +562,7 @@ export function SurveyProjectFormModal(props: {
           <button
             type="button"
             onClick={openPicker}
-            className="flex w-full flex-col items-center justify-center gap-1.5 rounded-md border-2 border-dashed border-gray-300 py-5 text-gray-500 transition-colors hover:border-blue-400 hover:text-blue-600 dark:border-gray-600 dark:text-gray-400 dark:hover:border-blue-400 dark:hover:text-blue-300"
+            className="flex w-full flex-col items-center justify-center gap-1.5 rounded-ctl border-2 border-dashed border-line-field py-5 text-ink-4 transition-colors hover:border-teal-edge hover:text-teal-text"
           >
             <svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M12 16V4" />
@@ -573,7 +573,7 @@ export function SurveyProjectFormModal(props: {
             <span className="text-[11px]">CSV · XLSX</span>
           </button>
         )}
-        {fileError && <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">{fileError}</p>}
+        {fileError && <p className="mt-1 text-[11px] text-danger">{fileError}</p>}
       </div>
     </>
   )
@@ -619,7 +619,7 @@ export function SurveyProjectFormModal(props: {
               취소
             </button>
             {/* 남는 자리를 안내가 차지해 취소는 왼쪽, 나머지 선택지는 오른쪽에 붙는다 */}
-            <span className="flex-1 self-center pl-1 text-[12px] text-gray-500 dark:text-gray-400">
+            <span className="flex-1 self-center pl-1 text-[12px] text-ink-4">
               {readingDone ? `${read.length}건 성공${failedCount > 0 ? `, ${failedCount}건 실패` : ''}` : ''}
             </span>
             {/* 읽는 동안에도 자리는 지킨다 — 다 읽은 순간 버튼이 새로 생기면 누르려던 자리가 밀린다 */}
@@ -636,7 +636,7 @@ export function SurveyProjectFormModal(props: {
                 `${read.length}건 입력하기`
               ) : (
                 <span className="flex items-center gap-1.5">
-                  <span className="size-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden />
+                  <span className="size-3.5 animate-spin rounded-full border-2 border-teal/40 border-t-teal-text" aria-hidden />
                   읽는 중
                 </span>
               )}
