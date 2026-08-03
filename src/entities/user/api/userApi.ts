@@ -120,7 +120,7 @@ export async function changeAdminMember(memberId: string, action: AdminMemberAct
 
 export type AdminActivityType = 'MEMBER_APPROVED' | 'MEMBER_REJECTED' | 'MEMBER_DEACTIVATED' | 'MEMBER_ACTIVATED' | 'MEMBER_PROFILE_UPDATED' | 'MEMBER_PROMOTED_TO_ADMIN' | 'MEMBER_DEMOTED_TO_USER'
 export interface AdminActivity { id: number; actorAdminId: number; targetMemberId: number; activityType: AdminActivityType; message: string; createdAt: string }
-interface CursorPage<T> { content: T[]; nextCursor: string | null; hasNext: boolean; size: number }
+export interface CursorPage<T> { content: T[]; nextCursor: string | null; hasNext: boolean; size: number }
 
 export async function getAdminActivities(cursor?: string, activityType?: AdminActivityType): Promise<CursorPage<AdminActivity>> {
   const { data } = await http.get<CursorPage<AdminActivity>>('/api/admin/activities', { params: { size: 20, cursor, activityType } })
