@@ -1,6 +1,7 @@
 import type Map from 'ol/Map'
 import type { MapTheme } from '@/entities/control-point'
 import type { TmEpsg } from '@/shared/lib/crs'
+import { PILL } from '@/shared/ui/classes'
 import { PointerCoordinates } from './PointerCoordinates'
 import { ScaleReadout } from './ScaleReadout'
 
@@ -27,11 +28,30 @@ export function MapCommandBar(props: {
   onToggleCadastral: () => void
   theme: MapTheme
   onToggleTheme: () => void
+  /** 처음 보던 자리로 되돌리기 — 어디까지 옮겨야 하는지는 판이 가린 폭을 아는 지도가 정한다 */
+  onResetView: () => void
 }) {
   const dark = props.theme === 'dark'
 
   return (
-    <div className="flex h-[34px] w-max items-center gap-2 rounded-pill border border-line-pill bg-pill px-2.5 shadow-pill backdrop-blur-[12px]">
+    <div className={`flex h-[34px] w-max items-center gap-2 px-2.5 ${PILL}`}>
+      {/* 켜고 끄는 값이 아니라 한 번의 동작이라 표시 설정과는 선으로 가른다 */}
+      <button
+        type="button"
+        onClick={props.onResetView}
+        title="처음 보던 자리로 이동"
+        aria-label="처음 보던 자리로 이동"
+        className="flex size-6 shrink-0 items-center justify-center rounded-ctl text-ink-2 transition-colors hover:bg-hover hover:text-ink"
+      >
+        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="7.5" />
+          <path d="M12 2v5M12 17v5M2 12h5M17 12h5" />
+          <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+        </svg>
+      </button>
+
+      <Divider />
+
       <button
         type="button"
         onClick={props.onToggleCadastral}

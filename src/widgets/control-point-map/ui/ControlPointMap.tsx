@@ -14,7 +14,7 @@ import { fromLonLat, toLonLat } from 'ol/proj'
 import { defaults as defaultControls } from 'ol/control/defaults'
 import type { FeatureLike } from 'ol/Feature'
 import type { Style } from 'ol/style'
-import { VWORLD_KEY, DEFAULT_CENTER, DEFAULT_ZOOM } from '@/shared/config/map'
+import { VWORLD_KEY, DEFAULT_CENTER, DEFAULT_ZOOM, MIN_ZOOM } from '@/shared/config/map'
 import { controlPointStyle } from '@/entities/control-point'
 import type { ControlPoint, MapTheme } from '@/entities/control-point'
 import { deriveSurveyStatus } from '@/entities/survey-record'
@@ -63,6 +63,8 @@ interface ControlPointMapProps {
   lostIds: Set<string>
   theme: MapTheme
   focusNonce: number
+  /** 처음 보던 자리로 되돌리라는 신호 — 값이 바뀔 때마다 한 번 움직인다(0 = 아직 누르지 않음) */
+  homeNonce: number
   /** 좌·우 판이 지도를 가린 폭 — 점을 '가려지지 않은 자리'의 중앙에 세우는 데 쓴다 */
   leftInset: number
   rightInset: number
@@ -172,7 +174,8 @@ export function ControlPointMap(props: ControlPointMapProps) {
       controls: defaultControls(), // 축척은 비율과 한 칩에 묶으려고 map-status-bar 가 직접 붙인다
       layers: [baseLayer, cadastralLayer, pointLayer],
       // maxZoom 20: 배경 타일 네이티브 최대(라이트 19·다크 18)를 크게 넘기면 확대 보정으로 흐려진다
-      view: new View({ center: fromLonLat(DEFAULT_CENTER), zoom: DEFAULT_ZOOM, maxZoom: 20 }),
+      // minZoom: 부천 밖으로 한없이 물러서지 않게 막는다(shared/config/map)
+      view: new View({ center: fromLonLat(DEFAULT_CENTER), zoom: DEFAULT_ZOOM, minZoom: MIN_ZOOM, maxZoom: 20 }),
     })
     mapRef.current = map
     onMapReadyRef.current?.(map)
@@ -306,6 +309,19 @@ export function ControlPointMap(props: ControlPointMapProps) {
       duration: 450,
     })
   }, [props.focusNonce])
+
+  // 처음 자리로 되돌리기 — 고른 점은 그대로 두고 눈높이만 되돌린다. 판이 가린 만큼 옮겨 '보이는 자리' 한가운데 오게 한다.
+  useEffect(() => {
+    if (props.homeNonce === 0 || !mapRef.current) return
+    const view = mapRef.current.getView()
+    const [cx, cy] = fromLonLat(DEFAULT_CENTER)
+    const res = view.getResolutionForZoom(DEFAULT_ZOOM)
+    view.animate({
+      center: [cx - centerShift(leftInsetRef.current, rightInsetRef.current, res), cy],
+      zoom: DEFAULT_ZOOM,
+      duration: 450,
+    })
+  }, [props.homeNonce])
 
   // 판 열림/닫힘으로 가림 폭이 바뀌면, 선택된 점을 새 '보이는 자리 중앙'으로 다시 이동
   // (닫으면 지도 전체 중앙으로, 열면 가려지지 않은 자리 중앙으로)

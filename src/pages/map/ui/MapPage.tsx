@@ -100,6 +100,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   const [mapInstance, setMapInstance] = useState<OlMap | null>(null) // 하단 상태 표시가 직접 구독한다
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [focusNonce, setFocusNonce] = useState(0)
+  /** 처음 자리로 되돌리라는 신호 — 얼마나 옮길지는 판이 가린 폭을 아는 지도가 정한다 */
+  const [homeNonce, setHomeNonce] = useState(0)
   /**
    * 좌측 판 — 켜진 판이 지도에 그릴 점도 정한다.
    * 접어 두면(minimized) 고른 것은 그대로 두고 판만 칩으로 줄인다. 끄면 고른 것도 놓는다.
@@ -317,7 +319,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   return (
     <div className={`contents ${theme === 'dark' ? 'dark' : 'theme-light'}`}>
     {/* 화면 어디에 파일을 떨어뜨려도 그 파일이 붙은 채로 조사 추가가 열린다 */}
-    {/* min-w-app-min — 이보다 좁아지면 판끼리 겹치므로 화면을 더 줄이지 않고 잘라 낸다(가로로 밀어서 본다) */}
+    {/* min-w-app-min: 이보다 좁아지면 판끼리 겹치므로 더 줄이지 않고 잘라 낸다(가로로 밀어서 본다) */}
     <div className="app-bg relative flex h-full min-w-app-min flex-col text-ink" {...fileDrop.dropHandlers}>
       {fileDrop.dragging && <FileDropOverlay label="놓으면 기준점 목록을 읽습니다" hint="CSV · XLSX" />}
 
@@ -387,6 +389,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               lostIds={lostIds}
               theme={theme}
               focusNonce={focusNonce}
+              homeNonce={homeNonce}
               leftInset={mapLeftInset}
               rightInset={mapRightInset}
               onAddPoint={addPoint}
@@ -410,6 +413,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
                     onToggleCadastral={() => setShowCadastral((v) => !v)}
                     theme={theme}
                     onToggleTheme={() => withoutTransition(() => dispatch(toggleTheme()))}
+                    onResetView={() => setHomeNonce((n) => n + 1)}
                   />
                 </div>
               </div>
