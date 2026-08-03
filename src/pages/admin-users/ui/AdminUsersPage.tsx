@@ -316,7 +316,8 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
   const pageNumbers = Array.from({ length: Math.min(5, totalPages) }, (_, index) => firstPageNumber + index)
 
   return (
-    <main className="app-bg relative h-full text-ink">
+    // min-w-app-min — 지도 화면과 같은 하한. 좁아지면 열을 짜부라뜨리지 않고 잘라 낸다
+    <main className="app-bg relative h-full min-w-app-min text-ink">
       {/* 헤더는 지도 화면과 같은 것을 쓴다 — 탭 자리만 이 화면의 이름으로 바꾼다 */}
       <AppHeader
         onHome={onBack}

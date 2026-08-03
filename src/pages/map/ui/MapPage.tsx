@@ -317,7 +317,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   return (
     <div className={`contents ${theme === 'dark' ? 'dark' : 'theme-light'}`}>
     {/* 화면 어디에 파일을 떨어뜨려도 그 파일이 붙은 채로 조사 추가가 열린다 */}
-    <div className="app-bg relative flex h-full flex-col text-ink" {...fileDrop.dropHandlers}>
+    {/* min-w-app-min — 이보다 좁아지면 판끼리 겹치므로 화면을 더 줄이지 않고 잘라 낸다(가로로 밀어서 본다) */}
+    <div className="app-bg relative flex h-full min-w-app-min flex-col text-ink" {...fileDrop.dropHandlers}>
       {fileDrop.dragging && <FileDropOverlay label="놓으면 기준점 목록을 읽습니다" hint="CSV · XLSX" />}
 
       <ChatDockLayout width={utilityWidth} onDockWidthChange={setChatWidth} onAction={handleChatAction}>
