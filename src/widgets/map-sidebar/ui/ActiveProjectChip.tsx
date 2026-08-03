@@ -20,11 +20,11 @@ export function ActiveProjectChip(props: {
       value={props.name}
       title="조사 프로젝트 패널 열기"
       onClick={props.onOpen}
-      leading={<span className="h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500" aria-hidden />}
+      leading={<span className="size-[9px] shrink-0 rounded-full bg-teal" aria-hidden />}
       trailing={
-        <span className="shrink-0 rounded-full bg-blue-50 px-2.5 py-1 text-[12px] font-bold tabular-nums text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
+        <span className="shrink-0 rounded-full bg-teal-wash-strong px-2 py-0.5 font-mono text-[11px] font-semibold text-teal-text">
           {props.surveyed}/{props.total}
-          <span className="ml-1 font-normal text-blue-500/80 dark:text-blue-400/80">{pct}%</span>
+          <span className="ml-1 font-normal opacity-80">{pct}%</span>
         </span>
       }
       action={
@@ -33,7 +33,7 @@ export function ActiveProjectChip(props: {
           onClick={props.onClear}
           title="조사 선택 해제"
           aria-label="조사 선택 해제"
-          className="flex size-6 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+          className="flex size-6 items-center justify-center rounded-full text-ink-4 transition-colors hover:bg-hover hover:text-ink-2"
         >
           <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
             <path d="M6 6l12 12M18 6L6 18" />
