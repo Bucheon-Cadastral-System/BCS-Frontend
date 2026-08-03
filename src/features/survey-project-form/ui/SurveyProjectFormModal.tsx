@@ -5,8 +5,8 @@ import { ApiError } from '@/shared/api/http'
 import type { ReadFile } from '@/features/import-survey-csv'
 import { today } from '@/shared/lib/date'
 import { fileBaseName } from '@/shared/lib/file'
-import { MODAL_CANCEL_BTN, MODAL_DANGER_BTN, MODAL_HEADER, MODAL_INPUT, MODAL_SUBMIT_BTN, Modal, ModalField } from '@/shared/ui/Modal'
-import { STATUS_ROW, STATUS_ROW_TONE } from '@/shared/ui/statusRow'
+import { percent } from '@/shared/lib/percent'
+import { MODAL_CANCEL_BTN, MODAL_DANGER_BTN, MODAL_HEADER, MODAL_INPUT, MODAL_SUBMIT_BTN, MODAL_TEXTAREA, Modal, ModalField } from '@/shared/ui/Modal'
 import { StatusIcon } from '@/shared/ui/StatusIcon'
 import type { StatusShape, StatusTone } from '@/shared/ui/statusRow'
 
@@ -86,7 +86,7 @@ function stepState(entry: Entry): StepState {
   return entry.visited ? 'passed' : 'todo'
 }
 
-/** 줄의 바탕과 표시 — 파일 읽기 목록과 같은 사양을 그대로 쓴다 */
+/** 줄의 결과 — 왼쪽 막대의 점 모양과 오른쪽 문구를 함께 정한다 */
 type StepLook = { tone: StatusTone; shape: StatusShape; label: string }
 
 const STEP_LOOK: Record<Exclude<StepState, 'todo'>, StepLook> = {
@@ -102,10 +102,56 @@ const STEP_LOOK: Record<Exclude<StepState, 'todo'>, StepLook> = {
  */
 const PASSED_WHILE_REGISTERING: StepLook = { tone: 'none', shape: 'muted-check', label: '등록 대기' }
 
+/** 점의 색 — 결과의 성격을 그대로 따른다(끝난 건 청록, 폐기·실패는 붉은색, 나머지는 회색) */
+const DOT_TONE: Record<StatusTone, string> = {
+  none: 'border-idle text-ink-4',
+  success: 'border-teal text-teal',
+  danger: 'border-danger text-danger',
+}
+
+/** 줄 오른쪽 끝 문구 — 점과 같은 색을 써서 둘이 한 가지를 말한다는 것을 보인다 */
+const LABEL_TONE: Record<StatusTone, string> = {
+  none: 'text-ink-4',
+  success: 'text-teal-text',
+  danger: 'text-danger',
+}
+
+/** 다음 줄로 잇는 선 — 그 건의 결과를 그대로 물려받는다(끝난 건은 청록, 폐기·실패는 붉은색) */
+const LINE_TONE: Record<StatusTone, string> = {
+  none: 'bg-line-field',
+  success: 'bg-teal',
+  danger: 'bg-danger',
+}
+
+/** 진행 막대의 점 — 지나온 건은 체크, 폐기는 X, 실패는 느낌표를 담고, 아직 결과가 없으면 비운다 */
+function StepDot({ tone, shape, current }: { tone: StatusTone; shape: StatusShape | null; current: boolean }) {
+  return (
+    <span
+      aria-hidden
+      // 지금 보고 있는 줄에는 옅은 테를 둘러 준다 — 이미 입력한 건으로 돌아왔을 때도 어디에 서 있는지 보이게
+      className={`flex size-[14px] items-center justify-center rounded-full border-2 ${DOT_TONE[tone]} ${
+        current ? 'ring-[3px] ring-teal-wash-strong' : ''
+      }`}
+    >
+      {shape !== null && (
+        <svg viewBox="0 0 24 24" className="size-[9px]" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
+          {shape === 'cross' ? (
+            <path d="M6 6l12 12M18 6L6 18" />
+          ) : shape === 'warn' ? (
+            <path d="M12 5.5v8.5M12 18.5h.01" />
+          ) : (
+            <path d="m5 13 4 4L19 7" />
+          )}
+        </svg>
+      )}
+    </span>
+  )
+}
+
 /**
- * 창 옆 현황판의 목록. 파일 읽기 목록과 같은 짜임이다 —
- * 판 너비를 다 쓰는 줄에 순번·이름·상태를 놓고, 결과가 난 줄은 바탕을 옅게 물들인다.
- * 지금 보고 있는 줄은 왼쪽 띠와 바탕으로 나타내고, 누르면 그 건으로 옮겨 간다.
+ * 창 옆 현황판의 목록 — 점을 세로로 잇는 진행 막대다.
+ * 왼쪽 막대가 어디까지 왔는지(이어진 청록 선)를 말하고, 오른쪽에 순번·이름·결과를 놓는다.
+ * 지금 보고 있는 줄은 점의 테와 굵은 이름으로 나타내고, 누르면 그 건으로 옮겨 간다.
  */
 function StepList(props: {
   entries: Entry[]
@@ -123,7 +169,7 @@ function StepList(props: {
   }, [props.current])
 
   return (
-    <ul className="divide-y divide-line-row">
+    <ul className="py-1.5">
       {props.entries.map((entry, i) => {
         const state = stepState(entry)
         const look =
@@ -137,24 +183,42 @@ function StepList(props: {
               onClick={() => props.onJump(i)}
               disabled={props.disabled}
               aria-current={isCurrent}
-              // 바탕색은 곧바로 바뀌어야 한다 — 서서히 물들이면 다음으로 넘어간 뒤에도 한 박자 늦게 따라오는 것처럼 보인다
-              className={`${STATUS_ROW} border-l-2 text-[12px] ${
-                isCurrent
-                  ? 'border-l-teal bg-teal-wash'
-                  : `border-l-transparent ${look === null ? '' : STATUS_ROW_TONE[look.tone]}`
-              }`}
+              className="flex w-full items-center gap-[11px] px-5 py-2 text-left transition-colors enabled:hover:bg-hover"
             >
-              <span className="w-5 shrink-0 font-mono text-ink-4">{i + 1}</span>
-              <span
-                className={`min-w-0 flex-1 truncate ${
-                  entry.discarded
-                    ? 'text-ink-4 line-through'
-                    : 'text-ink-2'
-                }`}
-              >
-                {entry.draft.name || entry.read?.file.name || '이름 없음'}
+              <span className="relative flex size-[14px] shrink-0 items-center justify-center">
+                {/* 다음 줄의 점까지 잇는 선. 줄 높이(34)에서 점(14)을 뺀 길이라 두 점 사이를 정확히 채운다.
+                    색은 그 건의 결과를 따르므로, 어디까지 왔고 어디서 손을 뗐는지가 선만 훑어도 읽힌다. */}
+                {i < props.entries.length - 1 && (
+                  <span aria-hidden className={`absolute left-1/2 top-full h-5 w-0.5 -translate-x-1/2 ${LINE_TONE[look?.tone ?? 'none']}`} />
+                )}
+                <StepDot
+                  // 아직 결과가 없어도 지금 보고 있는 줄은 청록으로 세운다
+                  tone={look?.tone ?? (isCurrent ? 'success' : 'none')}
+                  shape={look?.shape ?? null}
+                  current={isCurrent}
+                />
               </span>
-              {look !== null && <StatusIcon shape={look.shape} label={look.label} />}
+              <span className="flex min-w-0 flex-1 items-baseline gap-[7px]">
+                <span className={`shrink-0 font-mono text-[11px] ${isCurrent ? 'text-teal-text' : 'text-ink-4'}`}>
+                  {i + 1}
+                </span>
+                <span
+                  className={`min-w-0 flex-1 truncate text-[12px] ${
+                    entry.discarded
+                      ? 'text-ink-4 line-through'
+                      : isCurrent
+                        ? 'font-semibold text-ink'
+                        : state === 'todo'
+                          ? 'text-ink-3'
+                          : 'text-ink-2'
+                  }`}
+                >
+                  {entry.draft.name || entry.read?.file.name || '이름 없음'}
+                </span>
+                {look !== null && (
+                  <span className={`shrink-0 text-[10.5px] ${LABEL_TONE[look.tone]}`}>{look.label}</span>
+                )}
+              </span>
             </button>
           </li>
         )
@@ -372,6 +436,9 @@ export function SurveyProjectFormModal(props: {
   // 읽기를 별도 단계로 두고 진행 상태만 보여 준다. 창은 그대로 두고 안쪽만 바꾼다.
   const readingBody = <ImportPreviewList entries={previews} />
 
+  // 입력 단계에서는 몇 번째를 보고 있는지가 곧 진행이고, 등록 단계에서는 손을 뗀 건수(등록·폐기)가 진행이다
+  const boardPercent = confirming ? percent(doneCount + discardedCount, total) : percent(index + 1, total)
+
   // 현황판은 창 옆에 따로 세운다 — 건이 많을 때 본문에 두면 입력 칸이 화면 밖으로 밀려난다
   const board =
     total > 1 && !showReading ? (
@@ -395,6 +462,17 @@ export function SurveyProjectFormModal(props: {
               </>
             )}
           </h2>
+          {/* 막대는 그 단계가 얼마나 남았는지를 말한다 —
+              입력 단계에서는 지금 보고 있는 자리, 확인·등록 단계에서는 마무리한 건수(등록·폐기)다. */}
+          <div className="mt-[11px] flex items-center gap-2">
+            <span className="h-[5px] flex-1 overflow-hidden rounded-full bg-track">
+              <span
+                className="block h-full rounded-full bg-teal transition-[width] duration-200"
+                style={{ width: `${boardPercent}%` }}
+              />
+            </span>
+            <span className="font-mono text-[11px] font-medium text-teal-text">{boardPercent}%</span>
+          </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <StepList
@@ -525,7 +603,7 @@ export function SurveyProjectFormModal(props: {
 
       <ModalField label="비고">
         <textarea
-          className={`${MODAL_INPUT} h-20 resize-none`}
+          className={`${MODAL_TEXTAREA} h-20`}
           value={current.draft.note ?? ''}
           onChange={(e) => patch({ note: e.target.value })}
           placeholder="조사 범위·참고 사항"
