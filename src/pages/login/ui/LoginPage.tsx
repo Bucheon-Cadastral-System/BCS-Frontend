@@ -2,10 +2,9 @@ import { BrandLockup } from '@/shared/ui/BrandLockup'
 
 interface LoginPageProps {
   onKakaoLogin: () => void
-  onDevelopmentAccess: () => void
 }
 
-export function LoginPage({ onKakaoLogin, onDevelopmentAccess }: LoginPageProps) {
+export function LoginPage({ onKakaoLogin }: LoginPageProps) {
   return (
     <main className="app-bg relative grid min-h-full place-items-center px-5 pb-20 pt-12 text-ink">
       <section
@@ -32,10 +31,6 @@ export function LoginPage({ onKakaoLogin, onDevelopmentAccess }: LoginPageProps)
               </svg>
             </span>
             카카오로 로그인
-          </button>
-
-          <button type="button" className="h-[46px] w-full rounded-ctl border-[1.5px] border-line-btn text-[13px] font-semibold text-ink-2 transition-colors hover:bg-hover" onClick={onDevelopmentAccess}>
-            로그인 없이 둘러보기 <span className="text-[11px] font-normal text-ink-4">(개발용)</span>
           </button>
         </div>
 

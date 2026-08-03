@@ -11,6 +11,8 @@ export function ConfirmDialog(props: {
   confirmLabel?: string
   cancelLabel?: string
   danger?: boolean
+  busy?: boolean
+  busyLabel?: string
   onConfirm: () => void
   onCancel: () => void
 }) {
@@ -18,8 +20,10 @@ export function ConfirmDialog(props: {
   const cancelRef = useRef<HTMLButtonElement>(null)
   const confirmRef = useRef<HTMLButtonElement>(null)
   const danger = props.danger ?? false
+  const busy = props.busy ?? false
+  const close = busy ? () => undefined : props.onCancel
   // 되돌릴 수 없는 작업이면 실수로 확정하지 않게 취소에 포커스를 준다
-  useDialogBehavior({ panelRef, onClose: props.onCancel, initialFocusRef: danger ? cancelRef : confirmRef })
+  useDialogBehavior({ panelRef, onClose: close, initialFocusRef: danger ? cancelRef : confirmRef })
 
   return (
     <div
@@ -27,7 +31,7 @@ export function ConfirmDialog(props: {
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-dialog-message"
-      onClick={props.onCancel}
+      onClick={close}
     >
       <div ref={panelRef} className="panel-in w-[320px] max-w-full rounded-pill border border-line bg-panel-strong p-5 shadow-modal backdrop-blur-[14px]" onClick={(e) => e.stopPropagation()}>
         <p id="confirm-dialog-message" className="text-center text-[13.5px] font-medium text-ink">
@@ -38,7 +42,8 @@ export function ConfirmDialog(props: {
           <button
             ref={cancelRef}
             type="button"
-            className="h-9 flex-1 rounded-ctl border-[1.5px] border-line-btn text-[12.5px] font-semibold text-ink-2 transition-colors hover:bg-hover"
+            disabled={busy}
+            className="h-9 flex-1 rounded-ctl border-[1.5px] border-line-btn text-[12.5px] font-semibold text-ink-2 transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-40"
             onClick={props.onCancel}
           >
             {props.cancelLabel ?? '아니오'}
@@ -46,14 +51,15 @@ export function ConfirmDialog(props: {
           <button
             ref={confirmRef}
             type="button"
-            className={`h-9 flex-1 rounded-ctl border-[1.5px] text-[12.5px] font-semibold transition-colors ${
+            disabled={busy}
+            className={`h-9 flex-1 rounded-ctl border-[1.5px] text-[12.5px] font-semibold transition-colors disabled:cursor-wait disabled:opacity-40 ${
               danger
                 ? 'border-danger-edge bg-danger-wash text-danger hover:bg-danger-wash-strong'
                 : 'border-teal-btn-edge bg-teal-wash text-teal-label hover:border-teal-text hover:bg-teal-wash-strong'
             }`}
             onClick={props.onConfirm}
           >
-            {props.confirmLabel ?? '예'}
+            {busy ? (props.busyLabel ?? '처리 중…') : (props.confirmLabel ?? '예')}
           </button>
         </div>
       </div>
