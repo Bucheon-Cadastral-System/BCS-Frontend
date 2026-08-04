@@ -23,11 +23,11 @@ export function InactivePage({ onBackToLogin }: InactivePageProps) {
         <p className="mt-6 text-[12px] font-semibold tracking-[.08em] text-danger">서비스 이용 제한</p>
         <h1 id="inactive-title" className="mt-2 text-[24px] font-semibold tracking-[-.02em] text-ink">비활성화된 계정입니다</h1>
         <p className="mt-4 text-[13px] leading-7 text-ink-3">
-          관리자에 의해 계정 이용이 중지되어<br />현재 서비스에 로그인할 수 없습니다.
+          관리자에 의해 비활성화된 계정입니다.
         </p>
 
         <div className="mt-7 rounded-ctl border border-line-soft bg-soft p-4 text-left text-[12.5px] leading-6 text-ink-3">
-          계정 재활성화가 필요하다면 서비스 관리자에게 문의해 주세요.
+          계정 재활성화는 서비스 관리자에게 문의해 주세요.
         </div>
 
         <button

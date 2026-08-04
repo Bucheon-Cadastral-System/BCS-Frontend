@@ -51,7 +51,7 @@ http.interceptors.response.use(
     throw new ApiError(
       problem?.code ?? 'UNKNOWN',
       status,
-      problem?.detail ?? (status ? '요청을 처리하지 못했습니다.' : '연결에 실패했습니다. 잠시 후 다시 시도해 주세요.'),
+      problem?.detail ?? (status ? '요청을 처리하지 못했습니다.' : '서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.'),
     )
   },
 )
