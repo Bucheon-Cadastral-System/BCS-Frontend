@@ -80,7 +80,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
         </span>
         <span className="min-w-0 flex-1 leading-tight">
           <span className="block truncate text-[14.5px] font-semibold text-ink">{p.name}</span>
-          <span className="block text-[10.5px] text-ink-4">{p.type}</span>
+          <span className="block text-[11px] text-ink-4">{p.type}</span>
         </span>
         <button
           type="button"
@@ -98,7 +98,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
       <div className="px-3.5 pb-[13px] pt-3">
         {/* 이름은 표시용이고 점을 가리키는 값은 관리번호라 좌표보다 먼저 둔다 */}
         <div className="mb-3 flex items-center gap-[9px] rounded-chip border border-line-pill bg-field py-[7px] pl-2.5 pr-2">
-          <span className="shrink-0 text-[10.5px] text-ink-4">관리번호</span>
+          <span className="shrink-0 text-[11px] text-ink-4">관리번호</span>
           <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-ink">{p.pointNo}</span>
           <CopyButton value={p.pointNo} label="관리번호 복사" onCopied={props.onCopied} />
         </div>
@@ -125,7 +125,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
         <div className="border-t border-line-soft bg-soft px-3.5 pb-[13px] pt-[11px]">
           <div className="mb-2.5 flex items-center gap-2">
             <span className="min-w-0 flex-1 truncate text-[12px] text-ink-2">{props.activeProjectName}</span>
-            <span className={`shrink-0 rounded-chip px-[9px] py-[3px] text-[10.5px] font-semibold ${chipTone}`}>
+            <span className={`shrink-0 rounded-chip px-[9px] py-[3px] text-[11px] font-semibold ${chipTone}`}>
               {SURVEY_STATUS_LABEL[status]}
             </span>
           </div>

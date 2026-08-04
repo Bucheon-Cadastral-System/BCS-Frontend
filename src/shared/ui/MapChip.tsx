@@ -38,7 +38,7 @@ export function MapChip(props: {
       >
         {props.leading}
         <span className="min-w-0 text-left">
-          <span className="block text-[10px] font-medium leading-tight text-ink-4">
+          <span className="block text-[11px] font-medium leading-tight text-ink-4">
             {props.label}
           </span>
           <span className="block truncate text-[12.5px] font-semibold leading-snug text-ink">

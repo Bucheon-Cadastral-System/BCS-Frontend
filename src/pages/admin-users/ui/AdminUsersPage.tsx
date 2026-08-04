@@ -468,12 +468,12 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                         {detail.name || NO_PROFILE}
                       </span>
                       {isSelf && (
-                        <span className="mt-1 inline-flex rounded-chip bg-teal-wash-strong px-2 py-0.5 text-[10.5px] font-semibold text-teal-text">
+                        <span className="mt-1 inline-flex rounded-chip bg-teal-wash-strong px-2 py-0.5 text-[11px] font-semibold text-teal-text">
                           현재 접속중인 계정
                         </span>
                       )}
                     </span>
-                    <span className={`shrink-0 rounded-chip px-2.5 py-1 text-[10.5px] font-semibold ${STATUS_TONE[detail.status]}`}>
+                    <span className={`shrink-0 rounded-chip px-2.5 py-1 text-[11px] font-semibold ${STATUS_TONE[detail.status]}`}>
                       {STATUS_LABEL[detail.status]}
                     </span>
                   </div>
@@ -692,7 +692,7 @@ function Cell({ column, user }: { column: ColumnKey; user: ManagedUser }) {
   }
   if (column === 'status') {
     return (
-      <span className={`inline-flex rounded-chip px-2 py-0.5 text-[10.5px] font-semibold ${STATUS_TONE[user.status]}`}>
+      <span className={`inline-flex rounded-chip px-2 py-0.5 text-[11px] font-semibold ${STATUS_TONE[user.status]}`}>
         {STATUS_LABEL[user.status]}
       </span>
     )
@@ -707,7 +707,7 @@ function ActivityCell({ column, activity }: { column: ActivityColumnKey; activit
   }
   if (column === 'activityType') {
     return (
-      <span className="inline-flex max-w-full truncate rounded-chip border border-line-field bg-hover px-2 py-0.5 text-[10.5px] font-semibold text-ink-2">
+      <span className="inline-flex max-w-full truncate rounded-chip border border-line-field bg-hover px-2 py-0.5 text-[11px] font-semibold text-ink-2">
         {ACTIVITY_LABEL[activity.activityType] ?? activity.activityType}
       </span>
     )

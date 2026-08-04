@@ -219,7 +219,7 @@ function StepList(props: {
                   {entry.draft.name || entry.read?.file.name || '이름 없음'}
                 </span>
                 {look !== null && (
-                  <span className={`shrink-0 text-[10.5px] ${LABEL_TONE[look.tone]}`}>{look.label}</span>
+                  <span className={`shrink-0 text-[11px] ${LABEL_TONE[look.tone]}`}>{look.label}</span>
                 )}
               </span>
             </button>

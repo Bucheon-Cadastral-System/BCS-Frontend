@@ -75,7 +75,7 @@ export function AppHeader(props: {
       <BrandMark />
       <span className="leading-[1.15]">
         <span className="block text-[14px] font-bold tracking-[-.02em] text-ink">BCS</span>
-        <span className="block text-[9.5px] text-ink-4">부천시 지적기준점 관리 시스템</span>
+        <span className="block text-[11px] text-ink-3">부천시 지적기준점 관리 시스템</span>
       </span>
     </>
   )
@@ -136,10 +136,10 @@ export function AppHeader(props: {
             )}
             {/* 브랜드 알약과 같은 규칙 — 윗줄은 크고 굵게, 아랫줄은 작고 흐리게.
                 폭은 고정한다. 이름·소속 길이를 따라 알약이 늘고 줄면 그 폭을 쓰는 대화 판까지 흔들리고,
-                프로필을 받아오는 순간에도 자리가 튄다. 82px 는 가장 긴 소속(부동산관리팀 주무관 78.5px)이 들어가는 값. */}
-            <span className="w-[82px] shrink-0 text-left leading-[1.15]">
+                프로필을 받아오는 순간에도 자리가 튄다. 94px 는 가장 긴 소속(부동산관리팀 주무관 90.9px)이 들어가는 값. */}
+            <span className="w-[94px] shrink-0 text-left leading-[1.15]">
               <span className="block truncate text-[14px] font-bold tracking-[-.02em] text-ink">{user?.name ?? '사용자'}</span>
-              <span className="block truncate text-[9.5px] text-ink-4">
+              <span className="block truncate text-[11px] text-ink-3">
                 {user ? `${user.team} ${user.position}` : '정보를 불러오는 중'}
               </span>
             </span>
