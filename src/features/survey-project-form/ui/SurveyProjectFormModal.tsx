@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import type { SurveyProjectDraft } from '@/entities/survey-project'
-import { ImportPreviewList, blockingReasonOf, rowErrorLines, summaryOf, useImportPreviews } from '@/features/import-survey-csv'
+import { ImportPreviewList, blockingReasonOf, hasRowErrors, rowErrorLines, summaryOf, useImportPreviews } from '@/features/import-survey-csv'
 import { ApiError } from '@/shared/api/http'
 import type { ReadFile } from '@/features/import-survey-csv'
 import { today } from '@/shared/lib/date'
@@ -112,13 +112,6 @@ const DOT_TONE: Record<StatusTone, string> = {
   danger: 'border-danger text-danger',
 }
 
-/** 줄 오른쪽 끝 문구 — 점과 같은 색을 써서 둘이 한 가지를 말한다는 것을 보인다 */
-const LABEL_TONE: Record<StatusTone, string> = {
-  none: 'text-ink-4',
-  success: 'text-teal-text',
-  danger: 'text-danger',
-}
-
 /** 다음 줄로 잇는 선 — 그 건의 결과를 그대로 물려받는다(끝난 건은 청록, 폐기·실패는 붉은색) */
 const LINE_TONE: Record<StatusTone, string> = {
   none: 'bg-line-field',
@@ -131,9 +124,9 @@ function StepDot({ tone, shape, current }: { tone: StatusTone; shape: StatusShap
   return (
     <span
       aria-hidden
-      // 지금 보고 있는 줄에는 옅은 테를 둘러 준다 — 이미 입력한 건으로 돌아왔을 때도 어디에 서 있는지 보이게
-      className={`flex size-[14px] items-center justify-center rounded-full border-2 ${DOT_TONE[tone]} ${
-        current ? 'ring-[3px] ring-teal-wash-strong' : ''
+      // 지금 보고 있는 줄에는 빛을 둘러 준다 — 이미 입력한 건으로 돌아왔을 때도 어디에 서 있는지 보이게
+      className={`relative z-10 flex size-[14px] items-center justify-center rounded-full border-2 ${DOT_TONE[tone]} ${
+        current ? 'step-current' : ''
       }`}
     >
       {shape !== null && (
@@ -194,6 +187,8 @@ function StepList(props: {
                 {i < props.entries.length - 1 && (
                   <span aria-hidden className={`absolute left-1/2 top-full h-5 w-0.5 -translate-x-1/2 ${LINE_TONE[look?.tone ?? 'none']}`} />
                 )}
+                {/* 지금 보고 있는 단계에서만 뒤에서 번지는 맥박 */}
+                {isCurrent && <span aria-hidden className="step-pulse absolute inset-0 rounded-full bg-teal" />}
                 <StepDot
                   // 아직 결과가 없어도 지금 보고 있는 줄은 청록으로 세운다
                   tone={look?.tone ?? (isCurrent ? 'success' : 'none')}
@@ -218,9 +213,8 @@ function StepList(props: {
                 >
                   {entry.draft.name || entry.read?.file.name || '이름 없음'}
                 </span>
-                {look !== null && (
-                  <span className={`shrink-0 text-[11px] ${LABEL_TONE[look.tone]}`}>{look.label}</span>
-                )}
+                {/* 상태는 왼쪽 점이 말한다 — 글자로 한 번 더 적지 않고, 읽어 주는 이름으로만 남긴다 */}
+                {look !== null && <span className="sr-only">{look.label}</span>}
               </span>
             </button>
           </li>
@@ -411,6 +405,9 @@ export function SurveyProjectFormModal(props: {
   // 읽는 동안의 진행 상태 — 창을 새로 띄우지 않고 이 창 안에서 그대로 보여 준다
   const { entries: previews, finished } = useImportPreviews(reading ?? NO_FILES)
   const read = previews.flatMap((e) => (e.status.kind === 'done' ? [{ file: e.file, preview: e.status.preview }] : []))
+  // 고칠 행이 남은 파일은 그대로 쓸 수 없다 — 다음 단계로 넘겨 봐야 등록에서 막히므로 여기서 가른다
+  const usable = read.filter((r) => !hasRowErrors(r.preview))
+  const blockedCount = read.length - usable.length
   const failedCount = previews.length - read.length
 
   /** 읽은 파일을 만들 조사 목록으로 바꾼다. 조사명이 비어 있으면 파일 이름을 빌려 쓴다. */
@@ -731,7 +728,15 @@ export function SurveyProjectFormModal(props: {
             </button>
             {/* 남는 자리를 안내가 차지해 취소는 왼쪽, 나머지 선택지는 오른쪽에 붙는다 */}
             <span className="flex-1 self-center pl-1 text-[12px] text-ink-3">
-              {readingDone ? `${read.length}건 성공${failedCount > 0 ? `, ${failedCount}건 실패` : ''}` : ''}
+              {readingDone
+                ? [
+                    `${usable.length}건 성공`,
+                    blockedCount > 0 ? `${blockedCount}건 등록 불가` : '',
+                    failedCount > 0 ? `${failedCount}건 실패` : '',
+                  ]
+                    .filter(Boolean)
+                    .join(', ')
+                : ''}
             </span>
             {/* 읽는 동안에도 자리는 지킨다 — 다 읽은 순간 버튼이 새로 생기면 누르려던 자리가 밀린다 */}
             <button type="button" className={MODAL_CANCEL_BTN} onClick={openPicker} disabled={!readingDone}>
@@ -740,11 +745,11 @@ export function SurveyProjectFormModal(props: {
             <button
               type="button"
               className={MODAL_SUBMIT_BTN}
-              onClick={() => proceed(read)}
-              disabled={!readingDone || read.length === 0}
+              onClick={() => proceed(usable)}
+              disabled={!readingDone || usable.length === 0}
             >
               {readingDone ? (
-                `${read.length}건 입력하기`
+                `${usable.length}건 입력하기`
               ) : (
                 <span className="flex items-center gap-1.5">
                   {/* 버튼 전경색을 그대로 쓴다 — 색을 따로 정하면 버튼 색 규칙이 테마마다 갈릴 때 함께 따라오지 않는다 */}

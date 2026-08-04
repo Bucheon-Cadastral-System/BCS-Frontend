@@ -241,6 +241,32 @@ textarea:focus-visible {
   }
 }
 
+/* 현황판에서 지금 보고 있는 단계 — 은은한 빛과 맥박으로 눈이 먼저 닿게 한다 */
+.step-current {
+  box-shadow:
+    0 0 0 3px var(--color-teal-wash-strong),
+    0 0 10px 1px color-mix(in oklab, var(--color-teal) 55%, transparent);
+}
+.step-pulse {
+  animation: step-pulse 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes step-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  70%,
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .step-pulse {
+    display: none;
+  }
+}
+
 /* 챗봇 메시지 등장 — 아래에서 올라오며 흐림→선명 */
 @keyframes chat-msg-in {
   from {
