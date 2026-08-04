@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import type { SurveyProjectDraft } from '@/entities/survey-project'
-import { ImportPreviewList, blockingReasonOf, summaryOf, useImportPreviews } from '@/features/import-survey-csv'
+import { ImportPreviewList, blockingReasonOf, rowErrorLines, summaryOf, useImportPreviews } from '@/features/import-survey-csv'
 import { ApiError } from '@/shared/api/http'
 import type { ReadFile } from '@/features/import-survey-csv'
 import { today } from '@/shared/lib/date'
@@ -202,7 +202,7 @@ function StepList(props: {
                 />
               </span>
               <span className="flex min-w-0 flex-1 items-baseline gap-[7px]">
-                <span className={`shrink-0 font-mono text-[11px] ${isCurrent ? 'text-teal-text' : 'text-ink-4'}`}>
+                <span className={`shrink-0 text-[11px] ${isCurrent ? 'text-teal-text' : 'text-ink-3'}`}>
                   {i + 1}
                 </span>
                 <span
@@ -378,7 +378,8 @@ export function SurveyProjectFormModal(props: {
     if (!current.discarded) {
       if (!form.validate()) return
       if (fileError !== undefined) {
-        form.fail(fileError)
+        // 사유는 파일 칸 아래에 이미 적혀 있다 — 여기서 되풀이하면 같은 말이 두 번 나온다
+        form.fail('파일 오류를 확인해 주세요.')
         return
       }
     }
@@ -472,7 +473,7 @@ export function SurveyProjectFormModal(props: {
                   {total}건 중 <span className="text-teal-text">{index + 1}</span>번째
                 </span>
                 {discardedCount > 0 && (
-                  <span className="text-[11.5px] font-normal text-ink-4">
+                  <span className="text-[11.5px] text-ink-3">
                     폐기 {discardedCount}건
                   </span>
                 )}
@@ -488,7 +489,7 @@ export function SurveyProjectFormModal(props: {
                 style={{ width: `${boardPercent}%` }}
               />
             </span>
-            <span className="font-mono text-[11px] font-medium text-teal-text">{boardPercent}%</span>
+            <span className="text-[11px] font-medium text-teal-text">{boardPercent}%</span>
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
@@ -547,7 +548,7 @@ export function SurveyProjectFormModal(props: {
               >
                 {entry.draft.name}
               </span>
-              <span className="shrink-0 text-[11px] text-ink-4">
+              <span className="shrink-0 text-[11px] text-ink-3">
                 {entry.discarded ? '폐기' : SEND_LABEL[entry.status]}
               </span>
             </div>
@@ -629,13 +630,13 @@ export function SurveyProjectFormModal(props: {
 
       {/* 이 칸만 label 을 쓰지 않는다 — 라벨을 누르면 안쪽 버튼이 함께 눌려 파일 선택이 두 번 열린다 */}
       <div>
-        <span className="mb-1.5 block text-[11px] font-medium tracking-[.08em] text-ink-4">기준점 목록 파일</span>
+        <span className="mb-1.5 block text-[11px] font-medium tracking-[.08em] text-ink-3">기준점 목록 파일</span>
         {file ? (
           <span className="flex items-center gap-2 rounded-ctl border border-line-field bg-field px-2.5 py-2">
             <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">
               {file.name}
               {fileSummary && (
-                <span className="ml-1.5 font-mono text-[11px] text-ink-4">{fileSummary}</span>
+                <span className="ml-1.5 text-[11px] text-ink-3">{fileSummary}</span>
               )}
             </span>
             {/* 빼면 대상 없이 이름만 있는 조사가 된다 — 대상은 나중에 다시 올려 채울 수 있다 */}
@@ -669,7 +670,20 @@ export function SurveyProjectFormModal(props: {
             <span className="text-[11px]">CSV · XLSX</span>
           </button>
         )}
-        {fileError && <p className="mt-1 text-[11px] text-danger">{fileError}</p>}
+        {fileError && (
+          <div className="mt-1.5 rounded-ctl border border-danger-btn-edge bg-danger-wash px-2.5 py-2">
+            <p className="text-[11.5px] leading-5 text-danger">{fileError}</p>
+            {/* 고쳐야 할 행은 한 줄에 하나씩 — 이어 붙이면 어디서 끊어 읽어야 할지 알 수 없다 */}
+            <ul className="mt-1.5 space-y-[3px] text-[11px] leading-[1.5] text-danger">
+              {rowErrorLines(current.read?.preview.errors ?? []).map((line) => (
+                <li key={line} className="flex gap-1.5">
+                  <span aria-hidden>·</span>
+                  <span className="min-w-0 flex-1">{line}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </>
   )
@@ -716,7 +730,7 @@ export function SurveyProjectFormModal(props: {
               취소
             </button>
             {/* 남는 자리를 안내가 차지해 취소는 왼쪽, 나머지 선택지는 오른쪽에 붙는다 */}
-            <span className="flex-1 self-center pl-1 text-[12px] text-ink-4">
+            <span className="flex-1 self-center pl-1 text-[12px] text-ink-3">
               {readingDone ? `${read.length}건 성공${failedCount > 0 ? `, ${failedCount}건 실패` : ''}` : ''}
             </span>
             {/* 읽는 동안에도 자리는 지킨다 — 다 읽은 순간 버튼이 새로 생기면 누르려던 자리가 밀린다 */}

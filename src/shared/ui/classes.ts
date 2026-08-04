@@ -20,7 +20,7 @@ export const POPOVER =
   'rounded-pop border border-line bg-panel-strong shadow-panel'
 
 const BTN_BASE =
-  'inline-flex h-[42px] items-center justify-center gap-1.5 rounded-ctl border-[1.5px] px-3.5 text-[13px] font-semibold transition-colors disabled:opacity-40'
+  'inline-flex h-[42px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-ctl border-[1.5px] px-3.5 text-[13px] font-semibold transition-colors disabled:opacity-40'
 
 /** 주 동작 — 청록 테두리에 옅은 청록 면 */
 export const BTN_PRIMARY = `${BTN_BASE} border-teal-btn-edge bg-teal-wash text-teal-label hover:border-teal-text hover:bg-teal-wash-strong`
@@ -30,7 +30,7 @@ export const BTN_SECONDARY = `${BTN_BASE} border-line-btn bg-transparent text-in
 export const BTN_DANGER = `${BTN_BASE} border-danger-edge bg-danger-wash text-danger hover:bg-danger-wash-strong`
 
 const BTN_SM_BASE =
-  'inline-flex h-9 items-center justify-center gap-1.5 rounded-ctl border-[1.5px] px-3 text-[12.5px] font-semibold transition-colors disabled:opacity-40'
+  'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-ctl border-[1.5px] px-3 text-[12.5px] font-semibold transition-colors disabled:opacity-40'
 
 /** 창 아래 버튼 — 같은 색 규칙에 크기만 작다 */
 export const BTN_SM_PRIMARY = `${BTN_SM_BASE} border-teal-btn-edge bg-teal-wash text-teal-label hover:border-teal-text hover:bg-teal-wash-strong`
@@ -77,7 +77,7 @@ export const FIELD_SM_SELECT =
   'select-chevron h-[34px] rounded-ctl border border-line-field bg-field pl-3 pr-9 text-[12px] font-medium text-ink outline-none transition-colors focus:border-teal-edge'
 
 /** 입력칸 위 라벨 */
-export const FIELD_LABEL = 'mb-1.5 block text-[11px] font-medium tracking-[.08em] text-ink-4'
+export const FIELD_LABEL = 'mb-1.5 block text-[11px] font-medium tracking-[.08em] text-ink-3'
 
 /** 고른 줄 왼쪽에 서는 청록 띠 — 줄 바깥으로 삐져나오지 않게 테두리가 아니라 안쪽 그림자로 그린다 */
 export const ROW_ACCENT = 'shadow-[inset_3px_0_0_var(--color-teal)]'

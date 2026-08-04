@@ -12,14 +12,24 @@ export function summaryOf(read: ReadFile): string {
   return errors.length > 0 ? `대상 ${totalRows}건 · 오류 ${errors.length}건` : `대상 ${totalRows}건`
 }
 
+/** 등록을 막는 이유의 첫 문장 — 어디를 고쳐야 하는지는 아래 행 목록이 말한다 */
+export const BLOCKED_BY_ROW_ERRORS = '잘못된 행이 있어 등록할 수 없습니다. 파일을 고쳐 다시 올려 주세요.'
+
 /**
  * 등록을 막아야 하는 이유 — 서버는 잘못된 행이 하나라도 있으면 파일 전체를 거부한다.
- * 보내 봐야 같은 사유로 실패하므로 미리 막고 어디를 고쳐야 하는지 알린다.
+ * 보내 봐야 같은 사유로 실패하므로 미리 막는다.
  */
 export function blockingReasonOf(read: ReadFile): string | undefined {
-  const { errors } = read.preview
-  if (errors.length === 0) return undefined
-  return `잘못된 행이 있어 등록할 수 없습니다. 파일을 고쳐 다시 올려 주세요 — ${rowErrorSummary(errors)}`
+  return read.preview.errors.length === 0 ? undefined : BLOCKED_BY_ROW_ERRORS
+}
+
+/**
+ * 고쳐야 할 행을 한 줄에 하나씩. 목록이 길면 앞의 몇 건만 적고 나머지는 개수로 줄인다.
+ * 한 줄로 이어 붙이면 어디서 끊어 읽어야 할지 알 수 없다.
+ */
+export function rowErrorLines(errors: SurveyCsvPreview['errors'], limit = 4): string[] {
+  const head = errors.slice(0, limit).map((e) => `${e.row}행 · ${e.message}`)
+  return errors.length > limit ? [...head, `그 밖 ${errors.length - limit}건`] : head
 }
 
 /** 고쳐야 할 행 표기 — 목록이 길어도 앞의 몇 건만 적고 나머지는 개수로 줄인다. */

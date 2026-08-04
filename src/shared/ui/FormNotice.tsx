@@ -2,7 +2,7 @@
 export function FormNotice({ message }: { message: string | null }) {
   if (message === null) return null
   return (
-    <p role="alert" className="min-w-0 text-[12px] text-danger">
+    <p role="alert" className="min-w-0 flex-1 text-[12px] leading-[1.45] text-danger">
       {message}
     </p>
   )

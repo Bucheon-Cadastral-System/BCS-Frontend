@@ -1,5 +1,5 @@
 import type { PreviewEntry, PreviewStatus } from '../model/useImportPreviews'
-import { rowErrorSummary } from '../model/readFile'
+import { rowErrorLines } from '../model/readFile'
 import { STATUS_ROW, STATUS_ROW_TONE } from '@/shared/ui/statusRow'
 import { StatusIcon } from '@/shared/ui/StatusIcon'
 import type { StatusTone } from '@/shared/ui/statusRow'
@@ -33,7 +33,7 @@ export function ImportPreviewList({ entries }: { entries: PreviewEntry[] }) {
 function StatusMark({ status }: { status: PreviewStatus }) {
   if (status.kind === 'done') return <StatusIcon shape="check" label="읽음" />
   if (status.kind === 'failed') return <StatusIcon shape="warn" label="실패" />
-  return <span className="shrink-0 font-mono text-[11px] text-ink-4">{percentLabel(status)}</span>
+  return <span className="shrink-0 text-[11px] text-ink-3">{percentLabel(status)}</span>
 }
 
 function percentLabel(status: PreviewStatus) {
@@ -71,10 +71,20 @@ function StatusText({ status }: { status: PreviewStatus }) {
   const { totalRows, errors } = status.preview
   if (errors.length > 0) {
     return (
-      <p className="mt-1 text-[11px] text-amber">
-        {totalRows}건 중 {errors.length}건 오류 · {rowErrorSummary(errors)}
-      </p>
+      <div className="mt-1 text-[11px] leading-[1.5] text-amber">
+        <p>
+          {totalRows}건 중 {errors.length}건 오류
+        </p>
+        <ul className="mt-1 space-y-[3px]">
+          {rowErrorLines(errors, 2).map((line) => (
+            <li key={line} className="flex gap-1.5">
+              <span aria-hidden>·</span>
+              <span className="min-w-0 flex-1">{line}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
     )
   }
-  return <p className="mt-1 text-[11px] text-ink-4">대상 <span className="font-mono">{totalRows}</span>건</p>
+  return <p className="mt-1 text-[11px] text-ink-3">대상 <span >{totalRows}</span>건</p>
 }
