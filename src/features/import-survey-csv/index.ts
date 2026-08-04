@@ -1,7 +1,7 @@
 export { useImportSurveyCsv } from './model/useImportSurveyCsv'
 export type { ImportSummary } from './model/useImportSurveyCsv'
 export { useImportPreviews } from './model/useImportPreviews'
-export { summaryOf, blockingReasonOf, rowErrorLines } from './model/readFile'
+export { summaryOf, blockingReasonOf, hasRowErrors, rowErrorLines } from './model/readFile'
 export type { ReadFile } from './model/readFile'
 export { ImportPreviewList } from './ui/ImportPreviewList'
 export type { SurveyCsvPreview } from './api/previewSurveyCsv'

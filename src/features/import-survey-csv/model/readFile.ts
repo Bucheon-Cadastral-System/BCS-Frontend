@@ -12,6 +12,11 @@ export function summaryOf(read: ReadFile): string {
   return errors.length > 0 ? `대상 ${totalRows}건 · 오류 ${errors.length}건` : `대상 ${totalRows}건`
 }
 
+/** 고칠 행이 남아 등록할 수 없는 파일인지 */
+export function hasRowErrors(preview: SurveyCsvPreview): boolean {
+  return preview.errors.length > 0
+}
+
 /** 등록을 막는 이유의 첫 문장 — 어디를 고쳐야 하는지는 아래 행 목록이 말한다 */
 export const BLOCKED_BY_ROW_ERRORS = '잘못된 행이 있어 등록할 수 없습니다. 파일을 고쳐 다시 올려 주세요.'
 

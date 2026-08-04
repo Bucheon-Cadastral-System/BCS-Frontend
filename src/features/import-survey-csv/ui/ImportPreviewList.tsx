@@ -1,12 +1,17 @@
 import type { PreviewEntry, PreviewStatus } from '../model/useImportPreviews'
-import { rowErrorLines } from '../model/readFile'
+import { hasRowErrors, rowErrorLines } from '../model/readFile'
 import { STATUS_ROW, STATUS_ROW_TONE } from '@/shared/ui/statusRow'
 import { StatusIcon } from '@/shared/ui/StatusIcon'
 import type { StatusTone } from '@/shared/ui/statusRow'
 import { MODAL_BLEED } from '@/shared/ui/Modal'
 import { PROGRESS_FILL } from '@/shared/ui/classes'
 
-const ROW_TONE: Partial<Record<PreviewStatus['kind'], StatusTone>> = { done: 'success', failed: 'danger' }
+/** 줄 바탕 — 읽기를 마쳤어도 고칠 행이 있으면 성공으로 물들이지 않는다 */
+function rowTone(status: PreviewStatus): StatusTone {
+  if (status.kind === 'failed') return 'danger'
+  if (status.kind !== 'done') return 'none'
+  return hasRowErrors(status.preview) ? 'danger' : 'success'
+}
 
 /** 읽는 중인 파일들의 상태 목록. 창을 새로 띄우지 않고 고르는 자리에서 그대로 보여 준다. */
 export function ImportPreviewList({ entries }: { entries: PreviewEntry[] }) {
@@ -17,7 +22,7 @@ export function ImportPreviewList({ entries }: { entries: PreviewEntry[] }) {
       {/* 이름·수정시각이 같은 파일을 함께 올릴 수 있어 키는 붙인 순서로 잡는다 */}
       {entries.map((entry, index) => (
         // 읽기를 마친 줄은 바탕을 옅게 물들여 결과가 목록에서 바로 읽히게 한다
-        <li key={index} className={`${STATUS_ROW} ${STATUS_ROW_TONE[ROW_TONE[entry.status.kind] ?? 'none']}`}>
+        <li key={index} className={`${STATUS_ROW} ${STATUS_ROW_TONE[rowTone(entry.status)]}`}>
           <div className="min-w-0 flex-1">
             <span className="block truncate text-[13px] text-ink-2">{entry.file.name}</span>
             <ProgressBar status={entry.status} />
@@ -31,7 +36,10 @@ export function ImportPreviewList({ entries }: { entries: PreviewEntry[] }) {
 }
 
 function StatusMark({ status }: { status: PreviewStatus }) {
-  if (status.kind === 'done') return <StatusIcon shape="check" label="읽음" />
+  // 읽기에 성공해도 고칠 행이 남았으면 등록할 수 없다 — 체크는 그대로 쓸 수 있는 파일에만 준다
+  if (status.kind === 'done') {
+    return hasRowErrors(status.preview) ? <StatusIcon shape="warn" label="등록 불가" /> : <StatusIcon shape="check" label="읽음" />
+  }
   if (status.kind === 'failed') return <StatusIcon shape="warn" label="실패" />
   return <span className="shrink-0 text-[11px] text-ink-3">{percentLabel(status)}</span>
 }
@@ -71,7 +79,7 @@ function StatusText({ status }: { status: PreviewStatus }) {
   const { totalRows, errors } = status.preview
   if (errors.length > 0) {
     return (
-      <div className="mt-1 text-[11px] leading-[1.5] text-amber">
+      <div className="mt-1 text-[11px] leading-[1.5] text-danger">
         <p>
           {totalRows}건 중 {errors.length}건 오류
         </p>
