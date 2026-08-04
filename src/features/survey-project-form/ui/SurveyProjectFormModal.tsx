@@ -80,11 +80,13 @@ function SendMark({ status, discarded }: { status: Entry['status']; discarded: b
 }
 
 /** 현황판 한 줄의 상태 */
-type StepState = 'todo' | 'passed' | 'discarded' | 'done' | 'failed'
+type StepState = 'todo' | 'passed' | 'sending' | 'discarded' | 'done' | 'failed'
 
 function stepState(entry: Entry): StepState {
   if (entry.status === 'failed') return 'failed'
   if (entry.status === 'done') return 'done'
+  // 보내는 중은 지나온 건과 갈라야 한다 — 체크로 뭉개면 끝난 것처럼 읽힌다
+  if (entry.status === 'sending') return 'sending'
   if (entry.discarded) return 'discarded'
   return entry.visited ? 'passed' : 'todo'
 }
@@ -92,7 +94,7 @@ function stepState(entry: Entry): StepState {
 /** 줄의 결과 — 왼쪽 막대의 점 모양과 오른쪽 문구를 함께 정한다 */
 type StepLook = { tone: StatusTone; shape: StatusShape; label: string }
 
-const STEP_LOOK: Record<Exclude<StepState, 'todo'>, StepLook> = {
+const STEP_LOOK: Record<Exclude<StepState, 'todo' | 'sending'>, StepLook> = {
   passed: { tone: 'success', shape: 'check', label: '입력함' },
   done: { tone: 'success', shape: 'check', label: '등록 완료' },
   discarded: { tone: 'danger', shape: 'cross', label: '폐기' },
@@ -171,7 +173,11 @@ function StepList(props: {
       {props.entries.map((entry, i) => {
         const state = stepState(entry)
         const look =
-          state === 'todo' ? null : state === 'passed' && props.registering ? PASSED_WHILE_REGISTERING : STEP_LOOK[state]
+          state === 'todo' || state === 'sending'
+            ? null
+            : state === 'passed' && props.registering
+              ? PASSED_WHILE_REGISTERING
+              : STEP_LOOK[state]
         const isCurrent = i === props.current
         return (
           <li key={i}>
@@ -191,12 +197,17 @@ function StepList(props: {
                 )}
                 {/* 지금 보고 있는 단계에서만 뒤에서 번지는 맥박 */}
                 {isCurrent && <span aria-hidden className="step-pulse absolute inset-0 rounded-full bg-teal" />}
-                <StepDot
-                  // 아직 결과가 없어도 지금 보고 있는 줄은 청록으로 세운다
-                  tone={look?.tone ?? (isCurrent ? 'success' : 'none')}
-                  shape={look?.shape ?? null}
-                  current={isCurrent}
-                />
+                {state === 'sending' ? (
+                  // 보내는 중인 점은 등록 목록의 스피너와 같은 모양을 점 크기로 쓴다
+                  <span aria-hidden className="relative z-10 size-[14px] animate-spin rounded-full border-2 border-teal border-t-transparent" />
+                ) : (
+                  <StepDot
+                    // 아직 결과가 없어도 지금 보고 있는 줄은 청록으로 세운다
+                    tone={look?.tone ?? (isCurrent ? 'success' : 'none')}
+                    shape={look?.shape ?? null}
+                    current={isCurrent}
+                  />
+                )}
               </span>
               <span className="flex min-w-0 flex-1 items-baseline gap-[7px]">
                 <span className={`shrink-0 text-[11px] ${isCurrent ? 'text-teal-text' : 'text-ink-3'}`}>
@@ -216,7 +227,11 @@ function StepList(props: {
                   {entry.draft.name || entry.read?.file.name || '정보 미입력'}
                 </span>
                 {/* 상태는 왼쪽 점이 말한다 — 글자로 한 번 더 적지 않고, 읽어 주는 이름으로만 남긴다 */}
-                {look !== null && <span className="sr-only">{look.label}</span>}
+                {state === 'sending' ? (
+                  <span className="sr-only">등록 중</span>
+                ) : (
+                  look !== null && <span className="sr-only">{look.label}</span>
+                )}
               </span>
             </button>
           </li>
