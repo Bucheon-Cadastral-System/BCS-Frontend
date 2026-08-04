@@ -1,21 +1,22 @@
 import { http } from '@/shared/api/http'
-import type { SurveyRecord } from '../model/types'
+import type { SurveyRecord, SurveyResult } from '../model/types'
 
 interface ServerSurveyRecord {
   id: number
   projectId: number
   pointId: number
-  result: 'INTACT' | 'LOST' | 'ETC'
+  result: SurveyResult
   surveyedAt: string
   note: string | null
 }
 
-/** 서버 결과 어휘(완전/망실/기타) → 프론트 lost 플래그. 기타(ETC)는 망실 아님으로 표시한다. */
+/** 판정은 서버 어휘 그대로 들고, 지도가 쓰는 망실 여부만 함께 갈라 둔다. */
 function toSurveyRecord(server: ServerSurveyRecord): SurveyRecord {
   return {
     projectId: String(server.projectId),
     pointId: String(server.pointId),
     surveyedAt: server.surveyedAt,
+    result: server.result,
     lost: server.result === 'LOST',
   }
 }

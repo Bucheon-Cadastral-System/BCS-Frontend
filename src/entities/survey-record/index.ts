@@ -1,4 +1,5 @@
-export type { SurveyRecord } from './model/types'
+export type { SurveyRecord, SurveyResult } from './model/types'
+export { SURVEY_RESULT_LABEL } from './model/types'
 export { deriveSurveyStatus, isSurveyed, SURVEY_STATUS_LABEL } from './model/status'
 export type { SurveyStatus } from './model/status'
 export { fetchSurveyRecords, putSurveyRecord, deleteSurveyRecord } from './api/surveyRecordApi'
