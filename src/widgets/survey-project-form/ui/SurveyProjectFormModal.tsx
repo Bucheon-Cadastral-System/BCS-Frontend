@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import type { SurveyProjectDraft } from '@/entities/survey-project'
-import { ImportPreviewList, NO_FILES, SEND_LABEL, SendMark, blockingReasonOf, hasRowErrors, rowErrorLines, summaryOf, useImportPreviews, useSequentialSend } from '@/features/import-file'
+import { ImportPreviewList, NO_FILES, SEND_LABEL, SendMark, blockingReasonOf, hasRowErrors, rowIssueLines, summaryOf, useImportPreviews, useSequentialSend } from '@/features/import-file'
 import type { ReadFile, SendStatus } from '@/features/import-file'
 import { today } from '@/shared/lib/date'
 import { fileBaseName } from '@/shared/lib/file'
@@ -49,6 +49,11 @@ function newEntry(defaults?: Partial<SurveyProjectDraft>): Entry {
       note: defaults?.note ?? null,
     },
   }
+}
+
+/** 목록·확인 단계가 건을 부르는 이름 — 조사명을 아직 적지 않았으면 파일 이름을 빌려 쓴다 */
+function entryLabel(entry: Entry): string {
+  return entry.draft.name || entry.read?.file.name || '정보 미입력'
 }
 
 /** 현황판 한 줄의 상태 */
@@ -198,11 +203,11 @@ function StepList(props: {
                           : 'text-ink-2'
                   }`}
                 >
-                  {entry.draft.name || entry.read?.file.name || '정보 미입력'}
+                  {entryLabel(entry)}
                 </span>
                 {/* 상태는 왼쪽 점이 말한다 — 글자로 한 번 더 적지 않고, 읽어 주는 이름으로만 남긴다 */}
                 {state === 'sending' ? (
-                  <span className="sr-only">등록 중</span>
+                  <span className="sr-only">{SEND_LABEL.sending}</span>
                 ) : (
                   look !== null && <span className="sr-only">{look.label}</span>
                 )}
@@ -513,7 +518,7 @@ export function SurveyProjectFormModal(props: {
                     entry.discarded ? 'text-ink-4 line-through' : 'text-ink-2'
                   }`}
                 >
-                  {entry.draft.name}
+                  {entryLabel(entry)}
                 </span>
                 <span className="shrink-0 text-[11px] text-ink-3">
                   {entry.discarded ? '폐기' : SEND_LABEL[status]}
@@ -598,7 +603,7 @@ export function SurveyProjectFormModal(props: {
 
       {/* 이 칸만 label 을 쓰지 않는다 — 라벨을 누르면 안쪽 버튼이 함께 눌려 파일 선택이 두 번 열린다 */}
       <div>
-        <span className="mb-1.5 block text-[11px] font-medium tracking-[.08em] text-ink-3">기준점 목록 파일</span>
+        <span className="mb-1.5 block text-[11px] font-medium tracking-[.08em] text-ink-3">대상지 파일</span>
         {file ? (
           <span className="flex items-center gap-2 rounded-ctl border border-line-field bg-field px-2.5 py-2">
             <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">
@@ -643,7 +648,7 @@ export function SurveyProjectFormModal(props: {
             <p className="text-[11.5px] leading-5 text-danger">{fileError}</p>
             {/* 고쳐야 할 행은 한 줄에 하나씩 — 이어 붙이면 어디서 끊어 읽어야 할지 알 수 없다 */}
             <ul className="mt-1.5 space-y-[3px] text-[11px] leading-[1.5] text-danger">
-              {rowErrorLines(current.read?.preview.errors ?? []).map((line) => (
+              {rowIssueLines(current.read?.preview.errors ?? []).map((line) => (
                 <li key={line} className="flex gap-1.5">
                   <span aria-hidden>·</span>
                   <span className="min-w-0 flex-1">{line}</span>

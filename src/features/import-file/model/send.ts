@@ -28,6 +28,8 @@ export function useSequentialSend(fallbackError: string) {
   const [sendingIndex, setSendingIndex] = useState(-1)
   // 렌더 상태는 비동기 루프 안에서 낡는다 — 겹침 방지는 ref가 맡는다
   const inFlightRef = useRef(false)
+  // reset이 진행 중 실행을 무효화한다 — 세대가 바뀐 루프는 상태에 손대지 않는다
+  const generationRef = useRef(0)
   // 전송은 위에서부터 차례로 내려가 지금 보내는 줄이 화면 밖으로 나간다 — 목록이 그 줄을 따라간다
   const sendingRowRef = useRef<HTMLLIElement>(null)
   useEffect(() => {
@@ -51,8 +53,10 @@ export function useSequentialSend(fallbackError: string) {
     })
   }
 
-  /** 확인 단계를 떠날 때 부른다 — 입력으로 돌아가면 보낸 이력도 처음부터다. */
+  /** 확인 단계를 떠날 때 부른다 — 입력으로 돌아가면 보낸 이력도 처음부터고, 돌고 있던 전송 루프는 무효가 된다. */
   function reset() {
+    generationRef.current += 1
+    inFlightRef.current = false
     setStates(new Map())
     setStarted(false)
     setSendingIndex(-1)
@@ -67,6 +71,7 @@ export function useSequentialSend(fallbackError: string) {
     setStarted(true)
     if (targets.length === 0) return
     inFlightRef.current = true
+    const generation = generationRef.current
     setStates((cur) => {
       const next = new Map(cur)
       targets.forEach((i) => next.set(i, { status: 'idle' }))
@@ -74,20 +79,26 @@ export function useSequentialSend(fallbackError: string) {
     })
     try {
       for (const [order, at] of targets.entries()) {
+        if (generation !== generationRef.current) return
         setSendingIndex(at)
         set(at, { status: 'sending' })
         try {
           await sendOne(at, order, targets.length)
         } catch (e) {
+          if (generation !== generationRef.current) return
           // 여기서 멈춘다 — 사유는 그 건의 줄이 보여 준다
           set(at, { status: 'failed', error: e instanceof ApiError ? e.message : fallbackError })
           return
         }
+        if (generation !== generationRef.current) return
         set(at, { status: 'done' })
       }
     } finally {
-      inFlightRef.current = false
-      setSendingIndex(-1)
+      // 무효화됐으면 reset이 이미 정리했다 — 새 세대의 상태를 여기서 되돌리면 안 된다
+      if (generation === generationRef.current) {
+        inFlightRef.current = false
+        setSendingIndex(-1)
+      }
     }
   }
 

@@ -40,16 +40,10 @@ export function blockingReasonOf(read: ReadFile): string | undefined {
 }
 
 /**
- * 고쳐야 할 행을 한 줄에 하나씩. 목록이 길면 앞의 몇 건만 적고 나머지는 개수로 줄인다.
+ * 행 번호가 붙은 사유(오류·경고)를 한 줄에 하나씩. 목록이 길면 앞의 몇 건만 적고 나머지는 개수로 줄인다.
  * 한 줄로 이어 붙이면 어디서 끊어 읽어야 할지 알 수 없다.
  */
-export function rowErrorLines(errors: ImportFilePreview['errors'], limit = 4): string[] {
-  const head = errors.slice(0, limit).map((e) => `${e.row}행 · ${e.message}`)
-  return errors.length > limit ? [...head, `그 밖 ${errors.length - limit}건`] : head
-}
-
-/** 고쳐야 할 행 표기 — 목록이 길어도 앞의 몇 건만 적고 나머지는 개수로 줄인다. */
-export function rowErrorSummary(errors: ImportFilePreview['errors'], limit = 2): string {
-  const head = errors.slice(0, limit).map((e) => `${e.row}행 ${e.message}`).join(' / ')
-  return errors.length > limit ? `${head} 외 ${errors.length - limit}건` : head
+export function rowIssueLines(rows: { row: number; message: string }[], limit = 4): string[] {
+  const head = rows.slice(0, limit).map((r) => `${r.row}행 · ${r.message}`)
+  return rows.length > limit ? [...head, `그 밖 ${rows.length - limit}건`] : head
 }

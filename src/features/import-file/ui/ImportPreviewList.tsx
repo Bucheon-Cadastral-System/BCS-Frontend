@@ -1,6 +1,6 @@
 import type { PreviewEntry, PreviewStatus } from '../model/useImportPreviews'
 import type { ImportFilePreview } from '../api/previewImportFile'
-import { hasRowErrors, rowErrorLines } from '../model/readFile'
+import { hasRowErrors, rowIssueLines } from '../model/readFile'
 import { STATUS_ROW, STATUS_ROW_TONE } from '@/shared/ui/statusRow'
 import { StatusIcon } from '@/shared/ui/StatusIcon'
 import type { StatusTone } from '@/shared/ui/statusRow'
@@ -56,12 +56,11 @@ export function ImportPreviewList({ entries, unit = '대상' }: { entries: Previ
 }
 
 function StatusMark({ status }: { status: PreviewStatus }) {
-  // 읽기에 성공해도 고칠 행이 남았으면 등록할 수 없다 — 체크는 그대로 쓸 수 있는 파일에만 준다
+  // 줄 바탕(rowTone)과 같은 판정을 그대로 쓴다 — 규칙이 두 곳이면 바탕과 도형이 어긋난다
   if (status.kind === 'done') {
-    if (hasRowErrors(status.preview)) return <StatusIcon shape="warn" label="등록 불가" />
-    if (status.preview.warnings.length > 0 || noticesOf(status.preview).length > 0) {
-      return <StatusIcon shape="caution" label="확인 필요" />
-    }
+    const tone = rowTone(status)
+    if (tone === 'danger') return <StatusIcon shape="warn" label="등록 불가" />
+    if (tone === 'caution') return <StatusIcon shape="caution" label="확인 필요" />
     return <StatusIcon shape="check" label="읽음" />
   }
   if (status.kind === 'failed') return <StatusIcon shape="warn" label="실패" />
@@ -109,8 +108,8 @@ function StatusText({ status, unit }: { status: PreviewStatus; unit: string }) {
           {totalRows}건 중 {errors.length}건 오류
         </p>
         <ul className="mt-1 space-y-[3px]">
-          {rowErrorLines(errors, 2).map((line) => (
-            <li key={line} className="flex gap-1.5">
+          {rowIssueLines(errors, 2).map((line, at) => (
+            <li key={at} className="flex gap-1.5">
               <span aria-hidden>·</span>
               <span className="min-w-0 flex-1">{line}</span>
             </li>
@@ -128,8 +127,8 @@ function StatusText({ status, unit }: { status: PreviewStatus; unit: string }) {
         <div className="mt-1 break-keep text-[11px] leading-[1.5] wrap-anywhere text-amber">
           <p>확인이 필요한 행 {warnings.length}건</p>
           <ul className="mt-1 space-y-[3px]">
-            {rowErrorLines(warnings, 2).map((line) => (
-              <li key={line} className="flex gap-1.5">
+            {rowIssueLines(warnings, 2).map((line, at) => (
+              <li key={at} className="flex gap-1.5">
                 <span aria-hidden>·</span>
                 <span className="min-w-0 flex-1">{line}</span>
               </li>

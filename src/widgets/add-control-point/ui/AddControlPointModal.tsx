@@ -24,7 +24,7 @@ export interface AddControlPointValues {
 /** 갱신되는 점은 줄 아래에 바뀔 항목을 적는다 — 무엇이 덮이는지 보지 않고 확정할 수 없다. */
 function PointPreviewRow({ point }: { point: PointPreview }) {
   return (
-    <li className="px-[18px] py-2.5">
+    <div className="px-[18px] py-2.5">
       <div className="flex items-center gap-2 text-[12px]">
         <span className={`shrink-0 rounded-chip px-1.5 py-0.5 text-[11px] font-medium ${ACTION_TONE[point.action]}`}>
           {POINT_ACTION_LABEL[point.action]}
@@ -52,7 +52,7 @@ function PointPreviewRow({ point }: { point: PointPreview }) {
           ))}
         </ul>
       )}
-    </li>
+    </div>
   )
 }
 
@@ -73,12 +73,16 @@ function PointPreviewList({ points }: { points: PointPreview[] }) {
 
   // 분류 머리말과 그 아래 줄을 한 배열로 세운다 — 접힌 분류는 머리말만 남는다
   const items = useMemo(() => {
-    const rows: ({ kind: 'heading'; action: PointPreview['action']; count: number } | { kind: 'point'; point: PointPreview })[] = []
+    const rows: (
+      | { kind: 'heading'; action: PointPreview['action']; count: number; key: string }
+      | { kind: 'point'; point: PointPreview; key: string }
+    )[] = []
     for (const action of ACTION_ORDER) {
       const group = points.filter((p) => p.action === action)
       if (group.length === 0) continue
-      rows.push({ kind: 'heading', action, count: group.length })
-      if (!collapsed.has(action)) rows.push(...group.map((point) => ({ kind: 'point' as const, point })))
+      rows.push({ kind: 'heading', action, count: group.length, key: `heading-${action}` })
+      if (!collapsed.has(action))
+        rows.push(...group.map((point, at) => ({ kind: 'point' as const, point, key: `${action}-${at}` })))
     }
     return rows
   }, [points, collapsed])
@@ -88,6 +92,8 @@ function PointPreviewList({ points }: { points: PointPreview[] }) {
     getScrollElement: () => scrollRef.current,
     estimateSize: () => POINT_ROW_HEIGHT,
     overscan: 8,
+    // 잰 높이는 키로 남는다 — 접기로 순번이 밀려도 높이가 다른 줄에 붙지 않도록 순번 대신 줄의 키를 쓴다
+    getItemKey: (index) => items[index].key,
   })
 
   function toggle(action: PointPreview['action']) {
@@ -105,7 +111,8 @@ function PointPreviewList({ points }: { points: PointPreview[] }) {
     // 좌우·아래만 되물린다 — 위는 앞선 목록과의 간격이라 그대로 둔다(MODAL_BLEED 는 본문의 유일한 자식일 때 쓰는 값)
     <div className="-mx-[18px] -mb-4 flex min-h-0 w-[calc(100%+36px)] flex-1 flex-col border-t border-line-soft">
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <ul className="relative" style={{ height: virtual.getTotalSize() }}>
+        {/* 목록 시맨틱은 쓰지 않는다 — 가상화 래퍼(div)가 ul 과 li 사이에 끼어 목록 구조가 성립하지 않는다 */}
+        <div className="relative" style={{ height: virtual.getTotalSize() }}>
           {virtual.getVirtualItems().map((item) => {
             const row = items[item.index]
             return (
@@ -130,14 +137,14 @@ function PointPreviewList({ points }: { points: PointPreview[] }) {
                     <span className="shrink-0 text-[12px] text-ink-3">{row.count}점</span>
                   </button>
                 ) : (
-                  <ul className="border-b border-line-row">
+                  <div className="border-b border-line-row">
                     <PointPreviewRow point={row.point} />
-                  </ul>
+                  </div>
                 )}
               </div>
             )
           })}
-        </ul>
+        </div>
       </div>
     </div>
   )
