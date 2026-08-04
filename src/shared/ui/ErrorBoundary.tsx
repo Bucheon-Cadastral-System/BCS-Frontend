@@ -47,7 +47,7 @@ export class ErrorBoundary extends Component<Props, State> {
           </p>
           {/* 무엇이 잘못됐는지 알려야 그대로 옮겨 적어 알릴 수 있다 — 내부망에서 쓰는 화면이라 원문을 감추지 않는다 */}
           {error.message && (
-            <p className="mt-4 break-words rounded-ctl border border-line-soft bg-soft px-3 py-2 text-left font-mono text-[11px] leading-5 text-ink-4">
+            <p className="mt-4 break-words rounded-ctl border border-line-soft bg-soft px-3 py-2 text-left text-[11.5px] leading-5 text-ink-4">
               {error.message}
             </p>
           )}

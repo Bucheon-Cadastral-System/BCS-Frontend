@@ -22,7 +22,7 @@ export function MapChip(props: {
   const active = props.accent === 'active'
   return (
     <div
-      className={`relative flex w-full items-center rounded-pop border bg-pill shadow-pill backdrop-blur-[10px] ${
+      className={`relative flex w-full items-center rounded-pop border bg-pill shadow-pill ${
         active ? 'border-teal-edge' : 'border-line-pill'
       }`}
     >

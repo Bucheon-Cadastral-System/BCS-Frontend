@@ -5,19 +5,19 @@
 
 /** 지도 위에 떠 있는 작은 알약(브랜드·검색·사용자·칩) */
 export const PILL =
-  'rounded-pill border border-line-pill bg-pill shadow-pill backdrop-blur-[10px]'
+  'rounded-pill border border-line-pill bg-pill shadow-pill'
 
 /** 지도 위에 떠 있는 판(좌측 목록·상세 카드·챗) */
 export const PANEL =
-  'rounded-pill border border-line bg-panel shadow-panel backdrop-blur-[12px]'
+  'rounded-pill border border-line bg-panel shadow-panel'
 
 /** 화면 한가운데 서는 판(창·확인 대화상자·로그인 카드) — 판보다 한 겹 위라 더 짙고 더 깊은 그늘을 쓴다 */
 export const MODAL_SHELL =
-  'rounded-pill border border-line bg-panel-strong shadow-modal backdrop-blur-[14px]'
+  'rounded-pill border border-line bg-panel-strong shadow-modal'
 
 /** 무언가를 눌러 그 아래 펼쳐지는 작은 판(사용자 메뉴·검색 결과) */
 export const POPOVER =
-  'rounded-pop border border-line bg-panel-strong shadow-panel backdrop-blur-[12px]'
+  'rounded-pop border border-line bg-panel-strong shadow-panel'
 
 const BTN_BASE =
   'inline-flex h-[42px] items-center justify-center gap-1.5 rounded-ctl border-[1.5px] px-3.5 text-[13px] font-semibold transition-colors disabled:opacity-40'

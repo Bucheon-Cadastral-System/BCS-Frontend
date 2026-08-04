@@ -282,10 +282,11 @@ function ProjectPanel(props: MapSidebarProps) {
                 {/* 접어 둔 조사도 언제 하는 조사인지 알 수 있게 이름 아래 한 줄을 더 둔다 */}
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className={`truncate text-[13px] font-semibold ${selected ? 'text-ink' : 'text-ink-2'}`}>{p.name}</span>
+                  {/* 날짜는 자릿수가 서야 해서 고정폭이지만, 한글은 그 글꼴에 없어 다른 글꼴로 떨어진다 — 글자만 본문 글꼴로 되돌린다 */}
                   <span className="mt-[3px] block truncate font-mono text-[11.5px] text-ink-3">
                     {formatDate(p.startedOn)} ~{' '}
                     {p.endedOn === null ? (
-                      <span className="text-teal-text">{SURVEY_ONGOING_LABEL}</span>
+                      <span className="font-sans text-teal-text">{SURVEY_ONGOING_LABEL}</span>
                     ) : (
                       formatDate(p.endedOn)
                     )}
@@ -572,7 +573,7 @@ function PointRowList(props: {
         onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
         aria-hidden={!scrolled}
         tabIndex={scrolled ? 0 : -1}
-        className={`absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-pill border border-line-pill bg-pill py-1.5 pl-2.5 pr-3 text-[12px] font-medium text-ink-2 shadow-pill backdrop-blur-[10px] transition-all duration-200 hover:text-ink ${
+        className={`absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-pill border border-line-pill bg-pill py-1.5 pl-2.5 pr-3 text-[12px] font-medium text-ink-2 shadow-pill transition-all duration-200 hover:text-ink ${
           scrolled ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-3 opacity-0'
         }`}
       >

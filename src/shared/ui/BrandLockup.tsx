@@ -27,7 +27,8 @@ export function BrandLockup({
     <div className={`flex items-center text-ink ${s.gap} ${className}`}>
       <BrandMark className={s.mark} />
 
-      <span className={`${s.title} font-extrabold leading-none tracking-tight`}>BCS</span>
+      {/* 굵기는 400·500·600·700 만 담아 둔다 — 없는 굵기를 쓰면 브라우저가 흉내 내 글자가 뭉개진다 */}
+      <span className={`${s.title} font-bold leading-none tracking-tight`}>BCS</span>
 
       {variant === 'full' && (
         <>

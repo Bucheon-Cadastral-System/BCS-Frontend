@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* 본문은 IBM Plex Sans KR, 좌표·관리번호·기간 같은 수치는 IBM Plex Mono.
+/* 본문은 IBM Plex Sans KR, 좌표·관리번호·기간 같은 수치는 IBM Plex Mono(자릿수가 세로로 고르게 서야 한다).
    글꼴 파일을 직접 담아 둔다 — 내부망에서 쓰는 화면이라 외부 CDN 을 믿을 수 없다. */
 @import "@fontsource/ibm-plex-sans-kr/400.css";
 @import "@fontsource/ibm-plex-sans-kr/500.css";
@@ -15,9 +15,9 @@
  * 값은 화면 테마에 따라 갈리므로 이름만 쓰고, 라이트 값은 아래 .theme-light 에서 덮는다.
  */
 @theme {
-  --color-panel: rgba(11, 19, 22, 0.94);
-  --color-panel-strong: rgba(11, 19, 22, 0.96);
-  --color-pill: rgba(9, 18, 20, 0.92);
+  --color-panel: rgba(11, 19, 22, 0.97);
+  --color-panel-strong: rgba(11, 19, 22, 0.98);
+  --color-pill: rgba(9, 18, 20, 0.96);
   --color-field: #070e10;
   --color-soft: rgba(255, 255, 255, 0.02);
   --color-hover: #16242a;
@@ -87,7 +87,7 @@
 :where(.theme-light, .theme-light *) {
   --color-panel: #fbfdfc;
   --color-panel-strong: #fbfdfc;
-  --color-pill: rgba(251, 253, 252, 0.94);
+  --color-pill: rgba(251, 253, 252, 0.97);
   --color-field: #f5f9f7;
   --color-soft: #f2f7f4;
   --color-hover: #eef4f1;
@@ -144,6 +144,10 @@
 .theme-light {
   color-scheme: light;
 }
+
+/* 배경 흐림(backdrop-filter)은 쓰지 않는다.
+   흐림이 걸린 요소는 별도 레이어로 합성되는데, 윈도우는 그런 레이어의 글자를 서브픽셀 없이 그려 획이 뭉개 보인다.
+   맥은 원래 서브픽셀을 안 써서 차이가 없다. 판이 이미 96% 이상 불투명해 흐림이 주던 효과도 거의 없었다. */
 
 /* 앱 바닥 — 판이 그 위에 떠 있는 구조라 바닥에도 결이 있어야 한다 */
 .app-bg {

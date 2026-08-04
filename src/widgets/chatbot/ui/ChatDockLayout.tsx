@@ -187,7 +187,7 @@ export function ChatDockLayout({
         aria-expanded={open}
         aria-hidden={docked}
         tabIndex={docked ? -1 : 0}
-        className={`absolute bottom-6 right-6 z-40 flex size-14 items-center justify-center rounded-full border-[1.5px] bg-pill shadow-pill backdrop-blur-[10px] transition-[color,border-color,background-color,transform,opacity] duration-200 ${
+        className={`absolute bottom-6 right-6 z-40 flex size-14 items-center justify-center rounded-full border-[1.5px] bg-pill shadow-pill transition-[color,border-color,background-color,transform,opacity] duration-200 ${
           open
             ? 'border-danger-edge text-danger hover:bg-danger-wash'
             : 'border-teal-btn-edge text-teal-text hover:border-teal-text hover:bg-teal-wash'

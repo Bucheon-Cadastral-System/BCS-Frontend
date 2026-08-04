@@ -63,7 +63,7 @@ export function Toast(props: {
     <div
       role="status"
       aria-live={tone === 'error' ? 'assertive' : 'polite'}
-      className={`fixed bottom-6 left-1/2 z-50 flex max-w-[90vw] items-center gap-2 rounded-pill border bg-pill py-2 pl-4 pr-2 text-[12.5px] text-ink shadow-pill backdrop-blur-[10px] ${toneRing}`}
+      className={`fixed bottom-6 left-1/2 z-50 flex max-w-[90vw] items-center gap-2 rounded-pill border bg-pill py-2 pl-4 pr-2 text-[12.5px] text-ink shadow-pill ${toneRing}`}
       style={{
         transform: `translateX(-50%) translateY(${visible ? '0px' : '24px'})`,
         opacity: visible ? 1 : 0,

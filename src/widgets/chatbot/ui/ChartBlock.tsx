@@ -53,6 +53,10 @@ export function ChartBlock({ json }: { json: string }) {
           borderWidth: spec.type === 'line' ? 2 : 0,
         }))
 
+    // 캔버스에 그리는 글자라 CSS 를 못 받는다 — 제목·범례에 한글이 오므로 화면 글꼴을 직접 넘긴다
+    Chart.defaults.font.family =
+      getComputedStyle(document.documentElement).getPropertyValue('--font-sans').trim() || 'system-ui, sans-serif'
+
     // Chart.js 타입은 차트 type별로 dataset 형태가 엄격해, 런타임에 type이 갈리는 config는 캐스팅해 넘긴다
     const config = {
       type: spec.type,

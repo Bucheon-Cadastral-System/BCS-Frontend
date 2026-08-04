@@ -58,7 +58,7 @@ const BANNER_TONE = {
 function Banner(props: { tone: keyof typeof BANNER_TONE; children: React.ReactNode }) {
   return (
     <p
-      className={`pointer-events-auto rounded-pop border px-3.5 py-1.5 text-[12px] shadow-pill backdrop-blur-[10px] [&_code]:rounded [&_code]:bg-black/20 [&_code]:px-1 ${BANNER_TONE[props.tone]}`}
+      className={`pointer-events-auto rounded-pop border px-3.5 py-1.5 text-[12px] shadow-pill [&_code]:rounded [&_code]:bg-black/20 [&_code]:px-1 ${BANNER_TONE[props.tone]}`}
     >
       {props.children}
     </p>
@@ -448,7 +448,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
 
             {/* 위치 찍기 중 — 모달은 숨어 있으므로 지도 위에서 무엇을 해야 하는지 알려 준다 */}
             {picking && (
-              <div className="absolute left-1/2 top-[76px] z-[25] flex -translate-x-1/2 items-center gap-3 rounded-pill border border-line-pill bg-pill py-2 pl-4 pr-2 text-[13px] text-ink shadow-pill backdrop-blur-[10px]">
+              <div className="absolute left-1/2 top-[76px] z-[25] flex -translate-x-1/2 items-center gap-3 rounded-pill border border-line-pill bg-pill py-2 pl-4 pr-2 text-[13px] text-ink shadow-pill">
                 지도를 클릭해 위치를 지정하세요
                 <button type="button" onClick={() => setPicking(false)} className="rounded-chip px-2.5 py-1 text-[12px] text-ink-3 transition-colors hover:bg-hover hover:text-ink">
                   취소

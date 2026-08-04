@@ -65,6 +65,19 @@ function svgFor(type: PointType, selected: boolean, lost: boolean, done: boolean
 }
 
 /**
+ * 지도 라벨 글꼴 — 캔버스에 그리는 글자라 CSS 를 못 받는다. 화면 토큰을 한 번 읽어 같은 글꼴로 맞춘다.
+ * 처음 그릴 때 읽는다 — 모듈을 읽는 시점에는 스타일시트가 아직 붙지 않았을 수 있다.
+ */
+let labelFontCache = ''
+function labelFont(): string {
+  if (labelFontCache === '') {
+    const family = getComputedStyle(document.documentElement).getPropertyValue('--font-sans').trim()
+    labelFontCache = `12px ${family || 'system-ui, sans-serif'}`
+  }
+  return labelFontCache
+}
+
+/**
  * 도식은 (종류·선택·망실·조사됨·테마) 조합에만 달려 있어 가짓수가 48개뿐이다.
  * 점 수천 개를 한 화면에 그리면 스타일 함수가 그만큼 불리므로, 조합마다 한 번만 만들어 돌려 쓴다.
  */
@@ -119,7 +132,7 @@ export function controlPointStyle(
     text: new Text({
       text: cp.name,
       offsetY: -20,
-      font: '12px system-ui, sans-serif',
+      font: labelFont(),
       fill: new Fill({ color: pal.label }),
       stroke: new Stroke({ color: pal.labelHalo, width: 3 }),
     }),
