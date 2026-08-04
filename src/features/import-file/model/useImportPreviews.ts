@@ -3,6 +3,9 @@ import { ApiError } from '@/shared/api/http'
 import { previewImportFile } from '../api/previewImportFile'
 import type { ImportFilePreview, ImportPurpose } from '../api/previewImportFile'
 
+/** 읽을 파일이 없을 때 넘기는 고정 배열 — 참조가 바뀌면 훅이 처음부터 다시 읽는다 */
+export const NO_FILES: File[] = []
+
 export type PreviewStatus =
   | { kind: 'waiting' }
   /** 전송 중 — percent 는 실제 전송량 */

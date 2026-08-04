@@ -1,20 +1,16 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import type { SurveyProjectDraft } from '@/entities/survey-project'
-import { ImportPreviewList, blockingReasonOf, hasRowErrors, rowErrorLines, summaryOf, useImportPreviews } from '@/features/import-file'
-import { ApiError } from '@/shared/api/http'
-import type { ReadFile } from '@/features/import-file'
+import { ImportPreviewList, NO_FILES, SEND_LABEL, SendMark, blockingReasonOf, hasRowErrors, rowErrorLines, summaryOf, useImportPreviews, useSequentialSend } from '@/features/import-file'
+import type { ReadFile, SendStatus } from '@/features/import-file'
 import { today } from '@/shared/lib/date'
 import { fileBaseName } from '@/shared/lib/file'
 import { percent } from '@/shared/lib/percent'
 import { PROGRESS_FILL } from '@/shared/ui/classes'
 import { MODAL_CANCEL_BTN, MODAL_DANGER_BTN, MODAL_HEADER, MODAL_INPUT, MODAL_READONLY, MODAL_SUBMIT_BTN, MODAL_TEXTAREA, Modal, ModalField } from '@/shared/ui/Modal'
-import { StatusIcon } from '@/shared/ui/StatusIcon'
+import { Spinner } from '@/shared/ui/Spinner'
 import { FormNotice } from '@/shared/ui/FormNotice'
 import { useFormNotice } from '@/shared/lib/useFormNotice'
 import type { StatusShape, StatusTone } from '@/shared/ui/statusRow'
-
-/** 읽을 파일이 없을 때 넘기는 고정 배열 — 참조가 바뀌면 훅이 처음부터 다시 읽는다 */
-const NO_FILES: File[] = []
 
 /**
  * 날짜 칸이 받을 수 있는 범위.
@@ -38,10 +34,6 @@ interface Entry {
   discarded: boolean
   /** 이 건을 지나쳤는지 — 다음으로 넘어갈 때만 선다. 건너뛰어 앞으로 가면 지나치지 않은 건은 그대로 남는다. */
   visited: boolean
-  /** 등록 단계에서의 상태. done 은 이미 서버에 있으므로 다시 보내지 않는다. */
-  status: 'idle' | 'sending' | 'done' | 'failed'
-  /** 실패 사유 — 어느 건이 왜 안 됐는지 목록에서 바로 보이게 들고 있는다 */
-  error?: string
 }
 
 function newEntry(defaults?: Partial<SurveyProjectDraft>): Entry {
@@ -49,7 +41,6 @@ function newEntry(defaults?: Partial<SurveyProjectDraft>): Entry {
     read: null,
     discarded: false,
     visited: false,
-    status: 'idle',
     draft: {
       name: defaults?.name ?? '',
       // 조사는 만드는 날부터 시작하는 것이 보통이라 시작일은 오늘로 연다
@@ -60,33 +51,14 @@ function newEntry(defaults?: Partial<SurveyProjectDraft>): Entry {
   }
 }
 
-/** 확인·등록 목록의 상태 문구 — 등록을 시작했는지가 아니라 그 건의 상태로 정한다 */
-const SEND_LABEL: Record<Entry['status'], string> = {
-  idle: '등록 예정',
-  sending: '등록 중',
-  done: '완료',
-  failed: '실패',
-}
-
-/** 확인·등록 목록의 건별 상태 표시 — 도형은 목록 공용 표시를 쓰고, 이 화면에만 있는 대기·진행만 직접 그린다 */
-function SendMark({ status, discarded }: { status: Entry['status']; discarded: boolean }) {
-  if (discarded) return <StatusIcon shape="cross" label="폐기" />
-  if (status === 'done') return <StatusIcon shape="check" label="완료" />
-  if (status === 'failed') return <StatusIcon shape="warn" label="실패" />
-  if (status === 'sending') {
-    return <span className="size-4 shrink-0 animate-spin rounded-full border-2 border-teal border-t-transparent" role="img" aria-label="등록 중" />
-  }
-  return <span className="size-4 shrink-0 rounded-full border-2 border-idle" aria-hidden />
-}
-
 /** 현황판 한 줄의 상태 */
 type StepState = 'todo' | 'passed' | 'sending' | 'discarded' | 'done' | 'failed'
 
-function stepState(entry: Entry): StepState {
-  if (entry.status === 'failed') return 'failed'
-  if (entry.status === 'done') return 'done'
+function stepState(entry: Entry, status: SendStatus): StepState {
+  if (status === 'failed') return 'failed'
+  if (status === 'done') return 'done'
   // 보내는 중은 지나온 건과 갈라야 한다 — 체크로 뭉개면 끝난 것처럼 읽힌다
-  if (entry.status === 'sending') return 'sending'
+  if (status === 'sending') return 'sending'
   if (entry.discarded) return 'discarded'
   return entry.visited ? 'passed' : 'todo'
 }
@@ -155,6 +127,8 @@ function StepDot({ tone, shape, current }: { tone: StatusTone; shape: StatusShap
  */
 function StepList(props: {
   entries: Entry[]
+  /** 건별 전송 상태 — 목록은 건을 들고 전송 이력은 훅이 들므로 조회 함수로 잇는다 */
+  statusOf: (index: number) => SendStatus
   /** 지금 보고 있는 건. 확인 단계면 없다 */
   current: number | null
   /** 등록을 시작했는지 — 시작 뒤에는 초록을 등록을 마친 줄에만 쓴다 */
@@ -171,7 +145,7 @@ function StepList(props: {
   return (
     <ul className="py-1.5">
       {props.entries.map((entry, i) => {
-        const state = stepState(entry)
+        const state = stepState(entry, props.statusOf(i))
         const look =
           state === 'todo' || state === 'sending'
             ? null
@@ -199,7 +173,7 @@ function StepList(props: {
                 {isCurrent && <span aria-hidden className="step-pulse absolute inset-0 rounded-full bg-teal" />}
                 {state === 'sending' ? (
                   // 보내는 중인 점은 등록 목록의 스피너와 같은 모양을 점 크기로 쓴다
-                  <span aria-hidden className="relative z-10 size-[14px] animate-spin rounded-full border-2 border-teal border-t-transparent" />
+                  <Spinner className="relative z-10 size-[14px]" />
                 ) : (
                   <StepDot
                     // 아직 결과가 없어도 지금 보고 있는 줄은 청록으로 세운다
@@ -283,7 +257,7 @@ export function SurveyProjectFormModal(props: {
   const [index, setIndex] = useState(0)
   // 마지막 건 다음에 오는 확인 단계 — 무엇을 등록하는지 훑어보고, 그 자리에서 등록 진행까지 본다
   const [confirming, setConfirming] = useState(false)
-  const [started, setStarted] = useState(false)
+  const send = useSequentialSend('등록하지 못했습니다. 잠시 후 다시 시도해 주세요.')
   const form = useFormNotice()
 
   const current = entries[index]
@@ -295,21 +269,14 @@ export function SurveyProjectFormModal(props: {
 
   const periodReversed = current.draft.endedOn !== null && current.draft.endedOn < current.draft.startedOn
   // 등록할 건 = 폐기하지 않았고 아직 보내지 않은 건
-  const pendingIndexes = entries.flatMap((e, i) => (e.discarded || e.status === 'done' ? [] : [i]))
+  const pendingIndexes = entries.flatMap((e, i) => (e.discarded || send.statusOf(i) === 'done' ? [] : [i]))
   const invalidIndex = pendingIndexes.find((i) => !entryValid(entries[i])) ?? null
   const busy = reading !== null || props.submitting
   const canRegister = pendingIndexes.length > 0 && invalidIndex === null && !busy
   const discardedCount = entries.filter((e) => e.discarded).length
-  const sendingIndex = entries.findIndex((e) => e.status === 'sending')
-  const inFlight = sendingIndex >= 0
-  const failedIndex = entries.findIndex((e) => e.status === 'failed')
-  // 등록은 위에서부터 차례로 올라가므로 지금 보내는 줄이 화면 밖으로 나간다 — 목록이 그 줄을 따라간다
-  const sendingRowRef = useRef<HTMLLIElement>(null)
-  useEffect(() => {
-    sendingRowRef.current?.scrollIntoView({ block: 'center' })
-  }, [sendingIndex])
-  const allDone = started && pendingIndexes.length === 0
-  const doneCount = entries.filter((e) => e.status === 'done').length
+  const failedIndex = entries.findIndex((_, i) => send.statusOf(i) === 'failed')
+  const allDone = send.started && pendingIndexes.length === 0
+  const doneCount = entries.filter((_, i) => send.statusOf(i) === 'done').length
   /** 아직 보지 않은 건이 남았는지 — 지금 건은 넘어가는 길에 확인한 것으로 친다 */
   function hasUnseen(): boolean {
     return entries.some((e, i) => i !== index && !e.visited && !e.discarded)
@@ -327,7 +294,7 @@ export function SurveyProjectFormModal(props: {
   /** 막대의 점을 눌러 그 건으로 — 확인 단계에서 눌렀으면 입력으로 돌아간다 */
   function jumpToEntry(i: number) {
     setConfirming(false)
-    setStarted(false)
+    send.reset()
     setIndex(i)
   }
 
@@ -347,41 +314,24 @@ export function SurveyProjectFormModal(props: {
     setConfirming(true)
   }
 
-  /**
-   * 입력을 마친 건을 한 번에 등록한다.
-   * 서버는 한 요청에 조사 하나만 받으므로 차례로 보낸다 — 조사는 달라도 기준점 마스터는 함께 쓰므로,
-   * 같은 관리번호가 두 파일에 있으면 동시에 보낼 때 둘 다 새 점으로 판단한다.
-   * 도중에 실패하면 그 건에 멈춘다. 앞서 보낸 건은 이미 서버에 있어 되돌릴 수 없으므로 다시 보내지 않는다.
-   */
-  async function registerAll() {
+  /** 입력을 마친 건들을 차례로 등록한다 — 순차인 이유·실패 시 멈춤·재시도 규칙은 useSequentialSend가 갖는다. */
+  function registerAll() {
     if (!canRegister) return
-    const targets = pendingIndexes
-    setStarted(true)
-    setEntries((cur) => cur.map((e, i) => (targets.includes(i) ? { ...e, status: 'idle', error: undefined } : e)))
-    for (const [order, at] of targets.entries()) {
+    void send.run(pendingIndexes, async (at, order, total) => {
       const entry = entries[at]
-      setEntries((cur) => cur.map((e, i) => (i === at ? { ...e, status: 'sending' } : e)))
-      try {
-        await props.onSubmit(
-          { ...entry.draft, name: entry.draft.name.trim(), note: trimmedOrNull(entry.draft.note ?? '') },
-          entry.read?.file ?? null,
-          { index: order, total: targets.length },
-        )
-      } catch (e) {
-        // 여기서 멈춘다. 앞서 보낸 건은 이미 서버에 있어 되돌릴 수 없으므로 다시 보내지 않는다.
-        const reason = e instanceof ApiError ? e.message : '등록하지 못했습니다. 잠시 후 다시 시도해 주세요.'
-        setEntries((cur) => cur.map((entry2, i) => (i === at ? { ...entry2, status: 'failed', error: reason } : entry2)))
-        return
-      }
-      setEntries((cur) => cur.map((e, i) => (i === at ? { ...e, status: 'done' } : e)))
-    }
+      await props.onSubmit(
+        { ...entry.draft, name: entry.draft.name.trim(), note: trimmedOrNull(entry.draft.note ?? '') },
+        entry.read?.file ?? null,
+        { index: order, total },
+      )
+    })
     // 끝나도 창을 닫지 않는다 — 무엇이 등록됐는지 확인하고 사용자가 닫는다
   }
 
   /** 창의 기본 동작(Enter 포함) — 확인 단계에서만 등록하고, 그 전에는 다음으로 넘어간다 */
   function handlePrimary() {
     if (confirming) {
-      if (!started) void registerAll()
+      if (!send.started) registerAll()
       return
     }
     if (busy) return
@@ -439,7 +389,6 @@ export function SurveyProjectFormModal(props: {
         draft: { ...base, name: i === 0 && base.name.trim() !== '' ? base.name : fileBaseName(item.file.name) },
         discarded: false,
         visited: false,
-        status: 'idle' as const,
       })),
     )
     setIndex(0)
@@ -509,9 +458,10 @@ export function SurveyProjectFormModal(props: {
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <StepList
             entries={entries}
-            current={confirming ? (sendingIndex >= 0 ? sendingIndex : null) : index}
-            registering={started}
-            disabled={busy || started}
+            statusOf={send.statusOf}
+            current={confirming ? (send.sendingIndex >= 0 ? send.sendingIndex : null) : index}
+            registering={send.started}
+            disabled={busy || send.started}
             onJump={jumpToEntry}
           />
         </div>
@@ -527,18 +477,18 @@ export function SurveyProjectFormModal(props: {
       <p className="text-[12.5px] text-ink-3">
         {allDone
           ? `${doneCount}건을 등록했습니다.`
-          : started
+          : send.started
             ? `${doneCount}건 등록, ${pendingIndexes.length}건 남음`
             : `${pendingIndexes.length}건을 등록합니다.`}
         {discardedCount > 0 &&
-          (started ? ` 폐기한 ${discardedCount}건은 등록하지 않았습니다.` : ` 폐기한 ${discardedCount}건은 등록하지 않습니다.`)}
+          (send.started ? ` 폐기한 ${discardedCount}건은 등록하지 않았습니다.` : ` 폐기한 ${discardedCount}건은 등록하지 않습니다.`)}
       </p>
-      {!started && entries.every((e) => e.discarded) && (
+      {!send.started && entries.every((e) => e.discarded) && (
         <p className="rounded-chip bg-soft px-2.5 py-1.5 text-[12px] text-ink-3">
           모두 폐기해 등록할 프로젝트가 없습니다.
         </p>
       )}
-      {!started && invalidIndex !== null && (
+      {!send.started && invalidIndex !== null && (
         <p className="text-[12px] text-danger">
           {invalidIndex + 1}번째에 비어 있는 항목이 있습니다.{' '}
           <button type="button" className="underline underline-offset-2" onClick={() => jumpToEntry(invalidIndex)}>
@@ -547,30 +497,34 @@ export function SurveyProjectFormModal(props: {
         </p>
       )}
       <ul className="space-y-2">
-        {entries.map((entry, i) => (
-          <li
-            key={i}
-            ref={i === sendingIndex ? sendingRowRef : null}
-            className={`rounded-chip text-[12.5px] ${i === sendingIndex ? 'bg-teal-wash px-2 py-1.5' : ''}`}
-          >
-            <div className="flex items-center gap-2">
-              <SendMark status={entry.status} discarded={entry.discarded} />
-              <span
-                className={`min-w-0 flex-1 truncate ${
-                  entry.discarded ? 'text-ink-4 line-through' : 'text-ink-2'
-                }`}
-              >
-                {entry.draft.name}
-              </span>
-              <span className="shrink-0 text-[11px] text-ink-3">
-                {entry.discarded ? '폐기' : SEND_LABEL[entry.status]}
-              </span>
-            </div>
-            {entry.error !== undefined && (
-              <p className="mt-0.5 pl-6 text-[11px] text-danger">{entry.error}</p>
-            )}
-          </li>
-        ))}
+        {entries.map((entry, i) => {
+          const status = send.statusOf(i)
+          const error = send.errorOf(i)
+          return (
+            <li
+              key={i}
+              ref={i === send.sendingIndex ? send.sendingRowRef : null}
+              className={`rounded-chip text-[12.5px] ${i === send.sendingIndex ? 'bg-teal-wash px-2 py-1.5' : ''}`}
+            >
+              <div className="flex items-center gap-2">
+                <SendMark status={status} discarded={entry.discarded} />
+                <span
+                  className={`min-w-0 flex-1 truncate ${
+                    entry.discarded ? 'text-ink-4 line-through' : 'text-ink-2'
+                  }`}
+                >
+                  {entry.draft.name}
+                </span>
+                <span className="shrink-0 text-[11px] text-ink-3">
+                  {entry.discarded ? '폐기' : SEND_LABEL[status]}
+                </span>
+              </div>
+              {error !== undefined && (
+                <p className="mt-0.5 break-keep pl-6 text-[11px] leading-[1.5] wrap-anywhere text-danger">{error}</p>
+              )}
+            </li>
+          )
+        })}
       </ul>
     </>
   )
@@ -681,7 +635,7 @@ export function SurveyProjectFormModal(props: {
               <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
             </svg>
             <span className="text-[13px] font-medium">파일을 끌어다 놓거나 눌러서 선택</span>
-            <span className="text-[11px]">CSV · XLSX</span>
+            <span className="text-[11px]">CSV · XLS · XLSX</span>
           </button>
         )}
         {fileError && (
@@ -708,7 +662,7 @@ export function SurveyProjectFormModal(props: {
       title={confirming ? '프로젝트 등록' : showReading ? '프로젝트 대상지 파일 읽기' : props.title}
       aside={board}
       formRef={form.formRef}
-      busy={inFlight || reading !== null}
+      busy={send.inFlight || reading !== null}
       onClose={props.onCancel}
       onSubmit={handlePrimary}
       onDropFile={confirming ? undefined : handleFiles}
@@ -716,10 +670,10 @@ export function SurveyProjectFormModal(props: {
         confirming ? (
           <>
             {/* 등록을 시작하기 전에는 되돌릴 수 있어 취소, 시작한 뒤에는 앞서 보낸 건이 서버에 남아 되돌릴 수 없다 */}
-            <button type="button" className={MODAL_CANCEL_BTN} onClick={props.onCancel} disabled={inFlight}>
-              {started ? '닫기' : '취소'}
+            <button type="button" className={MODAL_CANCEL_BTN} onClick={props.onCancel} disabled={send.inFlight}>
+              {send.started ? '닫기' : '취소'}
             </button>
-            {!started && (
+            {!send.started && (
               <button
                 type="button"
                 className={`${MODAL_CANCEL_BTN} ml-auto`}
@@ -728,12 +682,12 @@ export function SurveyProjectFormModal(props: {
                 이전
               </button>
             )}
-            {!started && (
+            {!send.started && (
               <button type="submit" className={MODAL_SUBMIT_BTN} disabled={!canRegister}>
                 {total > 1 ? `${pendingIndexes.length}건 ${props.submitLabel}` : props.submitLabel}
               </button>
             )}
-            {started && failedIndex >= 0 && (
+            {send.started && failedIndex >= 0 && (
               <button type="button" className={MODAL_SUBMIT_BTN} onClick={() => jumpToEntry(failedIndex)}>
                 고치러 가기
               </button>
@@ -770,8 +724,7 @@ export function SurveyProjectFormModal(props: {
                 `${usable.length}건 입력하기`
               ) : (
                 <span className="flex items-center gap-1.5">
-                  {/* 버튼 전경색을 그대로 쓴다 — 색을 따로 정하면 버튼 색 규칙이 테마마다 갈릴 때 함께 따라오지 않는다 */}
-                  <span className="size-3.5 animate-spin rounded-full border-2 border-current/40 border-t-current" aria-hidden />
+                  <Spinner className="size-3.5" current />
                   읽는 중
                 </span>
               )}
@@ -808,7 +761,7 @@ export function SurveyProjectFormModal(props: {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".csv,.xlsx,text/csv"
+        accept=".csv,.xls,.xlsx,text/csv"
         multiple
         hidden
         onChange={(e) => {

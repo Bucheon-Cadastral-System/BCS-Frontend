@@ -2,13 +2,12 @@ import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { POINT_TYPES } from '@/entities/control-point'
 import type { PointType } from '@/entities/control-point'
-import { ImportPreviewList, POINT_ACTION_LABEL, hasRowErrors, nothingToRegister, summaryOf, useImportPreviews } from '@/features/import-file'
+import { ImportPreviewList, NO_FILES, POINT_ACTION_LABEL, SEND_LABEL, SendMark, hasRowErrors, nothingToRegister, summaryOf, useImportPreviews, useSequentialSend } from '@/features/import-file'
 import type { PointPreview, ReadFile } from '@/features/import-file'
-import { ApiError } from '@/shared/api/http'
 import { TM_ORIGINS } from '@/shared/lib/crs'
 import type { TmEpsg } from '@/shared/lib/crs'
 import { MODAL_CANCEL_BTN, MODAL_DANGER_BTN, MODAL_INPUT, MODAL_SELECT, MODAL_SUBMIT_BTN, Modal, ModalField } from '@/shared/ui/Modal'
-import { StatusIcon } from '@/shared/ui/StatusIcon'
+import { Spinner } from '@/shared/ui/Spinner'
 import { FormNotice } from '@/shared/ui/FormNotice'
 import { useFormNotice } from '@/shared/lib/useFormNotice'
 
@@ -20,33 +19,6 @@ export interface AddControlPointValues {
   northing: number
   easting: number
   tmEpsg: TmEpsg
-}
-
-/** 읽을 파일이 없을 때 넘기는 고정 배열 — 참조가 바뀌면 훅이 처음부터 다시 읽는다 */
-const NO_FILES: File[] = []
-
-/** 등록할 파일 한 건과 그 진행 상태. */
-interface Entry {
-  read: ReadFile
-  status: 'idle' | 'sending' | 'done' | 'failed'
-  error?: string
-}
-
-const SEND_LABEL: Record<Entry['status'], string> = {
-  idle: '등록 예정',
-  sending: '등록 중',
-  done: '완료',
-  failed: '실패',
-}
-
-/** 확인·등록 목록의 건별 상태 표시 — 도형은 목록 공용 표시를 쓰고, 이 화면에만 있는 대기·진행만 직접 그린다 */
-function SendMark({ status }: { status: Entry['status'] }) {
-  if (status === 'done') return <StatusIcon shape="check" label="완료" />
-  if (status === 'failed') return <StatusIcon shape="warn" label="실패" />
-  if (status === 'sending') {
-    return <span className="size-4 shrink-0 animate-spin rounded-full border-2 border-teal border-t-transparent" role="img" aria-label="등록 중" />
-  }
-  return <span className="size-4 shrink-0 rounded-full border-2 border-idle" aria-hidden />
 }
 
 /** 갱신되는 점은 줄 아래에 바뀔 항목을 적는다 — 무엇이 덮이는지 보지 않고 확정할 수 없다. */
@@ -221,11 +193,11 @@ export function AddControlPointModal(props: {
   const [northing, setNorthing] = useState('')
   const [easting, setEasting] = useState('')
   const [reading, setReading] = useState<File[] | null>(null)
-  // 확인 단계에 오른 파일들 — 비어 있으면 아직 이 단계에 오지 않았다
-  const [entries, setEntries] = useState<Entry[]>([])
+  // 확인 단계에 오른 파일들 — 비어 있으면 아직 이 단계에 오지 않았다. 건별 전송 상태는 훅이 순번으로 든다
+  const [entries, setEntries] = useState<ReadFile[]>([])
   // 읽기를 마치고 폼에 붙어 있는 파일 — 프로젝트 추가와 같이, 읽고 나면 입력 화면으로 돌아와 붙은 파일을 보여 준다
   const [attached, setAttached] = useState<ReadFile[]>([])
-  const [started, setStarted] = useState(false)
+  const send = useSequentialSend('등록하지 못했습니다. 잠시 후 다시 시도해 주세요.')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const form = useFormNotice()
 
@@ -255,23 +227,16 @@ export function AddControlPointModal(props: {
   const showReading = reading !== null
   const confirming = entries.length > 0
 
-  const pendingIndexes = entries.flatMap((e, i) => (e.status === 'done' ? [] : [i]))
-  const doneCount = entries.filter((e) => e.status === 'done').length
-  const sendingIndex = entries.findIndex((e) => e.status === 'sending')
-  const inFlight = sendingIndex >= 0
-  const allDone = started && pendingIndexes.length === 0
-  // 등록은 위에서부터 차례로 올라가므로 지금 보내는 줄이 화면 밖으로 나간다 — 목록이 그 줄을 따라간다
-  const sendingRowRef = useRef<HTMLLIElement>(null)
-  useEffect(() => {
-    sendingRowRef.current?.scrollIntoView({ block: 'center' })
-  }, [sendingIndex])
+  const pendingIndexes = entries.flatMap((_, i) => (send.statusOf(i) === 'done' ? [] : [i]))
+  const doneCount = entries.length - pendingIndexes.length
+  const allDone = send.started && pendingIndexes.length === 0
 
   /** 창 위 어디에 떨어뜨리든, 눌러서 고르든 이 자리에서 읽는다 */
   function handleFiles(picked: File[]) {
     if (picked.length === 0) return
     setEntries([])
     setAttached([])
-    setStarted(false)
+    send.reset()
     setReading(picked)
   }
 
@@ -284,36 +249,15 @@ export function AddControlPointModal(props: {
 
   const openPicker = () => fileInputRef.current?.click()
 
-  /**
-   * 확인한 파일을 한 번에 등록한다.
-   * 서버는 한 요청에 파일 하나만 받으므로 차례로 보낸다 — 기준점 마스터를 파일끼리 함께 쓰므로,
-   * 같은 관리번호가 두 파일에 있으면 동시에 보낼 때 둘 다 새 점으로 판단한다.
-   * 도중에 실패하면 그 건에 멈춘다. 앞서 보낸 건은 이미 서버에 있어 되돌릴 수 없으므로 다시 보내지 않는다.
-   */
-  async function registerAll() {
-    const targets = pendingIndexes
-    if (targets.length === 0 || inFlight) return
-    setStarted(true)
-    setEntries((cur) => cur.map((e, i) => (targets.includes(i) ? { ...e, status: 'idle', error: undefined } : e)))
-
+  /** 확인한 파일들을 차례로 등록한다 — 순차인 이유·실패 시 멈춤·재시도 규칙은 useSequentialSend가 갖는다. */
+  function registerAll() {
     // 파일의 점이 모두 등록된 값과 같으면 보내도 서버가 할 일이 없다 — 수천 행을 올리는 대신 그 자리에서 끝낸다.
     // 결과는 보낸 건과 같은 완료다: 올린 파일대로 등록돼 있다는 것이 사용자가 확인할 전부다.
-    const sending = targets.filter((at) => !nothingToRegister(entries[at].read.preview))
-    if (sending.length < targets.length) {
-      setEntries((cur) => cur.map((e, i) => (targets.includes(i) && !sending.includes(i) ? { ...e, status: 'done' } : e)))
-    }
-
-    for (const [order, at] of sending.entries()) {
-      setEntries((cur) => cur.map((e, i) => (i === at ? { ...e, status: 'sending' } : e)))
-      try {
-        await props.onImport(entries[at].read.file, { index: order, total: sending.length })
-      } catch (e) {
-        const reason = e instanceof ApiError ? e.message : '등록하지 못했습니다. 잠시 후 다시 시도해 주세요.'
-        setEntries((cur) => cur.map((entry, i) => (i === at ? { ...entry, status: 'failed', error: reason } : entry)))
-        return
-      }
-      setEntries((cur) => cur.map((e, i) => (i === at ? { ...e, status: 'done' } : e)))
-    }
+    send.markDone(pendingIndexes.filter((at) => nothingToRegister(entries[at].preview)))
+    void send.run(
+      pendingIndexes.filter((at) => !nothingToRegister(entries[at].preview)),
+      (at, order, total) => props.onImport(entries[at].file, { index: order, total }),
+    )
     // 끝나도 창을 닫지 않는다 — 무엇이 등록됐는지 확인하고 사용자가 닫는다
   }
 
@@ -327,7 +271,7 @@ export function AddControlPointModal(props: {
     if (props.submitting) return
     // 파일이 붙어 있으면 그 파일을 등록한다 — 한 점 입력값은 이 경우 쓰이지 않는다
     if (attached.length > 0) {
-      setEntries(attached.map((item) => ({ read: item, status: 'idle' as const })))
+      setEntries(attached)
       return
     }
     // 못 채운 칸은 창 안에서 알린다 — 브라우저 기본 말풍선은 우리 규격 밖에서 그려진다
@@ -353,7 +297,7 @@ export function AddControlPointModal(props: {
    * 등록은 건마다 서버 응답을 기다리므로 같은 목록에 진행 상태를 채워 창이 멈춘 것처럼 보이지 않게 한다.
    */
   // 등록하면 점마다 무엇이 벌어지는지 — 갱신은 기존 성과를 덮으므로 확정 전에 보여야 한다
-  const points = entries.flatMap((entry) => entry.read.preview.points ?? [])
+  const points = entries.flatMap((entry) => entry.preview.points ?? [])
   const countOf = (action: PointPreview['action']) => points.filter((p) => p.action === action).length
   const warningCount = points.filter((p) => p.warning != null).length
 
@@ -362,11 +306,11 @@ export function AddControlPointModal(props: {
       <p className="shrink-0 text-[12.5px] text-ink-3">
         {allDone
           ? `${doneCount}건을 등록했습니다.`
-          : started
+          : send.started
             ? `${doneCount}건 등록, ${pendingIndexes.length}건 남음`
             : `${pendingIndexes.length}개 파일, 기준점 ${points.length}점을 등록합니다.`}
       </p>
-      {!started && (
+      {!send.started && (
         <p className="shrink-0 text-[12px] text-ink-3">
           신규 <span className="font-semibold text-teal-text">{countOf('NEW')}</span>점 · 갱신{' '}
           <span className="font-semibold text-amber">{countOf('UPDATE')}</span>점 · 변경 없음 {countOf('UNCHANGED')}점
@@ -378,26 +322,30 @@ export function AddControlPointModal(props: {
         </p>
       )}
       <ul className="shrink-0 space-y-2">
-        {entries.map((entry, i) => (
-          <li
-            key={i}
-            ref={i === sendingIndex ? sendingRowRef : null}
-            className={`rounded-chip text-[12.5px] ${i === sendingIndex ? 'bg-teal-wash px-2 py-1.5' : ''}`}
-          >
-            <div className="flex items-center gap-2">
-              <SendMark status={entry.status} />
-              <span className="min-w-0 flex-1 truncate text-ink-2">{entry.read.file.name}</span>
-              <span className="shrink-0 text-[11px] text-ink-3">
-                {SEND_LABEL[entry.status]}
-              </span>
-            </div>
-            {entry.error !== undefined && (
-              <p className="mt-0.5 break-keep pl-6 text-[11px] leading-[1.5] wrap-anywhere text-danger">{entry.error}</p>
-            )}
-          </li>
-        ))}
+        {entries.map((entry, i) => {
+          const status = send.statusOf(i)
+          const error = send.errorOf(i)
+          return (
+            <li
+              key={i}
+              ref={i === send.sendingIndex ? send.sendingRowRef : null}
+              className={`rounded-chip text-[12.5px] ${i === send.sendingIndex ? 'bg-teal-wash px-2 py-1.5' : ''}`}
+            >
+              <div className="flex items-center gap-2">
+                <SendMark status={status} />
+                <span className="min-w-0 flex-1 truncate text-ink-2">{entry.file.name}</span>
+                <span className="shrink-0 text-[11px] text-ink-3">
+                  {SEND_LABEL[status]}
+                </span>
+              </div>
+              {error !== undefined && (
+                <p className="mt-0.5 break-keep pl-6 text-[11px] leading-[1.5] wrap-anywhere text-danger">{error}</p>
+              )}
+            </li>
+          )
+        })}
       </ul>
-      {!started && <PointPreviewList points={points} />}
+      {!send.started && <PointPreviewList points={points} />}
     </>
   )
 
@@ -513,32 +461,39 @@ export function AddControlPointModal(props: {
   return (
     <Modal
       title={confirming ? '기준점 등록' : showReading ? '기준점 파일 읽기' : attached.length > 0 ? '기준점 파일 등록' : '기준점 추가'}
-      busy={props.submitting || inFlight || reading !== null}
+      busy={props.submitting || send.inFlight || reading !== null}
       hidden={props.picking}
       onClose={props.onCancel}
       onSubmit={confirming ? registerAll : submit}
       formRef={form.formRef}
       onDropFile={confirming ? undefined : handleFiles}
-      scrollInside={confirming && !started}
+      scrollInside={confirming && !send.started}
       footer={
         confirming ? (
           <>
             {/* 등록을 시작하기 전에는 되돌릴 수 있어 취소, 시작한 뒤에는 앞서 보낸 건이 서버에 남아 되돌릴 수 없다 */}
-            <button type="button" className={MODAL_CANCEL_BTN} onClick={props.onCancel} disabled={inFlight}>
-              {started ? '닫기' : '취소'}
+            <button type="button" className={MODAL_CANCEL_BTN} onClick={props.onCancel} disabled={send.inFlight}>
+              {send.started ? '닫기' : '취소'}
             </button>
-            {!started && (
-              <button type="button" className={`${MODAL_CANCEL_BTN} ml-auto`} onClick={() => setEntries([])}>
+            {!send.started && (
+              <button
+                type="button"
+                className={`${MODAL_CANCEL_BTN} ml-auto`}
+                onClick={() => {
+                  setEntries([])
+                  send.reset()
+                }}
+              >
                 이전
               </button>
             )}
-            {!started && (
+            {!send.started && (
               <button type="submit" className={MODAL_SUBMIT_BTN} disabled={pendingIndexes.length === 0}>
                 {entries.length > 1 ? `${pendingIndexes.length}건 등록` : '등록'}
               </button>
             )}
             {/* 실패로 멈추면 남은 건을 이어 보낼 길이 필요하다 — 이미 등록된 건은 목록에서 완료라 다시 보내지 않는다 */}
-            {started && !allDone && !inFlight && (
+            {send.started && !allDone && !send.inFlight && (
               <button type="submit" className={MODAL_SUBMIT_BTN}>
                 남은 {pendingIndexes.length}건 다시 시도
               </button>
@@ -575,8 +530,7 @@ export function AddControlPointModal(props: {
                 `${usable.length}건 입력하기`
               ) : (
                 <span className="flex items-center gap-1.5">
-                  {/* 버튼 전경색을 그대로 쓴다 — 색을 따로 정하면 버튼 색 규칙이 테마마다 갈릴 때 함께 따라오지 않는다 */}
-                  <span className="size-3.5 animate-spin rounded-full border-2 border-current/40 border-t-current" aria-hidden />
+                  <Spinner className="size-3.5" current />
                   읽는 중
                 </span>
               )}
