@@ -27,8 +27,3 @@ export function wgs84ToTm(lng: number, lat: number, epsg: TmEpsg): { x: number; 
   return { x: r[0], y: r[1] }
 }
 
-/** TM 원점좌표(m) → WGS84(경위도) */
-export function tmToWgs84(x: number, y: number, epsg: TmEpsg): { lng: number; lat: number } {
-  const r = proj4(epsg, 'EPSG:4326', [x, y]) as number[]
-  return { lng: r[0], lat: r[1] }
-}

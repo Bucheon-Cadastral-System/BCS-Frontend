@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { useDialogBehavior } from '@/shared/lib/useDialogBehavior'
+import { useFileDrop } from '@/shared/lib/useFileDrop'
 import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY, MODAL_SHELL } from './classes'
 
 /**
@@ -28,6 +29,8 @@ export function ConfirmDialog(props: {
   const close = busy ? () => undefined : props.onCancel
   // 되돌릴 수 없는 작업이면 실수로 확정하지 않게 취소에 포커스를 준다
   useDialogBehavior({ panelRef, onClose: close, initialFocusRef: danger ? cancelRef : confirmRef })
+  // 묻는 중에 떨어진 파일은 여기서 멈춘다 — 흘려보내면 답을 기다리는 사이 뒤쪽에서 다른 흐름이 시작된다
+  const { dropHandlers } = useFileDrop(() => undefined)
 
   return (
     <div
@@ -36,6 +39,7 @@ export function ConfirmDialog(props: {
       aria-modal="true"
       aria-labelledby="confirm-dialog-message"
       onClick={close}
+      {...dropHandlers}
     >
       <div ref={panelRef} className={`panel-in w-[320px] max-w-full p-5 ${MODAL_SHELL}`} onClick={(e) => e.stopPropagation()}>
         <p id="confirm-dialog-message" className="text-center text-[13.5px] font-medium text-ink">

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ApiError } from '@/shared/api/http'
-import { previewSurveyCsv } from '../api/previewSurveyCsv'
-import type { SurveyCsvPreview } from '../api/previewSurveyCsv'
+import { previewImportFile } from '../api/previewImportFile'
+import type { ImportFilePreview, ImportPurpose } from '../api/previewImportFile'
 
 export type PreviewStatus =
   | { kind: 'waiting' }
@@ -9,7 +9,7 @@ export type PreviewStatus =
   | { kind: 'uploading'; percent: number }
   /** 전송은 끝났고 서버가 읽는 중 — 남은 시간을 알 수 없어 퍼센트가 없다 */
   | { kind: 'reading' }
-  | { kind: 'done'; preview: SurveyCsvPreview }
+  | { kind: 'done'; preview: ImportFilePreview }
   | { kind: 'failed'; reason: string }
 
 export interface PreviewEntry {
@@ -25,7 +25,7 @@ export interface PreviewEntry {
  * files 는 참조가 바뀔 때마다 처음부터 다시 읽으므로 안정된 배열을 넘겨야 한다.
  * 인라인 배열을 넘기면 렌더마다 서버로 다시 보낸다.
  */
-export function useImportPreviews(files: File[]) {
+export function useImportPreviews(files: File[], purpose: ImportPurpose) {
   const [entries, setEntries] = useState<PreviewEntry[]>([])
   // '끝났다'가 아니라 '무엇을 끝냈는지'를 기억한다.
   // 불리언으로 두면 새 파일을 붙인 직후 한 프레임 동안 이전 실행의 완료 신호가 그대로 참으로 읽혀,
@@ -53,14 +53,14 @@ export function useImportPreviews(files: File[]) {
         if (cancelled) return
         update(index, { kind: 'uploading', percent: 0 })
         try {
-          const preview = await previewSurveyCsv(file, {
+          const preview = await previewImportFile(file, purpose, {
             signal: controller.signal,
             onUploaded: (percent) =>
               update(index, percent < 100 ? { kind: 'uploading', percent } : { kind: 'reading' }),
           })
           update(index, { kind: 'done', preview })
         } catch (e) {
-          update(index, { kind: 'failed', reason: e instanceof ApiError ? e.message : '파일을 읽지 못했습니다.' })
+          update(index, { kind: 'failed', reason: e instanceof ApiError ? e.message : '파일을 읽지 못했습니다. 잠시 후 다시 시도해 주세요.' })
         }
       }
       if (!cancelled) setFinishedFor(files)
@@ -70,7 +70,7 @@ export function useImportPreviews(files: File[]) {
       cancelled = true
       controller.abort()
     }
-  }, [files])
+  }, [files, purpose])
 
   // 지금 넘어온 목록을 끝냈을 때만 완료다 — 렌더 중에 비교하므로 이전 실행의 신호가 새 목록에 섞이지 않는다
   return { entries, finished: finishedFor === files }

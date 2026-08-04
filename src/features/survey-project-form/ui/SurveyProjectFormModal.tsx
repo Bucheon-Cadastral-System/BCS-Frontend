@@ -1,8 +1,8 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import type { SurveyProjectDraft } from '@/entities/survey-project'
-import { ImportPreviewList, blockingReasonOf, hasRowErrors, rowErrorLines, summaryOf, useImportPreviews } from '@/features/import-survey-csv'
+import { ImportPreviewList, blockingReasonOf, hasRowErrors, rowErrorLines, summaryOf, useImportPreviews } from '@/features/import-file'
 import { ApiError } from '@/shared/api/http'
-import type { ReadFile } from '@/features/import-survey-csv'
+import type { ReadFile } from '@/features/import-file'
 import { today } from '@/shared/lib/date'
 import { fileBaseName } from '@/shared/lib/file'
 import { percent } from '@/shared/lib/percent'
@@ -109,6 +109,7 @@ const PASSED_WHILE_REGISTERING: StepLook = { tone: 'none', shape: 'muted-check',
 const DOT_TONE: Record<StatusTone, string> = {
   none: 'border-idle text-ink-4',
   success: 'border-teal text-teal',
+  caution: 'border-amber text-amber',
   danger: 'border-danger text-danger',
 }
 
@@ -116,6 +117,7 @@ const DOT_TONE: Record<StatusTone, string> = {
 const LINE_TONE: Record<StatusTone, string> = {
   none: 'bg-line-field',
   success: 'bg-teal',
+  caution: 'bg-amber',
   danger: 'bg-danger',
 }
 
@@ -211,7 +213,7 @@ function StepList(props: {
                           : 'text-ink-2'
                   }`}
                 >
-                  {entry.draft.name || entry.read?.file.name || '이름 없음'}
+                  {entry.draft.name || entry.read?.file.name || '정보 미입력'}
                 </span>
                 {/* 상태는 왼쪽 점이 말한다 — 글자로 한 번 더 적지 않고, 읽어 주는 이름으로만 남긴다 */}
                 {look !== null && <span className="sr-only">{look.label}</span>}
@@ -352,7 +354,7 @@ export function SurveyProjectFormModal(props: {
         )
       } catch (e) {
         // 여기서 멈춘다. 앞서 보낸 건은 이미 서버에 있어 되돌릴 수 없으므로 다시 보내지 않는다.
-        const reason = e instanceof ApiError ? e.message : '등록하지 못했습니다.'
+        const reason = e instanceof ApiError ? e.message : '등록하지 못했습니다. 잠시 후 다시 시도해 주세요.'
         setEntries((cur) => cur.map((entry2, i) => (i === at ? { ...entry2, status: 'failed', error: reason } : entry2)))
         return
       }
@@ -403,7 +405,7 @@ export function SurveyProjectFormModal(props: {
   }, [current.draft])
 
   // 읽는 동안의 진행 상태 — 창을 새로 띄우지 않고 이 창 안에서 그대로 보여 준다
-  const { entries: previews, finished } = useImportPreviews(reading ?? NO_FILES)
+  const { entries: previews, finished } = useImportPreviews(reading ?? NO_FILES, 'survey-csv')
   const read = previews.flatMap((e) => (e.status.kind === 'done' ? [{ file: e.file, preview: e.status.preview }] : []))
   // 고칠 행이 남은 파일은 그대로 쓸 수 없다 — 다음 단계로 넘겨 봐야 등록에서 막히므로 여기서 가른다
   const usable = read.filter((r) => !hasRowErrors(r.preview))
@@ -523,7 +525,7 @@ export function SurveyProjectFormModal(props: {
       )}
       {!started && invalidIndex !== null && (
         <p className="text-[12px] text-danger">
-          {invalidIndex + 1}번째에 채우지 않은 값이 있습니다.{' '}
+          {invalidIndex + 1}번째에 비어 있는 항목이 있습니다.{' '}
           <button type="button" className="underline underline-offset-2" onClick={() => jumpToEntry(invalidIndex)}>
             그 건으로 이동
           </button>
@@ -566,7 +568,7 @@ export function SurveyProjectFormModal(props: {
         </p>
       )}
 
-      <ModalField label="조사명" required>
+      <ModalField label="프로젝트명" required>
         <input
           className={MODAL_INPUT}
           value={current.draft.name}
@@ -579,7 +581,7 @@ export function SurveyProjectFormModal(props: {
       {/* 시작일만 필수라 별표가 정확히 그 칸에 붙도록 두 항목으로 나눈다 */}
       <div>
         <div className="grid grid-cols-2 gap-2">
-          <ModalField label="조사 시작일" required>
+          <ModalField label="시작일" required>
             <input
               type="date"
               className={MODAL_INPUT}
@@ -590,7 +592,7 @@ export function SurveyProjectFormModal(props: {
               required
             />
           </ModalField>
-          <ModalField label="조사 종료일">
+          <ModalField label="종료일">
             <input
               type="date"
               className={MODAL_INPUT}
@@ -640,7 +642,7 @@ export function SurveyProjectFormModal(props: {
             <button
               type="button"
               onClick={detachFile}
-              aria-label="파일 빼기"
+              aria-label="파일 제거"
               className="shrink-0 rounded-chip p-1 text-ink-4 transition-colors hover:bg-danger-wash hover:text-danger"
             >
               <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -688,7 +690,7 @@ export function SurveyProjectFormModal(props: {
   return (
     <Modal
       // 제목은 지금 어느 화면인지만 말한다 — 진행 상태는 본문이 알린다
-      title={confirming ? '프로젝트 등록' : showReading ? '기준점 목록 파일 업로드' : props.title}
+      title={confirming ? '프로젝트 등록' : showReading ? '프로젝트 대상지 파일 읽기' : props.title}
       aside={board}
       formRef={form.formRef}
       busy={inFlight || reading !== null}
@@ -698,8 +700,9 @@ export function SurveyProjectFormModal(props: {
       footer={
         confirming ? (
           <>
+            {/* 등록을 시작하기 전에는 되돌릴 수 있어 취소, 시작한 뒤에는 앞서 보낸 건이 서버에 남아 되돌릴 수 없다 */}
             <button type="button" className={MODAL_CANCEL_BTN} onClick={props.onCancel} disabled={inFlight}>
-              닫기
+              {started ? '닫기' : '취소'}
             </button>
             {!started && (
               <button
