@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChatAction, ChatMessage } from '../model/types'
 import { CloseIcon, CollapseIcon, ExpandIcon, NewChatIcon, SendIcon, SparkleIcon } from './icons'
+import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { MessageContent } from './MessageContent'
 import { QuickActions } from './QuickActions'
 import { FIELD_AREA } from '@/shared/ui/classes'
@@ -43,6 +44,8 @@ export function ChatPanel(props: ChatPanelProps) {
   const composingRef = useRef(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  // 대화를 비우면 되돌릴 수 없다 — 한 번 묻는다
+  const [confirmNew, setConfirmNew] = useState(false)
   const wasPending = useRef(props.pending)
 
   // 새 메시지·타이핑 표시가 뜨면 항상 최하단으로
@@ -112,12 +115,19 @@ export function ChatPanel(props: ChatPanelProps) {
 
       {/* 글래스 헤더 — 스크롤 위에 떠 있다. 코너 모드에선 좌상단 리사이즈 힌트와 이름을 띄운다 */}
       {/* 아래 경계는 청록 — 좌측 판이 목록 위에 두는 것과 같은 뜻의 구분선이다 */}
-      <header className="absolute inset-x-0 top-0 z-20 flex items-center gap-1 border-b-2 border-b-teal bg-pill px-3.5 py-3 backdrop-blur-[10px]">
+      <header className="absolute inset-x-0 top-0 z-20 flex items-center gap-1 border-b-2 border-b-teal bg-pill px-3.5 py-3">
         <strong className={`min-w-0 flex-1 select-none truncate text-[13px] font-semibold text-ink ${props.expanded ? '' : 'pl-4'}`}>BCS 어시스턴트</strong>
         <button type="button" onClick={props.onToggleExpand} aria-label={props.expanded ? '코너로 축소' : '우측으로 확장'} aria-pressed={props.expanded} title={props.expanded ? '코너로 축소' : '우측으로 확장'} className={HEADER_BTN}>
           {props.expanded ? <CollapseIcon className="size-4" /> : <ExpandIcon className="size-4" />}
         </button>
-        <button type="button" onClick={props.onNewChat} aria-label="새 대화" title="새 대화 (대화 기록 비우기)" className={HEADER_BTN}>
+        <button
+          type="button"
+          // 비어 있으면 지울 것이 없으므로 묻지 않는다
+          onClick={() => (props.messages.length === 0 ? props.onNewChat() : setConfirmNew(true))}
+          aria-label="새 대화"
+          title="새 대화 (대화 기록 비우기)"
+          className={HEADER_BTN}
+        >
           <NewChatIcon className="size-4" />
         </button>
         <button type="button" onClick={props.onClose} aria-label="닫기" title="닫기" className={CLOSE_BTN}>
@@ -126,7 +136,7 @@ export function ChatPanel(props: ChatPanelProps) {
       </header>
 
       {/* 글래스 입력 — 스크롤 위에 떠 있다 */}
-      <div className="absolute inset-x-0 bottom-0 z-20 flex items-end gap-2 border-t border-line-soft bg-pill px-3 py-2.5 backdrop-blur-[10px]">
+      <div className="absolute inset-x-0 bottom-0 z-20 flex items-end gap-2 border-t border-line-soft bg-pill px-3 py-2.5">
         <textarea
           ref={inputRef}
           value={input}
@@ -141,18 +151,33 @@ export function ChatPanel(props: ChatPanelProps) {
           }}
           rows={1}
           placeholder="메시지를 입력하세요"
-          className={`${FIELD_AREA} max-h-28 flex-1`}
+          className={`${FIELD_AREA} h-10 flex-1`}
         />
         <button
           type="button"
           onClick={send}
           disabled={!input.trim() || props.pending}
           aria-label="전송"
-          className="flex size-9 shrink-0 items-center justify-center rounded-ctl border-[1.5px] border-teal-btn-edge bg-teal-wash text-teal-text transition-colors hover:border-teal-text hover:bg-teal-wash-strong disabled:opacity-40"
+          className="flex size-10 shrink-0 items-center justify-center rounded-ctl border-[1.5px] border-teal-btn-edge bg-teal-wash text-teal-text transition-colors hover:border-teal-text hover:bg-teal-wash-strong disabled:opacity-40"
         >
           <SendIcon className="size-4" />
         </button>
       </div>
+
+      {confirmNew && (
+        <ConfirmDialog
+          message="새 대화를 시작할까요?"
+          detail="지금까지의 대화 내용이 모두 사라집니다."
+          confirmLabel="새 대화"
+          cancelLabel="취소"
+          danger
+          onConfirm={() => {
+            setConfirmNew(false)
+            props.onNewChat()
+          }}
+          onCancel={() => setConfirmNew(false)}
+        />
+      )}
     </div>
   )
 }

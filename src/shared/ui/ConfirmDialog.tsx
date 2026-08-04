@@ -8,6 +8,8 @@ import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY, MODAL_SHELL } from './
  */
 export function ConfirmDialog(props: {
   message: string
+  /** 물음 아래 한 줄 — 확인을 누르면 무엇이 벌어지는지 */
+  detail?: string
   /** 실행이 실패한 이유 — 창을 닫지 않고 이 자리에서 알린다. 뒤쪽 화면에 띄우면 배경 딤에 가려 보이지 않는다. */
   error?: string
   confirmLabel?: string
@@ -39,6 +41,7 @@ export function ConfirmDialog(props: {
         <p id="confirm-dialog-message" className="text-center text-[13.5px] font-medium text-ink">
           {props.message}
         </p>
+        {props.detail && <p className="mt-1.5 text-center text-[12px] leading-5 text-ink-3">{props.detail}</p>}
         {props.error && (
           <p className="mt-2.5 rounded-chip bg-danger-wash px-2.5 py-1.5 text-center text-[11.5px] text-danger" role="alert">
             {props.error}
