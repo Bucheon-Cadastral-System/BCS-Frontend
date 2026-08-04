@@ -58,7 +58,7 @@ export function Modal(props: {
       {/* 창 높이는 화면을 넘지 않는다 — 넘기면 가운데 정렬이 창을 위로 밀어 머리말이 화면 밖으로 잘린다.
           늘어나는 것은 본문뿐이고 머리말·버튼 줄은 언제나 제자리에 남는다. */}
       <div ref={panelRef} className="relative flex max-h-full w-full max-w-[448px] flex-col" onClick={(e) => e.stopPropagation()}>
-      <div className={`panel-in relative flex min-h-0 flex-col overflow-hidden ${MODAL_SHELL}`}>
+      <div className={`panel-in relative flex min-h-0 flex-col overflow-clip ${MODAL_SHELL}`}>
         <form
           ref={props.formRef}
           noValidate
@@ -84,7 +84,9 @@ export function Modal(props: {
       {props.aside && (
         // 창 오른쪽 바깥에 따로 세운다. 높이는 내용만큼만 쓰고 창 높이를 넘지 않는다 —
         // 창에 맞춰 늘이면 건이 적을 때 빈 판이 길게 남고, 창이 화면 안이므로 이 상한이면 옆판도 화면을 넘지 않는다.
-        <aside className={`panel-in absolute left-full top-0 ml-4 hidden max-h-full w-64 flex-col overflow-hidden lg:flex ${MODAL_SHELL}`}>
+        // overflow-clip 은 잘라 내되 굴릴 수는 없다. hidden 으로 두면 이 판도 '굴릴 수 있는 상자'가 되어,
+        // 안쪽 목록이 제 자리를 찾을 때(scrollIntoView) 이 판까지 함께 굴러 머리말이 화면 밖으로 밀려난다.
+        <aside className={`panel-in absolute left-full top-0 ml-4 hidden max-h-full w-64 flex-col overflow-clip lg:flex ${MODAL_SHELL}`}>
           {props.aside}
         </aside>
       )}

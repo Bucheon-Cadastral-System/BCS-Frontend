@@ -161,7 +161,8 @@ function StepList(props: {
   // 건이 많으면 판이 스크롤되므로, 지금 보고 있는 줄이 화면 밖에 있으면 끌어온다
   const currentRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
-    currentRef.current?.scrollIntoView({ block: 'center' })
+    // 필요한 만큼만 굴린다 — 가운데로 맞추면 이미 보이는 줄에도 스크롤이 일어난다
+    currentRef.current?.scrollIntoView({ block: 'nearest' })
   }, [props.current])
 
   return (
@@ -289,7 +290,7 @@ export function SurveyProjectFormModal(props: {
   // 등록은 위에서부터 차례로 올라가므로 지금 보내는 줄이 화면 밖으로 나간다 — 목록이 그 줄을 따라간다
   const sendingRowRef = useRef<HTMLLIElement>(null)
   useEffect(() => {
-    sendingRowRef.current?.scrollIntoView({ block: 'center' })
+    sendingRowRef.current?.scrollIntoView({ block: 'nearest' })
   }, [sendingIndex])
   const allDone = started && pendingIndexes.length === 0
   const doneCount = entries.filter((e) => e.status === 'done').length
