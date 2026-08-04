@@ -111,10 +111,10 @@ export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: C
       {showList && (
         <div className={`panel-in absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden ${POPOVER}`}>
           {results.length === 0 ? (
-            <p className="px-3 py-3 text-center text-[12px] text-ink-4">검색 결과 없음</p>
+            <p className="px-3 py-3 text-center text-[12px] text-ink-3">검색 결과 없음</p>
           ) : (
             <>
-              <p className="border-b border-line-soft px-3 py-1.5 font-mono text-[11px] text-ink-4">{results.length}개</p>
+              <p className="border-b border-line-soft px-3 py-1.5 text-[11px] text-ink-3">{results.length}개</p>
               <div ref={listRef} className="max-h-72 overflow-y-auto">
                 <ul id="point-search-results" role="listbox" className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
                   {virtualizer.getVirtualItems().map((item) => {
@@ -139,9 +139,9 @@ export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: C
                           <PointTypeIcon type={cp.type} className="h-4 w-4 text-teal-text" />
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-[13px] text-ink">{cp.name}</span>
-                            <span className="block truncate font-mono text-[11px] text-ink-4">{cp.pointNo}</span>
+                            <span className="block truncate text-[11px] text-ink-3">{cp.pointNo}</span>
                           </span>
-                          <span className="shrink-0 text-[11px] text-ink-4">{cp.type}</span>
+                          <span className="shrink-0 text-[11px] text-ink-3">{cp.type}</span>
                         </button>
                       </li>
                     )

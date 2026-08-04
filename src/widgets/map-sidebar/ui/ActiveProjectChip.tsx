@@ -44,7 +44,7 @@ function ChipCount(props: { surveyed: number; total: number } | { count: number 
       ? `${props.count}개`
       : `${props.surveyed}/${props.total}`
   return (
-    <span className="shrink-0 rounded-full bg-teal-wash-strong px-2 py-0.5 font-mono text-[11px] font-semibold text-teal-text">
+    <span className="shrink-0 rounded-full bg-teal-wash-strong px-2 py-0.5 text-[11px] font-semibold text-teal-text">
       {text}
       {'count' in props ? null : (
         <span className="ml-1 font-normal opacity-80">{percent(props.surveyed, props.total)}%</span>

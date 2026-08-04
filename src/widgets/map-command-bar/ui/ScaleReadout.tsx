@@ -51,7 +51,7 @@ export function ScaleReadout(props: { map: Map | null }) {
   return (
     // 막대 길이는 축척에 따라 달라진다 — 칸을 내용에 맞춰 두어 카드가 함께 늘고 줄게 한다
     <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
-      <span className="shrink-0 font-mono text-[12px] font-semibold text-ink">
+      <span className="shrink-0 text-[12px] font-semibold text-ink">
         {denominator ? `1:${denominator.toLocaleString('ko-KR')}` : '—'}
       </span>
       <div ref={hostRef} className="bcs-scale-host" />

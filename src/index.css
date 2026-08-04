@@ -1,14 +1,11 @@
 @import "tailwindcss";
 
-/* 본문은 IBM Plex Sans KR, 좌표·관리번호·기간 같은 수치는 IBM Plex Mono(자릿수가 세로로 고르게 서야 한다).
+/* 화면 글꼴은 IBM Plex Sans KR 하나다.
    글꼴 파일을 직접 담아 둔다 — 내부망에서 쓰는 화면이라 외부 CDN 을 믿을 수 없다. */
 @import "@fontsource/ibm-plex-sans-kr/400.css";
 @import "@fontsource/ibm-plex-sans-kr/500.css";
 @import "@fontsource/ibm-plex-sans-kr/600.css";
 @import "@fontsource/ibm-plex-sans-kr/700.css";
-@import "@fontsource/ibm-plex-mono/400.css";
-@import "@fontsource/ibm-plex-mono/500.css";
-@import "@fontsource/ibm-plex-mono/600.css";
 
 /*
  * 청록 잉크(Teal Ink) — 거의 검정에 가까운 배경 위에 청록 하나를 강조색으로 쓴다.
@@ -61,7 +58,8 @@
   --color-btn: #121d21;
 
   --font-sans: 'IBM Plex Sans KR', system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', monospace;
+  /* 코드·표처럼 브라우저가 고정폭을 기대하는 자리도 같은 글꼴로 둔다 — 글꼴을 하나로 통일했다 */
+  --font-mono: 'IBM Plex Sans KR', system-ui, sans-serif;
 
   /* 모서리는 이전 화면의 지도 컨트롤(4px)만큼 각지게 잡는다 — 둥글수록 화면이 물러 보인다 */
   --radius-pill: 6px;
@@ -398,7 +396,7 @@ button {
   background: var(--color-soft);
   border-radius: var(--radius-chip);
   padding: 0 0.25rem;
-  font-size: 12px;
+  font-size: 12.5px;
 }
 .chat-md table {
   display: block;
@@ -406,7 +404,7 @@ button {
   overflow-x: auto;
   border-collapse: collapse;
   margin: 0.25rem 0;
-  font-size: 12px;
+  font-size: 12.5px;
 }
 .chat-md th,
 .chat-md td {

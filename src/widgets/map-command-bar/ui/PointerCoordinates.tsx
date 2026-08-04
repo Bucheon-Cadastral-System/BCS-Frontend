@@ -30,7 +30,7 @@ export function PointerCoordinates(props: { map: Map | null; tmEpsg: TmEpsg }) {
 
   return (
     // 폭을 고정한다 — 자릿수에 따라 늘어나면 옆의 축척이 흔들린다
-    <span className="flex w-[204px] shrink-0 justify-center whitespace-nowrap font-mono text-[12px] text-ink-2">
+    <span className="flex w-[204px] shrink-0 justify-center whitespace-nowrap text-[12px] text-ink-2">
       X <b className="ml-1 font-semibold text-ink">{tm ? fmt(tm.northing) : '—'}</b>
       <span className="mx-1 text-ink-4">·</span>Y <b className="ml-1 font-semibold text-ink">{tm ? fmt(tm.easting) : '—'}</b>
     </span>

@@ -350,7 +350,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                 }`}
               >
                 {status === 'ALL' ? '전체' : STATUS_LABEL[status]}
-                <span className="font-mono">{counts[status]}</span>
+                <span >{counts[status]}</span>
               </button>
             ))}
 
@@ -389,7 +389,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                 className="min-w-0 flex-1 overflow-y-auto"
                 onClick={(event) => { if (event.target === event.currentTarget) closeDetail() }}
               >
-                <div className="flex h-[34px] items-center gap-3 border-b border-line-soft px-[22px] text-[11px] font-medium tracking-[.08em] text-ink-4">
+                <div className="flex h-[34px] items-center gap-3 border-b border-line-soft px-[22px] text-[11px] font-medium tracking-[.08em] text-ink-3">
                   {COLUMNS.map((column) => {
                     const place = columnStyle(column)
                     return column.sortable ? (
@@ -410,9 +410,9 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                   })}
                 </div>
 
-                {loading && <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-4">사용자 정보를 불러오는 중입니다…</p>}
+                {loading && <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-3">사용자 정보를 불러오는 중입니다…</p>}
                 {!loading && users.length === 0 && (
-                  <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-4">조건에 맞는 사용자가 없습니다.</p>
+                  <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-3">조건에 맞는 사용자가 없습니다.</p>
                 )}
 
                 {!loading && users.map((user) => (
@@ -481,7 +481,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                   <dl className="mt-5 flex-1">
                     {/* 로그인 계정(카카오)이 아니라 이 시스템이 회원에게 매긴 번호다 */}
                     <ValueRow label="회원 번호">
-                      <span className="block truncate font-mono text-[13px] text-ink-3">#{detail.id}</span>
+                      <span className="block truncate text-[13px] text-ink-3">#{detail.id}</span>
                     </ValueRow>
                     <Field label="이름" editing={editing} value={detail.name} onChange={(v) => setDraft({ ...detail, name: v })} />
                     <Field
@@ -574,7 +574,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
             </div>
 
             <div className="flex shrink-0 items-center gap-3 border-t border-line-soft px-[22px] py-2.5 text-[12px] text-ink-3">
-              <span>총 <strong className="font-mono font-semibold text-ink">{totalElements}</strong>명</span>
+              <span>총 <strong className="font-semibold text-ink">{totalElements}</strong>명</span>
               <label className="flex items-center gap-2">
                 페이지당
                 <select
@@ -592,7 +592,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                     type="button"
                     key={pageNumber}
                     aria-current={page === pageNumber ? 'page' : undefined}
-                    className={`size-8 rounded-ctl font-mono text-[12px] font-semibold transition-colors ${
+                    className={`size-8 rounded-ctl text-[12px] font-semibold transition-colors ${
                       page === pageNumber ? 'border border-teal-btn-edge bg-teal-wash-strong text-teal-text' : 'border border-line-btn text-ink-2 hover:bg-hover'
                     }`}
                     onClick={() => setPage(pageNumber)}
@@ -606,7 +606,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
           </>
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <div className="flex h-[34px] items-center gap-3 border-b border-line-soft px-[22px] text-[11px] font-medium tracking-[.08em] text-ink-4">
+            <div className="flex h-[34px] items-center gap-3 border-b border-line-soft px-[22px] text-[11px] font-medium tracking-[.08em] text-ink-3">
               {ACTIVITY_COLUMNS.map((column) => {
                 const place = columnStyle(column)
                 return (
@@ -618,7 +618,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
             </div>
 
             {activitiesLoading && activities.length === 0 && (
-              <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-4">관리자 활동 로그를 불러오는 중입니다…</p>
+              <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-3">관리자 활동 로그를 불러오는 중입니다…</p>
             )}
             {!activitiesLoading && activitiesError && activities.length === 0 && (
               <div className="px-[22px] py-10 text-center">
@@ -627,7 +627,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
               </div>
             )}
             {!activitiesLoading && !activitiesError && activities.length === 0 && (
-              <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-4">기록된 관리자 활동이 없습니다.</p>
+              <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-3">기록된 관리자 활동이 없습니다.</p>
             )}
 
             {activities.map((activity) => (
@@ -686,9 +686,9 @@ function Cell({ column, user }: { column: ColumnKey; user: ManagedUser }) {
       </span>
     )
   }
-  if (column === 'email') return <span className="block truncate font-mono text-[11.5px] text-ink-3">{user.email}</span>
+  if (column === 'email') return <span className="block truncate text-[11.5px] text-ink-3">{user.email}</span>
   if (column === 'role') {
-    return <span className="block truncate font-mono text-[11px] font-semibold tracking-[.06em] text-ink-3">{user.role}</span>
+    return <span className="block truncate text-[11px] font-semibold tracking-[.06em] text-ink-3">{user.role}</span>
   }
   if (column === 'status') {
     return (
@@ -703,7 +703,7 @@ function Cell({ column, user }: { column: ColumnKey; user: ManagedUser }) {
 /** 활동 로그 한 칸 */
 function ActivityCell({ column, activity }: { column: ActivityColumnKey; activity: AdminActivity }) {
   if (column === 'createdAt') {
-    return <span className="block truncate font-mono text-[11.5px] text-ink-3">{new Date(activity.createdAt).toLocaleString('ko-KR')}</span>
+    return <span className="block truncate text-[11.5px] text-ink-3">{new Date(activity.createdAt).toLocaleString('ko-KR')}</span>
   }
   if (column === 'activityType') {
     return (
@@ -713,8 +713,8 @@ function ActivityCell({ column, activity }: { column: ActivityColumnKey; activit
     )
   }
   // 응답이 id 만 주므로 id 만 보여 준다 — 이름을 함께 세우려면 응답에 이름이 실려야 한다
-  if (column === 'actor') return <span className="block truncate font-mono text-[11.5px] text-ink-3">#{activity.actorAdminId}</span>
-  if (column === 'target') return <span className="block truncate font-mono text-[11.5px] text-ink-3">#{activity.targetMemberId}</span>
+  if (column === 'actor') return <span className="block truncate text-[11.5px] text-ink-3">#{activity.actorAdminId}</span>
+  if (column === 'target') return <span className="block truncate text-[11.5px] text-ink-3">#{activity.targetMemberId}</span>
   return <span className="block truncate text-[12.5px] text-ink-2">{activity.message}</span>
 }
 
@@ -753,7 +753,7 @@ function SortHeader(props: {
 function ValueRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex items-center gap-3 border-b border-line-row py-2">
-      <dt className="w-[78px] shrink-0 text-[11.5px] text-ink-4">{label}</dt>
+      <dt className="w-[78px] shrink-0 text-[11.5px] text-ink-3">{label}</dt>
       <dd className="min-w-0 flex-1">{children}</dd>
     </div>
   )
@@ -767,7 +767,7 @@ function Field(props: { label: string; value: string; editing: boolean; mono?: b
         // 라벨은 dt 에 있어 입력칸과 이어지지 않는다 — 화면 낭독기가 이름을 읽도록 같은 문구를 붙인다
         <input aria-label={props.label} value={props.value} onChange={(e) => props.onChange(e.target.value)} className={FIELD} />
       ) : (
-        <span className={`block truncate text-[13px] text-ink-2 ${props.mono ? 'font-mono' : ''}`}>{props.value}</span>
+        <span className={`block truncate text-[13px] text-ink-2 ${props.mono ? '' : ''}`}>{props.value}</span>
       )}
     </ValueRow>
   )
