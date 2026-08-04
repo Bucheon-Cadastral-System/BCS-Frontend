@@ -70,7 +70,7 @@ export function Modal(props: {
         >
           <div className={MODAL_HEADER}>
             <h2 className="text-[15px] font-semibold text-ink">{props.title}</h2>
-            {props.description && <p className="mt-[5px] text-[11.5px] text-ink-4">{props.description}</p>}
+            {props.description && <p className="mt-[5px] text-[11.5px] text-ink-3">{props.description}</p>}
           </div>
           {/* overscroll-contain — 목록을 끝까지 굴린 뒤 더 굴려도 그 움직임이 뒤쪽 화면으로 넘어가지 않게 한다 */}
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-[18px] pb-4 pt-3.5">
@@ -100,7 +100,7 @@ export function Modal(props: {
 export function ModalField(props: { label: string; required?: boolean; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[11px] font-medium tracking-[.08em] text-ink-4">
+      <span className="mb-1.5 block text-[11px] font-medium tracking-[.08em] text-ink-3">
         {props.label}
         {/* 별표는 장식이라 읽어 줄 필요가 없다. 필수 여부는 입력 요소의 required 가 보조기술에 알린다 */}
         {props.required && (

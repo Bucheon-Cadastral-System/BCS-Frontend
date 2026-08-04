@@ -1,7 +1,7 @@
 import { BrandMark } from './BrandMark'
 
 const SIZES = {
-  sm: { mark: 'size-8', title: 'text-[17px]', rule: 'h-7', name: 'text-[12px]', caption: 'text-[9px] tracking-[0.14em]', gap: 'gap-2.5' },
+  sm: { mark: 'size-8', title: 'text-[17px]', rule: 'h-7', name: 'text-[12px]', caption: 'text-[11px] tracking-[0.14em]', gap: 'gap-2.5' },
   md: { mark: 'size-10', title: 'text-[21px]', rule: 'h-9', name: 'text-[14px]', caption: 'text-[11px] tracking-[0.16em]', gap: 'gap-3' },
   lg: { mark: 'size-14', title: 'text-[28px]', rule: 'h-12', name: 'text-[17px]', caption: 'text-[11px] tracking-[0.18em]', gap: 'gap-4' },
 } as const

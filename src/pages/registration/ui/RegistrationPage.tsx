@@ -64,7 +64,7 @@ export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) 
       <header className="mx-auto mb-8 flex max-w-3xl items-center justify-between">
         {/* 가입 신청 전이라 메인으로 가는 링크를 걸지 않는다. 옆에 서비스명이 따로 있어 심볼+BCS만 노출 */}
         <BrandLockup size="md" variant="mark" />
-        <span className="text-[12.5px] text-ink-4">지적기준점 관리 시스템</span>
+        <span className="text-[12.5px] text-ink-3">지적기준점 관리 시스템</span>
       </header>
 
       <section className={`panel-in mx-auto max-w-3xl p-6 sm:p-10 ${MODAL_SHELL}`} aria-labelledby="registration-title">
@@ -76,7 +76,7 @@ export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) 
 
         <form ref={form.formRef} noValidate className="pt-8" onSubmit={handleSubmit}>
           {/* 칸 규격은 공용 레시피(FIELD·FIELD_SELECT)를 쓰고, 여기서는 라벨·별표·덧말만 정한다 */}
-          <div className="grid gap-5 text-[12px] text-ink-3 sm:grid-cols-2 [&_b]:text-danger [&_input]:mt-2 [&_select]:mt-2 [&_small]:mt-1.5 [&_small]:block [&_small]:text-[11px] [&_small]:text-ink-4">
+          <div className="grid gap-5 text-[12px] text-ink-3 sm:grid-cols-2 [&_b]:text-danger [&_input]:mt-2 [&_select]:mt-2 [&_small]:mt-1.5 [&_small]:block [&_small]:text-[11px] [&_small]:text-ink-3">
             <label>
               <span>이름 <b>*</b></span>
               <input name="name" type="text" className={FIELD} placeholder="이름을 입력해 주세요" autoComplete="name" required />

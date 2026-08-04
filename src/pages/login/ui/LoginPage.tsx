@@ -35,14 +35,14 @@ export function LoginPage({ onKakaoLogin }: LoginPageProps) {
           </button>
         </div>
 
-        <p className="mt-7 text-[11px] leading-6 text-ink-4">
+        <p className="mt-7 text-[11px] leading-6 text-ink-3">
           승인된 사용자만 서비스를 이용할 수 있습니다.
           <br />
           최초 로그인 시 회원가입 신청 화면으로 이동합니다.
         </p>
       </section>
 
-      <footer className="shrink-0 pt-10 text-center text-[11px] leading-5 text-ink-4">
+      <footer className="shrink-0 pt-10 text-center text-[11px] leading-5 text-ink-3">
         본 서비스는 부천시가 제작·운영하는 공식 서비스가 아닌 비영리 업무지원 도구입니다.
       </footer>
     </main>

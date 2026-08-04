@@ -130,7 +130,7 @@ export function AppHeader(props: {
             {user ? (
               <UserAvatar name={user.name} className="size-[30px] text-[11.5px]" />
             ) : (
-              <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-soft text-[11.5px] text-ink-4" aria-hidden="true">
+              <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-soft text-[11.5px] text-ink-3" aria-hidden="true">
                 ·
               </span>
             )}
@@ -152,7 +152,7 @@ export function AppHeader(props: {
             <div className={`panel-in absolute right-0 top-[50px] z-40 w-56 overflow-hidden ${POPOVER}`}>
               <div className="flex items-center justify-between gap-2 px-[13px] pb-[9px] pt-2.5">
                 <span className="text-[12px] text-ink-3">권한</span>
-                <span className="font-mono text-[11px] font-semibold tracking-[.1em] text-teal-text">
+                <span className="text-[11px] font-semibold tracking-[.1em] text-teal-text">
                   {user?.role ?? 'USER'}
                 </span>
               </div>

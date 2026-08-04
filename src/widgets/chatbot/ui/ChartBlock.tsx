@@ -66,14 +66,14 @@ export function ChartBlock({ json }: { json: string }) {
         maintainAspectRatio: false,
         color: AXIS,
         plugins: {
-          legend: { display: isPie || spec.datasets.length > 1, labels: { boxWidth: 12, font: { size: 11 }, color: AXIS } },
-          title: { display: !!spec.title, text: spec.title, font: { size: 12 }, color: AXIS },
+          legend: { display: isPie || spec.datasets.length > 1, labels: { boxWidth: 12, font: { size: 12 }, color: AXIS } },
+          title: { display: !!spec.title, text: spec.title, font: { size: 13 }, color: AXIS },
         },
         scales: isPie
           ? {}
           : {
-              x: { ticks: { font: { size: 10 }, color: AXIS }, grid: { color: GRID } },
-              y: { beginAtZero: true, ticks: { font: { size: 10 }, color: AXIS }, grid: { color: GRID } },
+              x: { ticks: { font: { size: 11 }, color: AXIS }, grid: { color: GRID } },
+              y: { beginAtZero: true, ticks: { font: { size: 11 }, color: AXIS }, grid: { color: GRID } },
             },
       },
     } as unknown as ChartConfiguration

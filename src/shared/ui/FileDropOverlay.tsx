@@ -23,7 +23,7 @@ export function FileDropOverlay(props: { label?: string; hint?: string }) {
       <span className="text-[15px] font-semibold text-on-teal drop-shadow">
         {props.label ?? '놓으면 파일을 읽습니다'}
       </span>
-      {props.hint && <span className="font-mono text-[12px] text-ink-3">{props.hint}</span>}
+      {props.hint && <span className="text-[12px] text-ink-3">{props.hint}</span>}
     </div>
   )
 }

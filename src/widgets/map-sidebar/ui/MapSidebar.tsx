@@ -121,8 +121,8 @@ function PanelHeader(props: { title: string; count?: number; onMinimize: () => v
       <h2 className="flex min-w-0 flex-1 items-baseline gap-[7px]">
         <span className="text-[13.5px] font-semibold text-ink">{props.title}</span>
         {props.count !== undefined && (
-          <span className="text-[11px] text-ink-4">
-            총 <span className="font-mono">{props.count}</span>개
+          <span className="text-[11px] text-ink-3">
+            총 <span >{props.count}</span>개
           </span>
         )}
       </h2>
@@ -235,7 +235,7 @@ function ProjectPanel(props: MapSidebarProps) {
               <SkeletonRows rows={3} />
             </li>
           ) : (
-            <li className="px-4 py-6 text-center text-[12.5px] text-ink-4">
+            <li className="px-4 py-6 text-center text-[12.5px] text-ink-3">
               {props.projects.length === 0 ? '프로젝트가 없습니다' : '검색 결과 없음'}
             </li>
           ))}
@@ -283,7 +283,7 @@ function ProjectPanel(props: MapSidebarProps) {
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className={`truncate text-[13px] font-semibold ${selected ? 'text-ink' : 'text-ink-2'}`}>{p.name}</span>
                   {/* 날짜는 자릿수가 서야 해서 고정폭이지만, 한글은 그 글꼴에 없어 다른 글꼴로 떨어진다 — 글자만 본문 글꼴로 되돌린다 */}
-                  <span className="mt-[3px] block truncate font-mono text-[11.5px] text-ink-3">
+                  <span className="mt-[3px] block truncate text-[11.5px] text-ink-3">
                     {formatDate(p.startedOn)} ~{' '}
                     {p.endedOn === null ? (
                       <span className="font-sans text-teal-text">{SURVEY_ONGOING_LABEL}</span>
@@ -321,10 +321,10 @@ function ProjectPanel(props: MapSidebarProps) {
                           <>
                             <div className="mb-[7px] flex items-baseline text-[11.5px] text-ink-3">
                               <span className="flex-1">
-                                조사 <b className="font-mono font-semibold text-teal-text">{psurveyed}</b> / 전체{' '}
-                                <span className="font-mono">{ptotal}</span>
+                                조사 <b className="font-semibold text-teal-text">{psurveyed}</b> / 전체{' '}
+                                <span >{ptotal}</span>
                               </span>
-                              <span className="font-mono font-semibold text-teal-text">{ppct}%</span>
+                              <span className="font-semibold text-teal-text">{ppct}%</span>
                             </div>
                             <div className="h-1.5 overflow-hidden rounded-full bg-track">
                               <div
@@ -351,7 +351,7 @@ function ProjectPanel(props: MapSidebarProps) {
                         점별 조사·망실 기록은 '선택된(조사 대상)' 프로젝트에서만. 리스트는 PointRowList가 내부 메모 */}
                     {selected ? (
                       <div className="border-t border-line-soft pt-2">
-                        <p className="px-3.5 pb-1 text-[11px] font-medium tracking-[.08em] text-ink-4">대상 기준점</p>
+                        <p className="px-3.5 pb-1 text-[11px] font-medium tracking-[.08em] text-ink-3">대상 기준점</p>
                         <PointRowList
                           points={props.targetPoints}
                           onFocus={props.onFocusPoint}
@@ -387,7 +387,7 @@ function StatusCount(props: { label: string; count: number; dotClass: string }) 
     <span className="inline-flex items-center gap-[5px]">
       <i className={`inline-block size-2 rounded-full ${props.dotClass}`} aria-hidden />
       {props.label}
-      <b className="font-mono font-normal text-ink-2">{props.count}</b>
+      <b className="font-normal text-ink-2">{props.count}</b>
     </span>
   )
 }
@@ -516,7 +516,7 @@ function PointRowList(props: {
     return loading ? (
       <SkeletonRows rows={6} className="py-1" />
     ) : (
-      <p className="px-4 py-6 text-center text-[12.5px] text-ink-4">{emptyText ?? '기준점이 없습니다'}</p>
+      <p className="px-4 py-6 text-center text-[12.5px] text-ink-3">{emptyText ?? '기준점이 없습니다'}</p>
     )
   }
 
@@ -617,7 +617,7 @@ function PointRow(props: {
         {props.status && <StatusMark status={props.status} />}
         <PointTypeIcon type={props.cp.type} className="size-[15px] text-ink-3" />
         <span className="flex-1 truncate text-[13px] text-ink-2">{props.cp.name}</span>
-        <span className="shrink-0 text-[11px] text-ink-4">{props.cp.type}</span>
+        <span className="shrink-0 text-[11px] text-ink-3">{props.cp.type}</span>
       </button>
       {/* 클릭 시 아래에 조사 완료/취소 · 망실 토글 (상세 모달과 동일 기능) */}
       {props.expanded && hasActions && (
