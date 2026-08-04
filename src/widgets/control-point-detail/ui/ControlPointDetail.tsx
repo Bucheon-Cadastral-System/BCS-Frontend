@@ -73,7 +73,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
         : 'bg-soft text-ink-3'
 
   return (
-    <aside className={`panel-in w-[300px] max-w-[calc(100%-24px)] overflow-hidden ${PANEL}`}>
+    <aside className={`panel-in w-[320px] overflow-hidden ${PANEL}`}>
       <div className="flex items-center gap-[9px] border-b border-line-soft py-3 pl-3.5 pr-2.5">
         <span className="flex shrink-0 text-teal-text">
           <PointTypeIcon type={p.type} className="size-[18px]" />
@@ -109,8 +109,9 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
           <dt>경도</dt>
           <dd>{p.lng.toFixed(7)}</dd>
           <dt>TM 원점</dt>
-          <dd className="font-sans text-[12px]">
-            {epsgLabel(p.tmEpsg)} <span className="font-mono text-ink-3">({p.tmEpsg})</span>
+          {/* dd 에 건 고정폭이 이 요소의 클래스보다 앞서므로(같은 요소를 두 규칙이 다툼) 안쪽 글자에 걸어 물려받게 한다 */}
+          <dd className="whitespace-nowrap text-[12px]">
+            <span className="font-sans">{epsgLabel(p.tmEpsg)}</span> <span className="text-ink-3">({p.tmEpsg})</span>
           </dd>
           {/* 성과 표기는 측량 관례를 따른다 — X 가 북(northing), Y 가 동(easting)이다 */}
           <dt>TM X</dt>
