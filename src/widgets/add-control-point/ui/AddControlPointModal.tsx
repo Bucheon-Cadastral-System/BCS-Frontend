@@ -107,11 +107,11 @@ export function AddControlPointModal(props: {
       }
     >
       <ModalField label="관리번호" required>
-        <input className={MODAL_INPUT} value={pointNo} onChange={(ev) => setPointNo(ev.target.value)} placeholder="41192D000001265" required />
+        <input className={MODAL_INPUT} value={pointNo} onChange={(ev) => setPointNo(ev.target.value)} placeholder="예: 41192D000012345" required />
       </ModalField>
 
       <ModalField label="기준점명" required>
-        <input className={MODAL_INPUT} value={name} onChange={(ev) => setName(ev.target.value)} placeholder="1465공" required />
+        <input className={MODAL_INPUT} value={name} onChange={(ev) => setName(ev.target.value)} placeholder="예: 1234공" required />
         {/* 막지 않는다 — 성과 정정이 곧 이 흐름이라, 무엇이 벌어지는지만 미리 말한다 */}
         {existing !== null && (
           <p className="mt-1.5 break-keep text-[11px] leading-[1.5] wrap-anywhere text-amber">
@@ -142,10 +142,10 @@ export function AddControlPointModal(props: {
 
       <div className="grid grid-cols-2 gap-2">
         <ModalField label="X 좌표 (북, m)" required>
-          <input className={MODAL_INPUT} value={northing} onChange={(ev) => setNorthing(ev.target.value)} inputMode="decimal" placeholder="545236.77" required />
+          <input className={MODAL_INPUT} value={northing} onChange={(ev) => setNorthing(ev.target.value)} inputMode="decimal" placeholder="예: 545000.00" required />
         </ModalField>
         <ModalField label="Y 좌표 (동, m)" required>
-          <input className={MODAL_INPUT} value={easting} onChange={(ev) => setEasting(ev.target.value)} inputMode="decimal" placeholder="181840.96" required />
+          <input className={MODAL_INPUT} value={easting} onChange={(ev) => setEasting(ev.target.value)} inputMode="decimal" placeholder="예: 181000.00" required />
         </ModalField>
       </div>
 

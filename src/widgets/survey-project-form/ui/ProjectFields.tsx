@@ -35,7 +35,7 @@ export function ProjectFields(props: {
           className={MODAL_INPUT}
           value={draft.name}
           onChange={(e) => props.onPatch({ name: e.target.value })}
-          placeholder="2026.7.1.자 조사"
+          placeholder="예: 2026년 정기조사"
           required
         />
       </ModalField>
