@@ -39,6 +39,11 @@ export function SurveyProjectCreateModal(props: {
   function submit() {
     if (props.submitting) return
     if (!form.validate()) return
+    // required 는 공백만 친 값을 유효로 본다 — 다듬은 이름이 비면 여기서 막는다
+    if (draft.name.trim() === '') {
+      form.fail('프로젝트명을 입력해 주세요.')
+      return
+    }
     if (isPeriodReversed(draft)) {
       // 사유는 날짜 칸 아래에 이미 적혀 있다 — 여기서는 제출이 막혔음을 알린다
       form.fail('조사 기간을 확인해 주세요.')

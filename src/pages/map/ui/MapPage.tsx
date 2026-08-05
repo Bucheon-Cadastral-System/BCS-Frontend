@@ -408,8 +408,9 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     deleteProjectMutation.mutate(target.id, {
       onSuccess: () => {
         setDeletingProject(null)
-        // 지운 조사를 보고 있었으면 선택을 놓는다 — 지도·패널이 없는 조사를 가리키지 않게
+        // 지운 조사를 보고 있었으면 선택을 놓는다 — 지도·판이 없는 조사를 가리키지 않게. 그 조사의 수정 창도 함께 접는다
         if (activeProjectId === target.id) dispatch(setActiveProject(null))
+        if (editingProject !== null && editingProject.id === target.id) setEditingProject(null)
         showToast('프로젝트를 삭제했습니다.', 'success')
       },
       onError: (e) =>
@@ -528,7 +529,11 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
           onToggleSurvey={handleToggleSurvey}
           onToggleLost={handleToggleLost}
           onStartAddPoint={startAddPoint}
-          onImportPoints={() => setPointModal('file')}
+          onImportPoints={() => {
+            // 위치 찍기 중에도 이 버튼이 살아 있다 — 찍기 안내·좌표 수신이 파일 창과 겹치지 않게 흐름을 접는다
+            closePointFlow()
+            setPointModal('file')
+          }}
           projectsLoading={projectsQuery.isPending}
           pointsLoading={pointsQuery.isPending}
           recordsLoading={activeProjectId !== null && recordsQuery.isPending}
