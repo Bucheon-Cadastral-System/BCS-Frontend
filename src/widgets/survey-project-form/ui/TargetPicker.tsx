@@ -55,7 +55,11 @@ export function TargetPicker(props: {
     <div>
       <div className="mb-1.5 flex items-baseline justify-between">
         <span className="text-[11px] font-medium tracking-[.08em] text-ink-3">
-          대상 기준점 <span aria-hidden className="text-teal-text">*</span>
+          대상 기준점
+          {/* 별표는 장식이라 읽어 줄 필요가 없다 — 다른 필수 칸(ModalField)과 같은 규격 */}
+          <span aria-hidden="true" className="ml-0.5 text-danger">
+            *
+          </span>
         </span>
         <span className="text-[11px] text-ink-3">
           선택 <b className="font-semibold text-teal-text">{props.selected.size}</b>점
