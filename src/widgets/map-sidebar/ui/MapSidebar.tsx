@@ -244,7 +244,13 @@ function ProjectPanel(props: MapSidebarProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PanelHeader title="프로젝트 목록" count={props.projects.length} onMinimize={props.onMinimize} onClose={props.onClose} />
+      {/* 상세에 들어가면 판의 이름도 그 겹을 따라간다 — 목록 수는 목록을 볼 때만 의미가 있어 함께 거둔다 */}
+      <PanelHeader
+        title={detailOn ? '프로젝트 정보' : '프로젝트 목록'}
+        count={detailOn ? undefined : props.projects.length}
+        onMinimize={props.onMinimize}
+        onClose={props.onClose}
+      />
 
       {/* 목록과 상세는 같은 자리를 쓰는 두 겹이다 — 드로어(목록 스크롤 안의 또 다른 스크롤)는 휠을 가로채 접었다 */}
       <div className="relative min-h-0 flex-1 overflow-hidden">
