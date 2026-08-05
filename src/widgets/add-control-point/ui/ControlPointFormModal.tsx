@@ -136,8 +136,8 @@ export function ControlPointFormModal(props: {
         {existing !== null && (
           <p className="mt-1.5 break-keep text-[11px] leading-[1.5] wrap-anywhere text-amber">
             {editing
-              ? `같은 이름·종류의 기준점이 이미 있습니다(관리번호 ${existing.pointNo}) — 다른 점과 같은 이름·종류로는 저장할 수 없습니다.`
-              : `같은 이름·종류의 기준점이 이미 있습니다(관리번호 ${existing.pointNo}) — 등록하면 그 점의 성과가 갱신됩니다.`}
+              ? `같은 이름·종류의 기준점이 등록되어 있습니다(관리번호 ${existing.pointNo}). 다른 기준점과 이름·종류가 같으면 저장할 수 없습니다.`
+              : `같은 이름·종류의 기준점이 등록되어 있습니다(관리번호 ${existing.pointNo}). 등록하면 해당 기준점의 성과가 갱신됩니다.`}
           </p>
         )}
       </ModalField>

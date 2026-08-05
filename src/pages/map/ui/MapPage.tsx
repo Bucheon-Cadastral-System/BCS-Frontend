@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '@/app/store/hooks'
 import { setActiveProject, toggleTheme } from '@/app/store'
 import { AppHeader, PointIcon, ProjectIcon } from '@/widgets/app-header'
@@ -11,7 +11,7 @@ import { MapCommandBar } from '@/widgets/map-command-bar'
 import type OlMap from 'ol/Map'
 import { ChatDockLayout } from '@/widgets/chatbot'
 import type { ChatAction } from '@/widgets/chatbot'
-import { POINT_TYPES, useControlPointsQuery, useDeleteControlPointMutation, useRegisterControlPointMutation, useUpdateControlPointMutation } from '@/entities/control-point'
+import { POINT_TYPES, fetchControlPointUsage, useControlPointsQuery, useDeleteControlPointMutation, useRegisterControlPointMutation, useUpdateControlPointMutation } from '@/entities/control-point'
 import type { ControlPoint } from '@/entities/control-point'
 import { useCreateSurveyProjectMutation, useDeleteSurveyProjectMutation, useSurveyProjectsQuery, useSurveyTargetsQuery, useUpdateSurveyProjectMutation } from '@/entities/survey-project'
 import type { SurveyProject, SurveyProjectDraft } from '@/entities/survey-project'
@@ -21,12 +21,14 @@ import { ControlPointFileModal, ControlPointFormModal } from '@/widgets/add-cont
 import type { ControlPointFormValues } from '@/widgets/add-control-point'
 import { SurveyProjectCreateModal, SurveyProjectEditModal, SurveyProjectFileModal } from '@/widgets/survey-project-form'
 import { ApiError } from '@/shared/api/http'
+import { CHIP_BTN_DANGER } from '@/shared/ui/classes'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { Toast } from '@/shared/ui/Toast'
 import { FileDropOverlay } from '@/shared/ui/FileDropOverlay'
 import { useFileDrop } from '@/shared/lib/useFileDrop'
 import type { ToastTone } from '@/shared/ui/Toast'
 import { withoutTransition } from '@/shared/lib/instantChange'
+import { josa } from '@/shared/lib/josa'
 import { wgs84ToTm } from '@/shared/lib/crs'
 import type { TmEpsg } from '@/shared/lib/crs'
 import { VWORLD_KEY } from '@/shared/config/map'
@@ -42,8 +44,10 @@ interface MapPageProps {
 const EMPTY_POINTS: ControlPoint[] = []
 /** 아무것도 보이지 않을 때의 고정 집합 — 참조가 바뀌면 지도 레이어가 헛되이 재스타일된다 */
 const EMPTY_ID_SET: ReadonlySet<string> = new Set()
+/** 조사 표시를 걷을 때 지도에 넘기는 고정 빈 집합(기준점 탭 — 선택은 유지하되 뱃지는 숨긴다) */
+const NO_SURVEY_IDS: Set<string> = new Set()
 /**
- * 판이 화면 가장자리에서 떨어진 거리 — 지도 보정에 판 너비와 함께 쓴다.
+ * 판이 화면 가장자리에서 떨어진 거리 — 상세 카드가 대화 판 옆으로 비켜 서는 계산에 쓴다.
  * 판·헤더·커맨드 바는 이 값을 유틸리티(`left-4`·`right-4`·`inset-x-4` = 16px)로 두므로 함께 움직여야 한다.
  * 클래스 이름은 문자열이라 이 상수에서 만들 수 없어 값을 두 벌로 둔다.
  */
@@ -131,9 +135,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   const [utilityWidth, setUtilityWidth] = useState(0)
   // 대화 판이 지도를 가리는 폭(닫혀 있으면 0)
   const [chatWidth, setChatWidth] = useState(0)
-  // 판이 지도를 가리는 폭 — 포커스 센터링과 지도 위 요소 배치가 '보이는 영역'을 쓰게 한다
-  const mapLeftInset = openPanel === null ? 0 : headerWidth + PANEL_MARGIN * 2
-  const mapRightInset = chatWidth === 0 ? 0 : chatWidth + PANEL_MARGIN * 2
+  // 포커스는 언제나 화면 정중앙 — 판·카드가 가린 폭을 빼는 보정은 두지 않는다.
+  // 점을 고르면 상세 카드가 늘 함께 떠서, 카드 폭을 빼면 어느 판이 열려 있느냐에 따라 점이 좌우로 쏠려 보인다.
   // 기준점 추가 — 직접 입력(add)과 파일 등록(file)은 입구에서 갈린 다른 창이다.
   // '지도에서 위치 찍기'는 직접 입력 안의 한 단계(찍는 동안만 모달을 숨긴다)
   const [pointModal, setPointModal] = useState<'add' | 'file' | null>(null)
@@ -143,6 +146,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   const [editingPoint, setEditingPoint] = useState<ControlPoint | null>(null)
   const [deletingPoint, setDeletingPoint] = useState<ControlPoint | null>(null)
   const [pointDeleteError, setPointDeleteError] = useState<string | null>(null)
+  // 참조 중이라 서버가 거부한 상태 — 물음이 아니라 '할 수 없음' 안내로 바뀌고 확정 버튼이 잠긴다
+  const [pointDeleteBlocked, setPointDeleteBlocked] = useState(false)
   // 조사 프로젝트 — 직접 생성(create, 대상 지정 포함)과 파일 등록(file)은 입구에서 갈린 다른 창이다
   const [projectModal, setProjectModal] = useState<'create' | 'file' | null>(null)
   const [pendingFiles, setPendingFiles] = useState<File[] | null>(null)
@@ -150,6 +155,23 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   const [editingProject, setEditingProject] = useState<SurveyProject | null>(null)
   const [deletingProject, setDeletingProject] = useState<SurveyProject | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  // 수정 창의 시작값(현재 대상)과 기록 있는 점 — 수정은 드로어(펼침=활성)에서 열려 보통 캐시가 이미 데워져 있지만,
+  // 활성 프로젝트와 같다는 가정에 기대지 않고 수정 대상의 id 로 따로 묻는다(키가 같으면 재요청 없이 캐시를 쓴다)
+  const editTargetsQuery = useSurveyTargetsQuery(editingProject?.id ?? null)
+  const editRecordsQuery = useSurveyRecordsQuery(editingProject?.id ?? null)
+  const editRecordedIds = useMemo(
+    () => new Set((editRecordsQuery.data ?? []).map((r) => r.pointId)),
+    [editRecordsQuery.data],
+  )
+  // 시작값을 못 불러오면 수정 창을 못 연다 — 빈 시작값으로 열면 저장이 대상 전체 해제로 둔갑한다
+  const failEditOpen = useEffectEvent(() => {
+    setEditingProject(null)
+    showToast('대상 기준점을 불러오지 못해 수정 창을 열 수 없습니다. 잠시 후 다시 시도해 주세요.', 'error')
+  })
+  useEffect(() => {
+    if (editingProject !== null && editTargetsQuery.isError) failEditOpen()
+  }, [editingProject, editTargetsQuery.isError])
   // 결과 알림 — id를 key로 써서 같은 문구가 다시 떠도 애니·타이머가 재시작된다
   const [toast, setToast] = useState<{ id: number; message: string; tone: ToastTone } | null>(null)
   const toastIdRef = useRef(0)
@@ -161,19 +183,17 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   const fileDrop = useFileDrop((files) => startImport(files))
 
   /**
-   * 헤더 탭 — 같은 탭을 다시 누르면 닫는다.
-   * 두 탭은 함께 서지 않는다: 기준점 탭은 전체 목록이라 고른 조사를 그대로 두면
-   * 그 조사의 대상이 아닌 점에 조사·망실을 기록할 수 있다.
+   * 헤더 탭 — 같은 탭을 다시 누르면 접고(칩), 접힌 탭을 누르면 다시 편다. 닫기(선택 해제)는 판의 X 가 맡는다.
+   * 탭을 오가도 고른 조사는 유지된다 — 기준점 탭은 전체를 보여 줄 뿐이고,
+   * 대상 아닌 점의 기록은 화면(대상만 버튼 노출)과 서버(404)가 이미 막고 있어 선택을 놓을 이유가 없다.
    */
   function togglePanel(key: PanelKey) {
-    // 접어 둔 판의 탭을 다시 누르면 끄지 않고 펼친다 — 칩으로 줄여 둔 것을 되돌리는 길이다
     if (panel?.key === key) {
-      if (panel.minimized) setPanel({ key, minimized: false })
-      else closePanel()
+      setPanel({ key, minimized: !panel.minimized })
       return
     }
-    setPanel({ key, minimized: false })
-    if (key === 'points') dispatch(setActiveProject(null))
+    // 접어 둔 채 탭을 옮기면 접힌 채로 옮긴다 — 탭 전환이 접힘을 마음대로 펴면 접어 둔 뜻이 사라진다
+    setPanel({ key, minimized: panel?.minimized ?? false })
   }
 
   /** 판을 끈다 — 고른 것도 함께 놓는다(조사 선택 해제) */
@@ -206,6 +226,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   // 활성 프로젝트의 조사기록만 조회하므로 레코드 존재=조사됨, lost=망실
   const surveyedIds = useMemo(() => new Set(records.map((r) => r.pointId)), [records])
   const lostIds = useMemo(() => new Set(records.filter((r) => r.lost).map((r) => r.pointId)), [records])
+  // 기준점 탭에서는 조사 표시를 걷는다 — 선택은 유지하되 화면(마커 뱃지·카드 조사 상태)은 선택 해제와 같은 모습이어야 한다
+  const surveyVisible = activeProjectId !== null && panel?.key !== 'points'
 
   // 위치 찍기 중 지도 클릭 → 좌표만 모달로 돌려주고 다시 입력 화면으로. 찍은 값은 시작값일 뿐 실제 성과가 아니다.
   function addPoint(lng: number, lat: number) {
@@ -271,7 +293,22 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     )
   }
 
-  /** 삭제 확정 — 조사 프로젝트가 대상·기록으로 쓰는 점은 서버가 거부하고, 그 사유를 확인 창 안에서 알린다. */
+  /**
+   * 삭제 확인 열기 — 참조 여부를 먼저 물어 창을 물음/불가 중 맞는 쪽으로 연다.
+   * 물었다가 거부당해 같은 창이 불가로 바뀌면 확인이 두 번 뜨는 것처럼 보인다.
+   */
+  async function startDeletePoint(p: ControlPoint) {
+    setPointDeleteError(null)
+    try {
+      setPointDeleteBlocked(await fetchControlPointUsage(p.id))
+    } catch {
+      // 참조 확인이 안 돼도 흐름은 연다 — 최종 판정은 삭제 요청에서 서버가 한다(아래 409 분기가 받는다)
+      setPointDeleteBlocked(false)
+    }
+    setDeletingPoint(p)
+  }
+
+  /** 삭제 확정 — 참조 여부는 창을 열 때 갈랐고, 그 사이 생긴 참조는 서버 409 가 최종적으로 막는다. */
   function confirmDeletePoint() {
     if (deletingPoint === null) return
     const target = deletingPoint
@@ -283,10 +320,16 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
         if (editingPoint !== null && editingPoint.id === target.id) closeEditPoint()
         showToast('기준점을 삭제했습니다.', 'success')
       },
-      onError: (e) =>
+      onError: (e) => {
+        // 참조 중 거부는 다시 눌러도 같은 답이다 — 물음을 '할 수 없음' 안내로 바꾸고 확정을 잠근다
+        if (e instanceof ApiError && e.code === 'CONTROL_POINT_IN_USE') {
+          setPointDeleteBlocked(true)
+          return
+        }
         setPointDeleteError(
           e instanceof ApiError ? e.message : '기준점을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.',
-        ),
+        )
+      },
     })
   }
 
@@ -386,10 +429,10 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     )
   }
 
-  function saveProjectEdit(draft: SurveyProjectDraft) {
+  function saveProjectEdit(draft: SurveyProjectDraft, targetPointIds: string[]) {
     if (editingProject === null) return
     updateProjectMutation.mutate(
-      { id: editingProject.id, draft },
+      { id: editingProject.id, draft, targetPointIds },
       {
         onSuccess: () => {
           setEditingProject(null)
@@ -489,8 +532,9 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
       <div className="relative min-h-0 min-w-0 flex-1">
         <AppHeader
           tabs={[
-            { key: 'project', label: '프로젝트', icon: <ProjectIcon />, active: openPanel === 'project', onClick: () => togglePanel('project') },
-            { key: 'points', label: '기준점', icon: <PointIcon />, active: openPanel === 'points', onClick: () => togglePanel('points') },
+            // 접어 둔(칩) 상태도 그 판을 보는 중이다 — 탭 표시는 펼침 여부가 아니라 어느 판이 서 있는지를 따른다
+            { key: 'project', label: '프로젝트', icon: <ProjectIcon />, active: panel?.key === 'project', onClick: () => togglePanel('project') },
+            { key: 'points', label: '기준점', icon: <PointIcon />, active: panel?.key === 'points', onClick: () => togglePanel('points') },
           ]}
           onBrandWidthChange={setHeaderWidth}
           onUtilityWidthChange={setUtilityWidth}
@@ -541,6 +585,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
           isAdmin={isAdmin}
           onOpenUserManagement={onOpenUserManagement}
           open={openPanel}
+          minimized={panel?.minimized === true}
           onMinimize={() => panel && setPanel({ key: panel.key, minimized: true })}
           onClose={closePanel}
           width={headerWidth}
@@ -569,14 +614,12 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               addMode={picking}
               showCadastral={showCadastral}
               selectedId={selectedId}
-              surveyMode={activeProjectId !== null}
-              surveyedIds={surveyedIds}
-              lostIds={lostIds}
+              surveyMode={surveyVisible}
+              surveyedIds={surveyVisible ? surveyedIds : NO_SURVEY_IDS}
+              lostIds={surveyVisible ? lostIds : NO_SURVEY_IDS}
               theme={theme}
               focusNonce={focusNonce}
               homeNonce={homeNonce}
-              leftInset={mapLeftInset}
-              rightInset={mapRightInset}
               onAddPoint={addPoint}
               onSelect={setSelectedId}
               onMapReady={setMapInstance}
@@ -604,9 +647,10 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               </div>
             </div>
 
-            {/* 접어 둔 판을 대신하는 칩 — 무엇을 보고 있는지 알리고, 누르면 판이 다시 펼쳐진다 */}
+            {/* 접어 둔 판을 대신하는 칩 — 무엇을 보고 있는지 알리고, 누르면 판이 다시 펼쳐진다.
+                판이 칩 자리로 말려 올라오는 동안 칩은 panel-in 으로 내려앉아 접히는 흐름이 이어진다 */}
             {panel?.minimized && (
-              <div className="absolute left-4 top-[76px] z-[15]" style={{ width: headerWidth || undefined }}>
+              <div key={panel.key} className="panel-in absolute left-4 top-[76px] z-[15]" style={{ width: headerWidth || undefined }}>
                 {panel.key === 'project' ? (
                   <MinimizedPanelChip
                     label="프로젝트"
@@ -631,7 +675,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
             {picking && (
               <div className="absolute left-1/2 top-[76px] z-[25] flex -translate-x-1/2 items-center gap-3 rounded-pill border border-line-pill bg-pill py-2 pl-4 pr-2 text-[13px] text-ink shadow-pill">
                 지도를 클릭해 위치를 지정하세요
-                <button type="button" onClick={() => setPicking(false)} className="rounded-chip px-2.5 py-1 text-[12px] text-ink-3 transition-colors hover:bg-hover hover:text-ink">
+                {/* 찍기를 그만두는 취소 — 앱 전역 규격대로 빨강 */}
+                <button type="button" onClick={() => setPicking(false)} className={`${CHIP_BTN_DANGER} px-2.5 py-1 text-[12px]`}>
                   취소
                 </button>
               </div>
@@ -644,17 +689,14 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
             >
             <ControlPointDetail
               point={selected}
-              activeProjectName={selectedIsTarget ? (activeProject?.name ?? null) : null}
-              surveyed={selected !== null && surveyedIds.has(selected.id)}
-              lost={selected !== null && lostIds.has(selected.id)}
+              activeProjectName={surveyVisible && selectedIsTarget ? (activeProject?.name ?? null) : null}
+              surveyed={surveyVisible && selected !== null && surveyedIds.has(selected.id)}
+              lost={surveyVisible && selected !== null && lostIds.has(selected.id)}
               onToggleSurvey={handleToggleSurvey}
               onClose={() => setSelectedId(null)}
               onToggleLost={handleToggleLost}
               onEdit={startEditPoint}
-              onDelete={(p) => {
-                setPointDeleteError(null)
-                setDeletingPoint(p)
-              }}
+              onDelete={(p) => void startDeletePoint(p)}
               onCopied={(ok) =>
                 ok
                   ? showToast('클립보드로 복사되었습니다.', 'success')
@@ -713,13 +755,20 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
 
       {deletingPoint !== null && (
         <ConfirmDialog
-          message={`'${deletingPoint.name}' 기준점을 삭제할까요?`}
-          detail={`관리번호 ${deletingPoint.pointNo} — 되돌릴 수 없습니다.`}
+          // 창을 열기 전에 참조 여부를 갈랐다 — 삭제 가능이면 물음, 참조 중이면 확정이 잠긴 '할 수 없음' 안내
+          message={
+            pointDeleteBlocked
+              ? `'${deletingPoint.name}'${josa(deletingPoint.name, '은', '는')} 삭제할 수 없습니다.`
+              : `'${deletingPoint.name}'${josa(deletingPoint.name, '을', '를')} 삭제할까요?`
+          }
+          detail={pointDeleteBlocked ? '프로젝트에서 참조 중인 기준점입니다.' : '삭제한 항목은 되돌릴 수 없습니다.'}
           error={pointDeleteError ?? undefined}
           confirmLabel="삭제"
+          cancelLabel={pointDeleteBlocked ? '닫기' : undefined}
           danger
           busy={deletePointMutation.isPending}
           busyLabel="삭제 중…"
+          confirmDisabled={pointDeleteBlocked}
           onConfirm={confirmDeletePoint}
           onCancel={() => setDeletingPoint(null)}
         />
@@ -750,11 +799,15 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
         />
       )}
 
-      {editingProject !== null && (
+      {/* 시작값(현재 대상)이 오기 전에는 열지 않는다 — 빈 선택으로 열리면 저장이 대상 전체 해제가 된다 */}
+      {editingProject !== null && editTargetsQuery.data !== undefined && (
         <SurveyProjectEditModal
           key={editingProject.id} // 다른 프로젝트로 바뀌면 입력값도 그 프로젝트에서 새로 시작한다
           project={editingProject}
           author={profile ? `${profile.name} · ${profile.team} ${profile.position}` : ''}
+          points={points}
+          initialTargetIds={editTargetsQuery.data}
+          recordedPointIds={editRecordedIds}
           submitting={updateProjectMutation.isPending}
           onSubmit={saveProjectEdit}
           onCancel={() => setEditingProject(null)}

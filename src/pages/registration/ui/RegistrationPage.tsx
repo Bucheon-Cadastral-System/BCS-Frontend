@@ -4,7 +4,7 @@ import type { District, Position, Team } from '@/entities/user'
 import { BrandLockup } from '@/shared/ui/BrandLockup'
 import { FormNotice } from '@/shared/ui/FormNotice'
 import { useFormNotice } from '@/shared/lib/useFormNotice'
-import { BTN_PRIMARY, BTN_SECONDARY, FIELD, FIELD_READONLY, FIELD_SELECT, MODAL_SHELL } from '@/shared/ui/classes'
+import { BTN_DANGER, BTN_PRIMARY, FIELD, FIELD_READONLY, FIELD_SELECT, MODAL_SHELL } from '@/shared/ui/classes'
 
 export interface RegistrationData {
   name: string
@@ -145,7 +145,8 @@ export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) 
 
           <div className="mt-7 flex items-center justify-end gap-3">
             <FormNotice message={form.notice} />
-            <button type="button" className={`${BTN_SECONDARY} px-7`} onClick={onCancel}>취소</button>
+            {/* 적던 신청서를 버리는 취소 — 앱 전역 규격대로 빨강 */}
+            <button type="button" className={`${BTN_DANGER} px-7`} onClick={onCancel}>취소</button>
             <button
               type="submit"
               disabled={submitting}
