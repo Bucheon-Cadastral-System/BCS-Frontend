@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { ImportPreviewList, NO_FILES, POINT_ACTION_LABEL, SEND_LABEL, SendMark, hasRowErrors, nothingToRegister, useImportPreviews, useSequentialSend } from '@/features/import-file'
+import { ImportPreviewList, NO_FILES, POINT_ACTION_LABEL, ReadSummary, SEND_LABEL, SendMark, hasRowErrors, needsReview, nothingToRegister, useImportPreviews, useSequentialSend } from '@/features/import-file'
 import type { PointPreview, ReadFile } from '@/features/import-file'
 import { MODAL_CANCEL_BTN, MODAL_DANGER_BTN, MODAL_SUBMIT_BTN, Modal } from '@/shared/ui/Modal'
 import { Spinner } from '@/shared/ui/Spinner'
@@ -174,6 +174,8 @@ export function ControlPointFileModal(props: {
   const usable = read.filter((r) => !hasRowErrors(r.preview))
   const blockedCount = read.length - usable.length
   const failedCount = previews.length - read.length
+  // 경고가 있는 파일은 집계에서 성공에 섞지 않는다 — 노란 표시가 있는데 성공으로 세면 지나친다
+  const warnedCount = usable.filter((r) => needsReview(r.preview)).length
 
   // 읽는 동안에는 늘 이 화면이다. 다 읽어도 저절로 넘어가지 않는다 —
   // 무엇을 읽었는지 확인하고 넘길지 다시 고를지는 사용자가 정한다.
@@ -228,7 +230,17 @@ export function ControlPointFileModal(props: {
     openPicker()
   }
 
-  const readingBody = <ImportPreviewList entries={previews} unit="기준점" />
+  const readingBody = (
+    <ImportPreviewList
+      entries={previews}
+      unit="기준점"
+      summary={
+        readingDone ? (
+          <ReadSummary clean={usable.length - warnedCount} warned={warnedCount} blocked={blockedCount} failed={failedCount} />
+        ) : undefined
+      }
+    />
+  )
 
   // 화면 전체 드롭 안내와 같은 모양 — 여기에 끌어다 놓아도 되고 눌러서 골라도 된다는 뜻
   const pickerBody = (
@@ -315,8 +327,14 @@ export function ControlPointFileModal(props: {
       footer={
         confirming ? (
           <>
-            {/* 등록을 시작하기 전에는 되돌릴 수 있어 취소, 시작한 뒤에는 앞서 보낸 건이 서버에 남아 되돌릴 수 없다 */}
-            <button type="button" className={MODAL_CANCEL_BTN} onClick={props.onCancel} disabled={send.inFlight}>
+            {/* 등록을 시작하기 전에는 입력을 버리는 취소(빨강), 시작한 뒤에는 결과를 두고 나가는 닫기(중립) —
+                앞서 보낸 건이 서버에 남아 되돌리는 동작이 아니게 된다 */}
+            <button
+              type="button"
+              className={send.started ? MODAL_CANCEL_BTN : MODAL_DANGER_BTN}
+              onClick={props.onCancel}
+              disabled={send.inFlight}
+            >
               {send.started ? '닫기' : '취소'}
             </button>
             {!send.started && (
@@ -345,21 +363,10 @@ export function ControlPointFileModal(props: {
           </>
         ) : showReading ? (
           <>
-            <button type="button" className={MODAL_DANGER_BTN} onClick={props.onCancel}>
+            {/* 집계는 목록 위 줄이 맡는다 — 취소만 왼쪽, 나머지 선택지는 오른쪽 */}
+            <button type="button" className={`${MODAL_DANGER_BTN} mr-auto`} onClick={props.onCancel}>
               취소
             </button>
-            {/* 남는 자리를 안내가 차지해 취소는 왼쪽, 나머지 선택지는 오른쪽에 붙는다 */}
-            <span className="flex-1 self-center pl-1 text-[12px] text-ink-3">
-              {readingDone
-                ? [
-                    `${usable.length}건 성공`,
-                    blockedCount > 0 ? `${blockedCount}건 등록 불가` : '',
-                    failedCount > 0 ? `${failedCount}건 실패` : '',
-                  ]
-                    .filter(Boolean)
-                    .join(', ')
-                : ''}
-            </span>
             {/* 읽는 동안에도 자리는 지킨다 — 다 읽은 순간 버튼이 새로 생기면 누르려던 자리가 밀린다 */}
             <button type="button" className={MODAL_CANCEL_BTN} onClick={openPicker} disabled={!readingDone}>
               다른 파일 선택
@@ -371,7 +378,7 @@ export function ControlPointFileModal(props: {
               disabled={!readingDone || usable.length === 0}
             >
               {readingDone ? (
-                `${usable.length}건 확인하기`
+                `${usable.length}건 입력`
               ) : (
                 <span className="flex items-center gap-1.5">
                   <Spinner className="size-3.5" current />

@@ -1,6 +1,7 @@
+import type { ReactNode } from 'react'
 import type { PreviewEntry, PreviewStatus } from '../model/useImportPreviews'
 import type { ImportFilePreview } from '../api/previewImportFile'
-import { hasRowErrors, rowIssueLines } from '../model/readFile'
+import { hasRowErrors, needsReview, rowIssueLines } from '../model/readFile'
 import { STATUS_ROW, STATUS_ROW_TONE } from '@/shared/ui/statusRow'
 import { StatusIcon } from '@/shared/ui/StatusIcon'
 import type { StatusTone } from '@/shared/ui/statusRow'
@@ -23,35 +24,55 @@ function rowTone(status: PreviewStatus): StatusTone {
   if (status.kind === 'failed') return 'danger'
   if (status.kind !== 'done') return 'none'
   if (hasRowErrors(status.preview)) return 'danger'
-  return status.preview.warnings.length > 0 || noticesOf(status.preview).length > 0 ? 'caution' : 'success'
+  return needsReview(status.preview) ? 'caution' : 'success'
+}
+
+/**
+ * 읽기 결과 집계 한 줄 — 경고가 있는 파일은 성공에 섞지 않는다(등록은 되지만 확인할 것이 있다).
+ * 버튼 줄이 아니라 목록 위에 세운다: 항목이 늘면 버튼 줄에는 자리가 없다.
+ */
+export function ReadSummary(props: { clean: number; warned: number; blocked: number; failed: number }) {
+  return (
+    <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px]">
+      <span className="text-ink-2">
+        성공 <b className="font-semibold text-teal-text">{props.clean}</b>건
+      </span>
+      {props.warned > 0 && <span className="font-medium text-amber">경고 {props.warned}건</span>}
+      {props.blocked > 0 && <span className="font-medium text-danger">등록 불가 {props.blocked}건</span>}
+      {props.failed > 0 && <span className="font-medium text-danger">실패 {props.failed}건</span>}
+    </p>
+  )
 }
 
 /**
  * 읽는 중인 파일들의 상태 목록. 창을 새로 띄우지 않고 고르는 자리에서 그대로 보여 준다.
  * 같은 서식을 조사 대상지로도 기준점으로도 올리므로, 건수를 무엇으로 부를지는 쓰는 쪽이 정한다.
  */
-export function ImportPreviewList({ entries, unit = '대상' }: { entries: PreviewEntry[]; unit?: string }) {
+export function ImportPreviewList({ entries, unit = '대상', summary }: { entries: PreviewEntry[]; unit?: string; summary?: ReactNode }) {
   return (
     // 창 너비를 다 쓰는 줄 목록 — 파일마다 테두리를 두르면 개수가 많을 때 상자가 겹겹이 쌓여 읽기 어렵다.
     // 위아래 모두 창의 선(머리말·버튼 줄)에 바로 붙인다: 사이를 띄우면 빈 띠와 겹선이 남는다.
     // 행 사이 선은 가장 진한 선 토큰으로 — 톤 바탕이 깔린 줄 사이에서 흐린 선은 묻힌다
-    <ul className={`${MODAL_BLEED} divide-y divide-line-btn`}>
-      {/* 이름·수정시각이 같은 파일을 함께 올릴 수 있어 키는 붙인 순서로 잡는다 */}
-      {entries.map((entry, index) => {
-        const tone = rowTone(entry.status)
-        return (
-          // 읽기를 마친 줄은 바탕을 옅게 물들여 결과가 목록에서 바로 읽히게 한다
-          <li key={index} className={`${STATUS_ROW} ${STATUS_ROW_TONE[tone]}`}>
-            <div className="min-w-0 flex-1">
-              <span className="block truncate text-[13px] font-medium text-ink">{entry.file.name}</span>
-              <ProgressBar status={entry.status} />
-              <StatusText status={entry.status} unit={unit} />
-            </div>
-            <StatusMark status={entry.status} />
-          </li>
-        )
-      })}
-    </ul>
+    <div className={MODAL_BLEED}>
+      {summary !== undefined && <div className="border-b border-line-btn bg-soft px-[18px] py-2.5">{summary}</div>}
+      <ul className="divide-y divide-line-btn">
+        {/* 이름·수정시각이 같은 파일을 함께 올릴 수 있어 키는 붙인 순서로 잡는다 */}
+        {entries.map((entry, index) => {
+          const tone = rowTone(entry.status)
+          return (
+            // 읽기를 마친 줄은 바탕을 옅게 물들여 결과가 목록에서 바로 읽히게 한다
+            <li key={index} className={`${STATUS_ROW} ${STATUS_ROW_TONE[tone]}`}>
+              <div className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-medium text-ink">{entry.file.name}</span>
+                <ProgressBar status={entry.status} />
+                <StatusText status={entry.status} unit={unit} />
+              </div>
+              <StatusMark status={entry.status} />
+            </li>
+          )
+        })}
+      </ul>
+    </div>
   )
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import type { SurveyProjectDraft } from '@/entities/survey-project'
-import { ImportPreviewList, NO_FILES, SEND_LABEL, SendMark, blockingReasonOf, hasRowErrors, rowIssueLines, summaryOf, useImportPreviews, useSequentialSend } from '@/features/import-file'
+import { ImportPreviewList, NO_FILES, ReadSummary, SEND_LABEL, SendMark, blockingReasonOf, hasRowErrors, needsReview, rowIssueLines, summaryOf, useImportPreviews, useSequentialSend } from '@/features/import-file'
 import type { ReadFile, SendStatus } from '@/features/import-file'
 import { today } from '@/shared/lib/date'
 import { fileBaseName } from '@/shared/lib/file'
@@ -270,7 +270,7 @@ export function SurveyProjectFileModal(props: {
   /** 막대의 점을 눌러 그 건으로 — 확인 단계에서 눌렀으면 입력으로 돌아간다 */
   function jumpToEntry(i: number) {
     setConfirming(false)
-    // 등록을 시작한 뒤(고치러 가기)는 이미 등록된 건의 이력을 지켜야 한다 — 지우면 그 건들이 다시 전송된다
+    // 등록을 시작한 뒤(실패 건 수정)는 이미 등록된 건의 이력을 지켜야 한다 — 지우면 그 건들이 다시 전송된다
     if (send.started) send.reopen()
     else send.reset()
     setIndex(i)
@@ -358,6 +358,8 @@ export function SurveyProjectFileModal(props: {
   const usable = read.filter((r) => !hasRowErrors(r.preview))
   const blockedCount = read.length - usable.length
   const failedCount = previews.length - read.length
+  // 경고가 있는 파일은 집계에서 성공에 섞지 않는다 — 노란 표시가 있는데 성공으로 세면 지나친다
+  const warnedCount = usable.filter((r) => needsReview(r.preview)).length
 
   /** 읽은 파일을 만들 조사 목록으로 바꾼다. 조사명은 파일 이름에서 시작해 건마다 고쳐 적는다. */
   function proceed(files: ReadFile[]) {
@@ -393,7 +395,16 @@ export function SurveyProjectFileModal(props: {
 
   // 읽는 중에는 만들 조사가 몇 건이 될지 아직 모른다 — 입력 칸을 띄워 봐야 어느 조사의 값인지 말할 수 없으므로
   // 읽기를 별도 단계로 두고 진행 상태만 보여 준다. 창은 그대로 두고 안쪽만 바꾼다.
-  const readingBody = <ImportPreviewList entries={previews} />
+  const readingBody = (
+    <ImportPreviewList
+      entries={previews}
+      summary={
+        readingDone ? (
+          <ReadSummary clean={usable.length - warnedCount} warned={warnedCount} blocked={blockedCount} failed={failedCount} />
+        ) : undefined
+      }
+    />
+  )
 
   // 화면 전체 드롭 안내와 같은 모양 — 여기에 끌어다 놓아도 되고 눌러서 골라도 된다는 뜻
   const pickerBody = (
@@ -487,7 +498,7 @@ export function SurveyProjectFileModal(props: {
         <p className="text-[12px] text-danger">
           {invalidIndex + 1}번째에 비어 있는 항목이 있습니다.{' '}
           <button type="button" className="underline underline-offset-2" onClick={() => jumpToEntry(invalidIndex)}>
-            그 건으로 이동
+            해당 건으로 이동
           </button>
         </p>
       )}
@@ -566,7 +577,7 @@ export function SurveyProjectFileModal(props: {
   return (
     <Modal
       // 제목은 지금 어느 화면인지만 말한다 — 진행 상태는 본문이 알린다
-      title={confirming ? '프로젝트 등록' : showReading ? '프로젝트 대상지 파일 읽기' : '파일로 프로젝트 추가'}
+      title={confirming ? '프로젝트 등록' : showReading ? '프로젝트 대상지 파일 읽기' : '프로젝트 파일 등록'}
       aside={board}
       formRef={form.formRef}
       busy={send.inFlight || reading !== null}
@@ -576,8 +587,14 @@ export function SurveyProjectFileModal(props: {
       footer={
         confirming ? (
           <>
-            {/* 등록을 시작하기 전에는 되돌릴 수 있어 취소, 시작한 뒤에는 앞서 보낸 건이 서버에 남아 되돌릴 수 없다 */}
-            <button type="button" className={MODAL_CANCEL_BTN} onClick={props.onCancel} disabled={send.inFlight}>
+            {/* 등록을 시작하기 전에는 입력을 버리는 취소(빨강), 시작한 뒤에는 결과를 두고 나가는 닫기(중립) —
+                앞서 보낸 건이 서버에 남아 되돌리는 동작이 아니게 된다 */}
+            <button
+              type="button"
+              className={send.started ? MODAL_CANCEL_BTN : MODAL_DANGER_BTN}
+              onClick={props.onCancel}
+              disabled={send.inFlight}
+            >
               {send.started ? '닫기' : '취소'}
             </button>
             {!send.started && (
@@ -596,27 +613,16 @@ export function SurveyProjectFileModal(props: {
             )}
             {send.started && failedIndex >= 0 && (
               <button type="button" className={MODAL_SUBMIT_BTN} onClick={() => jumpToEntry(failedIndex)}>
-                고치러 가기
+                실패 건 수정
               </button>
             )}
           </>
         ) : showReading ? (
           <>
-            <button type="button" className={MODAL_DANGER_BTN} onClick={props.onCancel}>
+            {/* 집계는 목록 위 줄이 맡는다 — 취소만 왼쪽, 나머지 선택지는 오른쪽 */}
+            <button type="button" className={`${MODAL_DANGER_BTN} mr-auto`} onClick={props.onCancel}>
               취소
             </button>
-            {/* 남는 자리를 안내가 차지해 취소는 왼쪽, 나머지 선택지는 오른쪽에 붙는다 */}
-            <span className="flex-1 self-center pl-1 text-[12px] text-ink-3">
-              {readingDone
-                ? [
-                    `${usable.length}건 성공`,
-                    blockedCount > 0 ? `${blockedCount}건 등록 불가` : '',
-                    failedCount > 0 ? `${failedCount}건 실패` : '',
-                  ]
-                    .filter(Boolean)
-                    .join(', ')
-                : ''}
-            </span>
             {/* 읽는 동안에도 자리는 지킨다 — 다 읽은 순간 버튼이 새로 생기면 누르려던 자리가 밀린다 */}
             <button type="button" className={MODAL_CANCEL_BTN} onClick={openPicker} disabled={!readingDone}>
               다른 파일 선택
@@ -628,7 +634,7 @@ export function SurveyProjectFileModal(props: {
               disabled={!readingDone || usable.length === 0}
             >
               {readingDone ? (
-                `${usable.length}건 입력하기`
+                `${usable.length}건 입력`
               ) : (
                 <span className="flex items-center gap-1.5">
                   <Spinner className="size-3.5" current />

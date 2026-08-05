@@ -20,6 +20,11 @@ export function hasRowErrors(preview: ImportFilePreview): boolean {
   return preview.errors.length > 0
 }
 
+/** 확인이 필요한 파일 — 행 경고나 서식 열 단서(빠진 열·다른 서식의 열)가 있다. 등록을 막지는 않는다. */
+export function needsReview(preview: ImportFilePreview): boolean {
+  return preview.warnings.length > 0 || preview.missingColumns.length > 0 || preview.foreignColumns.length > 0
+}
+
 /**
  * 보내도 바뀌는 것이 없는 파일인지 — 파일에 적힌 점이 모두 이미 등록된 값과 같다.
  * 점마다의 판정이 없으면(조사 대상지로 읽은 결과) 알 수 없으므로 보내야 한다.
