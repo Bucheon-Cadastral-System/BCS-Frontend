@@ -86,6 +86,8 @@ function labelFont(): string {
 const iconCache = new Map<string, Icon>()
 const plainStyleCache = new Map<string, Style>()
 const labeledStyleCache = new Map<string, Style>()
+/** 라벨 캐시 상한 — 이름×조합이라 무한하지 않지만, 넘치면 통째로 비워 다음 프레임이 다시 채운다(드문 일회 비용) */
+const LABELED_CACHE_LIMIT = 8_000
 
 function styleKey(type: PointType, selected: boolean, lost: boolean, done: boolean, theme: MapTheme): string {
   return `${theme}|${type}|${selected ? 1 : 0}|${lost ? 1 : 0}|${done ? 1 : 0}`
@@ -135,6 +137,9 @@ export function controlPointStyle(
   const cachedLabeled = labeledStyleCache.get(labeledKey)
   if (cachedLabeled) {
     return cachedLabeled
+  }
+  if (labeledStyleCache.size >= LABELED_CACHE_LIMIT) {
+    labeledStyleCache.clear()
   }
   const pal = PALETTE[theme]
   const style = new Style({

@@ -228,9 +228,7 @@ export function SurveyProjectFileModal(props: {
   const fileInputRef = useRef<HTMLInputElement>(null)
   // 이 자리에서 읽는 중인 파일들
   const [reading, setReading] = useState<File[] | null>(
-    props.initialFiles !== undefined && props.initialFiles !== null && props.initialFiles.length > 0
-      ? props.initialFiles
-      : null,
+    props.initialFiles != null && props.initialFiles.length > 0 ? props.initialFiles : null,
   )
   // 만들 조사 목록 — 파일을 읽어 넘기기 전에는 비어 있다(파일 고르기 화면)
   const [entries, setEntries] = useState<Entry[]>([])
@@ -307,10 +305,15 @@ export function SurveyProjectFileModal(props: {
     // 끝나도 창을 닫지 않는다 — 무엇이 등록됐는지 확인하고 사용자가 닫는다
   }
 
-  /** 창의 기본 동작(Enter 포함) — 파일 고르기에서는 선택 창을 열고, 확인 단계에서만 등록한다 */
+  /** 창의 기본 동작(Enter 포함) — 단계마다 주 버튼과 같은 일을 한다. 등록은 확인 단계에서만. */
   function handlePrimary() {
     if (showPicker) {
       openPicker()
+      return
+    }
+    if (showReading) {
+      // 읽기가 끝났으면 주 버튼(입력하기)과 같은 길 — 단계마다 Enter 가 다른 일을 하면 손이 헛디딘다
+      if (readingDone && usable.length > 0) proceed(usable)
       return
     }
     if (confirming) {

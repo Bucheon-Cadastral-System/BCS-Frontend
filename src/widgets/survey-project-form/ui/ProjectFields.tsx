@@ -70,7 +70,8 @@ export function ProjectFields(props: {
         )}
       </div>
 
-      <ModalField label="작성자" required>
+      {/* 읽기 전용 칸이라 필수 별표를 붙이지 않는다 — 별표는 사용자가 채워야 할 칸의 표시다 */}
+      <ModalField label="작성자">
         <input className={MODAL_READONLY} value={props.author} readOnly tabIndex={-1} />
       </ModalField>
 

@@ -215,6 +215,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   }
 
   function startAddPoint() {
+    setEditingPoint(null) // 위치 찍기 중에도 다른 진입 버튼이 살아 있다 — 두 창이 겹쳐 뜨지 않게 서로를 밀어낸다
     setPicked(null)
     setPicking(false)
     setPointModal('add')
@@ -227,6 +228,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   }
 
   function startEditPoint(point: ControlPoint) {
+    setPointModal(null) // 위치 찍기 중에도 다른 진입 버튼이 살아 있다 — 두 창이 겹쳐 뜨지 않게 서로를 밀어낸다
     setPicked(null)
     setPicking(false)
     setEditingPoint(point)
@@ -658,6 +660,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
 
       {editingPoint !== null && (
         <ControlPointFormModal
+          key={editingPoint.id} // 다른 점으로 바뀌면 입력값도 그 점에서 새로 시작한다
           title="기준점 수정"
           submitLabel="저장"
           initial={{
@@ -725,6 +728,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
 
       {editingProject !== null && (
         <SurveyProjectEditModal
+          key={editingProject.id} // 다른 프로젝트로 바뀌면 입력값도 그 프로젝트에서 새로 시작한다
           project={editingProject}
           author={profile ? `${profile.name} · ${profile.team} ${profile.position}` : ''}
           submitting={updateProjectMutation.isPending}

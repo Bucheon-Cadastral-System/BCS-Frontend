@@ -214,13 +214,18 @@ export function ControlPointFileModal(props: {
     // 끝나도 창을 닫지 않는다 — 무엇이 등록됐는지 확인하고 사용자가 닫는다
   }
 
-  /** 창의 기본 동작(Enter 포함) — 파일 고르기에서는 선택 창을 열고, 확인 단계에서만 등록한다 */
+  /** 창의 기본 동작(Enter 포함) — 단계마다 주 버튼과 같은 일을 한다. 등록은 확인 단계에서만. */
   function handlePrimary() {
     if (confirming) {
       registerAll()
       return
     }
-    if (!showReading) openPicker()
+    if (showReading) {
+      // 읽기가 끝났으면 주 버튼(확인하기)과 같은 길 — 단계마다 Enter 가 다른 일을 하면 손이 헛디딘다
+      if (readingDone && usable.length > 0) proceed(usable)
+      return
+    }
+    openPicker()
   }
 
   const readingBody = <ImportPreviewList entries={previews} unit="기준점" />

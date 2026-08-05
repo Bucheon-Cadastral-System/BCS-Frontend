@@ -48,8 +48,9 @@ export function ConfirmDialog(props: {
           {props.message}
         </p>
         {props.detail && <p className="mt-1.5 break-keep text-center text-[12px] leading-5 text-ink-3">{props.detail}</p>}
+        {/* 오류는 서버 문구라 공백 없는 긴 토큰이 올 수 있다 — 단어 경계 우선, 안 되면 아무 데서나 접는다 */}
         {props.error && (
-          <p className="mt-2.5 break-keep rounded-chip bg-danger-wash px-2.5 py-1.5 text-center text-[11.5px] text-danger" role="alert">
+          <p className="mt-2.5 break-keep rounded-chip bg-danger-wash px-2.5 py-1.5 text-center text-[11.5px] wrap-anywhere text-danger" role="alert">
             {props.error}
           </p>
         )}

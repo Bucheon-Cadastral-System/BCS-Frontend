@@ -111,6 +111,8 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
             <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
           </svg>
         </button>
+        {/* 삭제와 닫기는 이웃한 데다 강조색이 같다 — 사이를 갈라 잘못 누르지 않게 한다 */}
+        <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 self-center bg-line-soft" />
         <button
           type="button"
           onClick={props.onClose}

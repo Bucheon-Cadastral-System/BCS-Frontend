@@ -1,8 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { deleteSurveyRecord, fetchSurveyRecords, putSurveyRecord } from './surveyRecordApi'
 
+/** 조사기록 캐시 키의 공통 접두 — 프로젝트 무관 일괄 무효화(프로젝트 삭제 등)가 이 값으로 맞춘다 */
+export const SURVEY_RECORDS_KEY = ['survey-records'] as const
+
 export function surveyRecordsKey(projectId: string) {
-  return ['survey-records', projectId] as const
+  return [...SURVEY_RECORDS_KEY, projectId] as const
 }
 
 /**
@@ -11,7 +14,7 @@ export function surveyRecordsKey(projectId: string) {
  */
 export function useSurveyRecordsQuery(projectId: string | null) {
   return useQuery({
-    queryKey: ['survey-records', projectId],
+    queryKey: surveyRecordsKey(projectId as string),
     queryFn: () => fetchSurveyRecords(projectId as string),
     enabled: projectId !== null,
     staleTime: 30_000,

@@ -357,7 +357,7 @@ function ProjectPanel(props: MapSidebarProps) {
 
                       <ProjectNote note={p.note ?? ''} />
 
-                      {/* 수정·삭제는 펼친(=선택한) 조사에서만 — 행 전체가 버튼이라 안쪽에 겹쳐 둘 수 없다 */}
+                      {/* 수정·삭제는 펼친 조사에서만(접히는 동안에는 드로어와 함께 사라진다) — 행 전체가 버튼이라 안쪽에 겹쳐 둘 수 없다 */}
                       <div className="mt-2.5 flex gap-2 px-3.5">
                         <button
                           type="button"

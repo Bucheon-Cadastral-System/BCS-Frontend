@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { SurveyProject, SurveyProjectDraft } from '@/entities/survey-project'
-import { MODAL_CANCEL_BTN, MODAL_SUBMIT_BTN, Modal } from '@/shared/ui/Modal'
+import { MODAL_DANGER_BTN, MODAL_SUBMIT_BTN, Modal } from '@/shared/ui/Modal'
 import { FormNotice } from '@/shared/ui/FormNotice'
 import { useFormNotice } from '@/shared/lib/useFormNotice'
 import { ProjectFields, isPeriodReversed, trimmedOrNull } from './ProjectFields'
@@ -46,7 +46,8 @@ export function SurveyProjectEditModal(props: {
       onSubmit={submit}
       footer={
         <>
-          <button type="button" className={MODAL_CANCEL_BTN} onClick={props.onCancel} disabled={props.submitting}>
+          {/* 입력을 버리는 취소 — 직접 생성·기준점 폼과 같은 규격 */}
+          <button type="button" className={MODAL_DANGER_BTN} onClick={props.onCancel} disabled={props.submitting}>
             취소
           </button>
           <div className="ml-auto flex items-center gap-3">

@@ -18,11 +18,16 @@ export function TargetPicker(props: {
 }) {
   const [q, setQ] = useState('')
   const [type, setType] = useState<PointType | null>(null)
-  const query = q.trim()
+  // 관리번호에 영문이 섞인다 — 대소문자를 가리지 않고 맞춘다
+  const query = q.trim().toLowerCase()
   const list = useMemo(() => {
     let base = props.points
     if (type !== null) base = base.filter((p) => p.type === type)
-    if (query !== '') base = base.filter((p) => p.name.includes(query) || p.pointNo.includes(query))
+    if (query !== '') {
+      base = base.filter(
+        (p) => p.name.toLowerCase().includes(query) || p.pointNo.toLowerCase().includes(query),
+      )
+    }
     return base
   }, [props.points, type, query])
 
@@ -49,7 +54,10 @@ export function TargetPicker(props: {
     props.onChange(next)
   }
 
-  const allFilteredSelected = list.length > 0 && list.every((p) => props.selected.has(p.id))
+  const allFilteredSelected = useMemo(
+    () => list.length > 0 && list.every((p) => props.selected.has(p.id)),
+    [list, props.selected],
+  )
 
   return (
     <div>

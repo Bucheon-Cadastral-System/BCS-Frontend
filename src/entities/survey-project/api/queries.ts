@@ -1,4 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+// 조사기록 캐시 키는 그 엔티티가 소유한다 — 문자열을 따로 적으면 키가 바뀔 때 무효화가 조용히 어긋난다
+import { SURVEY_RECORDS_KEY } from '@/entities/survey-record'
 import { createSurveyProjectApi, deleteSurveyProjectApi, fetchSurveyProjects, fetchSurveyTargets, updateSurveyProjectApi } from './surveyProjectApi'
 
 export const SURVEY_PROJECTS_KEY = ['survey-projects'] as const
@@ -46,7 +48,7 @@ export function useDeleteSurveyProjectMutation() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: SURVEY_PROJECTS_KEY })
       void queryClient.invalidateQueries({ queryKey: SURVEY_TARGETS_KEY })
-      void queryClient.invalidateQueries({ queryKey: ['survey-records'] })
+      void queryClient.invalidateQueries({ queryKey: SURVEY_RECORDS_KEY })
     },
   })
 }

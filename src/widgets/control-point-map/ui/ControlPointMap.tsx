@@ -193,12 +193,11 @@ export function ControlPointMap(props: ControlPointMapProps) {
 
     // 타일이 도착할 때마다 리렌더 → 큰 줌 점프(리스트 포커스 등) 후에도 축소상태 안 남고 즉시 갱신.
     // 이동·줌 중에는 타일이 수십 장 쏟아지므로 한 프레임에 한 번으로 모은다 — 요청만 모을 뿐 갱신 시점은 같다.
-    let renderQueued = false
+    let renderFrame = 0
     const rerender = () => {
-      if (renderQueued) return
-      renderQueued = true
-      requestAnimationFrame(() => {
-        renderQueued = false
+      if (renderFrame !== 0) return
+      renderFrame = requestAnimationFrame(() => {
+        renderFrame = 0
         map.render()
       })
     }
@@ -230,6 +229,10 @@ export function ControlPointMap(props: ControlPointMapProps) {
     })
 
     return () => {
+      // 예약해 둔 프레임·리스너를 걷는다 — 남기면 떠난 지도에 마지막 타일이 렌더를 건다
+      if (renderFrame !== 0) cancelAnimationFrame(renderFrame)
+      baseSource.un('tileloadend', rerender)
+      cadastralSource.un('imageloadend', rerender)
       resizeObserver.disconnect()
       map.setTarget(undefined)
       onMapReadyRef.current?.(null)
@@ -251,6 +254,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     const source = rawSourceRef.current
     if (!source) return
     const byId = featureByIdRef.current
+    let touched = false
     const nextIds = new Set(props.points.map((p) => p.id))
     for (const [id, feature] of byId) {
       if (!nextIds.has(id)) {
@@ -269,9 +273,11 @@ export function ControlPointMap(props: ControlPointMapProps) {
         added.push(f)
         continue
       }
-      // 재조회는 같은 값이라도 새 객체를 준다 — 참조가 다르면 값만 옮겨 싣고, 좌표는 달라졌을 때만 옮긴다
+      // 재조회는 같은 값이라도 새 객체를 준다 — 참조가 다르면 값만 옮겨 싣고, 좌표는 달라졌을 때만 옮긴다.
+      // 옮겨 싣기는 무음(silent)으로 — 점마다 변경 이벤트를 내면 재조회 한 번에 수천 번 울린다. 아래에서 한 번만 알린다.
       if (existing.get('cp') !== p) {
-        existing.set('cp', p)
+        existing.set('cp', p, true)
+        touched = true
         const geometry = existing.getGeometry() as Point
         const [x, y] = fromLonLat([p.lng, p.lat])
         const [cx, cy] = geometry.getCoordinates()
@@ -279,6 +285,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
       }
     }
     if (added.length > 0) source.addFeatures(added)
+    if (touched) source.changed()
   }, [props.points])
 
   // 선택/조사상태/테마/보이는 집합 변경 → 점 레이어 재스타일(스타일 자체는 캐시가 받는다)
