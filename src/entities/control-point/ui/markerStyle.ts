@@ -1,5 +1,6 @@
 import { Style, Icon, Fill, Stroke, Text } from 'ol/style'
 import type { ControlPoint, PointType } from '../model/types'
+import { POINT_TYPES } from '../model/types'
 
 /** 조사상태 표현: none=프로젝트 없음, todo=미조사(흐리게), done=조사완료(정상·체크), lost=망실(빨강) */
 export type SurveyView = 'none' | 'todo' | 'done' | 'lost'
@@ -62,6 +63,82 @@ function svgFor(type: PointType, selected: boolean, lost: boolean, done: boolean
       : ''
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">${sel}${shape}${badge}</svg>`
+}
+
+/* ── WebGL 점 레이어용 스프라이트 아틀라스 ──
+ * 캔버스 벡터 렌더는 팬·줌 중 재실행(2천 drawImage×실행기 오버헤드)이 구조적 비용이라,
+ * 도식은 WebGL 레이어가 GPU 로 그린다. WebGL 스타일은 텍스처가 하나뿐이라 48개 조합(테마 2×종류 3×선택 2×망실 2×조사 2)을
+ * 한 장에 이어 붙이고, 점마다 몇 번째 칸인지(sym)를 피처 속성으로 든다. */
+
+/** 아틀라스 한 칸의 픽셀 크기 — svgFor 의 36×36 과 같아야 한다 */
+export const MARKER_ATLAS_CELL = 36
+/** 아틀라스 총 칸 수 — 테마까지 한 줄에 편다(테마 전환 = sym 재계산, 드문 일이라 충분) */
+export const MARKER_ATLAS_CELLS = 48
+
+const TYPE_INDEX: Record<PointType, number> = { [POINT_TYPES[0]]: 0, [POINT_TYPES[1]]: 1, [POINT_TYPES[2]]: 2 }
+
+/** 이 점이 아틀라스의 몇 번째 칸인지 — 도식 스타일 캐시와 같은 축(테마·종류·선택·망실·조사됨)으로 정한다. */
+export function markerSymbolIndex(
+  type: PointType,
+  selected: boolean,
+  survey: SurveyView,
+  theme: MapTheme,
+): number {
+  const lost = survey === 'lost'
+  const done = survey === 'done' || lost
+  return (
+    (theme === 'dark' ? 24 : 0) +
+    TYPE_INDEX[type] * 8 +
+    (selected ? 4 : 0) +
+    (lost ? 2 : 0) +
+    (done ? 1 : 0)
+  )
+}
+
+let atlasPromise: Promise<string> | null = null
+
+/** 조합 하나를 이미지로 읽는다 — SVG 데이터 URL 은 로드가 비동기라 Promise 로 기다린다. */
+function loadSymbol(svg: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error('marker atlas: 도식 이미지를 읽지 못했습니다.'))
+    image.src = 'data:image/svg+xml;base64,' + btoa(svg)
+  })
+}
+
+/** 48개 조합을 한 장으로 이어 붙인 아틀라스(데이터 URL) — 한 번 만들어 돌려 쓴다. */
+export function markerAtlasUrl(): Promise<string> {
+  if (atlasPromise !== null) return atlasPromise
+  atlasPromise = (async () => {
+    const canvas = document.createElement('canvas')
+    canvas.width = MARKER_ATLAS_CELL * MARKER_ATLAS_CELLS
+    canvas.height = MARKER_ATLAS_CELL
+    const ctx = canvas.getContext('2d')
+    if (ctx === null) throw new Error('marker atlas: 캔버스 컨텍스트를 열지 못했습니다.')
+    const jobs: Promise<void>[] = []
+    for (const theme of ['light', 'dark'] as const) {
+      for (const type of POINT_TYPES) {
+        for (const selected of [false, true]) {
+          for (const lost of [false, true]) {
+            for (const done of [false, true]) {
+              // markerSymbolIndex 와 같은 매핑 — done 은 lost 를 포함하지 않는 원시 비트로 칸을 채운다
+              const at =
+                (theme === 'dark' ? 24 : 0) + TYPE_INDEX[type] * 8 + (selected ? 4 : 0) + (lost ? 2 : 0) + (done ? 1 : 0)
+              jobs.push(
+                loadSymbol(svgFor(type, selected, lost, done || lost, PALETTE[theme])).then((image) => {
+                  ctx.drawImage(image, at * MARKER_ATLAS_CELL, 0)
+                }),
+              )
+            }
+          }
+        }
+      }
+    }
+    await Promise.all(jobs)
+    return canvas.toDataURL('image/png')
+  })()
+  return atlasPromise
 }
 
 /**

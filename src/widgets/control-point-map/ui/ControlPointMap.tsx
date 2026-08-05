@@ -7,6 +7,8 @@ import XYZ from 'ol/source/XYZ'
 import OSM from 'ol/source/OSM'
 import ImageWMS from 'ol/source/ImageWMS'
 import VectorLayer from 'ol/layer/Vector'
+import WebGLVectorLayer from 'ol/layer/WebGLVector'
+import type Layer from 'ol/layer/Layer'
 import VectorSource from 'ol/source/Vector'
 import Feature from 'ol/Feature'
 import Point from 'ol/geom/Point'
@@ -14,8 +16,9 @@ import { fromLonLat, toLonLat } from 'ol/proj'
 import { defaults as defaultControls } from 'ol/control/defaults'
 import type { FeatureLike } from 'ol/Feature'
 import type { Style } from 'ol/style'
+import type { FlatStyleLike } from 'ol/style/flat'
 import { VWORLD_KEY, DEFAULT_CENTER, DEFAULT_ZOOM, MIN_ZOOM } from '@/shared/config/map'
-import { controlPointLabelStyle, controlPointStyle } from '@/entities/control-point'
+import { MARKER_ATLAS_CELL, controlPointLabelStyle, controlPointStyle, markerAtlasUrl, markerSymbolIndex } from '@/entities/control-point'
 import type { ControlPoint, MapTheme } from '@/entities/control-point'
 import { deriveSurveyStatus } from '@/entities/survey-record'
 
@@ -53,6 +56,19 @@ function centerShift(leftInset: number, rightInset: number, resolution: number):
   return ((leftInset - rightInset) / 2) * resolution
 }
 
+/**
+ * 도식은 WebGL 로 그린다 — 캔버스 벡터는 팬·줌 중 재실행(수천 drawImage×실행기 오버헤드)이 구조적 비용이라
+ * 점이 떠 있는 동안 프레임을 상시 깎는다. WebGL 을 못 여는 환경(구형·가상 데스크톱)만 캔버스 경로로 그린다.
+ */
+const WEBGL_SUPPORTED = (() => {
+  try {
+    const probe = document.createElement('canvas')
+    return probe.getContext('webgl2') !== null || probe.getContext('webgl') !== null
+  } catch {
+    return false
+  }
+})()
+
 interface ControlPointMapProps {
   /** 전체 기준점 — 소스는 이 목록을 한 번만 들고, 갱신 때는 바뀐 점만 손본다 */
   points: ControlPoint[]
@@ -83,7 +99,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const rawSourceRef = useRef<VectorSource | null>(null)
   // 점 id → 피처 — 갱신을 통째 재구성이 아니라 diff 로 하기 위한 색인 (Map 이름은 ol/Map 이 차지해 globalThis 로 부른다)
   const featureByIdRef = useRef<globalThis.Map<string, Feature>>(new globalThis.Map())
-  const pointLayerRef = useRef<VectorLayer<VectorSource> | null>(null)
+  const pointLayerRef = useRef<Layer | null>(null)
   const labelLayerRef = useRef<VectorLayer<VectorSource> | null>(null)
   const cadastralRef = useRef<ImageLayer<ImageWMS> | null>(null)
   const baseLayerRef = useRef<TileLayer<XYZ> | null>(null)
@@ -180,24 +196,48 @@ export function ControlPointMap(props: ControlPointMapProps) {
       return controlPointLabelStyle(cp, themeRef.current)
     }
 
-    // 도식과 라벨을 다른 레이어로 가른다 — declutter 레이어는 이동·줌 중 캔버스 재사용(fast path)을 못 타
-    // 매 프레임 전체를 다시 그리므로, 수천 점을 든 도식 레이어에 걸면 지도 조작 내내 프레임이 깎인다.
-    // 라벨 레이어는 줌 16 미만에서 그릴 것이 없어 프레임마다 도는 값이 사실상 0이다.
-    const pointLayer = new VectorLayer({ source: rawSource, style: layerStyle })
-    pointLayerRef.current = pointLayer
+    // 라벨은 캔버스 레이어 — 줌 16 미만·비표시 점은 그릴 것이 없고, 겹침 걸러내기(declutter)도 이 레이어의 몫이다
     const labelLayer = new VectorLayer({ source: rawSource, style: labelStyle, declutter: true })
     labelLayerRef.current = labelLayer
+
+    // WebGL 을 못 여는 환경만 도식을 캔버스로 그린다 — 그리는 내용은 같고 빠르기만 다르다
+    const canvasPointLayer = WEBGL_SUPPORTED ? null : new VectorLayer({ source: rawSource, style: layerStyle })
+    if (canvasPointLayer !== null) pointLayerRef.current = canvasPointLayer
 
     const map = new Map({
       target: container,
       controls: defaultControls(), // 축척은 비율과 한 칩에 묶으려고 map-status-bar 가 직접 붙인다
-      layers: [baseLayer, cadastralLayer, pointLayer, labelLayer],
+      layers: canvasPointLayer !== null
+        ? [baseLayer, cadastralLayer, canvasPointLayer, labelLayer]
+        : [baseLayer, cadastralLayer, labelLayer],
       // maxZoom 20: 배경 타일 네이티브 최대(라이트 19·다크 18)를 크게 넘기면 확대 보정으로 흐려진다
       // minZoom: 부천 밖으로 한없이 물러서지 않게 막는다(shared/config/map)
       view: new View({ center: fromLonLat(DEFAULT_CENTER), zoom: DEFAULT_ZOOM, minZoom: MIN_ZOOM, maxZoom: 20 }),
     })
     mapRef.current = map
     onMapReadyRef.current?.(map)
+
+    if (WEBGL_SUPPORTED) {
+      // 아틀라스는 이미지 로드가 비동기라, 지도를 먼저 세우고 도식 레이어를 뒤따라 얹는다(라벨 레이어 아래 자리)
+      void markerAtlasUrl().then((url) => {
+        if (mapRef.current !== map) return // 그 사이 지도가 내려갔다
+        const style: FlatStyleLike = [
+          {
+            // 숨긴 점은 그리기·클릭 판정에서 함께 빠진다 — 캔버스 경로의 '스타일 미반환'과 같은 역할
+            filter: ['==', ['get', 'hidden'], 0],
+            style: {
+              'icon-src': url,
+              'icon-size': [MARKER_ATLAS_CELL, MARKER_ATLAS_CELL],
+              'icon-offset': [['*', ['get', 'sym'], MARKER_ATLAS_CELL], 0],
+              'icon-offset-origin': 'top-left',
+            },
+          },
+        ]
+        const webglLayer = new WebGLVectorLayer({ source: rawSource, style })
+        map.getLayers().insertAt(2, webglLayer)
+        pointLayerRef.current = webglLayer
+      })
+    }
 
     // 타일이 도착할 때마다 리렌더 → 큰 줌 점프(리스트 포커스 등) 후에도 축소상태 안 남고 즉시 갱신.
     // 이동·줌 중에는 타일이 수십 장 쏟아지므로 한 프레임에 한 번으로 모은다 — 요청만 모을 뿐 갱신 시점은 같다.
@@ -254,10 +294,24 @@ export function ControlPointMap(props: ControlPointMapProps) {
     }
   }, [])
 
+  /** 이 점의 아틀라스 칸 — WebGL 레이어는 피처 속성이 곧 스타일 입력이다(캔버스 폴백은 스타일 함수가 refs 를 읽는다). */
+  const symOf = (cp: ControlPoint): number =>
+    markerSymbolIndex(
+      cp.type,
+      cp.id === selectedIdRef.current,
+      surveyModeRef.current ? deriveSurveyStatus(cp.id, surveyedIdsRef.current, lostIdsRef.current) : 'none',
+      themeRef.current,
+    )
+
+  const hiddenOf = (id: string): number => {
+    const visible = visibleIdsRef.current
+    return visible !== null && !visible.has(id) ? 1 : 0
+  }
+
   /**
    * points 변경 → 소스 diff 갱신.
    * 통째로 부수고 다시 만들면(clear+add) 재조회 때마다 수천 피처 생성·색인 재구축이 한 프레임에 몰린다.
-   * 탭·조사 전환은 여기 오지 않는다 — 무엇을 보일지는 visibleIds 가 스타일로 거른다.
+   * 탭·조사 전환은 여기 오지 않는다 — 무엇을 보일지는 hidden 속성(WebGL)·스타일 미반환(캔버스)이 거른다.
    */
   useEffect(() => {
     const source = rawSourceRef.current
@@ -278,6 +332,8 @@ export function ControlPointMap(props: ControlPointMapProps) {
         const f = new Feature({ geometry: new Point(fromLonLat([p.lng, p.lat])) })
         f.set('id', p.id)
         f.set('cp', p)
+        f.set('sym', symOf(p))
+        f.set('hidden', hiddenOf(p.id))
         byId.set(p.id, f)
         added.push(f)
         continue
@@ -286,6 +342,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
       // 옮겨 싣기는 무음(silent)으로 — 점마다 변경 이벤트를 내면 재조회 한 번에 수천 번 울린다. 아래에서 한 번만 알린다.
       if (existing.get('cp') !== p) {
         existing.set('cp', p, true)
+        existing.set('sym', symOf(p), true)
         touched = true
         const geometry = existing.getGeometry() as Point
         const [x, y] = fromLonLat([p.lng, p.lat])
@@ -297,11 +354,35 @@ export function ControlPointMap(props: ControlPointMapProps) {
     if (touched) source.changed()
   }, [props.points])
 
-  // 선택/조사상태/테마/보이는 집합 변경 → 점·라벨 레이어 재스타일(스타일 자체는 캐시가 받는다)
+  // 선택/조사상태/테마 변경 → 칸 번호(sym) 재계산. 값이 실제로 바뀐 점만 알린다 — 선택 전환은 두 점, 테마 전환은 전부다.
   useEffect(() => {
+    let touched = false
+    for (const feature of featureByIdRef.current.values()) {
+      const next = symOf(feature.get('cp') as ControlPoint)
+      if (feature.get('sym') !== next) {
+        feature.set('sym', next, true)
+        touched = true
+      }
+    }
+    if (touched) rawSourceRef.current?.changed()
     pointLayerRef.current?.changed()
     labelLayerRef.current?.changed()
-  }, [props.selectedId, props.surveyMode, props.surveyedIds, props.lostIds, props.theme, props.visibleIds])
+  }, [props.selectedId, props.surveyMode, props.surveyedIds, props.lostIds, props.theme])
+
+  // 보이는 집합 변경 → hidden 속성 갱신(탭·조사 전환이 소스 재구성 없이 여기서 끝난다)
+  useEffect(() => {
+    let touched = false
+    for (const feature of featureByIdRef.current.values()) {
+      const next = hiddenOf(feature.get('id') as string)
+      if (feature.get('hidden') !== next) {
+        feature.set('hidden', next, true)
+        touched = true
+      }
+    }
+    if (touched) rawSourceRef.current?.changed()
+    pointLayerRef.current?.changed()
+    labelLayerRef.current?.changed()
+  }, [props.visibleIds])
 
   /**
    * 테마 변경 → 배경지도 교체.
