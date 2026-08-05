@@ -26,6 +26,9 @@ export function Modal(props: {
   /**
    * 창 위에 떨어뜨린 파일을 받는다. 창이 화면을 덮고 있으므로 어디에 놓아도 이 창이 받는다 —
    * 창을 접고 다른 창을 띄우는 대신 지금 보고 있는 자리에서 이어 가게 한다.
+   *
+   * 주지 않으면 이 창은 파일을 받지 않는다. 그때도 떨어진 파일은 여기서 멈춘다 —
+   * 흘려보내면 뒤쪽 화면의 규칙이 받아 창이 열려 있는 동안 엉뚱한 흐름이 시작된다.
    */
   onDropFile?: (files: File[]) => void
   /**
@@ -33,11 +36,17 @@ export function Modal(props: {
    * 브라우저 기본 말풍선은 언제나 끈다.
    */
   formRef?: RefObject<HTMLFormElement | null>
+  /**
+   * 본문 스크롤을 안쪽 목록에 맡긴다.
+   * 본문이 스스로 구르면 목록을 굴릴 때 그 위의 요약까지 함께 밀려 무엇을 보고 있는지 놓친다.
+   */
+  scrollInside?: boolean
   onClose: () => void
   onSubmit?: () => void
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
   const onDropFile = props.onDropFile
+  // 받든 안 받든 이 창이 가로챈다 — 받지 않을 때는 삼키기만 한다
   const { dragging, dropHandlers } = useFileDrop((files) => onDropFile?.(files))
   // 감춰진 동안엔 Esc·포커스 트랩을 끈다 — 안 보이는 창이 Esc를 가로채 입력하던 값을 날리면 안 된다
   useDialogBehavior({ panelRef, onClose: props.onClose, busy: props.busy, enabled: !props.hidden })
@@ -51,7 +60,7 @@ export function Modal(props: {
       onClick={() => {
         if (!props.busy) props.onClose()
       }}
-      {...(onDropFile ? dropHandlers : {})}
+      {...dropHandlers}
     >
       {/* 창과 옆판을 함께 감싼다 — 포커스 순환이 두 판을 함께 돌고, 바깥 클릭으로 닫히는 범위에서도 함께 빠진다.
           옆판은 이 자리에 얹기만 하므로 창은 옆판이 있든 없든 화면 한가운데 그대로 선다. */}
@@ -73,7 +82,11 @@ export function Modal(props: {
             {props.description && <p className="mt-[5px] text-[11.5px] text-ink-3">{props.description}</p>}
           </div>
           {/* overscroll-contain — 목록을 끝까지 굴린 뒤 더 굴려도 그 움직임이 뒤쪽 화면으로 넘어가지 않게 한다 */}
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-[18px] pb-4 pt-3.5">
+          <div
+            className={`min-h-0 flex-1 space-y-3 px-[18px] pb-4 pt-3.5 ${
+              props.scrollInside ? 'flex flex-col overflow-hidden' : 'overflow-y-auto overscroll-contain'
+            }`}
+          >
             {props.children}
           </div>
           <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line-soft bg-soft px-[18px] py-3">

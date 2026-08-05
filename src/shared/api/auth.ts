@@ -18,7 +18,7 @@ export async function startKakaoLogin() {
 
 async function performExchange(code: string) {
   const codeVerifier = sessionStorage.getItem(VERIFIER_KEY)
-  if (!codeVerifier) throw new Error('로그인 검증 정보가 없습니다. 다시 로그인해 주세요.')
+  if (!codeVerifier) throw new Error('로그인이 만료되었습니다. 다시 로그인해 주세요.')
   const { data } = await http.post<{ accessToken: string }>('/api/auth/token/exchange', { code, codeVerifier })
   sessionStorage.removeItem(VERIFIER_KEY)
   setAccessToken(data.accessToken)

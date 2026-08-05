@@ -118,6 +118,13 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
           <dd>{p.northing.toFixed(3)} m</dd>
           <dt>TM Y</dt>
           <dd>{p.easting.toFixed(3)} m</dd>
+          {/* 파일의 최종조사 열 문구 그대로 — 프로젝트별 조사 상태와 별개인 최근 조사 요약이다 */}
+          {(p.lastSurveyResult !== null || p.lastSurveyedOn !== null) && (
+            <>
+              <dt>최종조사</dt>
+              <dd>{[p.lastSurveyResult, p.lastSurveyedOn].filter(Boolean).join(' · ')}</dd>
+            </>
+          )}
         </dl>
       </div>
 

@@ -212,7 +212,7 @@ function ProjectPanel(props: MapSidebarProps) {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="조사명·비고 검색"
+            placeholder="프로젝트명·비고 검색"
             className={PANEL_SEARCH_INPUT}
           />
         </span>
@@ -236,7 +236,7 @@ function ProjectPanel(props: MapSidebarProps) {
             </li>
           ) : (
             <li className="px-4 py-6 text-center text-[12.5px] text-ink-3">
-              {props.projects.length === 0 ? '프로젝트가 없습니다' : '검색 결과 없음'}
+              {props.projects.length === 0 ? '프로젝트 없음' : '검색 결과 없음'}
             </li>
           ))}
         {list.map((p) => {
@@ -400,7 +400,7 @@ function ProjectNote(props: { note: string }) {
   return (
     <div className="mx-3.5 border-l-2 border-line-btn bg-soft px-2.5 py-2 text-[11.5px] leading-[1.6]">
       {props.note === '' ? (
-        <p className="text-ink-4">내용이 없습니다</p>
+        <p className="text-ink-4">내용 없음</p>
       ) : (
         <p className="whitespace-pre-wrap break-words text-ink-2">{props.note}</p>
       )}
@@ -438,10 +438,7 @@ function PointListPanel(props: MapSidebarProps) {
         </span>
         <button
           type="button"
-          onClick={() => {
-            props.onStartAddPoint()
-            props.onMinimize() // 지도에서 위치를 찍을 수 있게 판은 접어 둔다
-          }}
+          onClick={props.onStartAddPoint}
           className={PANEL_ADD_BTN}
         >
           <span className="absolute left-[13px] top-1/2 flex size-4 -translate-y-1/2 items-center justify-center text-teal-text">
@@ -455,7 +452,7 @@ function PointListPanel(props: MapSidebarProps) {
         <PointRowList
           points={list}
           onFocus={props.onFocusPoint}
-          emptyText={source.length === 0 ? '기준점이 없습니다' : '검색 결과 없음'}
+          emptyText={source.length === 0 ? '기준점 없음' : '검색 결과 없음'}
           loading={props.pointsLoading}
         />
       </div>
@@ -516,7 +513,7 @@ function PointRowList(props: {
     return loading ? (
       <SkeletonRows rows={6} className="py-1" />
     ) : (
-      <p className="px-4 py-6 text-center text-[12.5px] text-ink-3">{emptyText ?? '기준점이 없습니다'}</p>
+      <p className="px-4 py-6 text-center text-[12.5px] text-ink-3">{emptyText ?? '기준점 없음'}</p>
     )
   }
 

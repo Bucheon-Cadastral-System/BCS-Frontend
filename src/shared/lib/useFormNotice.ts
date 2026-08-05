@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-const MISSING = '필수 항목이 누락되었습니다.'
+const MISSING = '필수 항목을 입력해 주세요.'
 const INVALID = '입력값을 확인해 주세요.'
 
 /** 채우지 않은 칸을 붉게 물들이는 표시 — 값을 고칠 때까지 남는다(규칙은 index.css) */

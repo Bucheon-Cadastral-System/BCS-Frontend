@@ -140,7 +140,7 @@ export function AppHeader(props: {
             <span className="w-[94px] shrink-0 text-left leading-[1.15]">
               <span className="block truncate text-[14px] font-bold tracking-[-.02em] text-ink">{user?.name ?? '사용자'}</span>
               <span className="block truncate text-[11px] text-ink-3">
-                {user ? `${user.team} ${user.position}` : '정보를 불러오는 중'}
+                {user ? `${user.team} ${user.position}` : '정보를 불러오는 중…'}
               </span>
             </span>
             <svg viewBox="0 0 24 24" className="size-[13px] shrink-0 text-ink-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

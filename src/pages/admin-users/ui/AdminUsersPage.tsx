@@ -160,7 +160,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
       setActivities((current) => cursor ? [...current, ...result.content] : result.content)
       setNextCursor(result.nextCursor)
     } catch (e) {
-      setActivitiesError(e instanceof Error ? e.message : '관리자 활동 로그를 불러오지 못했습니다.')
+      setActivitiesError(e instanceof Error ? e.message : '관리자 활동 로그를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.')
     } finally {
       setActivitiesLoading(false)
     }
@@ -190,14 +190,14 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
       setTotalPages(result.totalPages)
     } catch (e) {
       if (signal?.aborted || requestId !== memberRequestId.current) return
-      setError(e instanceof Error ? e.message : '관리자 정보를 불러오지 못했습니다.')
+      setError(e instanceof Error ? e.message : '관리자 정보를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.')
     } finally {
       if (!signal?.aborted && requestId === memberRequestId.current) setLoading(false)
     }
   }, [debouncedQuery, filter, page, pageSize, searchField, sort])
 
   const loadCounts = async () => {
-    try { setCounts(await getAdminMemberCounts()) } catch (e) { setError(e instanceof Error ? e.message : '회원 현황을 불러오지 못했습니다.') }
+    try { setCounts(await getAdminMemberCounts()) } catch (e) { setError(e instanceof Error ? e.message : '회원 현황을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.') }
   }
 
   useEffect(() => { const timeout = window.setTimeout(() => setDebouncedQuery(query), 300); return () => window.clearTimeout(timeout) }, [query])
@@ -233,7 +233,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
       await Promise.all([loadMembers(), loadCounts(), loadActivities()])
     } catch (e) {
       // 창은 열어 둔다 — 사유를 읽고 그 자리에서 다시 시도할 수 있게
-      setChangeError(e instanceof Error ? e.message : '회원 상태를 변경하지 못했습니다.')
+      setChangeError(e instanceof Error ? e.message : '회원 상태를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.')
     } finally {
       setChangingStatus(false)
     }
@@ -260,7 +260,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
       setDraft(null)
       await Promise.all([loadMembers(), loadActivities()])
     } catch (e) {
-      setError(e instanceof Error ? e.message : '회원 정보를 수정하지 못했습니다.')
+      setError(e instanceof Error ? e.message : '회원 정보를 수정하지 못했습니다. 잠시 후 다시 시도해 주세요.')
     } finally {
       setSaving(false)
     }
@@ -410,9 +410,9 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                   })}
                 </div>
 
-                {loading && <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-3">사용자 정보를 불러오는 중입니다…</p>}
+                {loading && <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-3">사용자 정보를 불러오는 중…</p>}
                 {!loading && users.length === 0 && (
-                  <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-3">조건에 맞는 사용자가 없습니다.</p>
+                  <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-3">조건에 맞는 사용자 없음</p>
                 )}
 
                 {!loading && users.map((user) => (
@@ -618,7 +618,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
             </div>
 
             {activitiesLoading && activities.length === 0 && (
-              <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-3">관리자 활동 로그를 불러오는 중입니다…</p>
+              <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-3">관리자 활동 로그를 불러오는 중…</p>
             )}
             {!activitiesLoading && activitiesError && activities.length === 0 && (
               <div className="px-[22px] py-10 text-center">
@@ -627,7 +627,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
               </div>
             )}
             {!activitiesLoading && !activitiesError && activities.length === 0 && (
-              <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-3">기록된 관리자 활동이 없습니다.</p>
+              <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-3">기록된 관리자 활동 없음</p>
             )}
 
             {activities.map((activity) => (

@@ -20,7 +20,7 @@ export function useImportSurveyCsv() {
     mutationFn: async ({ file, draft }: { file: File; draft: SurveyProjectDraft }) => {
       const form = new FormData()
       form.append('file', file)
-      // 프로젝트 값은 새 조사 만들기와 같은 규칙으로 보낸다(유형 고정·서버 미지원 필드 포함).
+      // 프로젝트 값은 새 조사 만들기와 같은 규칙으로 보낸다 — 파일이 붙었다고 값의 뜻이 달라지지 않는다.
       for (const [key, value] of Object.entries(toSurveyProjectPayload(draft))) {
         if (value !== null) form.append(key, String(value))
       }

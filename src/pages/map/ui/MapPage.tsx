@@ -16,10 +16,10 @@ import type { ControlPoint } from '@/entities/control-point'
 import { useCreateSurveyProjectMutation, useSurveyProjectsQuery, useSurveyTargetsQuery } from '@/entities/survey-project'
 import type { SurveyProjectDraft } from '@/entities/survey-project'
 import { useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
-import { useImportSurveyCsv } from '@/features/import-survey-csv'
-import { AddControlPointModal } from '@/features/add-control-point'
-import type { AddControlPointValues } from '@/features/add-control-point'
-import { SurveyProjectFormModal } from '@/features/survey-project-form'
+import { useImportControlPoints, useImportSurveyCsv } from '@/features/import-file'
+import { AddControlPointModal } from '@/widgets/add-control-point'
+import type { AddControlPointValues } from '@/widgets/add-control-point'
+import { SurveyProjectFormModal } from '@/widgets/survey-project-form'
 import { ApiError } from '@/shared/api/http'
 import { Toast } from '@/shared/ui/Toast'
 import { FileDropOverlay } from '@/shared/ui/FileDropOverlay'
@@ -80,9 +80,15 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   const recordMutation = useRecordSurveyMutation()
   const cancelMutation = useCancelSurveyMutation()
   const importMutation = useImportSurveyCsv()
+  const importPointsMutation = useImportControlPoints()
 
   // 쿼리 미도착(undefined) 기본값 — 참조가 렌더마다 바뀌면 지도 소스 재구성·리스트 메모가 깨져 useMemo로 고정
   const points = useMemo(() => pointsQuery.data ?? [], [pointsQuery.data])
+  // 수동 등록이 임포트 규칙(이름·종류 매칭)을 따르므로, 입력 중인 이름이 기존 점과 맞는지 그 키로 찾아 준다
+  const pointByNameType = useMemo(
+    () => new Map(points.map((point) => [`${point.type}|${point.name}`, point])),
+    [points],
+  )
   const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data])
   const records = useMemo(() => recordsQuery.data ?? [], [recordsQuery.data])
 
@@ -206,28 +212,55 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     setPicked(null)
   }
 
+  /**
+   * 기준점 파일 한 건 등록.
+   * 여러 건을 등록하는 중이면 건마다 알리지 않고 마지막에 한 번만 알린다.
+   * 실패는 여기서 알리고 그대로 다시 던진다: 창이 그 건에 머물러 사유를 보여줄 수 있어야 한다.
+   */
+  async function importPoints(file: File, batch: { index: number; total: number }) {
+    const batched = batch.total > 1
+    const last = batch.index === batch.total - 1
+    try {
+      const summary = await importPointsMutation.mutateAsync(file)
+      if (!batched) {
+        showToast(`기준점 ${summary.newPoints}건을 등록하고 ${summary.updatedPoints}건을 고쳤습니다.`, 'success')
+      }
+      if (batched && last) showToast(`기준점 파일 ${batch.total}건을 등록했습니다.`, 'success')
+    } catch (e) {
+      // 파일이 거부된 사유(몇 행이 왜 잘못됐는지)는 서버 응답에만 있어 그대로 보여 준다
+      showToast(e instanceof ApiError ? e.message : '기준점을 등록하지 못했습니다.', 'error')
+      throw e
+    }
+  }
+
   function submitAddPoint(values: AddControlPointValues) {
     registerMutation.mutate(
       {
         pointNo: values.pointNo,
         type: values.type,
         name: values.name,
-        lng: values.lng,
-        lat: values.lat,
         northing: values.northing,
         easting: values.easting,
         tmEpsg: values.tmEpsg,
       },
       {
-        onSuccess: (saved) => {
+        onSuccess: (outcome) => {
           closeAddPoint()
-          setSelectedId(saved.id)
+          setSelectedId(outcome.point.id)
+          // 같은 이름·종류가 있으면 임포트 규칙대로 갱신으로 끝난다 — 무엇이 벌어졌는지 그대로 알린다
+          const done = outcome.created
+            ? '기준점을 등록했습니다.'
+            : outcome.updated
+              ? '같은 이름·종류의 기준점을 입력 값으로 갱신했습니다.'
+              : '이미 같은 값으로 등록된 기준점입니다.'
+          // 부천 범위 밖 경고는 등록을 막지 않으므로 완료와 한 알림에 싣는다(알림은 한 번에 하나만 뜬다)
+          showToast(outcome.warning === null ? done : `${done} ${outcome.warning}`, outcome.warning === null ? 'success' : 'info')
         },
         onError: (e) =>
           showToast(
             e instanceof ApiError && e.code === 'CONTROL_POINT_DUPLICATE'
-              ? '이미 등록된 관리번호입니다.'
-              : '기준점 등록에 실패했습니다.',
+              ? e.message
+              : '기준점을 등록하지 못했습니다.',
             'error',
           ),
       },
@@ -247,17 +280,17 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
         const summary = await importMutation.mutateAsync({ file, draft })
         if (!batched) {
           showToast(
-            `기준점 ${summary.totalRows}점(신규 ${summary.newPoints} · 기존 ${summary.existingPoints} · 갱신 ${summary.updatedPoints}), 조사기록 ${summary.createdRecords}건을 불러왔습니다.`,
+            `기준점 ${summary.totalRows}점, 조사 기록 ${summary.createdRecords}건을 불러왔습니다.`,
             'success',
           )
         }
       } else {
         await createProjectMutation.mutateAsync(draft)
       }
-      if (batched && last) showToast(`조사 ${batch.total}건을 등록했습니다.`, 'success')
+      if (batched && last) showToast(`프로젝트 ${batch.total}건을 등록했습니다.`, 'success')
     } catch (e) {
       // 파일이 거부된 사유(몇 행이 왜 잘못됐는지)는 서버 응답에만 있어 그대로 보여 준다
-      showToast(e instanceof ApiError ? e.message : '조사를 등록하지 못했습니다.', 'error')
+      showToast(e instanceof ApiError ? e.message : '프로젝트를 등록하지 못했습니다.', 'error')
       throw e
     }
   }
@@ -284,7 +317,12 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     )
   }
 
-  /** 파일을 붙였다 — 프로젝트 추가 창을 열어 그 안에서 읽는다. 적어 두던 값은 이어 쓴다. */
+  /**
+   * 화면에 떨어뜨린 파일은 언제나 프로젝트를 추가한다 — 화면에 적힌 안내와 벌어지는 일이 늘 같아야 한다.
+   * 기준점 파일은 기준점 창 안에 놓아야 기준점으로 읽힌다.
+   *
+   * 창이 떠 있으면 그 창이 파일을 가로채므로(Modal) 여기까지 오지 않는다 — 무엇으로 읽을지는 열려 있는 창이 정한다.
+   */
   function startImport(files: File[]) {
     setCarriedDraft(openDraftRef.current)
     openDraftRef.current = null
@@ -325,7 +363,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     {/* 화면 어디에 파일을 떨어뜨려도 그 파일이 붙은 채로 조사 추가가 열린다 */}
     {/* min-w-app-min: 이보다 좁아지면 판끼리 겹치므로 더 줄이지 않고 잘라 낸다(가로로 밀어서 본다) */}
     <div className="app-bg relative flex h-full min-w-app-min flex-col text-ink" {...fileDrop.dropHandlers}>
-      {fileDrop.dragging && <FileDropOverlay label="놓으면 기준점 목록을 읽습니다" hint="CSV · XLSX" />}
+      {fileDrop.dragging && <FileDropOverlay label="놓으면 프로젝트를 추가합니다" hint="CSV · XLSX" />}
 
       <ChatDockLayout width={utilityWidth} onDockWidthChange={setChatWidth} onAction={handleChatAction}>
       <div className="relative min-h-0 min-w-0 flex-1">
@@ -375,10 +413,10 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
             </Banner>
           )}
           {pointsQuery.isPending && <Banner tone="muted">기준점을 불러오는 중…</Banner>}
-          {pointsQuery.isError && <Banner tone="danger">기준점을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</Banner>}
+          {pointsQuery.isError && <Banner tone="danger">기준점을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.</Banner>}
           {/* 대상을 못 읽으면 전체를 대신 그리지 않는다 — 대상이 아닌 점에 조사·망실을 기록할 수 있게 되기 때문 */}
           {targetsQuery.isError && (
-            <Banner tone="danger">조사 대상을 불러오지 못해 지도에 표시하지 못합니다. 잠시 후 다시 시도해 주세요.</Banner>
+            <Banner tone="danger">대상 기준점을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.</Banner>
           )}
         </div>
 
@@ -428,8 +466,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               <div className="absolute left-4 top-[76px] z-[15]" style={{ width: headerWidth || undefined }}>
                 {panel.key === 'project' ? (
                   <MinimizedPanelChip
-                    label="조사 프로젝트"
-                    value={activeProject?.name ?? '선택중인 프로젝트가 없습니다.'}
+                    label="프로젝트"
+                    value={activeProject?.name ?? '선택 중인 프로젝트 없음'}
                     trailing={activeProject ? { surveyed: surveyedIds.size, total: targetPoints.length } : undefined}
                     onOpen={() => setPanel({ key: 'project', minimized: false })}
                     onClose={closePanel}
@@ -485,10 +523,12 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
           defaultType={POINT_TYPES[0]}
           defaultEpsg={tmEpsg}
           picked={picked}
+          existingOf={(name, type) => pointByNameType.get(`${type}|${name}`) ?? null}
           picking={picking}
           onPick={() => setPicking(true)}
           submitting={registerMutation.isPending}
           onSubmit={submitAddPoint}
+          onImport={importPoints}
           onCancel={closeAddPoint}
         />
       )}

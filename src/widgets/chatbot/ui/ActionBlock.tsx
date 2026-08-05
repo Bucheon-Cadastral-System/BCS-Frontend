@@ -28,7 +28,7 @@ export function ActionBlock({ json, onAction }: { json: string; onAction?: (acti
         <path d="M7 17 17 7" />
         <path d="M7 7h10v10" />
       </svg>
-      {action.label ?? (action.type === 'focusPoint' ? '지도에서 보기' : '이 조사 선택')}
+      {action.label ?? (action.type === 'focusPoint' ? '지도에서 보기' : '이 프로젝트 선택')}
     </button>
   )
 }

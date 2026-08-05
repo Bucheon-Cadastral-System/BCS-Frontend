@@ -53,7 +53,7 @@ export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) 
         position: String(data.get('position')) as RegistrationData['position'],
       })
     } catch (e) {
-      setError(e instanceof Error ? e.message : '가입 신청을 처리하지 못했습니다.')
+      setError(e instanceof Error ? e.message : '가입 신청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.')
     } finally {
       setSubmitting(false)
     }

@@ -68,12 +68,12 @@ function mapMember(member: ApiMember): ManagedUser {
 /** 아직 고르지 않은 값(회원 정보 입력 전)은 빈 칸으로 두고, 우리가 모르는 값이 왔을 때만 원문을 드러낸다 */
 function enumDisplayValue<T extends string>(values: Record<string, T>, value: string | null | undefined): T | UnknownEnumValue | '' {
   if (!value) return ''
-  return values[value] ?? `알 수 없음 (${value})`
+  return values[value] ?? '알 수 없음'
 }
 
 function enumApiValue<T extends string>(values: Record<string, T>, value: string, label: string): T {
   const mapped = values[value]
-  if (!mapped) throw new Error(`${label}에 지원하지 않는 값이 있습니다. 값을 다시 선택해 주세요.`)
+  if (!mapped) throw new Error(`${label}을(를) 다시 선택해 주세요.`)
   return mapped
 }
 
@@ -83,7 +83,7 @@ function registrationBody(input: RegistrationInput) {
 
 export async function getCsrfToken(): Promise<string> {
   const { data } = await http.get<{ token?: string }>('/api/csrf')
-  if (!data.token) throw new Error('CSRF 토큰을 발급받지 못했습니다.')
+  if (!data.token) throw new Error('가입 신청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.')
   return data.token
 }
 

@@ -44,6 +44,9 @@ interface ServerControlPoint {
   easting: number
   longitude: number
   latitude: number
+  /** 최근 조사 요약 — 파일의 최종조사 열 문구 그대로 */
+  lastSurveyResult: string | null
+  lastSurveyedOn: string | null
 }
 
 /** 서버 응답 → 프론트 모델. */
@@ -58,6 +61,8 @@ function toControlPoint(server: ServerControlPoint): ControlPoint {
     northing: server.northing,
     easting: server.easting,
     tmEpsg: EPSG_FROM_CRS[server.crs],
+    lastSurveyResult: server.lastSurveyResult ?? null,
+    lastSurveyedOn: server.lastSurveyedOn ?? null,
   }
 }
 
@@ -70,23 +75,39 @@ export interface RegisterControlPointArgs {
   pointNo: string
   type: PointType
   name: string
-  lng: number
-  lat: number
+  /** 성과 좌표(권위값) — 경위도는 서버가 여기서 파생한다 */
   northing: number
   easting: number
   tmEpsg: TmEpsg
 }
 
-export async function registerControlPoint(args: RegisterControlPointArgs): Promise<ControlPoint> {
-  const res = await http.post<ServerControlPoint>('/api/control-points', {
+/** 등록 결과 — 임포트와 같은 규칙이라 신규만이 아니라 기존 점 갱신·재사용으로도 끝난다. */
+export interface RegisterControlPointOutcome {
+  point: ControlPoint
+  created: boolean
+  updated: boolean
+  /** 부천 범위 밖 좌표 등 확인 요청 — 등록을 막지 않는다 */
+  warning: string | null
+}
+
+export async function registerControlPoint(args: RegisterControlPointArgs): Promise<RegisterControlPointOutcome> {
+  const res = await http.post<{
+    point: ServerControlPoint
+    created: boolean
+    updated: boolean
+    warning: string | null
+  }>('/api/control-points', {
     pointNo: args.pointNo,
     type: TYPE_TO_SERVER[args.type],
     name: args.name,
     crs: CRS_FROM_EPSG[args.tmEpsg],
     northing: args.northing,
     easting: args.easting,
-    longitude: args.lng,
-    latitude: args.lat,
   })
-  return toControlPoint(res.data)
+  return {
+    point: toControlPoint(res.data.point),
+    created: res.data.created,
+    updated: res.data.updated,
+    warning: res.data.warning ?? null,
+  }
 }

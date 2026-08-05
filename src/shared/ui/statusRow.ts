@@ -10,18 +10,21 @@ export const STATUS_ROW = 'flex w-full items-center gap-3 px-5 py-2.5 text-left'
 export const STATUS_ROW_TONE = {
   none: '',
   success: 'bg-teal-wash',
+  caution: 'bg-amber-wash',
   danger: 'bg-danger-wash',
 } as const
 
 export type StatusTone = keyof typeof STATUS_ROW_TONE
 
 
-/** 상태 표시 모양 — 성공은 체크, 제외는 X, 오류는 경고 삼각형 */
-export type StatusShape = 'check' | 'cross' | 'warn' | 'muted-check'
+/** 상태 표시 모양 — 성공은 체크, 제외는 X, 오류·확인 요청은 경고 삼각형 */
+export type StatusShape = 'check' | 'cross' | 'warn' | 'muted-check' | 'caution'
 
 export const SHAPE_COLOR: Record<StatusShape, string> = {
   check: 'text-teal-text',
   'muted-check': 'text-ink-4',
   cross: 'text-danger',
   warn: 'text-danger',
+  // 같은 삼각형이라도 등록을 막는 오류와 확인만 요청하는 안내는 색으로 가른다
+  caution: 'text-amber',
 }

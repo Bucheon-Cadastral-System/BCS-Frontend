@@ -17,7 +17,7 @@ import { ErrorBoundary } from '@/shared/ui/ErrorBoundary'
 type AuthState = { loading: boolean; profile: UserProfile | null }
 
 function LoadingPage() {
-  return <main className="app-bg grid h-full place-items-center text-[13px] font-semibold text-ink-3">로그인 상태를 확인하고 있습니다…</main>
+  return <main className="app-bg grid h-full place-items-center text-[13px] font-semibold text-ink-3">로그인 상태를 확인하는 중…</main>
 }
 
 /** 로그인 길목에서 막혔을 때 — 이 화면들은 다른 화면과 같은 껍데기를 쓴다 */
@@ -59,7 +59,7 @@ function OAuthSuccessRoute({ reloadProfile }: { reloadProfile: () => Promise<Use
   const [error, setError] = useState('')
   useEffect(() => {
     const code = new URLSearchParams(location.search).get('code')
-    if (!code) { setError('로그인 코드가 없습니다.'); return }
+    if (!code) { setError('로그인을 완료하지 못했습니다. 다시 시도해 주세요.'); return }
     exchangeOAuthCode(code)
       .then(async () => {
         const [profile, memberState] = await Promise.all([reloadProfile(), getMemberState()])
@@ -89,7 +89,7 @@ function SignupRoute() {
         if (state.profileCompleted) navigate('/waiting', { replace: true })
         else setShowForm(true)
       })
-      .catch((e) => setError(e instanceof Error ? e.message : '가입 상태를 확인하지 못했습니다.'))
+      .catch((e) => setError(e instanceof Error ? e.message : '가입 상태를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.'))
       .finally(() => setChecking(false))
   }, [navigate])
 

@@ -20,4 +20,8 @@ export interface ControlPoint {
   northing: number
   easting: number
   tmEpsg: TmEpsg
+  /** 최근 조사 요약 — 파일의 최종조사 열 문구 그대로(어휘를 강제하지 않는다). 없으면 null */
+  lastSurveyResult: string | null
+  /** 최종조사일(ISO 날짜). 없으면 null */
+  lastSurveyedOn: string | null
 }
