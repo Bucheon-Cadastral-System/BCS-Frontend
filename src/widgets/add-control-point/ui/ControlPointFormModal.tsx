@@ -7,7 +7,7 @@ import { MODAL_CANCEL_BTN, MODAL_DANGER_BTN, MODAL_INPUT, MODAL_SELECT, MODAL_SU
 import { FormNotice } from '@/shared/ui/FormNotice'
 import { useFormNotice } from '@/shared/lib/useFormNotice'
 
-export interface AddControlPointValues {
+export interface ControlPointFormValues {
   pointNo: string
   name: string
   type: PointType
@@ -18,11 +18,16 @@ export interface AddControlPointValues {
 }
 
 /**
- * 기준점 한 점 입력 — 성과 좌표(TM)가 권위값이라 사용자가 직접 입력하고, 경위도는 서버가 그 값에서 파생한다.
+ * 기준점 한 점 입력 — 추가와 수정이 같은 칸을 쓴다(수정은 initial 로 기존 값에서 시작한다).
+ * 성과 좌표(TM)가 권위값이라 사용자가 직접 입력하고, 경위도는 서버가 그 값에서 파생한다.
  * 좌표를 손에 들고 있지 않을 때를 위해 '지도에서 위치 찍기'로 시작값을 채울 수 있다(찍은 값은 시작값일 뿐 실제 성과가 아니다).
  * 여러 점을 파일로 넣는 등록은 파일 등록 창이 맡는다 — 이 창은 파일을 받지 않는다.
  */
-export function AddControlPointModal(props: {
+export function ControlPointFormModal(props: {
+  title: string
+  submitLabel: string
+  /** 수정이면 기존 값 — 없으면 빈 입력(추가) */
+  initial?: ControlPointFormValues
   defaultType: PointType
   defaultEpsg: TmEpsg
   /**
@@ -30,21 +35,22 @@ export function AddControlPointModal(props: {
    * 숫자만으로는 어느 원점 기준인지 알 수 없으므로 변환에 쓴 원점을 함께 받아 같이 맞춘다.
    */
   picked: { northing: number; easting: number; epsg: TmEpsg } | null
-  /** 같은 이름·종류의 기준점 — 있으면 등록이 임포트 규칙대로 그 점을 갱신하므로, 입력 중에 미리 알린다 */
+  /** 같은 이름·종류의 다른 기준점 — 추가면 갱신으로, 수정이면 충돌로 끝나므로 입력 중에 미리 알린다 */
   existingOf: (name: string, type: PointType) => { pointNo: string } | null
   /** 지도 클릭을 기다리는 중 — 이때 모달은 숨고 지도만 보인다 */
   picking: boolean
   onPick: () => void
   submitting: boolean
-  onSubmit: (values: AddControlPointValues) => void
+  onSubmit: (values: ControlPointFormValues) => void
   onCancel: () => void
 }) {
-  const [pointNo, setPointNo] = useState('')
-  const [name, setName] = useState('')
-  const [type, setType] = useState<PointType>(props.defaultType)
-  const [tmEpsg, setTmEpsg] = useState<TmEpsg>(props.defaultEpsg)
-  const [northing, setNorthing] = useState('')
-  const [easting, setEasting] = useState('')
+  const editing = props.initial !== undefined
+  const [pointNo, setPointNo] = useState(props.initial?.pointNo ?? '')
+  const [name, setName] = useState(props.initial?.name ?? '')
+  const [type, setType] = useState<PointType>(props.initial?.type ?? props.defaultType)
+  const [tmEpsg, setTmEpsg] = useState<TmEpsg>(props.initial?.tmEpsg ?? props.defaultEpsg)
+  const [northing, setNorthing] = useState(props.initial !== undefined ? String(props.initial.northing) : '')
+  const [easting, setEasting] = useState(props.initial !== undefined ? String(props.initial.easting) : '')
   const form = useFormNotice()
 
   // 지도에서 찍어 오면 좌표만 갱신 — 모달은 마운트를 유지하므로 관리번호·이름 등 입력값은 그대로 남는다
@@ -63,7 +69,7 @@ export function AddControlPointModal(props: {
   const e = Number(easting)
   // 빈 문자열·공백은 Number()가 0으로 바꾸므로, 값이 비면 좌표 없음으로 본다
   const coordsValid = northing.trim() !== '' && easting.trim() !== '' && Number.isFinite(n) && Number.isFinite(e)
-  // 같은 이름·종류의 점 — 있으면 이 등록은 새 점이 아니라 그 점의 갱신이 된다(임포트와 같은 규칙)
+  // 같은 이름·종류의 다른 점 — 추가에서는 그 점의 갱신이 되고(임포트 규칙), 수정에서는 충돌이라 저장이 거부된다
   const existing = name.trim() === '' ? null : props.existingOf(name.trim(), type)
 
   function submit() {
@@ -86,7 +92,7 @@ export function AddControlPointModal(props: {
 
   return (
     <Modal
-      title="기준점 추가"
+      title={props.title}
       busy={props.submitting}
       hidden={props.picking}
       onClose={props.onCancel}
@@ -100,7 +106,7 @@ export function AddControlPointModal(props: {
           <div className="ml-auto flex min-w-0 items-center gap-3">
             <FormNotice message={form.notice} />
             <button type="submit" className={MODAL_SUBMIT_BTN} disabled={props.submitting}>
-              {props.submitting ? '등록 중…' : '등록'}
+              {props.submitting ? `${props.submitLabel} 중…` : props.submitLabel}
             </button>
           </div>
         </>
@@ -112,10 +118,12 @@ export function AddControlPointModal(props: {
 
       <ModalField label="기준점명" required>
         <input className={MODAL_INPUT} value={name} onChange={(ev) => setName(ev.target.value)} placeholder="예: 1234공" required />
-        {/* 막지 않는다 — 성과 정정이 곧 이 흐름이라, 무엇이 벌어지는지만 미리 말한다 */}
+        {/* 막지 않는다 — 무엇이 벌어지는지만 미리 말한다(추가=그 점 갱신, 수정=충돌 거부) */}
         {existing !== null && (
           <p className="mt-1.5 break-keep text-[11px] leading-[1.5] wrap-anywhere text-amber">
-            같은 이름·종류의 기준점이 이미 있습니다(관리번호 {existing.pointNo}) — 등록하면 그 점의 성과가 갱신됩니다.
+            {editing
+              ? `같은 이름·종류의 기준점이 이미 있습니다(관리번호 ${existing.pointNo}) — 다른 점과 같은 이름·종류로는 저장할 수 없습니다.`
+              : `같은 이름·종류의 기준점이 이미 있습니다(관리번호 ${existing.pointNo}) — 등록하면 그 점의 성과가 갱신됩니다.`}
           </p>
         )}
       </ModalField>

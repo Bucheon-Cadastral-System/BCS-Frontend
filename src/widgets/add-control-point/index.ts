@@ -1,3 +1,3 @@
-export { AddControlPointModal } from './ui/AddControlPointModal'
-export type { AddControlPointValues } from './ui/AddControlPointModal'
+export { ControlPointFormModal } from './ui/ControlPointFormModal'
+export type { ControlPointFormValues } from './ui/ControlPointFormModal'
 export { ControlPointFileModal } from './ui/ControlPointFileModal'
