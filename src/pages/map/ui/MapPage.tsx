@@ -240,6 +240,14 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     setPicked(null)
   }
 
+  /** 프로젝트 흐름으로 들어갈 때 부른다 — 위치 찍기로 숨어 있던 기준점 창이 나중에 함께 떠오르지 않게 그 흐름을 접는다 */
+  function closePointFlow() {
+    setPointModal(null)
+    setEditingPoint(null)
+    setPicking(false)
+    setPicked(null)
+  }
+
   function submitEditPoint(values: ControlPointFormValues) {
     if (editingPoint === null) return
     updatePointMutation.mutate(
@@ -271,6 +279,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
       onSuccess: () => {
         setDeletingPoint(null)
         setSelectedId((cur) => (cur === target.id ? null : cur))
+        // 위치 찍기로 숨어 있던 그 점의 수정 창이 남으면 없는 점을 고치게 된다 — 함께 접는다
+        if (editingPoint !== null && editingPoint.id === target.id) closeEditPoint()
         showToast('기준점을 삭제했습니다.', 'success')
       },
       onError: (e) =>
@@ -436,6 +446,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
    * 창이 떠 있으면 그 창이 파일을 가로채므로(Modal) 여기까지 오지 않는다 — 무엇으로 읽을지는 열려 있는 창이 정한다.
    */
   function startImport(files: File[]) {
+    closePointFlow()
     setPendingFiles(files)
     setProjectModal('file')
   }
@@ -491,13 +502,21 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
           projects={projects}
           activeProjectId={activeProjectId}
           onChangeActive={(id) => dispatch(setActiveProject(id))}
-          onCreate={() => setProjectModal('create')}
+          onCreate={() => {
+            closePointFlow()
+            setProjectModal('create')
+          }}
           onImportProjects={() => {
+            closePointFlow()
             setPendingFiles(null)
             setProjectModal('file')
           }}
-          onEditProject={setEditingProject}
+          onEditProject={(p) => {
+            closePointFlow()
+            setEditingProject(p)
+          }}
           onDeleteProject={(p) => {
+            closePointFlow()
             setDeleteError(null)
             setDeletingProject(p)
           }}

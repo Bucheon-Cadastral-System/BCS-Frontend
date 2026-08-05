@@ -270,7 +270,9 @@ export function SurveyProjectFileModal(props: {
   /** 막대의 점을 눌러 그 건으로 — 확인 단계에서 눌렀으면 입력으로 돌아간다 */
   function jumpToEntry(i: number) {
     setConfirming(false)
-    send.reset()
+    // 등록을 시작한 뒤(고치러 가기)는 이미 등록된 건의 이력을 지켜야 한다 — 지우면 그 건들이 다시 전송된다
+    if (send.started) send.reopen()
+    else send.reset()
     setIndex(i)
   }
 

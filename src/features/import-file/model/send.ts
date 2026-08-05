@@ -63,6 +63,24 @@ export function useSequentialSend(fallbackError: string) {
   }
 
   /**
+   * 실패를 고치러 입력으로 돌아갈 때 부른다 — 이미 보낸 건(done)은 서버에 남아 있으므로 이력을 지키고,
+   * 나머지만 처음 상태로 되돌린다. 여기서 reset 을 쓰면 성공한 건이 다시 전송돼 중복 생성된다.
+   */
+  function reopen() {
+    generationRef.current += 1
+    inFlightRef.current = false
+    setStates((cur) => {
+      const next = new Map<number, SendState>()
+      cur.forEach((state, i) => {
+        if (state.status === 'done') next.set(i, state)
+      })
+      return next
+    })
+    setStarted(false)
+    setSendingIndex(-1)
+  }
+
+  /**
    * targets를 차례로 보낸다. done인 건은 부르는 쪽이 걸러 넘긴다.
    * 실패한 건에서 멈추고 나머지는 idle로 남아, 다음 실행이 이어 보낸다.
    */
@@ -112,5 +130,6 @@ export function useSequentialSend(fallbackError: string) {
     run,
     markDone,
     reset,
+    reopen,
   }
 }

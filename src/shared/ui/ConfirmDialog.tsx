@@ -43,7 +43,7 @@ export function ConfirmDialog(props: {
     >
       {/* 폭은 내용에 맞춘다(최소 320) — 안내 한 줄이 상한 안에 들면 어색하게 꺾이지 않고 한 줄로 선다.
           상한을 넘는 긴 글만 break-keep 으로 단어 경계에서 접는다. */}
-      <div ref={panelRef} className={`panel-in w-fit min-w-[320px] max-w-[min(440px,100%)] p-5 ${MODAL_SHELL}`} onClick={(e) => e.stopPropagation()}>
+      <div ref={panelRef} className={`panel-in w-fit min-w-[min(320px,100%)] max-w-[min(440px,100%)] p-5 ${MODAL_SHELL}`} onClick={(e) => e.stopPropagation()}>
         <p id="confirm-dialog-message" className="break-keep text-center text-[13.5px] font-medium text-ink">
           {props.message}
         </p>
