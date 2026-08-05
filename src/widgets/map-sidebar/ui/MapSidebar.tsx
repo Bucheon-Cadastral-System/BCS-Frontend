@@ -38,8 +38,12 @@ interface MapSidebarProps {
   projects: SurveyProject[]
   activeProjectId: string | null
   onChangeActive: (id: string | null) => void
-  /** 새 조사 만들기 요청 — 입력과 대상지 파일은 페이지의 모달이 받는다 */
+  /** 직접 생성 요청 — 값 입력과 대상 지정은 페이지의 모달이 받는다 */
   onCreate: () => void
+  /** 파일로 등록 요청 — 파일 고르기부터 페이지의 모달이 받는다 */
+  onImportProjects: () => void
+  onEditProject: (project: SurveyProject) => void
+  onDeleteProject: (project: SurveyProject) => void
   // 기준점 목록
   points: ControlPoint[]
   /** 고른 조사의 대상 점 — 조사를 고르지 않았으면 points 와 같다 */
@@ -56,8 +60,10 @@ interface MapSidebarProps {
   /** 고른 조사의 대상 목록을 받아오는 중 — 도착 전엔 대상이 0건이라 진행률·목록을 자리표시로 둔다 */
   targetsLoading?: boolean
   // 도구
-  /** 기준점 추가 시작 — 입력은 페이지의 모달이 받는다 */
+  /** 기준점 한 점 추가 시작 — 입력은 페이지의 모달이 받는다 */
   onStartAddPoint: () => void
+  /** 기준점 파일 등록 시작 — 파일 고르기부터 페이지의 모달이 받는다 */
+  onImportPoints: () => void
   // 사용자 관리 (어드민)
   isAdmin: boolean
   onOpenUserManagement: () => void
@@ -216,16 +222,21 @@ function ProjectPanel(props: MapSidebarProps) {
             className={PANEL_SEARCH_INPUT}
           />
         </span>
-        <button
-          type="button"
-          onClick={handleNew}
-          className={PANEL_ADD_BTN}
-        >
-          <span className="absolute left-[13px] top-1/2 flex size-4 -translate-y-1/2 items-center justify-center text-teal-text">
-            <IconPlus />
-          </span>
-          프로젝트 추가
-        </button>
+        {/* 입구에서 의도를 가른다 — 직접 만들기(대상 지정)와 파일로 만들기는 다른 창이 맡는다 */}
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" onClick={handleNew} className={PANEL_ADD_BTN}>
+            <span className="mr-1.5 flex size-4 items-center justify-center text-teal-text">
+              <IconPlus />
+            </span>
+            직접 추가
+          </button>
+          <button type="button" onClick={props.onImportProjects} className={PANEL_ADD_BTN}>
+            <span className="mr-1.5 flex size-4 items-center justify-center text-teal-text">
+              <IconUpload />
+            </span>
+            파일로 추가
+          </button>
+        </div>
       </div>
 
       <ul className="min-h-0 flex-1 overflow-y-auto border-t-2 border-t-teal">
@@ -345,6 +356,24 @@ function ProjectPanel(props: MapSidebarProps) {
                       )}
 
                       <ProjectNote note={p.note ?? ''} />
+
+                      {/* 수정·삭제는 펼친(=선택한) 조사에서만 — 행 전체가 버튼이라 안쪽에 겹쳐 둘 수 없다 */}
+                      <div className="mt-2.5 flex gap-2 px-3.5">
+                        <button
+                          type="button"
+                          onClick={() => props.onEditProject(p)}
+                          className={`${CHIP_BTN} flex-1 py-1.5 text-[12px]`}
+                        >
+                          수정
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => props.onDeleteProject(p)}
+                          className={`${CHIP_BTN_DANGER} flex-1 py-1.5 text-[12px]`}
+                        >
+                          삭제
+                        </button>
+                      </div>
                     </div>
 
                     {/* 목록은 위 정보와 성격이 달라 선으로 끊고 이름표를 붙인다.
@@ -436,16 +465,21 @@ function PointListPanel(props: MapSidebarProps) {
             className={PANEL_SEARCH_INPUT}
           />
         </span>
-        <button
-          type="button"
-          onClick={props.onStartAddPoint}
-          className={PANEL_ADD_BTN}
-        >
-          <span className="absolute left-[13px] top-1/2 flex size-4 -translate-y-1/2 items-center justify-center text-teal-text">
-            <IconPlus />
-          </span>
-          기준점 추가
-        </button>
+        {/* 입구에서 의도를 가른다 — 한 점 입력과 파일 등록은 다른 창이 맡는다 */}
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" onClick={props.onStartAddPoint} className={PANEL_ADD_BTN}>
+            <span className="mr-1.5 flex size-4 items-center justify-center text-teal-text">
+              <IconPlus />
+            </span>
+            직접 추가
+          </button>
+          <button type="button" onClick={props.onImportPoints} className={PANEL_ADD_BTN}>
+            <span className="mr-1.5 flex size-4 items-center justify-center text-teal-text">
+              <IconUpload />
+            </span>
+            파일로 추가
+          </button>
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col border-t-2 border-t-teal">
@@ -645,6 +679,17 @@ function IconPlus() {
   return (
     <svg viewBox="0 0 24 24" className="h-full w-full" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
       <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
+/** 파일 올리기 — 화면 전체 드롭 안내·파일 등록 창과 같은 뜻의 화살표 */
+function IconUpload() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-full w-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 16V4" />
+      <path d="m7 9 5-5 5 5" />
+      <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
     </svg>
   )
 }

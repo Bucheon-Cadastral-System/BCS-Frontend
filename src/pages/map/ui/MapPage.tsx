@@ -13,14 +13,15 @@ import { ChatDockLayout } from '@/widgets/chatbot'
 import type { ChatAction } from '@/widgets/chatbot'
 import { POINT_TYPES, useControlPointsQuery, useRegisterControlPointMutation } from '@/entities/control-point'
 import type { ControlPoint } from '@/entities/control-point'
-import { useCreateSurveyProjectMutation, useSurveyProjectsQuery, useSurveyTargetsQuery } from '@/entities/survey-project'
-import type { SurveyProjectDraft } from '@/entities/survey-project'
+import { useCreateSurveyProjectMutation, useDeleteSurveyProjectMutation, useSurveyProjectsQuery, useSurveyTargetsQuery, useUpdateSurveyProjectMutation } from '@/entities/survey-project'
+import type { SurveyProject, SurveyProjectDraft } from '@/entities/survey-project'
 import { useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
 import { useImportControlPoints, useImportSurveyCsv } from '@/features/import-file'
-import { AddControlPointModal } from '@/widgets/add-control-point'
+import { AddControlPointModal, ControlPointFileModal } from '@/widgets/add-control-point'
 import type { AddControlPointValues } from '@/widgets/add-control-point'
-import { SurveyProjectFormModal } from '@/widgets/survey-project-form'
+import { SurveyProjectCreateModal, SurveyProjectEditModal, SurveyProjectFileModal } from '@/widgets/survey-project-form'
 import { ApiError } from '@/shared/api/http'
+import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { Toast } from '@/shared/ui/Toast'
 import { FileDropOverlay } from '@/shared/ui/FileDropOverlay'
 import { useFileDrop } from '@/shared/lib/useFileDrop'
@@ -39,6 +40,8 @@ interface MapPageProps {
 
 /** 아무것도 그리지 않을 때 쓰는 고정 배열 — 렌더마다 새 배열을 만들면 지도 소스가 매번 재구성된다 */
 const EMPTY_POINTS: ControlPoint[] = []
+/** 아무것도 보이지 않을 때의 고정 집합 — 참조가 바뀌면 지도 레이어가 헛되이 재스타일된다 */
+const EMPTY_ID_SET: ReadonlySet<string> = new Set()
 /**
  * 판이 화면 가장자리에서 떨어진 거리 — 지도 보정에 판 너비와 함께 쓴다.
  * 판·헤더·커맨드 바는 이 값을 유틸리티(`left-4`·`right-4`·`inset-x-4` = 16px)로 두므로 함께 움직여야 한다.
@@ -77,6 +80,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   const targetsQuery = useSurveyTargetsQuery(activeProjectId)
   const registerMutation = useRegisterControlPointMutation()
   const createProjectMutation = useCreateSurveyProjectMutation()
+  const updateProjectMutation = useUpdateSurveyProjectMutation()
+  const deleteProjectMutation = useDeleteSurveyProjectMutation()
   const recordMutation = useRecordSurveyMutation()
   const cancelMutation = useCancelSurveyMutation()
   const importMutation = useImportSurveyCsv()
@@ -127,18 +132,18 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   // 판이 지도를 가리는 폭 — 포커스 센터링과 지도 위 요소 배치가 '보이는 영역'을 쓰게 한다
   const mapLeftInset = openPanel === null ? 0 : headerWidth + PANEL_MARGIN * 2
   const mapRightInset = chatWidth === 0 ? 0 : chatWidth + PANEL_MARGIN * 2
-  // 기준점 추가 — 모달이 주 경로이고, '지도에서 위치 찍기'는 그 안의 한 단계(찍는 동안만 모달을 숨긴다)
-  const [addOpen, setAddOpen] = useState(false)
+  // 기준점 추가 — 직접 입력(add)과 파일 등록(file)은 입구에서 갈린 다른 창이다.
+  // '지도에서 위치 찍기'는 직접 입력 안의 한 단계(찍는 동안만 모달을 숨긴다)
+  const [pointModal, setPointModal] = useState<'add' | 'file' | null>(null)
   const [picking, setPicking] = useState(false)
   const [picked, setPicked] = useState<{ northing: number; easting: number; epsg: TmEpsg } | null>(null)
-  // 조사 프로젝트 추가 — 창 하나가 입력·파일 읽기·여러 건 넘기기를 모두 맡는다
+  // 조사 프로젝트 — 직접 생성(create, 대상 지정 포함)과 파일 등록(file)은 입구에서 갈린 다른 창이다
+  const [projectModal, setProjectModal] = useState<'create' | 'file' | null>(null)
   const [pendingFiles, setPendingFiles] = useState<File[] | null>(null)
-  const [creatingProject, setCreatingProject] = useState(false)
-  // 파일을 고르기 전에 적어 두던 값 — 첫 조사 입력으로 이어 준다
-  const [carriedDraft, setCarriedDraft] = useState<SurveyProjectDraft | null>(null)
-  // 입력 중인 값을 ref 로 따라간다 — 화면 아무 데나 파일을 놓아도 이어 쓸 수 있어야 하는데,
-  // 상태로 올리면 글자를 칠 때마다 지도까지 다시 그린다
-  const openDraftRef = useRef<SurveyProjectDraft | null>(null)
+  // 수정·삭제할 프로젝트 — 값이 있으면 그 창이 떠 있다
+  const [editingProject, setEditingProject] = useState<SurveyProject | null>(null)
+  const [deletingProject, setDeletingProject] = useState<SurveyProject | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   // 결과 알림 — id를 key로 써서 같은 문구가 다시 떠도 애니·타이머가 재시작된다
   const [toast, setToast] = useState<{ id: number; message: string; tone: ToastTone } | null>(null)
   const toastIdRef = useRef(0)
@@ -172,22 +177,25 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   }
 
   /**
-   * 지도에 그릴 점 — 기본은 아무것도 그리지 않는다.
-   * 기준점 탭을 열면 전체(목록과 지도가 같은 집합), 조사를 고르면 그 조사의 대상만.
-   * 고른 점은 어느 경우에도 함께 그린다 — 헤더 검색·챗봇 안내는 패널을 열지 않고 점을 지목하므로,
+   * 지도에 보일 점 — 기본은 아무것도 보이지 않는다.
+   * 기준점 탭을 열면 전체(null = 전부), 조사를 고르면 그 조사의 대상만.
+   * 점 소스는 전체를 한 번만 들고 있으므로, 탭·조사 전환은 소스 재구성이 아니라 이 집합의 교체다.
+   * 고른 점은 어느 경우에도 함께 보인다 — 헤더 검색·챗봇 안내는 패널을 열지 않고 점을 지목하므로,
    * 빼면 지목한 자리에 아무것도 나타나지 않는다.
    */
-  const visiblePoints = useMemo(() => {
-    const base = panel?.key === 'points' ? points : activeProjectId !== null ? targetPoints : EMPTY_POINTS
-    if (selectedId === null || base.some((p) => p.id === selectedId)) return base
-    const focused = points.find((p) => p.id === selectedId)
-    return focused === undefined ? base : [...base, focused]
-  }, [panel, activeProjectId, points, targetPoints, selectedId])
+  const visibleIds = useMemo<ReadonlySet<string> | null>(() => {
+    if (panel?.key === 'points') return null
+    const base = activeProjectId !== null && targetIds !== null ? targetIds : EMPTY_ID_SET
+    if (selectedId === null || base.has(selectedId)) return base
+    const withSelected = new Set(base)
+    withSelected.add(selectedId)
+    return withSelected
+  }, [panel, activeProjectId, targetIds, selectedId])
 
-  // 고른 점이 지도에서 사라졌으면 선택을 푼다(마커 없는 상세가 남지 않게)
+  // 고른 점이 없어졌으면 선택을 푼다(마커 없는 상세가 남지 않게) — 보이는 집합에는 고른 점이 늘 실리므로 존재만 본다
   useEffect(() => {
-    setSelectedId((cur) => (cur !== null && !visiblePoints.some((p) => p.id === cur) ? null : cur))
-  }, [visiblePoints])
+    setSelectedId((cur) => (cur !== null && !points.some((p) => p.id === cur) ? null : cur))
+  }, [points])
 
   // 활성 프로젝트의 조사기록만 조회하므로 레코드 존재=조사됨, lost=망실
   const surveyedIds = useMemo(() => new Set(records.map((r) => r.pointId)), [records])
@@ -203,11 +211,11 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   function startAddPoint() {
     setPicked(null)
     setPicking(false)
-    setAddOpen(true)
+    setPointModal('add')
   }
 
   function closeAddPoint() {
-    setAddOpen(false)
+    setPointModal(null)
     setPicking(false)
     setPicked(null)
   }
@@ -268,24 +276,20 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   }
 
   /**
-   * 조사 한 건 등록.
+   * 파일로 조사 한 건 등록 — 파일의 행이 그 조사의 대상이 된다.
    * 여러 건을 등록하는 중이면 건마다 알리지 않고 마지막에 한 번만 알린다.
    * 실패는 여기서 알리고 그대로 다시 던진다: 창이 그 건에 머물러 고쳐 보낼 수 있어야 한다.
    */
-  async function submitProject(draft: SurveyProjectDraft, file: File | null, batch?: { index: number; total: number }) {
+  async function importProject(draft: SurveyProjectDraft, file: File, batch?: { index: number; total: number }) {
     const batched = batch !== undefined && batch.total > 1
     const last = batch === undefined || batch.index === batch.total - 1
     try {
-      if (file) {
-        const summary = await importMutation.mutateAsync({ file, draft })
-        if (!batched) {
-          showToast(
-            `기준점 ${summary.totalRows}점, 조사 기록 ${summary.createdRecords}건을 불러왔습니다.`,
-            'success',
-          )
-        }
-      } else {
-        await createProjectMutation.mutateAsync(draft)
+      const summary = await importMutation.mutateAsync({ file, draft })
+      if (!batched) {
+        showToast(
+          `기준점 ${summary.totalRows}점, 조사 기록 ${summary.createdRecords}건을 불러왔습니다.`,
+          'success',
+        )
       }
       if (batched && last) showToast(`프로젝트 ${batch.total}건을 등록했습니다.`, 'success')
     } catch (e) {
@@ -293,6 +297,54 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
       showToast(e instanceof ApiError ? e.message : '프로젝트를 등록하지 못했습니다.', 'error')
       throw e
     }
+  }
+
+  /** 직접 생성 — 성공하면 만든 조사를 바로 골라, 다음 할 일(대상 확인·조사 기록)로 이어지게 한다. */
+  function createProject(draft: SurveyProjectDraft, targetPointIds: string[]) {
+    createProjectMutation.mutate(
+      { draft, targetPointIds },
+      {
+        onSuccess: (project) => {
+          setProjectModal(null)
+          dispatch(setActiveProject(project.id))
+          setPanel({ key: 'project', minimized: false })
+          showToast(`프로젝트를 등록했습니다. 대상 기준점 ${targetPointIds.length}점을 지정했습니다.`, 'success')
+        },
+        onError: (e) =>
+          showToast(e instanceof ApiError ? e.message : '프로젝트를 등록하지 못했습니다.', 'error'),
+      },
+    )
+  }
+
+  function saveProjectEdit(draft: SurveyProjectDraft) {
+    if (editingProject === null) return
+    updateProjectMutation.mutate(
+      { id: editingProject.id, draft },
+      {
+        onSuccess: () => {
+          setEditingProject(null)
+          showToast('프로젝트를 수정했습니다.', 'success')
+        },
+        onError: (e) =>
+          showToast(e instanceof ApiError ? e.message : '프로젝트를 수정하지 못했습니다.', 'error'),
+      },
+    )
+  }
+
+  /** 삭제 확정 — 대상 지정·조사 기록이 함께 지워지므로 확인 창을 거쳐서만 온다. */
+  function confirmDeleteProject() {
+    if (deletingProject === null) return
+    const target = deletingProject
+    deleteProjectMutation.mutate(target.id, {
+      onSuccess: () => {
+        setDeletingProject(null)
+        // 지운 조사를 보고 있었으면 선택을 놓는다 — 지도·패널이 없는 조사를 가리키지 않게
+        if (activeProjectId === target.id) dispatch(setActiveProject(null))
+        showToast('프로젝트를 삭제했습니다.', 'success')
+      },
+      onError: (e) =>
+        setDeleteError(e instanceof ApiError ? e.message : '프로젝트를 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.'),
+    })
   }
 
   function notifySurveySaveFailed() {
@@ -324,17 +376,13 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
    * 창이 떠 있으면 그 창이 파일을 가로채므로(Modal) 여기까지 오지 않는다 — 무엇으로 읽을지는 열려 있는 창이 정한다.
    */
   function startImport(files: File[]) {
-    setCarriedDraft(openDraftRef.current)
-    openDraftRef.current = null
     setPendingFiles(files)
-    setCreatingProject(true)
+    setProjectModal('file')
   }
 
   function closeProjectFlow() {
-    setCreatingProject(false)
+    setProjectModal(null)
     setPendingFiles(null)
-    setCarriedDraft(null)
-    openDraftRef.current = null
   }
 
   function focusPoint(cp: ControlPoint) {
@@ -383,7 +431,16 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
           projects={projects}
           activeProjectId={activeProjectId}
           onChangeActive={(id) => dispatch(setActiveProject(id))}
-          onCreate={() => setCreatingProject(true)}
+          onCreate={() => setProjectModal('create')}
+          onImportProjects={() => {
+            setPendingFiles(null)
+            setProjectModal('file')
+          }}
+          onEditProject={setEditingProject}
+          onDeleteProject={(p) => {
+            setDeleteError(null)
+            setDeletingProject(p)
+          }}
           points={points}
           targetPoints={targetPoints}
           surveyedIds={surveyedIds}
@@ -392,6 +449,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
           onToggleSurvey={handleToggleSurvey}
           onToggleLost={handleToggleLost}
           onStartAddPoint={startAddPoint}
+          onImportPoints={() => setPointModal('file')}
           projectsLoading={projectsQuery.isPending}
           pointsLoading={pointsQuery.isPending}
           recordsLoading={activeProjectId !== null && recordsQuery.isPending}
@@ -422,7 +480,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
 
         <div className="absolute inset-0">
             <ControlPointMap
-              points={visiblePoints}
+              points={points}
+              visibleIds={visibleIds}
               addMode={picking}
               showCadastral={showCadastral}
               selectedId={selectedId}
@@ -518,7 +577,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
       </div>
       </ChatDockLayout>
 
-      {addOpen && (
+      {pointModal === 'add' && (
         <AddControlPointModal
           defaultType={POINT_TYPES[0]}
           defaultEpsg={tmEpsg}
@@ -528,25 +587,56 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
           onPick={() => setPicking(true)}
           submitting={registerMutation.isPending}
           onSubmit={submitAddPoint}
-          onImport={importPoints}
           onCancel={closeAddPoint}
         />
       )}
 
-      {creatingProject && (
-        <SurveyProjectFormModal
-          title="프로젝트 추가"
-          submitLabel="추가"
+      {pointModal === 'file' && (
+        <ControlPointFileModal onImport={importPoints} onCancel={() => setPointModal(null)} />
+      )}
+
+      {projectModal === 'file' && (
+        <SurveyProjectFileModal
           author={profile ? `${profile.name} · ${profile.team} ${profile.position}` : ''}
-          defaults={carriedDraft ?? undefined}
           initialFiles={pendingFiles}
-          onDraftChange={(draft) => {
-            openDraftRef.current = draft
-          }}
-          submitting={createProjectMutation.isPending || importMutation.isPending}
-          onSubmit={submitProject}
+          submitting={importMutation.isPending}
+          onSubmit={importProject}
           onNotice={(message) => showToast(message)}
           onCancel={closeProjectFlow}
+        />
+      )}
+
+      {projectModal === 'create' && (
+        <SurveyProjectCreateModal
+          author={profile ? `${profile.name} · ${profile.team} ${profile.position}` : ''}
+          points={points}
+          submitting={createProjectMutation.isPending}
+          onSubmit={createProject}
+          onCancel={() => setProjectModal(null)}
+        />
+      )}
+
+      {editingProject !== null && (
+        <SurveyProjectEditModal
+          project={editingProject}
+          author={profile ? `${profile.name} · ${profile.team} ${profile.position}` : ''}
+          submitting={updateProjectMutation.isPending}
+          onSubmit={saveProjectEdit}
+          onCancel={() => setEditingProject(null)}
+        />
+      )}
+
+      {deletingProject !== null && (
+        <ConfirmDialog
+          message={`'${deletingProject.name}' 프로젝트를 삭제할까요?`}
+          detail="대상 지정과 조사 기록이 함께 삭제되며 되돌릴 수 없습니다."
+          error={deleteError ?? undefined}
+          confirmLabel="삭제"
+          danger
+          busy={deleteProjectMutation.isPending}
+          busyLabel="삭제 중…"
+          onConfirm={confirmDeleteProject}
+          onCancel={() => setDeletingProject(null)}
         />
       )}
 
