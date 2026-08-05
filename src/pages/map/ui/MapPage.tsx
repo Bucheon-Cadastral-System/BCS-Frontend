@@ -11,14 +11,14 @@ import { MapCommandBar } from '@/widgets/map-command-bar'
 import type OlMap from 'ol/Map'
 import { ChatDockLayout } from '@/widgets/chatbot'
 import type { ChatAction } from '@/widgets/chatbot'
-import { POINT_TYPES, useControlPointsQuery, useRegisterControlPointMutation } from '@/entities/control-point'
+import { POINT_TYPES, useControlPointsQuery, useDeleteControlPointMutation, useRegisterControlPointMutation, useUpdateControlPointMutation } from '@/entities/control-point'
 import type { ControlPoint } from '@/entities/control-point'
 import { useCreateSurveyProjectMutation, useDeleteSurveyProjectMutation, useSurveyProjectsQuery, useSurveyTargetsQuery, useUpdateSurveyProjectMutation } from '@/entities/survey-project'
 import type { SurveyProject, SurveyProjectDraft } from '@/entities/survey-project'
 import { useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
 import { useImportControlPoints, useImportSurveyCsv } from '@/features/import-file'
-import { AddControlPointModal, ControlPointFileModal } from '@/widgets/add-control-point'
-import type { AddControlPointValues } from '@/widgets/add-control-point'
+import { ControlPointFileModal, ControlPointFormModal } from '@/widgets/add-control-point'
+import type { ControlPointFormValues } from '@/widgets/add-control-point'
 import { SurveyProjectCreateModal, SurveyProjectEditModal, SurveyProjectFileModal } from '@/widgets/survey-project-form'
 import { ApiError } from '@/shared/api/http'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
@@ -79,6 +79,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   const recordsQuery = useSurveyRecordsQuery(activeProjectId)
   const targetsQuery = useSurveyTargetsQuery(activeProjectId)
   const registerMutation = useRegisterControlPointMutation()
+  const updatePointMutation = useUpdateControlPointMutation()
+  const deletePointMutation = useDeleteControlPointMutation()
   const createProjectMutation = useCreateSurveyProjectMutation()
   const updateProjectMutation = useUpdateSurveyProjectMutation()
   const deleteProjectMutation = useDeleteSurveyProjectMutation()
@@ -137,6 +139,10 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   const [pointModal, setPointModal] = useState<'add' | 'file' | null>(null)
   const [picking, setPicking] = useState(false)
   const [picked, setPicked] = useState<{ northing: number; easting: number; epsg: TmEpsg } | null>(null)
+  // 수정·삭제할 기준점 — 값이 있으면 그 창이 떠 있다. '위치 찍기'는 추가·수정이 같은 상태를 나눠 쓴다
+  const [editingPoint, setEditingPoint] = useState<ControlPoint | null>(null)
+  const [deletingPoint, setDeletingPoint] = useState<ControlPoint | null>(null)
+  const [pointDeleteError, setPointDeleteError] = useState<string | null>(null)
   // 조사 프로젝트 — 직접 생성(create, 대상 지정 포함)과 파일 등록(file)은 입구에서 갈린 다른 창이다
   const [projectModal, setProjectModal] = useState<'create' | 'file' | null>(null)
   const [pendingFiles, setPendingFiles] = useState<File[] | null>(null)
@@ -220,6 +226,58 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     setPicked(null)
   }
 
+  function startEditPoint(point: ControlPoint) {
+    setPicked(null)
+    setPicking(false)
+    setEditingPoint(point)
+  }
+
+  function closeEditPoint() {
+    setEditingPoint(null)
+    setPicking(false)
+    setPicked(null)
+  }
+
+  function submitEditPoint(values: ControlPointFormValues) {
+    if (editingPoint === null) return
+    updatePointMutation.mutate(
+      { ...values, id: editingPoint.id },
+      {
+        onSuccess: (outcome) => {
+          closeEditPoint()
+          setSelectedId(outcome.point.id)
+          const done = '기준점을 수정했습니다.'
+          // 부천 범위 밖 경고는 저장을 막지 않으므로 완료와 한 알림에 싣는다
+          showToast(outcome.warning === null ? done : `${done} ${outcome.warning}`, outcome.warning === null ? 'success' : 'info')
+        },
+        onError: (e) =>
+          showToast(
+            e instanceof ApiError && (e.code === 'CONTROL_POINT_DUPLICATE' || e.code === 'CONTROL_POINT_NOT_FOUND')
+              ? e.message
+              : '기준점을 수정하지 못했습니다.',
+            'error',
+          ),
+      },
+    )
+  }
+
+  /** 삭제 확정 — 조사 프로젝트가 대상·기록으로 쓰는 점은 서버가 거부하고, 그 사유를 확인 창 안에서 알린다. */
+  function confirmDeletePoint() {
+    if (deletingPoint === null) return
+    const target = deletingPoint
+    deletePointMutation.mutate(target.id, {
+      onSuccess: () => {
+        setDeletingPoint(null)
+        setSelectedId((cur) => (cur === target.id ? null : cur))
+        showToast('기준점을 삭제했습니다.', 'success')
+      },
+      onError: (e) =>
+        setPointDeleteError(
+          e instanceof ApiError ? e.message : '기준점을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+        ),
+    })
+  }
+
   /**
    * 기준점 파일 한 건 등록.
    * 여러 건을 등록하는 중이면 건마다 알리지 않고 마지막에 한 번만 알린다.
@@ -241,7 +299,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     }
   }
 
-  function submitAddPoint(values: AddControlPointValues) {
+  function submitAddPoint(values: ControlPointFormValues) {
     registerMutation.mutate(
       {
         pointNo: values.pointNo,
@@ -566,6 +624,11 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               onToggleSurvey={handleToggleSurvey}
               onClose={() => setSelectedId(null)}
               onToggleLost={handleToggleLost}
+              onEdit={startEditPoint}
+              onDelete={(p) => {
+                setPointDeleteError(null)
+                setDeletingPoint(p)
+              }}
               onCopied={(ok) =>
                 ok
                   ? showToast('클립보드로 복사되었습니다.', 'success')
@@ -578,7 +641,9 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
       </ChatDockLayout>
 
       {pointModal === 'add' && (
-        <AddControlPointModal
+        <ControlPointFormModal
+          title="기준점 추가"
+          submitLabel="등록"
           defaultType={POINT_TYPES[0]}
           defaultEpsg={tmEpsg}
           picked={picked}
@@ -588,6 +653,48 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
           submitting={registerMutation.isPending}
           onSubmit={submitAddPoint}
           onCancel={closeAddPoint}
+        />
+      )}
+
+      {editingPoint !== null && (
+        <ControlPointFormModal
+          title="기준점 수정"
+          submitLabel="저장"
+          initial={{
+            pointNo: editingPoint.pointNo,
+            name: editingPoint.name,
+            type: editingPoint.type,
+            northing: editingPoint.northing,
+            easting: editingPoint.easting,
+            tmEpsg: editingPoint.tmEpsg,
+          }}
+          defaultType={editingPoint.type}
+          defaultEpsg={editingPoint.tmEpsg}
+          picked={picked}
+          // 자기 자신은 충돌이 아니다 — 지금 수정 중인 점을 빼고 알린다
+          existingOf={(name, type) => {
+            const found = pointByNameType.get(`${type}|${name}`)
+            return found !== undefined && found.id !== editingPoint.id ? found : null
+          }}
+          picking={picking}
+          onPick={() => setPicking(true)}
+          submitting={updatePointMutation.isPending}
+          onSubmit={submitEditPoint}
+          onCancel={closeEditPoint}
+        />
+      )}
+
+      {deletingPoint !== null && (
+        <ConfirmDialog
+          message={`'${deletingPoint.name}' 기준점을 삭제할까요?`}
+          detail={`관리번호 ${deletingPoint.pointNo} — 되돌릴 수 없습니다.`}
+          error={pointDeleteError ?? undefined}
+          confirmLabel="삭제"
+          danger
+          busy={deletePointMutation.isPending}
+          busyLabel="삭제 중…"
+          onConfirm={confirmDeletePoint}
+          onCancel={() => setDeletingPoint(null)}
         />
       )}
 
