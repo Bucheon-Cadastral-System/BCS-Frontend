@@ -77,7 +77,8 @@ export function Toast(props: {
           onClick={close}
           aria-label="알림 닫기"
           title="닫기"
-          className="flex size-9 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-hover hover:text-ink"
+          // 닫기 X 는 앱 전역 관례대로 호버에서 빨강
+          className="flex size-9 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-danger-wash hover:text-danger"
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden="true">
             <path d="M18 6 6 18M6 6l12 12" />

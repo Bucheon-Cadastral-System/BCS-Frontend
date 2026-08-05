@@ -519,7 +519,8 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                   <div className="mt-5 flex flex-wrap justify-end gap-2">
                     {editing ? (
                       <>
-                        <button type="button" disabled={saving} className={BTN_SM_SECONDARY} onClick={() => setDraft(null)}>
+                        {/* 고치던 값을 버리는 취소 — 앱 전역 규격대로 빨강 */}
+                        <button type="button" disabled={saving} className={BTN_SM_DANGER} onClick={() => setDraft(null)}>
                           취소
                         </button>
                         <button type="button" disabled={saving} className={BTN_SM_PRIMARY} onClick={saveEditing}>

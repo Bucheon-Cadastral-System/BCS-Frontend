@@ -7,6 +7,10 @@ interface ServerSurveyProject {
   startedOn: string
   endedOn: string | null
   note: string | null
+  /** 목록(요약) 응답에만 실려 온다 — 생성·수정 응답에는 없다 */
+  targetCount?: number
+  surveyedCount?: number
+  authorName?: string | null
 }
 
 function toSurveyProject(server: ServerSurveyProject): SurveyProject {
@@ -16,6 +20,9 @@ function toSurveyProject(server: ServerSurveyProject): SurveyProject {
     startedOn: server.startedOn,
     endedOn: server.endedOn,
     note: server.note,
+    targetCount: server.targetCount,
+    surveyedCount: server.surveyedCount,
+    authorName: server.authorName,
   }
 }
 
@@ -52,14 +59,19 @@ export async function createSurveyProjectApi(args: {
   return toSurveyProject(res.data)
 }
 
+/**
+ * 수정 — 값과 함께 대상 전체를 다시 보낸다(부분 수정이 아니라 재지정, 서버가 1점 이상을 요구).
+ * 대상에서 빠진 점의 조사 기록은 서버가 함께 지운다.
+ */
 export async function updateSurveyProjectApi(args: {
   id: string
   draft: SurveyProjectDraft
+  targetPointIds: string[]
 }): Promise<SurveyProject> {
-  const res = await http.put<ServerSurveyProject>(
-    `/api/survey-projects/${args.id}`,
-    toSurveyProjectPayload(args.draft),
-  )
+  const res = await http.put<ServerSurveyProject>(`/api/survey-projects/${args.id}`, {
+    ...toSurveyProjectPayload(args.draft),
+    targetPointIds: args.targetPointIds.map(Number),
+  })
   return toSurveyProject(res.data)
 }
 

@@ -51,11 +51,6 @@ function makeBaseSource(theme: MapTheme): XYZ {
     : new OSM()
 }
 
-/** 판이 가린 만큼 지도 중심을 옮길 거리 — 좌우가 가린 폭의 차이 절반이 보이는 자리의 중앙이다 */
-function centerShift(leftInset: number, rightInset: number, resolution: number): number {
-  return ((leftInset - rightInset) / 2) * resolution
-}
-
 /**
  * 도식은 WebGL 로 그린다 — 캔버스 벡터는 팬·줌 중 재실행(수천 drawImage×실행기 오버헤드)이 구조적 비용이라
  * 점이 떠 있는 동안 프레임을 상시 깎는다. WebGL 을 못 여는 환경(구형·가상 데스크톱)만 캔버스 경로로 그린다.
@@ -84,9 +79,6 @@ interface ControlPointMapProps {
   focusNonce: number
   /** 처음 보던 자리로 되돌리라는 신호 — 값이 바뀔 때마다 한 번 움직인다(0 = 아직 누르지 않음) */
   homeNonce: number
-  /** 좌·우 판이 지도를 가린 폭 — 점을 '가려지지 않은 자리'의 중앙에 세우는 데 쓴다 */
-  leftInset: number
-  rightInset: number
   onAddPoint: (lng: number, lat: number) => void
   onSelect: (id: string | null) => void
   /** 만들어진 지도 인스턴스 — 하단 상태 표시처럼 매 프레임 값이 바뀌는 UI가 직접 구독하도록 넘긴다 */
@@ -115,8 +107,6 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const lostIdsRef = useRef(props.lostIds)
   const themeRef = useRef(props.theme)
   const visibleIdsRef = useRef(props.visibleIds)
-  const leftInsetRef = useRef(props.leftInset)
-  const rightInsetRef = useRef(props.rightInset)
   const pointsRef = useRef(props.points)
   const focusNonceRef = useRef(props.focusNonce)
   const showCadastralRef = useRef(props.showCadastral)
@@ -133,8 +123,6 @@ export function ControlPointMap(props: ControlPointMapProps) {
     lostIdsRef.current = props.lostIds
     themeRef.current = props.theme
     visibleIdsRef.current = props.visibleIds
-    leftInsetRef.current = props.leftInset
-    rightInsetRef.current = props.rightInset
     pointsRef.current = props.points
     focusNonceRef.current = props.focusNonce
     showCadastralRef.current = props.showCadastral
@@ -187,7 +175,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
       return controlPointStyle(cp, cp.id === selectedIdRef.current, survey, themeRef.current)
     }
 
-    // 라벨은 가까이서만, 보이는 점에만 붙인다 — 겹침 걸러내기(declutter)는 이 레이어의 몫이다
+    // 라벨은 가까이서만, 보이는 점에만 붙인다
     const labelStyle = (feature: FeatureLike, resolution: number): Style | undefined => {
       if (resolution > LABEL_MAX_RESOLUTION) return undefined
       const cp = feature.get('cp') as ControlPoint
@@ -196,8 +184,10 @@ export function ControlPointMap(props: ControlPointMapProps) {
       return controlPointLabelStyle(cp, themeRef.current)
     }
 
-    // 라벨은 캔버스 레이어 — 줌 16 미만·비표시 점은 그릴 것이 없고, 겹침 걸러내기(declutter)도 이 레이어의 몫이다
-    const labelLayer = new VectorLayer({ source: rawSource, style: labelStyle, declutter: true })
+    // 라벨은 캔버스 레이어 — 줌 16 미만·비표시 점은 그릴 것이 없다.
+    // 겹침 걸러내기(declutter)는 쓰지 않는다: 밀집 구간에서 라벨이 조용히 사라져 어느 점인지 클릭 없이 알 수 없게 되고,
+    // 라벨은 줌 16 이상에서만 그려져 화면에 설 글자 수가 적어 겹침보다 누락이 실무에 더 해롭다
+    const labelLayer = new VectorLayer({ source: rawSource, style: labelStyle })
     labelLayerRef.current = labelLayer
 
     // WebGL 을 못 여는 환경만 도식을 캔버스로 그린다 — 그리는 내용은 같고 빠르기만 다르다
@@ -444,9 +434,9 @@ export function ControlPointMap(props: ControlPointMapProps) {
     const p = pointsRef.current.find((x) => x.id === props.selectedId)
     if (!p) return
     const view = mapRef.current.getView()
-    const res = view.getResolution() ?? 0
     const [cx, cy] = fromLonLat([p.lng, p.lat])
-    view.animate({ center: [cx - centerShift(leftInsetRef.current, rightInsetRef.current, res), cy], duration: 300 })
+    // 언제나 화면 정중앙 — 판·카드가 가린 폭을 빼는 보정은 두지 않는다(선택하면 카드가 늘 함께 떠 보정이 오히려 쏠림으로 보인다)
+    view.animate({ center: [cx, cy], duration: 300 })
   }, [props.selectedId])
 
   // 목록에서 포커스 → 확대 + 이동 (단일 애니메이션). ref 갱신은 위 selectedId 이펙트보다 뒤에 실행됨.
@@ -458,39 +448,24 @@ export function ControlPointMap(props: ControlPointMapProps) {
     if (!p) return
     const view = mapRef.current.getView()
     const [cx, cy] = fromLonLat([p.lng, p.lat])
-    const res = view.getResolutionForZoom(FOCUS_ZOOM)
     view.animate({
-      center: [cx - centerShift(leftInsetRef.current, rightInsetRef.current, res), cy],
+      center: [cx, cy],
       zoom: FOCUS_ZOOM,
       duration: 450,
     })
   }, [props.focusNonce])
 
-  // 처음 자리로 되돌리기 — 고른 점은 그대로 두고 눈높이만 되돌린다. 판이 가린 만큼 옮겨 '보이는 자리' 한가운데 오게 한다.
+  // 처음 자리로 되돌리기 — 고른 점은 그대로 두고 눈높이만 화면 정중앙으로 되돌린다
   useEffect(() => {
     if (props.homeNonce === 0 || !mapRef.current) return
     const view = mapRef.current.getView()
     const [cx, cy] = fromLonLat(DEFAULT_CENTER)
-    const res = view.getResolutionForZoom(DEFAULT_ZOOM)
     view.animate({
-      center: [cx - centerShift(leftInsetRef.current, rightInsetRef.current, res), cy],
+      center: [cx, cy],
       zoom: DEFAULT_ZOOM,
       duration: 450,
     })
   }, [props.homeNonce])
-
-  // 판 열림/닫힘으로 가림 폭이 바뀌면, 선택된 점을 새 '보이는 자리 중앙'으로 다시 이동
-  // (닫으면 지도 전체 중앙으로, 열면 가려지지 않은 자리 중앙으로)
-  useEffect(() => {
-    const selectedId = selectedIdRef.current
-    if (!selectedId || !mapRef.current) return
-    const p = pointsRef.current.find((x) => x.id === selectedId)
-    if (!p) return
-    const view = mapRef.current.getView()
-    const res = view.getResolution() ?? 0
-    const [cx, cy] = fromLonLat([p.lng, p.lat])
-    view.animate({ center: [cx - centerShift(props.leftInset, props.rightInset, res), cy], duration: 200 })
-  }, [props.leftInset, props.rightInset])
 
   return <div ref={containerRef} className={`absolute inset-0 ${props.addMode ? 'cursor-crosshair' : ''}`} />
 }

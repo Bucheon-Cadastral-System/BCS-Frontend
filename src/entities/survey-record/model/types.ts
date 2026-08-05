@@ -20,4 +20,6 @@ export interface SurveyRecord {
   result: SurveyResult
   /** 망실 여부 — 지도 표시가 정상·망실 두 갈래라 결과에서 미리 갈라 둔다 */
   lost: boolean
+  /** 마지막으로 판정한 조사원 표시명 — 인증 없이 남긴 기록·파일로 들어온 기록은 null */
+  surveyorName: string | null
 }

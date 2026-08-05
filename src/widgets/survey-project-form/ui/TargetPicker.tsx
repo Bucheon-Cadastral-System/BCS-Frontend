@@ -18,10 +18,15 @@ export function TargetPicker(props: {
 }) {
   const [q, setQ] = useState('')
   const [type, setType] = useState<PointType | null>(null)
+  // 선택해 둔 점만 보기 — 수천 점 사이에서 지금 무엇이 선택돼 있는지 확인하고 빼는 용도(수정에서 특히).
+  // 정렬로 선택분을 위로 올리는 대신 거름을 쓴다 — 목록이 체크할 때마다 재정렬되면 줄이 손밑에서 튄다.
+  const [onlySelected, setOnlySelected] = useState(false)
   // 관리번호에 영문이 섞인다 — 대소문자를 가리지 않고 맞춘다
   const query = q.trim().toLowerCase()
+  const selected = props.selected
   const list = useMemo(() => {
     let base = props.points
+    if (onlySelected) base = base.filter((p) => selected.has(p.id))
     if (type !== null) base = base.filter((p) => p.type === type)
     if (query !== '') {
       base = base.filter(
@@ -29,7 +34,7 @@ export function TargetPicker(props: {
       )
     }
     return base
-  }, [props.points, type, query])
+  }, [props.points, onlySelected, selected, type, query])
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
@@ -47,7 +52,7 @@ export function TargetPicker(props: {
     props.onChange(next)
   }
 
-  /** 걸러진 목록을 통째로 담는다 — 종류 필터와 함께 쓰면 "도근점 전체" 같은 지정이 한 번에 된다. */
+  /** 걸러진 목록을 통째로 선택한다 — 종류 필터와 함께 쓰면 "도근점 전체" 같은 지정이 한 번에 된다. */
   function addFiltered() {
     const next = new Set(props.selected)
     list.forEach((p) => next.add(p.id))
@@ -70,7 +75,7 @@ export function TargetPicker(props: {
           </span>
         </span>
         <span className="text-[11px] text-ink-3">
-          선택 <b className="font-semibold text-teal-text">{props.selected.size}</b>점
+          <b className="font-semibold text-teal-text">{props.selected.size}</b>개 선택
         </span>
       </div>
       <div className="overflow-hidden rounded-ctl border border-line-field">
@@ -86,12 +91,20 @@ export function TargetPicker(props: {
             {POINT_TYPES.map((t) => (
               <TypeChip key={t} label={t} on={type === t} onClick={() => setType(type === t ? null : t)} />
             ))}
+            {/* 종류와 다른 축(선택 여부)이라 오른쪽 끝에 떨어뜨려 둔다 — 검색·종류와 겹쳐 함께 좁힌다 */}
+            <span className="ml-auto">
+              <TypeChip label="선택중" on={onlySelected} onClick={() => setOnlySelected((v) => !v)} />
+            </span>
           </div>
         </div>
         <div ref={scrollRef} className="h-[218px] overflow-y-auto overscroll-contain bg-field">
           {list.length === 0 ? (
             <p className="px-3 py-6 text-center text-[12px] text-ink-3">
-              {props.points.length === 0 ? '기준점 없음' : '검색 결과 없음'}
+              {props.points.length === 0
+                ? '기준점 없음'
+                : onlySelected && props.selected.size === 0
+                  ? '선택중인 점 없음'
+                  : '검색 결과 없음'}
             </p>
           ) : (
             <ul className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
@@ -121,22 +134,23 @@ export function TargetPicker(props: {
             </ul>
           )}
         </div>
-        <div className="flex items-center justify-end gap-1.5 border-t border-line-soft bg-soft px-2 py-1.5">
+        {/* 해제(빨강)는 왼쪽, 선택은 오른쪽 — 버리는 동작과 담는 동작이 자리로도 갈린다 */}
+        <div className="flex items-center justify-between gap-1.5 border-t border-line-soft bg-soft px-2 py-1.5">
+          <button
+            type="button"
+            onClick={() => props.onChange(new Set())}
+            disabled={props.selected.size === 0}
+            className="rounded-chip px-2 py-1 text-[11.5px] text-danger transition-colors hover:bg-danger-wash disabled:opacity-40"
+          >
+            전체 해제
+          </button>
           <button
             type="button"
             onClick={addFiltered}
             disabled={list.length === 0 || allFilteredSelected}
             className="rounded-chip px-2 py-1 text-[11.5px] text-teal-text transition-colors hover:bg-teal-wash disabled:opacity-40"
           >
-            검색 결과 {list.length}점 모두 담기
-          </button>
-          <button
-            type="button"
-            onClick={() => props.onChange(new Set())}
-            disabled={props.selected.size === 0}
-            className="rounded-chip px-2 py-1 text-[11.5px] text-ink-3 transition-colors hover:bg-hover disabled:opacity-40"
-          >
-            모두 비우기
+            {list.length}개 전체 선택
           </button>
         </div>
       </div>

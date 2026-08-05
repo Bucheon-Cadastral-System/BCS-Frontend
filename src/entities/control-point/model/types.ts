@@ -1,8 +1,20 @@
 import type { TmEpsg } from '@/shared/lib/crs'
 
-/** 지적기준점 종류 (1차: 3종) */
+/** 지적기준점 종류 (1차: 3종) — 배열 순서가 화면 정렬 순서다(등급 위계: 삼각 → 삼각보조 → 도근) */
 export const POINT_TYPES = ['지적삼각점', '지적삼각보조점', '지적도근점'] as const
 export type PointType = (typeof POINT_TYPES)[number]
+
+// 이름의 숫자는 자릿수가 아니라 값으로 견준다 — "도근 2"가 "도근 10" 앞에 온다
+const nameCollator = new Intl.Collator('ko', { numeric: true, sensitivity: 'base' })
+
+/**
+ * 기준점 목록의 기본 정렬 = 종류 순 → 이름 순.
+ * 서버는 등록 순서대로 내리므로(임포트 파일 순) 화면마다 제각각 늘어놓지 않게 여기 한 곳에서 못박는다.
+ */
+export function compareControlPoints(a: ControlPoint, b: ControlPoint): number {
+  if (a.type !== b.type) return POINT_TYPES.indexOf(a.type) - POINT_TYPES.indexOf(b.type)
+  return nameCollator.compare(a.name, b.name)
+}
 
 /**
  * 지적기준점 1개.

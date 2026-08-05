@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { createPortal } from 'react-dom'
 import type { ReactNode, RefObject } from 'react'
 import { useDialogBehavior } from '@/shared/lib/useDialogBehavior'
 import { useFileDrop } from '@/shared/lib/useFileDrop'
@@ -51,7 +52,9 @@ export function Modal(props: {
   // 감춰진 동안엔 Esc·포커스 트랩을 끈다 — 안 보이는 창이 Esc를 가로채 입력하던 값을 날리면 안 된다
   useDialogBehavior({ panelRef, onClose: props.onClose, busy: props.busy, enabled: !props.hidden })
 
-  return (
+  // body 로 내보내 세운다 — 선언한 자리의 조상이 transform(판 등장 애니메이션 등)을 들면 fixed 의
+  // 기준이 화면이 아니라 그 조상이 되고, space-y 간격 계산에도 형제로 끼어 판 크기를 미세하게 바꾼다
+  return createPortal(
     <div
       className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 ${props.hidden ? 'hidden' : ''}`}
       role="dialog"
@@ -107,7 +110,8 @@ export function Modal(props: {
       {/* 창이 이벤트를 멈춰 화면 안내가 뜨지 않으므로, 받는 쪽이 어디인지 이 창이 직접 알린다.
           문구는 기본값을 쓴다 — 공용 껍데기라 무슨 파일을 받는지 모른다 */}
       {onDropFile && dragging && <FileDropOverlay />}
-    </div>
+    </div>,
+    document.body,
   )
 }
 

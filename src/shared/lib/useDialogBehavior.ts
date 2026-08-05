@@ -5,6 +5,13 @@ const FOCUSABLE =
   'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
 
 /**
+ * 지금 떠 있는 대화상자들의 순서 — 수정 창 위에 확인 창이 서듯 겹칠 수 있는데,
+ * 둘 다 창 밖(window)에서 키를 들으므로 맨 위 하나만 반응하게 가리지 않으면
+ * Esc 한 번에 두 창이 같이 닫히고 Tab 순환도 서로 뺏는다.
+ */
+const dialogStack: symbol[] = []
+
+/**
  * 모달 대화상자의 공통 키보드·포커스 동작 — 열릴 때 포커스 이동, Esc 닫기, Tab 순환(트랩), 닫으면 트리거로 복원.
  * aria-modal 대화상자는 열려 있는 동안 포커스가 배경으로 나가면 안 되므로 Tab을 창 안에서 돌린다.
  * 콜백·상태는 ref로 최신값을 읽는다 — 부모가 인라인 함수를 넘겨도 구독을 다시 걸지 않아 초기 포커스가 재실행되지 않는다.
@@ -30,11 +37,15 @@ export function useDialogBehavior(options: {
 
   useEffect(() => {
     if (!enabled) return
+    const token = Symbol('dialog')
+    dialogStack.push(token)
+    const isTop = () => dialogStack[dialogStack.length - 1] === token
     const prevActive = document.activeElement as HTMLElement | null
     const target = initialFocusRef?.current ?? panelRef.current?.querySelector<HTMLElement>(FOCUSABLE)
     target?.focus()
 
     const onKey = (e: KeyboardEvent) => {
+      if (!isTop()) return // 위에 다른 대화상자가 떠 있다 — 키는 맨 위 창의 몫이다
       if (e.key === 'Escape') {
         if (!busyRef.current) closeRef.current()
         return
@@ -58,8 +69,12 @@ export function useDialogBehavior(options: {
 
     window.addEventListener('keydown', onKey)
     return () => {
+      const at = dialogStack.indexOf(token)
+      // 맨 위 창이었을 때만 이전 포커스로 되돌린다 — 아래 창이 걷힐 때 되돌리면 남아 있는 위 창 밖으로 포커스가 샌다
+      const wasTop = at === dialogStack.length - 1
+      if (at >= 0) dialogStack.splice(at, 1)
       window.removeEventListener('keydown', onKey)
-      prevActive?.focus?.()
+      if (wasTop) prevActive?.focus?.()
     }
   }, [panelRef, initialFocusRef, enabled])
 }
