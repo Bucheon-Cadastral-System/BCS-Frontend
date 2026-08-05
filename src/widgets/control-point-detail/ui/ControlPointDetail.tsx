@@ -7,6 +7,8 @@ import { SURVEY_STATUS_LABEL } from '@/entities/survey-record'
 interface ControlPointDetailProps {
   point: ControlPoint | null
   activeProjectName: string | null
+  /** 이 점을 마지막으로 판정한 조사원 표시명 — 기록이 없거나 인증 없이 남긴 기록이면 null */
+  surveyorName: string | null
   surveyed: boolean
   lost: boolean
   onToggleSurvey: (id: string) => void
@@ -167,6 +169,10 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
               {SURVEY_STATUS_LABEL[status]}
             </span>
           </div>
+          {/* 조사원 — 마지막 판정 주체. 상세 패널의 '작성자'와 같은 표기 규격 */}
+          {props.surveyorName !== null && (
+            <div className="-mt-1.5 mb-2.5 truncate text-[11.5px] text-ink-3">조사원 {props.surveyorName}</div>
+          )}
           <div className="flex gap-2">
             <button
               type="button"

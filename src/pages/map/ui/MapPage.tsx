@@ -148,6 +148,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   const [pointDeleteError, setPointDeleteError] = useState<string | null>(null)
   // 참조 중이라 서버가 거부한 상태 — 물음이 아니라 '할 수 없음' 안내로 바뀌고 확정 버튼이 잠긴다
   const [pointDeleteBlocked, setPointDeleteBlocked] = useState(false)
+  const deleteCheckPendingRef = useRef(false)
   // 조사 프로젝트 — 직접 생성(create, 대상 지정 포함)과 파일 등록(file)은 입구에서 갈린 다른 창이다
   const [projectModal, setProjectModal] = useState<'create' | 'file' | null>(null)
   const [pendingFiles, setPendingFiles] = useState<File[] | null>(null)
@@ -164,14 +165,15 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     () => new Set((editRecordsQuery.data ?? []).map((r) => r.pointId)),
     [editRecordsQuery.data],
   )
-  // 시작값을 못 불러오면 수정 창을 못 연다 — 빈 시작값으로 열면 저장이 대상 전체 해제로 둔갑한다
+  // 시작값(대상)이나 기록을 못 불러오면 수정 창을 못 연다 — 빈 시작값이면 저장이 대상 전체 해제로 둔갑하고,
+  // 기록 없이 열면 '기록이 함께 삭제됩니다' 경고가 빠진 채 저장할 수 있다
   const failEditOpen = useEffectEvent(() => {
     setEditingProject(null)
-    showToast('대상 기준점을 불러오지 못해 수정 창을 열 수 없습니다. 잠시 후 다시 시도해 주세요.', 'error')
+    showToast('프로젝트 정보를 불러오지 못해 수정 창을 열 수 없습니다. 잠시 후 다시 시도해 주세요.', 'error')
   })
   useEffect(() => {
-    if (editingProject !== null && editTargetsQuery.isError) failEditOpen()
-  }, [editingProject, editTargetsQuery.isError])
+    if (editingProject !== null && (editTargetsQuery.isError || editRecordsQuery.isError)) failEditOpen()
+  }, [editingProject, editTargetsQuery.isError, editRecordsQuery.isError])
   // 결과 알림 — id를 key로 써서 같은 문구가 다시 떠도 애니·타이머가 재시작된다
   const [toast, setToast] = useState<{ id: number; message: string; tone: ToastTone } | null>(null)
   const toastIdRef = useRef(0)
@@ -298,12 +300,17 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
    * 물었다가 거부당해 같은 창이 불가로 바뀌면 확인이 두 번 뜨는 것처럼 보인다.
    */
   async function startDeletePoint(p: ControlPoint) {
+    // 응답을 기다리는 동안의 재클릭은 같은 조회만 되풀이한다 — 첫 조회가 창을 열 때까지 무시한다
+    if (deleteCheckPendingRef.current) return
+    deleteCheckPendingRef.current = true
     setPointDeleteError(null)
     try {
       setPointDeleteBlocked(await fetchControlPointUsage(p.id))
     } catch {
       // 참조 확인이 안 돼도 흐름은 연다 — 최종 판정은 삭제 요청에서 서버가 한다(아래 409 분기가 받는다)
       setPointDeleteBlocked(false)
+    } finally {
+      deleteCheckPendingRef.current = false
     }
     setDeletingPoint(p)
   }
@@ -690,6 +697,11 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
             <ControlPointDetail
               point={selected}
               activeProjectName={surveyVisible && selectedIsTarget ? (activeProject?.name ?? null) : null}
+              surveyorName={
+                surveyVisible && selectedIsTarget && selected !== null
+                  ? (records.find((r) => r.pointId === selected.id)?.surveyorName ?? null)
+                  : null
+              }
               surveyed={surveyVisible && selected !== null && surveyedIds.has(selected.id)}
               lost={surveyVisible && selected !== null && lostIds.has(selected.id)}
               onToggleSurvey={handleToggleSurvey}
@@ -799,8 +811,9 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
         />
       )}
 
-      {/* 시작값(현재 대상)이 오기 전에는 열지 않는다 — 빈 선택으로 열리면 저장이 대상 전체 해제가 된다 */}
-      {editingProject !== null && editTargetsQuery.data !== undefined && (
+      {/* 시작값(현재 대상)과 기록이 오기 전에는 열지 않는다 — 빈 선택으로 열리면 저장이 대상 전체 해제가 되고,
+          기록 없이 열리면 기록 삭제 경고가 빠진다 */}
+      {editingProject !== null && editTargetsQuery.data !== undefined && editRecordsQuery.data !== undefined && (
         <SurveyProjectEditModal
           key={editingProject.id} // 다른 프로젝트로 바뀌면 입력값도 그 프로젝트에서 새로 시작한다
           project={editingProject}

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { SURVEY_ONGOING_LABEL } from '@/entities/survey-project'
 import type { SurveyProject, SurveyProjectDraft } from '@/entities/survey-project'
 import type { ControlPoint } from '@/entities/control-point'
 import { MODAL_DANGER_BTN, MODAL_SUBMIT_BTN, Modal } from '@/shared/ui/Modal'
@@ -56,8 +57,9 @@ export function SurveyProjectEditModal(props: {
   /** 무엇이 바뀌는지 — 요약 창이 항목별로 색을 달리 입히므로 문장이 아니라 구조로 계산한다 */
   function computeChanges(next: SurveyProjectDraft, targetPointIds: string[]): EditChanges {
     const before = props.project
+    // 종료일이 없으면 목록·상세와 같은 어휘(진행 중)로 적는다 — 확인 창에서만 표기가 갈리지 않게
     const period = (startedOn: string, endedOn: string | null) =>
-      `${formatDate(startedOn)} ~ ${endedOn === null ? '' : formatDate(endedOn)}`
+      `${formatDate(startedOn)} ~ ${endedOn === null ? SURVEY_ONGOING_LABEL : formatDate(endedOn)}`
     const wasTarget = new Set(props.initialTargetIds)
     const isTarget = new Set(targetPointIds)
     return {

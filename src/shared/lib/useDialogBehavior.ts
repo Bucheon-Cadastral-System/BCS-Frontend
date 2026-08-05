@@ -70,9 +70,11 @@ export function useDialogBehavior(options: {
     window.addEventListener('keydown', onKey)
     return () => {
       const at = dialogStack.indexOf(token)
+      // 맨 위 창이었을 때만 이전 포커스로 되돌린다 — 아래 창이 걷힐 때 되돌리면 남아 있는 위 창 밖으로 포커스가 샌다
+      const wasTop = at === dialogStack.length - 1
       if (at >= 0) dialogStack.splice(at, 1)
       window.removeEventListener('keydown', onKey)
-      prevActive?.focus?.()
+      if (wasTop) prevActive?.focus?.()
     }
   }, [panelRef, initialFocusRef, enabled])
 }

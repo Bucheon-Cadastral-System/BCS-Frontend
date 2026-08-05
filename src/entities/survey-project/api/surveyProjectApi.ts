@@ -7,6 +7,10 @@ interface ServerSurveyProject {
   startedOn: string
   endedOn: string | null
   note: string | null
+  /** 목록(요약) 응답에만 실려 온다 — 생성·수정 응답에는 없다 */
+  targetCount?: number
+  surveyedCount?: number
+  authorName?: string | null
 }
 
 function toSurveyProject(server: ServerSurveyProject): SurveyProject {
@@ -16,6 +20,9 @@ function toSurveyProject(server: ServerSurveyProject): SurveyProject {
     startedOn: server.startedOn,
     endedOn: server.endedOn,
     note: server.note,
+    targetCount: server.targetCount,
+    surveyedCount: server.surveyedCount,
+    authorName: server.authorName,
   }
 }
 

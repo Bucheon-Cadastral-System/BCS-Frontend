@@ -6,6 +6,16 @@ export interface SurveyProject {
   startedOn: string
   endedOn: string | null
   note: string | null
+  /** 대상·조사 수 — 목록 응답(요약)에만 실려 온다. 완료 여부는 이 둘로 판정한다 */
+  targetCount?: number
+  surveyedCount?: number
+  /** 작성자 표시명 — 인증이 붙기 전에는 기록이 없어 null 이다 */
+  authorName?: string | null
+}
+
+/** 조사 완료 여부 — 대상이 있고 전부 조사됐을 때. 요약(counts)이 없는 응답이면 미완으로 본다 */
+export function isProjectComplete(project: SurveyProject): boolean {
+  return (project.targetCount ?? 0) > 0 && (project.surveyedCount ?? 0) >= (project.targetCount ?? 0)
 }
 
 /**

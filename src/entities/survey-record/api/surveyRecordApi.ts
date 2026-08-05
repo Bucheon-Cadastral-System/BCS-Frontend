@@ -8,6 +8,7 @@ interface ServerSurveyRecord {
   result: SurveyResult
   surveyedAt: string
   note: string | null
+  surveyorName: string | null
 }
 
 /** 판정은 서버 어휘 그대로 들고, 지도가 쓰는 망실 여부만 함께 갈라 둔다. */
@@ -18,6 +19,7 @@ function toSurveyRecord(server: ServerSurveyRecord): SurveyRecord {
     surveyedAt: server.surveyedAt,
     result: server.result,
     lost: server.result === 'LOST',
+    surveyorName: server.surveyorName,
   }
 }
 

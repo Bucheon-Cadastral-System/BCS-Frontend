@@ -6,7 +6,7 @@ import { Skeleton, SkeletonRows } from '@/shared/ui/Skeleton'
 import { CHIP_BTN, CHIP_BTN_DANGER, PANEL, PROGRESS_FILL, ROW_ACCENT } from '@/shared/ui/classes'
 import { percent } from '@/shared/lib/percent'
 import { formatDate } from '@/shared/lib/date'
-import { SURVEY_ONGOING_LABEL, type SurveyProject } from '@/entities/survey-project'
+import { SURVEY_ONGOING_LABEL, isProjectComplete, type SurveyProject } from '@/entities/survey-project'
 import type { ControlPoint, PointType } from '@/entities/control-point'
 import { POINT_TYPES, PointTypeIcon, StatusMark } from '@/entities/control-point'
 
@@ -217,6 +217,22 @@ function ProjectPanel(props: MapSidebarProps) {
   }, [active])
   const detailOn = active !== null
   const shownProject = active ?? lastProject
+  // 나가는 동안 상세가 쓰던 데이터도 함께 붙잡는다 — 선택이 풀리는 순간 대상이 전체 기준점으로 되돌아가
+  // 밀려나는 화면의 대상 수·진행률이 전체 수로 튀는 것을 막는다
+  const [heldDetail, setHeldDetail] = useState({
+    targetPoints: props.targetPoints,
+    surveyedIds: props.surveyedIds,
+    lostIds: props.lostIds,
+  })
+  useEffect(() => {
+    if (active !== null) {
+      setHeldDetail({ targetPoints: props.targetPoints, surveyedIds: props.surveyedIds, lostIds: props.lostIds })
+    }
+  }, [active, props.targetPoints, props.surveyedIds, props.lostIds])
+  const detailData =
+    active !== null
+      ? { targetPoints: props.targetPoints, surveyedIds: props.surveyedIds, lostIds: props.lostIds }
+      : heldDetail
 
   // 대상 목록에서 조사 토글 버튼을 펼친 점 (보는 조사가 바뀌면 초기화)
   const [expandedPointId, setExpandedPointId] = useState<string | null>(null)
@@ -294,6 +310,7 @@ function ProjectPanel(props: MapSidebarProps) {
                   onClick={() => props.onChangeActive(p.id)}
                   className="flex w-full items-center gap-[11px] py-3 pl-[13px] pr-3.5 text-left transition-colors hover:bg-white/[0.03]"
                 >
+                  <ProjectStateMark complete={isProjectComplete(p)} />
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-[13px] font-semibold text-ink-2">{p.name}</span>
                     {/* 날짜는 자릿수가 서야 해서 고정폭이지만, 한글은 그 글꼴에 없어 다른 글꼴로 떨어진다 — 글자만 본문 글꼴로 되돌린다 */}
@@ -329,9 +346,9 @@ function ProjectPanel(props: MapSidebarProps) {
         {shownProject !== null && (
           <ProjectDetail
             project={shownProject}
-            targetPoints={props.targetPoints}
-            surveyedIds={props.surveyedIds}
-            lostIds={props.lostIds}
+            targetPoints={detailData.targetPoints}
+            surveyedIds={detailData.surveyedIds}
+            lostIds={detailData.lostIds}
             recordsLoading={props.recordsLoading}
             targetsLoading={props.targetsLoading}
             pointsLoading={props.pointsLoading}
@@ -400,9 +417,13 @@ function ProjectDetail(props: {
         </button>
         <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">{p.name}</span>
       </div>
-      <div className="shrink-0 px-3.5 text-[11.5px] text-ink-3">
-        {formatDate(p.startedOn)} ~{' '}
-        {p.endedOn === null ? <span className="text-teal-text">{SURVEY_ONGOING_LABEL}</span> : formatDate(p.endedOn)}
+      <div className="flex shrink-0 items-baseline justify-between gap-2 px-3.5 text-[11.5px] text-ink-3">
+        <span className="shrink-0">
+          {formatDate(p.startedOn)} ~{' '}
+          {p.endedOn === null ? <span className="text-teal-text">{SURVEY_ONGOING_LABEL}</span> : formatDate(p.endedOn)}
+        </span>
+        {/* 작성자 — 기간과 한 줄(우측). 인증 없이 만든 프로젝트는 기록이 없어 세우지 않는다 */}
+        {p.authorName != null && <span className="min-w-0 truncate">작성자 {p.authorName}</span>}
       </div>
 
       <div className="shrink-0 px-3.5 pt-3">
@@ -478,6 +499,31 @@ function ProjectDetail(props: {
 function monthLabel(month: string): string {
   const [y, m] = month.split('-')
   return `${y}년 ${Number(m)}월`
+}
+
+/** 목록 행의 조사 상태 — 완료는 청록 체크, 진행중은 회색 점 셋. */
+function ProjectStateMark(props: { complete: boolean }) {
+  return (
+    <span
+      aria-hidden
+      title={props.complete ? '조사 완료' : '조사 진행중'}
+      className={`flex size-[17px] shrink-0 items-center justify-center rounded-full border-2 ${
+        props.complete ? 'border-teal text-teal' : 'border-idle text-ink-4'
+      }`}
+    >
+      {props.complete ? (
+        <svg viewBox="0 0 24 24" className="size-2.5" fill="none" stroke="currentColor" strokeWidth={3.4} strokeLinecap="round" strokeLinejoin="round">
+          <path d="m5 13 4 4L19 7" />
+        </svg>
+      ) : (
+        <span className="flex items-center gap-[1.5px]">
+          <i className="size-[2px] rounded-full bg-current" />
+          <i className="size-[2px] rounded-full bg-current" />
+          <i className="size-[2px] rounded-full bg-current" />
+        </span>
+      )}
+    </span>
+  )
 }
 
 /** 조사 결과 내역 한 칸 — 점 색으로 지도 마커·범례와 같은 상태를 가리킨다. */
@@ -575,9 +621,10 @@ function PointListPanel(props: MapSidebarProps) {
         {POINT_TYPES.map((t) => {
           const pts = byType.get(t) ?? []
           const open = openType === t
-          // 펼침 높이는 개수만큼만 — 남은 높이보다 크면 flex 축소로 줄어들어 안에서 굴린다(가상 스크롤 유지)
+          // 펼침 높이는 개수만큼만 — 남은 높이보다 크면 flex 축소로 줄어들어 안에서 굴린다(가상 스크롤 유지).
+          // 빈 문구(py-6)와 자리표시(6줄+py-1)는 실제 렌더 높이만큼 잡아야 잘리지 않는다
           const fitHeight =
-            pts.length > 0 ? pts.length * ROW_HEIGHT + 6 : props.pointsLoading === true ? 6 * ROW_HEIGHT : 44
+            pts.length > 0 ? pts.length * ROW_HEIGHT + 6 : props.pointsLoading === true ? 6 * ROW_HEIGHT + 8 : 68
           return (
             <Fragment key={t}>
               <button
