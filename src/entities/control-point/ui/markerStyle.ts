@@ -80,9 +80,12 @@ function labelFont(): string {
 /**
  * 도식은 (종류·선택·망실·조사됨·테마) 조합에만 달려 있어 가짓수가 48개뿐이다.
  * 점 수천 개를 한 화면에 그리면 스타일 함수가 그만큼 불리므로, 조합마다 한 번만 만들어 돌려 쓴다.
+ * 라벨 스타일은 이름이 끼어 점마다 다르다 — 조합+이름 키로 따로 캐시한다(재스타일마다 Text·Fill·Stroke 를
+ * 새로 만들면 라벨 줌에서 화면 안 점 수만큼 할당이 생긴다).
  */
 const iconCache = new Map<string, Icon>()
 const plainStyleCache = new Map<string, Style>()
+const labeledStyleCache = new Map<string, Style>()
 
 function styleKey(type: PointType, selected: boolean, lost: boolean, done: boolean, theme: MapTheme): string {
   return `${theme}|${type}|${selected ? 1 : 0}|${lost ? 1 : 0}|${done ? 1 : 0}`
@@ -95,6 +98,8 @@ function markerIcon(key: string, type: PointType, selected: boolean, lost: boole
   }
   const icon = new Icon({
     src: 'data:image/svg+xml;base64,' + btoa(svgFor(type, selected, lost, done, PALETTE[theme])),
+    // 점은 겹치더라도 하나씩 그대로 그린다 — declutter 는 라벨만 거르고 도식은 건드리지 않는다
+    declutterMode: 'none',
   })
   iconCache.set(key, icon)
   return icon
@@ -126,8 +131,13 @@ export function controlPointStyle(
     return style
   }
 
+  const labeledKey = `${key}|${cp.name}`
+  const cachedLabeled = labeledStyleCache.get(labeledKey)
+  if (cachedLabeled) {
+    return cachedLabeled
+  }
   const pal = PALETTE[theme]
-  return new Style({
+  const style = new Style({
     image: markerIcon(key, cp.type, selected, lost, done, theme),
     text: new Text({
       text: cp.name,
@@ -137,4 +147,6 @@ export function controlPointStyle(
       stroke: new Stroke({ color: pal.labelHalo, width: 3 }),
     }),
   })
+  labeledStyleCache.set(labeledKey, style)
+  return style
 }
