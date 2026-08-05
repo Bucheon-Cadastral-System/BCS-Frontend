@@ -4,6 +4,6 @@ export { controlPointStyle, controlPointLabelStyle, markerAtlasUrl, markerSymbol
 export { PointTypeIcon } from './ui/PointTypeIcon'
 export { StatusMark } from './ui/StatusMark'
 export type { MapTheme } from './ui/markerStyle'
-export { fetchControlPoints, registerControlPoint, updateControlPoint, deleteControlPoint } from './api/controlPointApi'
+export { fetchControlPoints, registerControlPoint, updateControlPoint, deleteControlPoint, fetchControlPointUsage } from './api/controlPointApi'
 export type { RegisterControlPointArgs, RegisterControlPointOutcome, UpdateControlPointOutcome } from './api/controlPointApi'
 export { useControlPointsQuery, useRegisterControlPointMutation, useUpdateControlPointMutation, useDeleteControlPointMutation, CONTROL_POINTS_KEY } from './api/queries'

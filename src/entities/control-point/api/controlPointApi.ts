@@ -127,6 +127,12 @@ export async function deleteControlPoint(id: string): Promise<void> {
   await http.delete(`/api/control-points/${id}`)
 }
 
+/** 조사 데이터가 참조 중인지 — 삭제 확인 창을 물음/불가로 갈라 여는 근거다. */
+export async function fetchControlPointUsage(id: string): Promise<boolean> {
+  const res = await http.get<{ referenced: boolean }>(`/api/control-points/${id}/usage`)
+  return res.data.referenced
+}
+
 function toPayload(args: RegisterControlPointArgs) {
   return {
     pointNo: args.pointNo,
