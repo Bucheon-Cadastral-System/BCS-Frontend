@@ -54,7 +54,10 @@ function centerShift(leftInset: number, rightInset: number, resolution: number):
 }
 
 interface ControlPointMapProps {
+  /** 전체 기준점 — 소스는 이 목록을 한 번만 들고, 갱신 때는 바뀐 점만 손본다 */
   points: ControlPoint[]
+  /** 보일 점 id — null 이면 전부. 탭·조사 전환은 소스 재구성이 아니라 이 집합의 교체다 */
+  visibleIds: ReadonlySet<string> | null
   addMode: boolean
   showCadastral: boolean
   selectedId: string | null
@@ -78,6 +81,8 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<Map | null>(null)
   const rawSourceRef = useRef<VectorSource | null>(null)
+  // 점 id → 피처 — 갱신을 통째 재구성이 아니라 diff 로 하기 위한 색인 (Map 이름은 ol/Map 이 차지해 globalThis 로 부른다)
+  const featureByIdRef = useRef<globalThis.Map<string, Feature>>(new globalThis.Map())
   const pointLayerRef = useRef<VectorLayer<VectorSource> | null>(null)
   const cadastralRef = useRef<ImageLayer<ImageWMS> | null>(null)
   const baseLayerRef = useRef<TileLayer<XYZ> | null>(null)
@@ -92,6 +97,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const surveyedIdsRef = useRef(props.surveyedIds)
   const lostIdsRef = useRef(props.lostIds)
   const themeRef = useRef(props.theme)
+  const visibleIdsRef = useRef(props.visibleIds)
   const leftInsetRef = useRef(props.leftInset)
   const rightInsetRef = useRef(props.rightInset)
   const pointsRef = useRef(props.points)
@@ -109,6 +115,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     surveyedIdsRef.current = props.surveyedIds
     lostIdsRef.current = props.lostIds
     themeRef.current = props.theme
+    visibleIdsRef.current = props.visibleIds
     leftInsetRef.current = props.leftInset
     rightInsetRef.current = props.rightInset
     pointsRef.current = props.points
@@ -152,8 +159,11 @@ export function ControlPointMap(props: ControlPointMapProps) {
     rawSourceRef.current = rawSource
 
     // 점은 겹치더라도 하나씩 그대로 그린다. 이름은 가까이서 볼 때만 붙인다.
-    const layerStyle = (feature: FeatureLike, resolution: number): Style => {
+    // 소스는 전체 점을 들고 있고, 숨길 점은 스타일을 돌려주지 않아 그리기·클릭 판정에서 함께 빠진다.
+    const layerStyle = (feature: FeatureLike, resolution: number): Style | undefined => {
       const cp = feature.get('cp') as ControlPoint
+      const visible = visibleIdsRef.current
+      if (visible !== null && !visible.has(cp.id)) return undefined
       const survey = surveyModeRef.current
         ? deriveSurveyStatus(cp.id, surveyedIdsRef.current, lostIdsRef.current)
         : 'none'
@@ -166,7 +176,8 @@ export function ControlPointMap(props: ControlPointMapProps) {
       )
     }
 
-    const pointLayer = new VectorLayer({ source: rawSource, style: layerStyle })
+    // declutter 는 라벨 겹침을 걸러 준다 — 도식은 declutterMode:'none'(markerStyle)이라 빠짐없이 그려진다
+    const pointLayer = new VectorLayer({ source: rawSource, style: layerStyle, declutter: true })
     pointLayerRef.current = pointLayer
 
     const map = new Map({
@@ -180,8 +191,16 @@ export function ControlPointMap(props: ControlPointMapProps) {
     mapRef.current = map
     onMapReadyRef.current?.(map)
 
-    // 타일이 도착할 때마다 리렌더 → 큰 줌 점프(리스트 포커스 등) 후에도 축소상태 안 남고 즉시 갱신
-    const rerender = () => map.render()
+    // 타일이 도착할 때마다 리렌더 → 큰 줌 점프(리스트 포커스 등) 후에도 축소상태 안 남고 즉시 갱신.
+    // 이동·줌 중에는 타일이 수십 장 쏟아지므로 한 프레임에 한 번으로 모은다 — 요청만 모을 뿐 갱신 시점은 같다.
+    let renderFrame = 0
+    const rerender = () => {
+      if (renderFrame !== 0) return
+      renderFrame = requestAnimationFrame(() => {
+        renderFrame = 0
+        map.render()
+      })
+    }
     baseSource.on('tileloadend', rerender)
     cadastralSource.on('imageloadend', rerender)
 
@@ -210,36 +229,69 @@ export function ControlPointMap(props: ControlPointMapProps) {
     })
 
     return () => {
+      // 예약해 둔 프레임·리스너를 걷는다 — 남기면 떠난 지도에 마지막 타일이 렌더를 건다
+      if (renderFrame !== 0) cancelAnimationFrame(renderFrame)
+      baseSource.un('tileloadend', rerender)
+      cadastralSource.un('imageloadend', rerender)
       resizeObserver.disconnect()
       map.setTarget(undefined)
       onMapReadyRef.current?.(null)
       mapRef.current = null
       rawSourceRef.current = null
+      featureByIdRef.current = new globalThis.Map()
       pointLayerRef.current = null
       cadastralRef.current = null
       baseLayerRef.current = null
     }
   }, [])
 
-  // points 변경 → 소스 재구성
+  /**
+   * points 변경 → 소스 diff 갱신.
+   * 통째로 부수고 다시 만들면(clear+add) 재조회 때마다 수천 피처 생성·색인 재구축이 한 프레임에 몰린다.
+   * 탭·조사 전환은 여기 오지 않는다 — 무엇을 보일지는 visibleIds 가 스타일로 거른다.
+   */
   useEffect(() => {
     const source = rawSourceRef.current
     if (!source) return
-    source.clear()
-    source.addFeatures(
-      props.points.map((p) => {
+    const byId = featureByIdRef.current
+    let touched = false
+    const nextIds = new Set(props.points.map((p) => p.id))
+    for (const [id, feature] of byId) {
+      if (!nextIds.has(id)) {
+        source.removeFeature(feature)
+        byId.delete(id)
+      }
+    }
+    const added: Feature[] = []
+    for (const p of props.points) {
+      const existing = byId.get(p.id)
+      if (existing === undefined) {
         const f = new Feature({ geometry: new Point(fromLonLat([p.lng, p.lat])) })
         f.set('id', p.id)
         f.set('cp', p)
-        return f
-      }),
-    )
+        byId.set(p.id, f)
+        added.push(f)
+        continue
+      }
+      // 재조회는 같은 값이라도 새 객체를 준다 — 참조가 다르면 값만 옮겨 싣고, 좌표는 달라졌을 때만 옮긴다.
+      // 옮겨 싣기는 무음(silent)으로 — 점마다 변경 이벤트를 내면 재조회 한 번에 수천 번 울린다. 아래에서 한 번만 알린다.
+      if (existing.get('cp') !== p) {
+        existing.set('cp', p, true)
+        touched = true
+        const geometry = existing.getGeometry() as Point
+        const [x, y] = fromLonLat([p.lng, p.lat])
+        const [cx, cy] = geometry.getCoordinates()
+        if (cx !== x || cy !== y) geometry.setCoordinates([x, y])
+      }
+    }
+    if (added.length > 0) source.addFeatures(added)
+    if (touched) source.changed()
   }, [props.points])
 
-  // 선택/조사상태/테마 변경 → 점 레이어 재스타일
+  // 선택/조사상태/테마/보이는 집합 변경 → 점 레이어 재스타일(스타일 자체는 캐시가 받는다)
   useEffect(() => {
     pointLayerRef.current?.changed()
-  }, [props.selectedId, props.surveyMode, props.surveyedIds, props.lostIds, props.theme])
+  }, [props.selectedId, props.surveyMode, props.surveyedIds, props.lostIds, props.theme, props.visibleIds])
 
   /**
    * 테마 변경 → 배경지도 교체.

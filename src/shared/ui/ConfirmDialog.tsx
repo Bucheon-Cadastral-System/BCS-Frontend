@@ -41,13 +41,16 @@ export function ConfirmDialog(props: {
       onClick={close}
       {...dropHandlers}
     >
-      <div ref={panelRef} className={`panel-in w-[320px] max-w-full p-5 ${MODAL_SHELL}`} onClick={(e) => e.stopPropagation()}>
-        <p id="confirm-dialog-message" className="text-center text-[13.5px] font-medium text-ink">
+      {/* 폭은 내용에 맞춘다(최소 320) — 안내 한 줄이 상한 안에 들면 어색하게 꺾이지 않고 한 줄로 선다.
+          상한을 넘는 긴 글만 break-keep 으로 단어 경계에서 접는다. */}
+      <div ref={panelRef} className={`panel-in w-fit min-w-[min(320px,100%)] max-w-[min(440px,100%)] p-5 ${MODAL_SHELL}`} onClick={(e) => e.stopPropagation()}>
+        <p id="confirm-dialog-message" className="break-keep text-center text-[13.5px] font-medium text-ink">
           {props.message}
         </p>
-        {props.detail && <p className="mt-1.5 text-center text-[12px] leading-5 text-ink-3">{props.detail}</p>}
+        {props.detail && <p className="mt-1.5 break-keep text-center text-[12px] leading-5 text-ink-3">{props.detail}</p>}
+        {/* 오류는 서버 문구라 공백 없는 긴 토큰이 올 수 있다 — 단어 경계 우선, 안 되면 아무 데서나 접는다 */}
         {props.error && (
-          <p className="mt-2.5 rounded-chip bg-danger-wash px-2.5 py-1.5 text-center text-[11.5px] text-danger" role="alert">
+          <p className="mt-2.5 break-keep rounded-chip bg-danger-wash px-2.5 py-1.5 text-center text-[11.5px] wrap-anywhere text-danger" role="alert">
             {props.error}
           </p>
         )}

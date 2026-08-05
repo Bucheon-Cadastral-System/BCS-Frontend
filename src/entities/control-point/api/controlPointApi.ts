@@ -96,18 +96,44 @@ export async function registerControlPoint(args: RegisterControlPointArgs): Prom
     created: boolean
     updated: boolean
     warning: string | null
-  }>('/api/control-points', {
+  }>('/api/control-points', toPayload(args))
+  return {
+    point: toControlPoint(res.data.point),
+    created: res.data.created,
+    updated: res.data.updated,
+    warning: res.data.warning ?? null,
+  }
+}
+
+/** 수정 결과 — 경위도는 성과에서 재파생되고, 범위 밖 경고는 저장을 막지 않는다. */
+export interface UpdateControlPointOutcome {
+  point: ControlPoint
+  warning: string | null
+}
+
+/** 수정 — 식별·성과만 보낸다. 소재지·설치·최종조사 항목은 서버가 기존 값을 유지한다. */
+export async function updateControlPoint(
+  args: RegisterControlPointArgs & { id: string },
+): Promise<UpdateControlPointOutcome> {
+  const res = await http.put<{ point: ServerControlPoint; warning: string | null }>(
+    `/api/control-points/${args.id}`,
+    toPayload(args),
+  )
+  return { point: toControlPoint(res.data.point), warning: res.data.warning ?? null }
+}
+
+/** 삭제 — 조사 프로젝트가 대상·기록으로 쓰는 점은 서버가 거부한다(409). */
+export async function deleteControlPoint(id: string): Promise<void> {
+  await http.delete(`/api/control-points/${id}`)
+}
+
+function toPayload(args: RegisterControlPointArgs) {
+  return {
     pointNo: args.pointNo,
     type: TYPE_TO_SERVER[args.type],
     name: args.name,
     crs: CRS_FROM_EPSG[args.tmEpsg],
     northing: args.northing,
     easting: args.easting,
-  })
-  return {
-    point: toControlPoint(res.data.point),
-    created: res.data.created,
-    updated: res.data.updated,
-    warning: res.data.warning ?? null,
   }
 }

@@ -1,25 +1,9 @@
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { POINT_TYPES } from '@/entities/control-point'
-import type { PointType } from '@/entities/control-point'
-import { ImportPreviewList, NO_FILES, POINT_ACTION_LABEL, SEND_LABEL, SendMark, hasRowErrors, nothingToRegister, summaryOf, useImportPreviews, useSequentialSend } from '@/features/import-file'
+import { ImportPreviewList, NO_FILES, POINT_ACTION_LABEL, SEND_LABEL, SendMark, hasRowErrors, nothingToRegister, useImportPreviews, useSequentialSend } from '@/features/import-file'
 import type { PointPreview, ReadFile } from '@/features/import-file'
-import { TM_ORIGINS } from '@/shared/lib/crs'
-import type { TmEpsg } from '@/shared/lib/crs'
-import { MODAL_CANCEL_BTN, MODAL_DANGER_BTN, MODAL_INPUT, MODAL_SELECT, MODAL_SUBMIT_BTN, Modal, ModalField } from '@/shared/ui/Modal'
+import { MODAL_CANCEL_BTN, MODAL_DANGER_BTN, MODAL_SUBMIT_BTN, Modal } from '@/shared/ui/Modal'
 import { Spinner } from '@/shared/ui/Spinner'
-import { FormNotice } from '@/shared/ui/FormNotice'
-import { useFormNotice } from '@/shared/lib/useFormNotice'
-
-export interface AddControlPointValues {
-  pointNo: string
-  name: string
-  type: PointType
-  /** 성과 좌표(권위값) — 측량 관례상 X=북(northing), Y=동(easting). 경위도는 서버가 여기서 파생한다 */
-  northing: number
-  easting: number
-  tmEpsg: TmEpsg
-}
 
 /** 갱신되는 점은 줄 아래에 바뀔 항목을 적는다 — 무엇이 덮이는지 보지 않고 확정할 수 없다. */
 function PointPreviewRow({ point }: { point: PointPreview }) {
@@ -165,27 +149,11 @@ const ACTION_ORDER: PointPreview['action'][] = ['NEW', 'UPDATE', 'UNCHANGED']
 const POINT_ROW_HEIGHT = 52
 
 /**
- * 기준점 추가 입력 — 성과 좌표(TM)가 권위값이라 사용자가 직접 입력하고, 경위도는 그 값에서 파생해 보여주기만 한다.
- * 좌표를 손에 들고 있지 않을 때를 위해 '지도에서 위치 찍기'로 시작값을 채울 수 있다(찍은 값은 시작값일 뿐 실제 성과가 아니다).
- *
- * 여러 점은 파일로 넣는다. 파일을 붙이면 읽기를 별도 단계로 두고 진행 상태만 보여 준다 —
- * 파일에는 점이 여러 개라 입력 칸을 띄워 봐야 어느 점의 값인지 말할 수 없기 때문이다. 창은 그대로 두고 안쪽만 바꾼다.
+ * 기준점 파일 등록 — 파일 고르기에서 시작해 읽기 → 확인·등록으로 나아간다.
+ * 파일에는 점이 여러 개라 입력 칸을 띄워 봐야 어느 점의 값인지 말할 수 없으므로,
+ * 읽기를 별도 단계로 두고 확인 화면이 점별 신규/갱신 판정을 보여 준다. 한 점 입력은 기준점 추가 창이 맡는다.
  */
-export function AddControlPointModal(props: {
-  defaultType: PointType
-  defaultEpsg: TmEpsg
-  /**
-   * 지도에서 찍어 온 시작값 — 값이 새로 오면 좌표 칸을 채운다(입력하던 다른 값은 유지).
-   * 숫자만으로는 어느 원점 기준인지 알 수 없으므로 변환에 쓴 원점을 함께 받아 같이 맞춘다.
-   */
-  picked: { northing: number; easting: number; epsg: TmEpsg } | null
-  /** 같은 이름·종류의 기준점 — 있으면 등록이 임포트 규칙대로 그 점을 갱신하므로, 입력 중에 미리 알린다 */
-  existingOf: (name: string, type: PointType) => { pointNo: string } | null
-  /** 지도 클릭을 기다리는 중 — 이때 모달은 숨고 지도만 보인다 */
-  picking: boolean
-  onPick: () => void
-  submitting: boolean
-  onSubmit: (values: AddControlPointValues) => void
+export function ControlPointFileModal(props: {
   /**
    * 파일 한 건 등록. 여러 건을 등록할 때는 몇 번째인지 함께 알려, 받는 쪽이 알림을 건마다 띄우지 않게 한다.
    * 실패로 끝나면 그 건에 머문다.
@@ -193,32 +161,11 @@ export function AddControlPointModal(props: {
   onImport: (file: File, batch: { index: number; total: number }) => Promise<void>
   onCancel: () => void
 }) {
-  const [pointNo, setPointNo] = useState('')
-  const [name, setName] = useState('')
-  const [type, setType] = useState<PointType>(props.defaultType)
-  const [tmEpsg, setTmEpsg] = useState<TmEpsg>(props.defaultEpsg)
-  const [northing, setNorthing] = useState('')
-  const [easting, setEasting] = useState('')
   const [reading, setReading] = useState<File[] | null>(null)
   // 확인 단계에 오른 파일들 — 비어 있으면 아직 이 단계에 오지 않았다. 건별 전송 상태는 훅이 순번으로 든다
   const [entries, setEntries] = useState<ReadFile[]>([])
-  // 읽기를 마치고 폼에 붙어 있는 파일 — 프로젝트 추가와 같이, 읽고 나면 입력 화면으로 돌아와 붙은 파일을 보여 준다
-  const [attached, setAttached] = useState<ReadFile[]>([])
   const send = useSequentialSend('등록하지 못했습니다. 잠시 후 다시 시도해 주세요.')
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const form = useFormNotice()
-
-  // 지도에서 찍어 오면 좌표만 갱신 — 모달은 마운트를 유지하므로 관리번호·이름 등 입력값은 그대로 남는다
-  const picked = props.picked
-  const clearNotice = useEffectEvent(() => form.clear())
-  useEffect(() => {
-    if (!picked) return
-    // 값이 코드로 바뀌면 입력 이벤트가 나지 않아 문구가 저절로 거두어지지 않는다
-    clearNotice()
-    setNorthing(picked.northing.toFixed(2))
-    setEasting(picked.easting.toFixed(2))
-    setTmEpsg(picked.epsg) // 좌표와 원점이 어긋나면 저장되는 경위도가 찍은 위치와 달라진다
-  }, [picked])
 
   // 읽는 동안의 진행 상태 — 창을 새로 띄우지 않고 이 창 안에서 그대로 보여 준다
   const { entries: previews, finished } = useImportPreviews(reading ?? NO_FILES, 'control-points')
@@ -242,16 +189,15 @@ export function AddControlPointModal(props: {
   function handleFiles(picked: File[]) {
     if (picked.length === 0) return
     setEntries([])
-    setAttached([])
     send.reset()
     setReading(picked)
   }
 
-  /** 읽은 파일을 폼에 붙인다 — 읽기는 거쳐 가는 단계이고, 무엇을 등록할지는 입력 화면에서 확인한다. */
+  /** 읽은 파일을 확인 단계로 넘긴다 — 무엇이 신규이고 무엇이 갱신인지 보고 나서 등록을 시작한다. */
   function proceed(files: ReadFile[]) {
     setReading(null)
     if (files.length === 0) return
-    setAttached(files)
+    setEntries(files)
   }
 
   const openPicker = () => fileInputRef.current?.click()
@@ -268,36 +214,38 @@ export function AddControlPointModal(props: {
     // 끝나도 창을 닫지 않는다 — 무엇이 등록됐는지 확인하고 사용자가 닫는다
   }
 
-  const n = Number(northing)
-  const e = Number(easting)
-  // 빈 문자열·공백은 Number()가 0으로 바꾸므로, 값이 비면 좌표 없음으로 본다
-  const coordsValid = northing.trim() !== '' && easting.trim() !== '' && Number.isFinite(n) && Number.isFinite(e)
-  // 같은 이름·종류의 점 — 있으면 이 등록은 새 점이 아니라 그 점의 갱신이 된다(임포트와 같은 규칙)
-  const existing = name.trim() === '' ? null : props.existingOf(name.trim(), type)
-  function submit() {
-    if (props.submitting) return
-    // 파일이 붙어 있으면 그 파일을 등록한다 — 한 점 입력값은 이 경우 쓰이지 않는다
-    if (attached.length > 0) {
-      setEntries(attached)
+  /** 창의 기본 동작(Enter 포함) — 단계마다 주 버튼과 같은 일을 한다. 등록은 확인 단계에서만. */
+  function handlePrimary() {
+    if (confirming) {
+      registerAll()
       return
     }
-    // 못 채운 칸은 창 안에서 알린다 — 브라우저 기본 말풍선은 우리 규격 밖에서 그려진다
-    if (!form.validate()) return
-    if (!coordsValid) {
-      form.fail('좌표를 숫자로 입력해 주세요.')
+    if (showReading) {
+      // 읽기가 끝났으면 주 버튼(확인하기)과 같은 길 — 단계마다 Enter 가 다른 일을 하면 손이 헛디딘다
+      if (readingDone && usable.length > 0) proceed(usable)
       return
     }
-    props.onSubmit({
-      pointNo: pointNo.trim(),
-      name: name.trim(),
-      type,
-      northing: n,
-      easting: e,
-      tmEpsg,
-    })
+    openPicker()
   }
 
   const readingBody = <ImportPreviewList entries={previews} unit="기준점" />
+
+  // 화면 전체 드롭 안내와 같은 모양 — 여기에 끌어다 놓아도 되고 눌러서 골라도 된다는 뜻
+  const pickerBody = (
+    <button
+      type="button"
+      onClick={openPicker}
+      className="flex w-full flex-col items-center justify-center gap-1.5 rounded-ctl border-2 border-dashed border-line-field py-10 text-ink-4 transition-colors hover:border-teal-edge hover:text-teal-text"
+    >
+      <svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 16V4" />
+        <path d="m7 9 5-5 5 5" />
+        <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+      </svg>
+      <span className="text-[13px] font-medium">파일을 끌어다 놓거나 눌러서 선택</span>
+      <span className="text-[11px]">CSV · XLS · XLSX</span>
+    </button>
+  )
 
   /**
    * 마지막 확인 — 무엇이 등록되는지 훑어본 뒤 여기서 등록을 시작한다.
@@ -356,123 +304,12 @@ export function AddControlPointModal(props: {
     </>
   )
 
-  // 파일이 붙으면 폼을 대신한다 — 한 점 입력값과 파일은 같은 것을 두 방식으로 말하므로 함께 세울 수 없다
-  const attachedBody = (
-    <>
-      <p className="text-[12.5px] text-ink-3">파일에 포함된 기준점을 등록합니다. 한 점씩 등록하려면 파일을 제거해 주세요.</p>
-      <ul className="space-y-1.5">
-        {attached.map((item, i) => (
-          <li key={i} className="flex items-center gap-2 rounded-ctl border border-line-field bg-field px-2.5 py-2">
-            <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">
-              {item.file.name}
-              <span className="ml-1.5 text-[11px] text-ink-3">{summaryOf(item)}</span>
-            </span>
-            {/* 빼면 한 점을 손으로 넣는 화면으로 돌아간다 — 적어 두던 값은 그대로 남는다 */}
-            <button
-              type="button"
-              onClick={() => setAttached((cur) => cur.filter((_, at) => at !== i))}
-              aria-label="파일 제거"
-              className="shrink-0 rounded-chip p-1 text-ink-4 transition-colors hover:bg-danger-wash hover:text-danger"
-            >
-              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M4 7h16" />
-                <path d="M10 11v6M14 11v6" />
-                <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
-                <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-              </svg>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </>
-  )
-
-  const formBody = (
-    <>
-      <ModalField label="관리번호" required>
-        <input className={MODAL_INPUT} value={pointNo} onChange={(ev) => setPointNo(ev.target.value)} placeholder="41192D000001265" required />
-      </ModalField>
-
-      <ModalField label="기준점명" required>
-        <input className={MODAL_INPUT} value={name} onChange={(ev) => setName(ev.target.value)} placeholder="1465공" required />
-        {/* 막지 않는다 — 성과 정정이 곧 이 흐름이라, 무엇이 벌어지는지만 미리 말한다 */}
-        {existing !== null && (
-          <p className="mt-1.5 break-keep text-[11px] leading-[1.5] wrap-anywhere text-amber">
-            같은 이름·종류의 기준점이 이미 있습니다(관리번호 {existing.pointNo}) — 등록하면 그 점의 성과가 갱신됩니다.
-          </p>
-        )}
-      </ModalField>
-
-      <ModalField label="종류">
-        <select className={MODAL_SELECT} value={type} onChange={(ev) => setType(ev.target.value as PointType)}>
-          {POINT_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-      </ModalField>
-
-      <ModalField label="원점">
-        <select className={MODAL_SELECT} value={tmEpsg} onChange={(ev) => setTmEpsg(ev.target.value as TmEpsg)}>
-          {TM_ORIGINS.map((o) => (
-            <option key={o.epsg} value={o.epsg}>
-              {o.label} ({o.epsg})
-            </option>
-          ))}
-        </select>
-      </ModalField>
-
-      <div className="grid grid-cols-2 gap-2">
-        <ModalField label="X 좌표 (북, m)" required>
-          <input className={MODAL_INPUT} value={northing} onChange={(ev) => setNorthing(ev.target.value)} inputMode="decimal" placeholder="545236.77" required />
-        </ModalField>
-        <ModalField label="Y 좌표 (동, m)" required>
-          <input className={MODAL_INPUT} value={easting} onChange={(ev) => setEasting(ev.target.value)} inputMode="decimal" placeholder="181840.96" required />
-        </ModalField>
-      </div>
-
-      <button
-        type="button"
-        onClick={props.onPick}
-        className={`${MODAL_CANCEL_BTN} w-full`}
-      >
-        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M12 21s-6-5.686-6-10a6 6 0 1 1 12 0c0 4.314-6 10-6 10Z" />
-          <circle cx="12" cy="11" r="2" />
-        </svg>
-        지도에서 위치 찍기
-      </button>
-
-      {/* 이 칸만 label 을 쓰지 않는다 — 라벨을 누르면 안쪽 버튼이 함께 눌려 파일 선택이 두 번 열린다 */}
-      <div>
-        <span className="mb-1.5 block text-[11px] font-medium tracking-[.08em] text-ink-3">기준점 파일</span>
-        {/* 화면 전체 드롭 안내와 같은 모양 — 여기에 끌어다 놓아도 되고 눌러서 골라도 된다는 뜻 */}
-        <button
-          type="button"
-          onClick={openPicker}
-          className="flex w-full flex-col items-center justify-center gap-1.5 rounded-ctl border-2 border-dashed border-line-field py-5 text-ink-4 transition-colors hover:border-teal-edge hover:text-teal-text"
-        >
-          <svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M12 16V4" />
-            <path d="m7 9 5-5 5 5" />
-            <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-          </svg>
-          <span className="text-[13px] font-medium">파일을 끌어다 놓거나 눌러서 선택</span>
-          <span className="text-[11px]">CSV · XLS · XLSX</span>
-        </button>
-      </div>
-    </>
-  )
-
   return (
     <Modal
-      title={confirming ? '기준점 등록' : showReading ? '기준점 파일 읽기' : attached.length > 0 ? '기준점 파일 등록' : '기준점 추가'}
-      busy={props.submitting || send.inFlight || reading !== null}
-      hidden={props.picking}
+      title={confirming ? '기준점 등록' : showReading ? '기준점 파일 읽기' : '기준점 파일 등록'}
+      busy={send.inFlight || reading !== null}
       onClose={props.onCancel}
-      onSubmit={confirming ? registerAll : submit}
-      formRef={form.formRef}
+      onSubmit={handlePrimary}
       onDropFile={confirming ? undefined : handleFiles}
       scrollInside={confirming && !send.started}
       footer={
@@ -511,7 +348,7 @@ export function AddControlPointModal(props: {
             <button type="button" className={MODAL_DANGER_BTN} onClick={props.onCancel}>
               취소
             </button>
-            {/* 남는 자리를 안내가 차지해 되돌아가기는 왼쪽, 나머지 선택지는 오른쪽에 붙는다 */}
+            {/* 남는 자리를 안내가 차지해 취소는 왼쪽, 나머지 선택지는 오른쪽에 붙는다 */}
             <span className="flex-1 self-center pl-1 text-[12px] text-ink-3">
               {readingDone
                 ? [
@@ -534,7 +371,7 @@ export function AddControlPointModal(props: {
               disabled={!readingDone || usable.length === 0}
             >
               {readingDone ? (
-                `${usable.length}건 입력하기`
+                `${usable.length}건 확인하기`
               ) : (
                 <span className="flex items-center gap-1.5">
                   <Spinner className="size-3.5" current />
@@ -545,19 +382,11 @@ export function AddControlPointModal(props: {
           </>
         ) : (
           <>
-            <button type="button" className={MODAL_DANGER_BTN} onClick={props.onCancel} disabled={props.submitting}>
+            <button type="button" className={MODAL_DANGER_BTN} onClick={props.onCancel}>
               취소
             </button>
-            <span className="ml-auto flex min-w-0 items-center">
-              <FormNotice message={form.notice} />
-            </span>
-            {attached.length > 0 && (
-              <button type="button" className={MODAL_CANCEL_BTN} onClick={openPicker}>
-                다른 파일 선택
-              </button>
-            )}
-            <button type="submit" className={MODAL_SUBMIT_BTN} disabled={props.submitting}>
-              {props.submitting ? '등록 중…' : attached.length > 0 ? `${attached.length}건 등록` : '등록'}
+            <button type="submit" className={`${MODAL_SUBMIT_BTN} ml-auto`}>
+              파일 선택
             </button>
           </>
         )
@@ -578,7 +407,7 @@ export function AddControlPointModal(props: {
           handleFiles(picked)
         }}
       />
-      {confirming ? confirmBody : showReading ? readingBody : attached.length > 0 ? attachedBody : formBody}
+      {confirming ? confirmBody : showReading ? readingBody : pickerBody}
     </Modal>
   )
 }

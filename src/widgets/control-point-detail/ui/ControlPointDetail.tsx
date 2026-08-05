@@ -12,6 +12,9 @@ interface ControlPointDetailProps {
   onToggleSurvey: (id: string) => void
   onClose: () => void
   onToggleLost: (id: string) => void
+  /** 이 점 수정·삭제 — 입력과 확인은 화면 전체를 아는 쪽의 창이 받는다 */
+  onEdit: (point: ControlPoint) => void
+  onDelete: (point: ControlPoint) => void
   /** 관리번호를 복사한 결과 — 알림은 화면 전체를 아는 쪽이 띄운다 */
   onCopied: (ok: boolean) => void
 }
@@ -84,10 +87,38 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
         </span>
         <button
           type="button"
+          onClick={() => props.onEdit(p)}
+          title="수정"
+          aria-label="기준점 수정"
+          className="flex size-[26px] shrink-0 items-center justify-center rounded-chip text-ink-3 transition-colors hover:bg-hover hover:text-teal-text"
+        >
+          <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => props.onDelete(p)}
+          title="삭제"
+          aria-label="기준점 삭제"
+          className="flex size-[26px] shrink-0 items-center justify-center rounded-chip text-ink-3 transition-colors hover:bg-danger-wash hover:text-danger"
+        >
+          <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M4 7h16" />
+            <path d="M10 11v6M14 11v6" />
+            <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
+            <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+          </svg>
+        </button>
+        {/* 삭제와 닫기는 이웃한 데다 강조색이 같다 — 사이를 갈라 잘못 누르지 않게 한다 */}
+        <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 self-center bg-line-soft" />
+        <button
+          type="button"
           onClick={props.onClose}
           title="닫기"
           aria-label="닫기"
-          className="flex size-[26px] items-center justify-center rounded-chip text-ink-3 transition-colors hover:bg-danger-wash hover:text-danger"
+          className="flex size-[26px] shrink-0 items-center justify-center rounded-chip text-ink-3 transition-colors hover:bg-danger-wash hover:text-danger"
         >
           <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             <path d="M18 6 6 18M6 6l12 12" />
