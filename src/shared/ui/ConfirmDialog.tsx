@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import { useDialogBehavior } from '@/shared/lib/useDialogBehavior'
 import { useFileDrop } from '@/shared/lib/useFileDrop'
@@ -35,7 +36,8 @@ export function ConfirmDialog(props: {
   // 묻는 중에 떨어진 파일은 여기서 멈춘다 — 흘려보내면 답을 기다리는 사이 뒤쪽에서 다른 흐름이 시작된다
   const { dropHandlers } = useFileDrop(() => undefined)
 
-  return (
+  // body 로 내보내 세운다(Modal 과 같은 이유) — 창 안·판 안 어디서 선언해도 딤과 가운데 정렬이 화면 기준이 된다
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       role="dialog"
@@ -79,6 +81,7 @@ export function ConfirmDialog(props: {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
