@@ -6,29 +6,21 @@ import { today } from '@/shared/lib/date'
 import { fileBaseName } from '@/shared/lib/file'
 import { percent } from '@/shared/lib/percent'
 import { PROGRESS_FILL } from '@/shared/ui/classes'
-import { MODAL_CANCEL_BTN, MODAL_DANGER_BTN, MODAL_HEADER, MODAL_INPUT, MODAL_READONLY, MODAL_SUBMIT_BTN, MODAL_TEXTAREA, Modal, ModalField } from '@/shared/ui/Modal'
+import { MODAL_CANCEL_BTN, MODAL_DANGER_BTN, MODAL_HEADER, MODAL_SUBMIT_BTN, Modal } from '@/shared/ui/Modal'
 import { Spinner } from '@/shared/ui/Spinner'
 import { FormNotice } from '@/shared/ui/FormNotice'
 import { useFormNotice } from '@/shared/lib/useFormNotice'
 import type { StatusShape, StatusTone } from '@/shared/ui/statusRow'
-
-/**
- * 날짜 칸이 받을 수 있는 범위.
- * 상한을 두지 않으면 브라우저가 연도를 여섯 자리(최대 275760년)까지 받을 수 있다고 보고,
- * 네 자리를 친 뒤에도 다음 칸으로 넘기지 않는다. 그래서 `20260803` 을 이어 치면 연도에 `202608` 이 들어간다.
- */
-const DATE_MIN = '1900-01-01'
-const DATE_MAX = '2999-12-31'
+import { ProjectFields, trimmedOrNull } from './ProjectFields'
 
 const UNSEEN_NOTICE = '아직 확인하지 않은 항목이 있습니다.'
 
-const trimmedOrNull = (v: string) => (v.trim() === '' ? null : v.trim())
-/** 날짜 칸은 값이 'YYYY-MM-DD' 아니면 빈 문자열이라 다듬을 것이 없다 */
-const emptyToNull = (v: string) => (v === '' ? null : v)
-
-/** 만들 조사 하나 — 파일이 붙어 있으면 그 파일로 대상을 지정하고, 없으면 이름만 있는 조사가 된다. */
+/**
+ * 만들 조사 하나 — 파일 하나가 조사 하나가 되고, 파일의 행이 그 조사의 대상이 된다.
+ * 파일 없는 조사는 이 창에서 만들지 않는다(직접 생성 창이 대상 지정과 함께 맡는다).
+ */
 interface Entry {
-  read: ReadFile | null
+  read: ReadFile
   draft: SurveyProjectDraft
   /** 등록하지 않기로 한 건. 목록에서 지우지 않고 표시만 바꿔 되돌릴 수 있게 둔다. */
   discarded: boolean
@@ -36,24 +28,9 @@ interface Entry {
   visited: boolean
 }
 
-function newEntry(defaults?: Partial<SurveyProjectDraft>): Entry {
-  return {
-    read: null,
-    discarded: false,
-    visited: false,
-    draft: {
-      name: defaults?.name ?? '',
-      // 조사는 만드는 날부터 시작하는 것이 보통이라 시작일은 오늘로 연다
-      startedOn: defaults?.startedOn ?? today(),
-      endedOn: defaults?.endedOn ?? null,
-      note: defaults?.note ?? null,
-    },
-  }
-}
-
 /** 목록·확인 단계가 건을 부르는 이름 — 조사명을 아직 적지 않았으면 파일 이름을 빌려 쓴다 */
 function entryLabel(entry: Entry): string {
-  return entry.draft.name || entry.read?.file.name || '정보 미입력'
+  return entry.draft.name || entry.read.file.name || '정보 미입력'
 }
 
 /** 현황판 한 줄의 상태 */
@@ -225,54 +202,50 @@ function entryValid(entry: Entry): boolean {
   const { name, startedOn, endedOn } = entry.draft
   if (name.trim() === '' || startedOn === '') return false
   if (endedOn !== null && endedOn < startedOn) return false
-  return entry.read === null || blockingReasonOf(entry.read) === undefined
+  return blockingReasonOf(entry.read) === undefined
 }
 
 /**
- * 조사 프로젝트 입력 — 기준점 목록 불러오기도 결국 조사를 만드는 일이라 한 창에서 처리한다.
- * 파일을 여러 개 올리면 만들 조사가 여러 건이 되고, 이전·다음으로 오가며 하나씩 입력한다.
- * 조사 유형은 받지 않는다. 조사마다 그때그때 이름을 붙이는 값이라
- * 되풀이되는 분류로 쓸 수 없고, 조사명이 그 역할을 대신한다.
+ * 파일로 프로젝트 추가 — 파일 하나가 조사 하나가 되고, 파일의 행이 그 조사의 대상이 된다.
+ * 파일을 여러 개 올리면 만들 조사가 여러 건이 되어, 이전·다음으로 오가며 하나씩 입력한다.
+ * 파일 없이 만드는 직접 생성은 별도 창이 맡는다 — 이 창은 파일에서 시작한다.
  */
-export function SurveyProjectFormModal(props: {
-  title: string
-  submitLabel: string
+export function SurveyProjectFileModal(props: {
   /** 작성자로 적힐 사람 — 화면 표시용이고, 실제 기록은 서버가 인증 주체로 남긴다 */
   author: string
-  defaults?: Partial<SurveyProjectDraft>
-  /** 창을 열면서 함께 건네받은 파일 — 곧바로 이 자리에서 읽는다 */
+  /** 창을 열면서 함께 건네받은 파일 — 곧바로 이 자리에서 읽는다. 없으면 파일 고르기부터 시작한다. */
   initialFiles?: File[] | null
-  /** 입력하던 값을 알린다 — 창 밖(화면 전체)에 파일을 떨어뜨렸을 때도 이어 쓸 수 있게 */
-  onDraftChange?: (draft: SurveyProjectDraft) => void
   submitting: boolean
   /**
    * 한 건 등록. 여러 건을 등록할 때는 몇 번째인지 함께 알려, 받는 쪽이 알림을 건마다 띄우지 않게 한다.
    * 실패로 끝나면 그 건에 머문다.
    */
-  onSubmit: (draft: SurveyProjectDraft, file: File | null, batch?: { index: number; total: number }) => Promise<void>
+  onSubmit: (draft: SurveyProjectDraft, file: File, batch?: { index: number; total: number }) => Promise<void>
   /** 창이 막은 동작을 알린다 — 알림은 화면 전체를 아는 쪽이 띄운다 */
   onNotice: (message: string) => void
   onCancel: () => void
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   // 이 자리에서 읽는 중인 파일들
-  const [reading, setReading] = useState<File[] | null>(props.initialFiles ?? null)
-  // 만들 조사 목록 — 파일을 안 올렸으면 이름만 있는 한 건이다
-  const [entries, setEntries] = useState<Entry[]>([newEntry(props.defaults)])
+  const [reading, setReading] = useState<File[] | null>(
+    props.initialFiles !== undefined && props.initialFiles !== null && props.initialFiles.length > 0
+      ? props.initialFiles
+      : null,
+  )
+  // 만들 조사 목록 — 파일을 읽어 넘기기 전에는 비어 있다(파일 고르기 화면)
+  const [entries, setEntries] = useState<Entry[]>([])
   const [index, setIndex] = useState(0)
   // 마지막 건 다음에 오는 확인 단계 — 무엇을 등록하는지 훑어보고, 그 자리에서 등록 진행까지 본다
   const [confirming, setConfirming] = useState(false)
   const send = useSequentialSend('등록하지 못했습니다. 잠시 후 다시 시도해 주세요.')
   const form = useFormNotice()
 
-  const current = entries[index]
+  const current: Entry | null = entries.length > 0 ? entries[index] : null
   const total = entries.length
   const isLast = index === total - 1
-  const file = current.read?.file ?? null
-  const fileSummary = current.read ? summaryOf(current.read) : undefined
-  const fileError = current.read ? blockingReasonOf(current.read) : undefined
+  const fileSummary = current !== null ? summaryOf(current.read) : undefined
+  const fileError = current !== null ? blockingReasonOf(current.read) : undefined
 
-  const periodReversed = current.draft.endedOn !== null && current.draft.endedOn < current.draft.startedOn
   // 등록할 건 = 폐기하지 않았고 아직 보내지 않은 건
   const pendingIndexes = entries.flatMap((e, i) => (e.discarded || send.statusOf(i) === 'done' ? [] : [i]))
   const invalidIndex = pendingIndexes.find((i) => !entryValid(entries[i])) ?? null
@@ -305,6 +278,7 @@ export function SurveyProjectFormModal(props: {
 
   /** 폐기하면 그 건은 볼 일이 없으므로 곧바로 다음으로 넘긴다. 되살리기는 그 자리에 남는다. */
   function toggleDiscard() {
+    if (current === null) return
     const revive = current.discarded
     setEntries((cur) => cur.map((e, i) => (i === index ? { ...e, discarded: !e.discarded, visited: true } : e)))
     if (revive) return
@@ -326,20 +300,24 @@ export function SurveyProjectFormModal(props: {
       const entry = entries[at]
       await props.onSubmit(
         { ...entry.draft, name: entry.draft.name.trim(), note: trimmedOrNull(entry.draft.note ?? '') },
-        entry.read?.file ?? null,
+        entry.read.file,
         { index: order, total },
       )
     })
     // 끝나도 창을 닫지 않는다 — 무엇이 등록됐는지 확인하고 사용자가 닫는다
   }
 
-  /** 창의 기본 동작(Enter 포함) — 확인 단계에서만 등록하고, 그 전에는 다음으로 넘어간다 */
+  /** 창의 기본 동작(Enter 포함) — 파일 고르기에서는 선택 창을 열고, 확인 단계에서만 등록한다 */
   function handlePrimary() {
+    if (showPicker) {
+      openPicker()
+      return
+    }
     if (confirming) {
       if (!send.started) registerAll()
       return
     }
-    if (busy) return
+    if (busy || current === null) return
     // 폐기한 건은 등록하지 않으므로 값을 따지지 않는다
     if (!current.discarded) {
       if (!form.validate()) return
@@ -368,12 +346,6 @@ export function SurveyProjectFormModal(props: {
     clearNotice()
   }, [index])
 
-  // 값이 바뀔 때마다 바깥에 알린다 — 받는 쪽이 ref 에 담으므로 이 알림이 다시 그림을 부르지 않는다
-  const notifyDraft = useEffectEvent((draft: SurveyProjectDraft) => props.onDraftChange?.(draft))
-  useEffect(() => {
-    notifyDraft(current.draft)
-  }, [current.draft])
-
   // 읽는 동안의 진행 상태 — 창을 새로 띄우지 않고 이 창 안에서 그대로 보여 준다
   const { entries: previews, finished } = useImportPreviews(reading ?? NO_FILES, 'survey-csv')
   const read = previews.flatMap((e) => (e.status.kind === 'done' ? [{ file: e.file, preview: e.status.preview }] : []))
@@ -382,28 +354,29 @@ export function SurveyProjectFormModal(props: {
   const blockedCount = read.length - usable.length
   const failedCount = previews.length - read.length
 
-  /** 읽은 파일을 만들 조사 목록으로 바꾼다. 조사명이 비어 있으면 파일 이름을 빌려 쓴다. */
+  /** 읽은 파일을 만들 조사 목록으로 바꾼다. 조사명은 파일 이름에서 시작해 건마다 고쳐 적는다. */
   function proceed(files: ReadFile[]) {
     setReading(null)
     if (files.length === 0) return
-    const base = current.draft
     setEntries(
-      files.map((item, i) => ({
+      files.map((item) => ({
         read: item,
-        // 첫 건에는 적어 두던 이름을 살리고, 나머지는 파일 이름을 쓴다
-        draft: { ...base, name: i === 0 && base.name.trim() !== '' ? base.name : fileBaseName(item.file.name) },
+        draft: { name: fileBaseName(item.file.name), startedOn: today(), endedOn: null, note: null },
         discarded: false,
         visited: false,
       })),
     )
     setIndex(0)
+    setConfirming(false)
+    send.reset()
   }
 
   // 읽는 동안에는 늘 이 화면이다. 다 읽어도 저절로 넘어가지 않는다 —
   // 무엇을 읽었는지 확인하고 넘길지 다시 고를지는 사용자가 정한다.
   const readingDone = reading !== null && finished
   const showReading = reading !== null
-
+  // 파일을 아직 고르지 않았다 — 이 창은 파일에서 시작하므로 고르기 화면이 첫 화면이다
+  const showPicker = !showReading && entries.length === 0
 
   /** 창 위 어디에 떨어뜨리든, 눌러서 고르든 이 자리에서 읽는다 */
   function handleFiles(picked: File[]) {
@@ -413,14 +386,26 @@ export function SurveyProjectFormModal(props: {
 
   const openPicker = () => fileInputRef.current?.click()
 
-  /** 파일을 뺀다 — 그 건은 이름만 있는 조사가 된다(대상 없이 만들어 나중에 채울 수 있다). */
-  function detachFile() {
-    setEntries((cur) => cur.map((e, i) => (i === index ? { ...e, read: null } : e)))
-  }
-
   // 읽는 중에는 만들 조사가 몇 건이 될지 아직 모른다 — 입력 칸을 띄워 봐야 어느 조사의 값인지 말할 수 없으므로
   // 읽기를 별도 단계로 두고 진행 상태만 보여 준다. 창은 그대로 두고 안쪽만 바꾼다.
   const readingBody = <ImportPreviewList entries={previews} />
+
+  // 화면 전체 드롭 안내와 같은 모양 — 여기에 끌어다 놓아도 되고 눌러서 골라도 된다는 뜻
+  const pickerBody = (
+    <button
+      type="button"
+      onClick={openPicker}
+      className="flex w-full flex-col items-center justify-center gap-1.5 rounded-ctl border-2 border-dashed border-line-field py-10 text-ink-4 transition-colors hover:border-teal-edge hover:text-teal-text"
+    >
+      <svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 16V4" />
+        <path d="m7 9 5-5 5 5" />
+        <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+      </svg>
+      <span className="text-[13px] font-medium">파일을 끌어다 놓거나 눌러서 선택</span>
+      <span className="text-[11px]">CSV · XLS · XLSX — 파일 하나가 프로젝트 하나가 됩니다</span>
+    </button>
+  )
 
   // 입력 단계에서는 몇 번째를 보고 있는지가 곧 진행이고, 등록 단계에서는 손을 뗀 건수(등록·폐기)가 진행이다
   const boardPercent = confirming ? percent(doneCount + discardedCount, total) : percent(index + 1, total)
@@ -534,7 +519,7 @@ export function SurveyProjectFormModal(props: {
     </>
   )
 
-  const formBody = (
+  const formBody = current !== null && (
     <>
       {current.discarded && (
         <p className="rounded-chip bg-danger-wash px-2.5 py-1.5 text-[12px] text-danger">
@@ -542,113 +527,25 @@ export function SurveyProjectFormModal(props: {
         </p>
       )}
 
-      <ModalField label="프로젝트명" required>
-        <input
-          className={MODAL_INPUT}
-          value={current.draft.name}
-          onChange={(e) => patch({ name: e.target.value })}
-          placeholder="2026.7.1.자 조사"
-          required
-        />
-      </ModalField>
+      <ProjectFields draft={current.draft} author={props.author} onPatch={patch} />
 
-      {/* 시작일만 필수라 별표가 정확히 그 칸에 붙도록 두 항목으로 나눈다 */}
-      <div>
-        <div className="grid grid-cols-2 gap-2">
-          <ModalField label="시작일" required>
-            <input
-              type="date"
-              className={MODAL_INPUT}
-              value={current.draft.startedOn}
-              min={DATE_MIN}
-              max={current.draft.endedOn ?? DATE_MAX}
-              onChange={(e) => patch({ startedOn: e.target.value })}
-              required
-            />
-          </ModalField>
-          <ModalField label="종료일">
-            <input
-              type="date"
-              className={MODAL_INPUT}
-              value={current.draft.endedOn ?? ''}
-              min={current.draft.startedOn || DATE_MIN}
-              max={DATE_MAX}
-              onChange={(e) => patch({ endedOn: emptyToNull(e.target.value) })}
-            />
-          </ModalField>
-        </div>
-        {periodReversed && (
-          <p className="mt-1 text-[11px] text-danger">종료일이 시작일보다 빠릅니다.</p>
-        )}
-      </div>
-
-      {/* 작성자는 로그인한 사람으로 정해지므로 고르지 않는다. 실제 기록은 서버가 인증 주체로 남긴다. */}
-      <ModalField label="작성자" required>
-        <input
-          className={MODAL_READONLY}
-          value={props.author}
-          readOnly
-          tabIndex={-1}
-        />
-      </ModalField>
-
-      <ModalField label="비고">
-        <textarea
-          className={`${MODAL_TEXTAREA} h-20`}
-          value={current.draft.note ?? ''}
-          onChange={(e) => patch({ note: e.target.value })}
-          placeholder="조사 범위·참고 사항"
-        />
-      </ModalField>
-
-      {/* 이 칸만 label 을 쓰지 않는다 — 라벨을 누르면 안쪽 버튼이 함께 눌려 파일 선택이 두 번 열린다 */}
+      {/* 파일은 이 건의 대상 그 자체라 여기서 뺄 수 없다 — 이 파일로 만들지 않으려면 건을 폐기한다 */}
       <div>
         <span className="mb-1.5 block text-[11px] font-medium tracking-[.08em] text-ink-3">대상지 파일</span>
-        {file ? (
-          <span className="flex items-center gap-2 rounded-ctl border border-line-field bg-field px-2.5 py-2">
-            <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">
-              {file.name}
-              {fileSummary && (
-                <span className="ml-1.5 text-[11px] text-ink-3">{fileSummary}</span>
-              )}
-            </span>
-            {/* 빼면 대상 없이 이름만 있는 조사가 된다 — 대상은 나중에 다시 올려 채울 수 있다 */}
-            <button
-              type="button"
-              onClick={detachFile}
-              aria-label="파일 제거"
-              className="shrink-0 rounded-chip p-1 text-ink-4 transition-colors hover:bg-danger-wash hover:text-danger"
-            >
-              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M4 7h16" />
-                <path d="M10 11v6M14 11v6" />
-                <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
-                <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-              </svg>
-            </button>
+        <span className="flex items-center gap-2 rounded-ctl border border-line-field bg-field px-2.5 py-2">
+          <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">
+            {current.read.file.name}
+            {fileSummary && (
+              <span className="ml-1.5 text-[11px] text-ink-3">{fileSummary}</span>
+            )}
           </span>
-        ) : (
-          // 화면 전체 드롭 안내와 같은 모양 — 여기에 끌어다 놓아도 되고 눌러서 골라도 된다는 뜻
-          <button
-            type="button"
-            onClick={openPicker}
-            className="flex w-full flex-col items-center justify-center gap-1.5 rounded-ctl border-2 border-dashed border-line-field py-5 text-ink-4 transition-colors hover:border-teal-edge hover:text-teal-text"
-          >
-            <svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M12 16V4" />
-              <path d="m7 9 5-5 5 5" />
-              <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-            </svg>
-            <span className="text-[13px] font-medium">파일을 끌어다 놓거나 눌러서 선택</span>
-            <span className="text-[11px]">CSV · XLS · XLSX</span>
-          </button>
-        )}
+        </span>
         {fileError && (
           <div className="mt-1.5 rounded-ctl border border-danger-btn-edge bg-danger-wash px-2.5 py-2">
             <p className="text-[11.5px] leading-5 text-danger">{fileError}</p>
             {/* 고쳐야 할 행은 한 줄에 하나씩 — 이어 붙이면 어디서 끊어 읽어야 할지 알 수 없다 */}
             <ul className="mt-1.5 space-y-[3px] text-[11px] leading-[1.5] text-danger">
-              {rowIssueLines(current.read?.preview.errors ?? []).map((line) => (
+              {rowIssueLines(current.read.preview.errors).map((line) => (
                 <li key={line} className="flex gap-1.5">
                   <span aria-hidden>·</span>
                   <span className="min-w-0 flex-1">{line}</span>
@@ -664,7 +561,7 @@ export function SurveyProjectFormModal(props: {
   return (
     <Modal
       // 제목은 지금 어느 화면인지만 말한다 — 진행 상태는 본문이 알린다
-      title={confirming ? '프로젝트 등록' : showReading ? '프로젝트 대상지 파일 읽기' : props.title}
+      title={confirming ? '프로젝트 등록' : showReading ? '프로젝트 대상지 파일 읽기' : '파일로 프로젝트 추가'}
       aside={board}
       formRef={form.formRef}
       busy={send.inFlight || reading !== null}
@@ -689,7 +586,7 @@ export function SurveyProjectFormModal(props: {
             )}
             {!send.started && (
               <button type="submit" className={MODAL_SUBMIT_BTN} disabled={!canRegister}>
-                {total > 1 ? `${pendingIndexes.length}건 ${props.submitLabel}` : props.submitLabel}
+                {total > 1 ? `${pendingIndexes.length}건 추가` : '추가'}
               </button>
             )}
             {send.started && failedIndex >= 0 && (
@@ -735,6 +632,15 @@ export function SurveyProjectFormModal(props: {
               )}
             </button>
           </>
+        ) : showPicker ? (
+          <>
+            <button type="button" className={MODAL_DANGER_BTN} onClick={props.onCancel}>
+              취소
+            </button>
+            <button type="submit" className={`${MODAL_SUBMIT_BTN} ml-auto`}>
+              파일 선택
+            </button>
+          </>
         ) : (
         <>
           <button type="button" className={MODAL_DANGER_BTN} onClick={props.onCancel} disabled={props.submitting}>
@@ -742,7 +648,7 @@ export function SurveyProjectFormModal(props: {
           </button>
           {total > 1 && (
             <button type="button" className={MODAL_DANGER_BTN} onClick={toggleDiscard} disabled={busy}>
-              {current.discarded ? '되살리기' : '폐기'}
+              {current?.discarded ? '되살리기' : '폐기'}
             </button>
           )}
           <div className="ml-auto flex items-center gap-3">
@@ -775,7 +681,7 @@ export function SurveyProjectFormModal(props: {
           handleFiles(picked)
         }}
       />
-      {confirming ? confirmBody : showReading ? readingBody : formBody}
+      {confirming ? confirmBody : showReading ? readingBody : showPicker ? pickerBody : formBody}
     </Modal>
   )
 }
