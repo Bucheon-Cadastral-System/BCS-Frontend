@@ -6,6 +6,7 @@ import { UserAvatar } from '@/entities/user'
 import { ActivityIcon, AppHeader, UsersIcon } from '@/widgets/app-header'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY, FIELD, FIELD_SELECT, FIELD_SM, FIELD_SM_SELECT, ROW_ACCENT } from '@/shared/ui/classes'
+import { formatActivityMemberLabel } from '../model/formatActivityMemberLabel'
 
 interface AdminUsersPageProps {
   /** 지금 로그인한 관리자 — 헤더 표시에 쓴다 */
@@ -712,9 +713,12 @@ function ActivityCell({ column, activity }: { column: ActivityColumnKey; activit
       </span>
     )
   }
-  // 응답이 id 만 주므로 id 만 보여 준다 — 이름을 함께 세우려면 응답에 이름이 실려야 한다
-  if (column === 'actor') return <span className="block truncate text-[11.5px] text-ink-3">#{activity.actorAdminId}</span>
-  if (column === 'target') return <span className="block truncate text-[11.5px] text-ink-3">#{activity.targetMemberId}</span>
+  if (column === 'actor') {
+    return <span className="block truncate text-[11.5px] text-ink-3">{formatActivityMemberLabel(activity.actorAdminId, activity.actorAdminName)}</span>
+  }
+  if (column === 'target') {
+    return <span className="block truncate text-[11.5px] text-ink-3">{formatActivityMemberLabel(activity.targetMemberId, activity.targetMemberName)}</span>
+  }
   return <span className="block truncate text-[12.5px] text-ink-2">{activity.message}</span>
 }
 

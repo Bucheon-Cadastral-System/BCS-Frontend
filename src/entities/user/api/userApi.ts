@@ -159,10 +159,32 @@ export async function changeAdminMember(memberId: string, action: AdminMemberAct
 }
 
 export type AdminActivityType = 'MEMBER_APPROVED' | 'MEMBER_REJECTED' | 'MEMBER_DEACTIVATED' | 'MEMBER_ACTIVATED' | 'MEMBER_PROFILE_UPDATED' | 'MEMBER_PROMOTED_TO_ADMIN' | 'MEMBER_DEMOTED_TO_USER'
-export interface AdminActivity { id: number; actorAdminId: number; targetMemberId: number; activityType: AdminActivityType; message: string; createdAt: string }
+export interface AdminActivity {
+  id: number
+  actorAdminId: number
+  actorAdminName?: string | null
+  targetMemberId?: number | null
+  targetMemberName?: string | null
+  activityType: AdminActivityType
+  message: string
+  createdAt: string
+}
+interface ApiAdminActivity extends Omit<AdminActivity, 'actorAdminName' | 'targetMemberName'> {
+  actorName?: string | null
+  targetName?: string | null
+  actorAdminName?: string | null
+  targetMemberName?: string | null
+}
 export interface CursorPage<T> { content: T[]; nextCursor: string | null; hasNext: boolean; size: number }
 
 export async function getAdminActivities(cursor?: string, activityType?: AdminActivityType): Promise<CursorPage<AdminActivity>> {
-  const { data } = await http.get<CursorPage<AdminActivity>>('/api/admin/activities', { params: { size: 20, cursor, activityType } })
-  return data
+  const { data } = await http.get<CursorPage<ApiAdminActivity>>('/api/admin/activities', { params: { size: 20, cursor, activityType } })
+  return {
+    ...data,
+    content: data.content.map(({ actorName, targetName, ...activity }) => ({
+      ...activity,
+      actorAdminName: activity.actorAdminName ?? actorName,
+      targetMemberName: activity.targetMemberName ?? targetName,
+    })),
+  }
 }
