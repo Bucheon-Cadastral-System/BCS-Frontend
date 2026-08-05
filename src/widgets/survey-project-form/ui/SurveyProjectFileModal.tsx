@@ -403,7 +403,7 @@ export function SurveyProjectFileModal(props: {
         <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
       </svg>
       <span className="text-[13px] font-medium">파일을 끌어다 놓거나 눌러서 선택</span>
-      <span className="text-[11px]">CSV · XLS · XLSX — 파일 하나가 프로젝트 하나가 됩니다</span>
+      <span className="text-[11px]">CSV · XLS · XLSX</span>
     </button>
   )
 
