@@ -218,25 +218,38 @@ export function ControlPointMap(props: ControlPointMapProps) {
     onMapReadyRef.current?.(map)
 
     if (WEBGL_SUPPORTED) {
-      // 아틀라스는 이미지 로드가 비동기라, 지도를 먼저 세우고 도식 레이어를 뒤따라 얹는다(라벨 레이어 아래 자리)
-      void markerAtlasUrl().then((url) => {
-        if (mapRef.current !== map) return // 그 사이 지도가 내려갔다
-        const style: FlatStyleLike = [
-          {
-            // 숨긴 점은 그리기·클릭 판정에서 함께 빠진다 — 캔버스 경로의 '스타일 미반환'과 같은 역할
-            filter: ['==', ['get', 'hidden'], 0],
-            style: {
-              'icon-src': url,
-              'icon-size': [MARKER_ATLAS_CELL, MARKER_ATLAS_CELL],
-              'icon-offset': [['*', ['get', 'sym'], MARKER_ATLAS_CELL], 0],
-              'icon-offset-origin': 'top-left',
+      // 아틀라스는 이미지 로드가 비동기라, 지도를 먼저 세우고 도식 레이어를 뒤따라 얹는다(라벨 레이어 아래 자리).
+      // 어느 단계든 실패하면 캔버스 레이어로 대신 그린다 — 점이 조용히 사라진 화면을 남기지 않는다.
+      const mountCanvasFallback = () => {
+        if (mapRef.current !== map || pointLayerRef.current !== null) return
+        const layer = new VectorLayer({ source: rawSource, style: layerStyle })
+        map.getLayers().insertAt(2, layer)
+        pointLayerRef.current = layer
+      }
+      markerAtlasUrl()
+        .then((url) => {
+          if (mapRef.current !== map) return // 그 사이 지도가 내려갔다
+          const style: FlatStyleLike = [
+            {
+              // 숨긴 점은 그리기·클릭 판정에서 함께 빠진다 — 캔버스 경로의 '스타일 미반환'과 같은 역할
+              filter: ['==', ['get', 'hidden'], 0],
+              style: {
+                'icon-src': url,
+                'icon-size': [MARKER_ATLAS_CELL, MARKER_ATLAS_CELL],
+                // 배열 값 표현식은 ['array', ...] 연산자로 만든다 — 리터럴 배열에 표현식을 끼우면 파서가 거부한다
+                'icon-offset': ['array', ['*', ['get', 'sym'], MARKER_ATLAS_CELL], 0],
+                'icon-offset-origin': 'top-left',
+              },
             },
-          },
-        ]
-        const webglLayer = new WebGLVectorLayer({ source: rawSource, style })
-        map.getLayers().insertAt(2, webglLayer)
-        pointLayerRef.current = webglLayer
-      })
+          ]
+          const webglLayer = new WebGLVectorLayer({ source: rawSource, style })
+          map.getLayers().insertAt(2, webglLayer)
+          pointLayerRef.current = webglLayer
+        })
+        .catch((e: unknown) => {
+          console.error('기준점 WebGL 레이어를 세우지 못해 캔버스로 그립니다.', e)
+          mountCanvasFallback()
+        })
     }
 
     // 타일이 도착할 때마다 리렌더 → 큰 줌 점프(리스트 포커스 등) 후에도 축소상태 안 남고 즉시 갱신.
