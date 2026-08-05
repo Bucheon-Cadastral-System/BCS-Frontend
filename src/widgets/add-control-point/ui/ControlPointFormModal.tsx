@@ -3,7 +3,7 @@ import { POINT_TYPES } from '@/entities/control-point'
 import type { PointType } from '@/entities/control-point'
 import { TM_ORIGINS } from '@/shared/lib/crs'
 import type { TmEpsg } from '@/shared/lib/crs'
-import { MODAL_CANCEL_BTN, MODAL_DANGER_BTN, MODAL_INPUT, MODAL_SELECT, MODAL_SUBMIT_BTN, Modal, ModalField } from '@/shared/ui/Modal'
+import { MODAL_DANGER_BTN, MODAL_INPUT, MODAL_SELECT, MODAL_SUBMIT_BTN, Modal, ModalField } from '@/shared/ui/Modal'
 import { FormNotice } from '@/shared/ui/FormNotice'
 import { useFormNotice } from '@/shared/lib/useFormNotice'
 
@@ -112,6 +112,20 @@ export function ControlPointFormModal(props: {
         </>
       }
     >
+      {/* 좌표를 손에 들고 있지 않을 때의 시작 동작이라 맨 위에 크게 세운다 — 찍고 내려오며 나머지를 채우는 순서.
+          파일 드롭존과 같은 구성(아이콘·제목·한 줄 설명)이되, 끌어다 놓는 자리가 아니라 점선은 쓰지 않는다. */}
+      <button
+        type="button"
+        onClick={props.onPick}
+        className="flex w-full flex-col items-center justify-center gap-1 rounded-ctl border-[1.5px] border-teal-btn-edge bg-teal-wash py-4 text-teal-label transition-colors hover:border-teal-text hover:bg-teal-wash-strong"
+      >
+        <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 21s-6-5.686-6-10a6 6 0 1 1 12 0c0 4.314-6 10-6 10Z" />
+          <circle cx="12" cy="11" r="2" />
+        </svg>
+        <span className="text-[13.5px] font-semibold">지도에서 위치 찍기</span>
+      </button>
+
       <ModalField label="관리번호" required>
         <input className={MODAL_INPUT} value={pointNo} onChange={(ev) => setPointNo(ev.target.value)} placeholder="예: 41192D000012345" required />
       </ModalField>
@@ -157,17 +171,6 @@ export function ControlPointFormModal(props: {
         </ModalField>
       </div>
 
-      <button
-        type="button"
-        onClick={props.onPick}
-        className={`${MODAL_CANCEL_BTN} w-full`}
-      >
-        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M12 21s-6-5.686-6-10a6 6 0 1 1 12 0c0 4.314-6 10-6 10Z" />
-          <circle cx="12" cy="11" r="2" />
-        </svg>
-        지도에서 위치 찍기
-      </button>
     </Modal>
   )
 }
