@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 // 조사기록 캐시 키는 그 엔티티가 소유한다 — 문자열을 따로 적으면 키가 바뀔 때 무효화가 조용히 어긋난다
-import { SURVEY_RECORDS_KEY } from '@/entities/survey-record'
+import { SURVEY_RECORDS_KEY, surveyRecordsKey } from '@/entities/survey-record'
+import type { SurveyRecord } from '@/entities/survey-record'
 import { createSurveyProjectApi, deleteSurveyProjectApi, fetchSurveyProjects, fetchSurveyTargets, updateSurveyProjectApi } from './surveyProjectApi'
 
 export const SURVEY_PROJECTS_KEY = ['survey-projects'] as const
@@ -36,7 +37,21 @@ export function useUpdateSurveyProjectMutation() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: updateSurveyProjectApi,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: SURVEY_PROJECTS_KEY }),
+    onSuccess: (_updated, args) => {
+      // 무효화만 하면 재조회가 돌아올 때까지 옛 대상·기록이 그대로 보인다.
+      // 성공 응답 = 서버가 이 목록을 받아들였다는 확정이므로, 아는 값을 즉시 캐시에 써 넣는다
+      // (요청 전에 미리 바꾸는 낙관적 갱신이 아니라 실패 롤백이 필요 없다).
+      queryClient.setQueryData([...SURVEY_TARGETS_KEY, args.id], [...args.targetPointIds])
+      // 대상에서 빠진 점의 기록은 서버가 함께 지웠다 — 남는 기록만 걸러 즉시 반영한다
+      const kept = new Set(args.targetPointIds)
+      queryClient.setQueryData<SurveyRecord[]>(surveyRecordsKey(args.id), (cur) =>
+        cur?.filter((r) => kept.has(r.pointId)),
+      )
+      // 재조회는 그대로 돌린다 — 위 반영이 서버와 어긋났다면 여기서 바로잡힌다
+      void queryClient.invalidateQueries({ queryKey: SURVEY_PROJECTS_KEY })
+      void queryClient.invalidateQueries({ queryKey: SURVEY_TARGETS_KEY })
+      void queryClient.invalidateQueries({ queryKey: SURVEY_RECORDS_KEY })
+    },
   })
 }
 
