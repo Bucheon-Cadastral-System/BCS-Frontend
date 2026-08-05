@@ -1,6 +1,7 @@
 import { http } from '@/shared/api/http'
 import type { TmEpsg } from '@/shared/lib/crs'
 import type { ControlPoint, PointType } from '../model/types'
+import { compareControlPoints } from '../model/types'
 
 /** 서버 enum 표기 ↔ 프론트 표기 매핑 */
 type ServerPointType = 'TRIANGULATION' | 'TRIANGULATION_AUX' | 'DOGEUN'
@@ -68,7 +69,9 @@ function toControlPoint(server: ServerControlPoint): ControlPoint {
 
 export async function fetchControlPoints(): Promise<ControlPoint[]> {
   const res = await http.get<{ content: ServerControlPoint[] }>('/api/control-points')
-  return res.data.content.map(toControlPoint)
+  // 들어오는 길목에서 기본 정렬(종류 → 이름)로 맞춘다 — 이 목록을 거르기만 하는
+  // 소비처(상세 대상 목록·종류 드로어·대상 고르기·검색)가 전부 같은 순서를 물려받는다
+  return res.data.content.map(toControlPoint).sort(compareControlPoints)
 }
 
 export interface RegisterControlPointArgs {
