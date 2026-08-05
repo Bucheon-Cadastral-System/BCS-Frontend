@@ -1,6 +1,6 @@
 export type { ControlPoint, PointType } from './model/types'
 export { POINT_TYPES } from './model/types'
-export { controlPointStyle } from './ui/markerStyle'
+export { controlPointStyle, controlPointLabelStyle } from './ui/markerStyle'
 export { PointTypeIcon } from './ui/PointTypeIcon'
 export { StatusMark } from './ui/StatusMark'
 export type { MapTheme } from './ui/markerStyle'

@@ -15,7 +15,7 @@ import { defaults as defaultControls } from 'ol/control/defaults'
 import type { FeatureLike } from 'ol/Feature'
 import type { Style } from 'ol/style'
 import { VWORLD_KEY, DEFAULT_CENTER, DEFAULT_ZOOM, MIN_ZOOM } from '@/shared/config/map'
-import { controlPointStyle } from '@/entities/control-point'
+import { controlPointLabelStyle, controlPointStyle } from '@/entities/control-point'
 import type { ControlPoint, MapTheme } from '@/entities/control-point'
 import { deriveSurveyStatus } from '@/entities/survey-record'
 
@@ -84,6 +84,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
   // 점 id → 피처 — 갱신을 통째 재구성이 아니라 diff 로 하기 위한 색인 (Map 이름은 ol/Map 이 차지해 globalThis 로 부른다)
   const featureByIdRef = useRef<globalThis.Map<string, Feature>>(new globalThis.Map())
   const pointLayerRef = useRef<VectorLayer<VectorSource> | null>(null)
+  const labelLayerRef = useRef<VectorLayer<VectorSource> | null>(null)
   const cadastralRef = useRef<ImageLayer<ImageWMS> | null>(null)
   const baseLayerRef = useRef<TileLayer<XYZ> | null>(null)
   const lastFocusNonceRef = useRef(props.focusNonce)
@@ -160,30 +161,37 @@ export function ControlPointMap(props: ControlPointMapProps) {
 
     // 점은 겹치더라도 하나씩 그대로 그린다. 이름은 가까이서 볼 때만 붙인다.
     // 소스는 전체 점을 들고 있고, 숨길 점은 스타일을 돌려주지 않아 그리기·클릭 판정에서 함께 빠진다.
-    const layerStyle = (feature: FeatureLike, resolution: number): Style | undefined => {
+    const layerStyle = (feature: FeatureLike): Style | undefined => {
       const cp = feature.get('cp') as ControlPoint
       const visible = visibleIdsRef.current
       if (visible !== null && !visible.has(cp.id)) return undefined
       const survey = surveyModeRef.current
         ? deriveSurveyStatus(cp.id, surveyedIdsRef.current, lostIdsRef.current)
         : 'none'
-      return controlPointStyle(
-        cp,
-        cp.id === selectedIdRef.current,
-        survey,
-        themeRef.current,
-        resolution <= LABEL_MAX_RESOLUTION,
-      )
+      return controlPointStyle(cp, cp.id === selectedIdRef.current, survey, themeRef.current)
     }
 
-    // declutter 는 라벨 겹침을 걸러 준다 — 도식은 declutterMode:'none'(markerStyle)이라 빠짐없이 그려진다
-    const pointLayer = new VectorLayer({ source: rawSource, style: layerStyle, declutter: true })
+    // 라벨은 가까이서만, 보이는 점에만 붙인다 — 겹침 걸러내기(declutter)는 이 레이어의 몫이다
+    const labelStyle = (feature: FeatureLike, resolution: number): Style | undefined => {
+      if (resolution > LABEL_MAX_RESOLUTION) return undefined
+      const cp = feature.get('cp') as ControlPoint
+      const visible = visibleIdsRef.current
+      if (visible !== null && !visible.has(cp.id)) return undefined
+      return controlPointLabelStyle(cp, themeRef.current)
+    }
+
+    // 도식과 라벨을 다른 레이어로 가른다 — declutter 레이어는 이동·줌 중 캔버스 재사용(fast path)을 못 타
+    // 매 프레임 전체를 다시 그리므로, 수천 점을 든 도식 레이어에 걸면 지도 조작 내내 프레임이 깎인다.
+    // 라벨 레이어는 줌 16 미만에서 그릴 것이 없어 프레임마다 도는 값이 사실상 0이다.
+    const pointLayer = new VectorLayer({ source: rawSource, style: layerStyle })
     pointLayerRef.current = pointLayer
+    const labelLayer = new VectorLayer({ source: rawSource, style: labelStyle, declutter: true })
+    labelLayerRef.current = labelLayer
 
     const map = new Map({
       target: container,
       controls: defaultControls(), // 축척은 비율과 한 칩에 묶으려고 map-status-bar 가 직접 붙인다
-      layers: [baseLayer, cadastralLayer, pointLayer],
+      layers: [baseLayer, cadastralLayer, pointLayer, labelLayer],
       // maxZoom 20: 배경 타일 네이티브 최대(라이트 19·다크 18)를 크게 넘기면 확대 보정으로 흐려진다
       // minZoom: 부천 밖으로 한없이 물러서지 않게 막는다(shared/config/map)
       view: new View({ center: fromLonLat(DEFAULT_CENTER), zoom: DEFAULT_ZOOM, minZoom: MIN_ZOOM, maxZoom: 20 }),
@@ -240,6 +248,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
       rawSourceRef.current = null
       featureByIdRef.current = new globalThis.Map()
       pointLayerRef.current = null
+      labelLayerRef.current = null
       cadastralRef.current = null
       baseLayerRef.current = null
     }
@@ -288,9 +297,10 @@ export function ControlPointMap(props: ControlPointMapProps) {
     if (touched) source.changed()
   }, [props.points])
 
-  // 선택/조사상태/테마/보이는 집합 변경 → 점 레이어 재스타일(스타일 자체는 캐시가 받는다)
+  // 선택/조사상태/테마/보이는 집합 변경 → 점·라벨 레이어 재스타일(스타일 자체는 캐시가 받는다)
   useEffect(() => {
     pointLayerRef.current?.changed()
+    labelLayerRef.current?.changed()
   }, [props.selectedId, props.surveyMode, props.surveyedIds, props.lostIds, props.theme, props.visibleIds])
 
   /**

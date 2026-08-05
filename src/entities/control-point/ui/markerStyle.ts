@@ -80,13 +80,13 @@ function labelFont(): string {
 /**
  * 도식은 (종류·선택·망실·조사됨·테마) 조합에만 달려 있어 가짓수가 48개뿐이다.
  * 점 수천 개를 한 화면에 그리면 스타일 함수가 그만큼 불리므로, 조합마다 한 번만 만들어 돌려 쓴다.
- * 라벨 스타일은 이름이 끼어 점마다 다르다 — 조합+이름 키로 따로 캐시한다(재스타일마다 Text·Fill·Stroke 를
+ * 라벨 스타일은 이름이 끼어 점마다 다르다 — 테마+이름 키로 따로 캐시한다(재스타일마다 Text·Fill·Stroke 를
  * 새로 만들면 라벨 줌에서 화면 안 점 수만큼 할당이 생긴다).
  */
 const iconCache = new Map<string, Icon>()
 const plainStyleCache = new Map<string, Style>()
-const labeledStyleCache = new Map<string, Style>()
-/** 라벨 캐시 상한 — 이름×조합이라 무한하지 않지만, 넘치면 통째로 비워 다음 프레임이 다시 채운다(드문 일회 비용) */
+const labelOnlyCache = new Map<string, Style>()
+/** 라벨 캐시 상한 — 테마×이름이라 무한하지 않지만, 넘치면 통째로 비워 다음 프레임이 다시 채운다(드문 일회 비용) */
 const LABELED_CACHE_LIMIT = 8_000
 
 function styleKey(type: PointType, selected: boolean, lost: boolean, done: boolean, theme: MapTheme): string {
@@ -100,50 +100,48 @@ function markerIcon(key: string, type: PointType, selected: boolean, lost: boole
   }
   const icon = new Icon({
     src: 'data:image/svg+xml;base64,' + btoa(svgFor(type, selected, lost, done, PALETTE[theme])),
-    // 점은 겹치더라도 하나씩 그대로 그린다 — declutter 는 라벨만 거르고 도식은 건드리지 않는다
-    declutterMode: 'none',
   })
   iconCache.set(key, icon)
   return icon
 }
 
-/**
- * @param withLabel 이름을 함께 그릴지. 멀리서 보면 라벨끼리 겹쳐 읽을 수 없어 도식만 남긴다.
- */
+/** 도식만 그리는 스타일 — 같은 조합의 점들이 완전히 같은 스타일이라 하나를 공유한다. */
 export function controlPointStyle(
   cp: ControlPoint,
   selected: boolean,
   survey: SurveyView = 'none',
   theme: MapTheme = 'light',
-  withLabel = true,
 ): Style {
   // 우상단 뱃지: 망실=빨간 X, 조사완료=V (둘 다 '조사됨')
   const lost = survey === 'lost'
   const done = survey === 'done' || lost
   const key = styleKey(cp.type, selected, lost, done, theme)
 
-  if (!withLabel) {
-    // 이름이 빠지면 같은 조합의 점들이 완전히 같은 스타일이라 하나를 공유할 수 있다
-    const cached = plainStyleCache.get(key)
-    if (cached) {
-      return cached
-    }
-    const style = new Style({ image: markerIcon(key, cp.type, selected, lost, done, theme) })
-    plainStyleCache.set(key, style)
-    return style
+  const cached = plainStyleCache.get(key)
+  if (cached) {
+    return cached
   }
+  const style = new Style({ image: markerIcon(key, cp.type, selected, lost, done, theme) })
+  plainStyleCache.set(key, style)
+  return style
+}
 
-  const labeledKey = `${key}|${cp.name}`
-  const cachedLabeled = labeledStyleCache.get(labeledKey)
-  if (cachedLabeled) {
-    return cachedLabeled
+/**
+ * 이름 라벨만 그리는 스타일 — 도식과 레이어를 갈라 declutter 를 라벨 쪽에만 걸기 위한 것.
+ * declutter 레이어는 이동·줌 중 캔버스 재사용(fast path)을 못 타 매 프레임 전체를 다시 그리므로,
+ * 수천 점을 든 도식 레이어에 걸면 지도 조작 내내 프레임을 깎는다. 라벨 색은 조사 상태와 무관해 테마+이름이 키의 전부다.
+ */
+export function controlPointLabelStyle(cp: ControlPoint, theme: MapTheme = 'light'): Style {
+  const key = `${theme}|${cp.name}`
+  const cached = labelOnlyCache.get(key)
+  if (cached) {
+    return cached
   }
-  if (labeledStyleCache.size >= LABELED_CACHE_LIMIT) {
-    labeledStyleCache.clear()
+  if (labelOnlyCache.size >= LABELED_CACHE_LIMIT) {
+    labelOnlyCache.clear()
   }
   const pal = PALETTE[theme]
   const style = new Style({
-    image: markerIcon(key, cp.type, selected, lost, done, theme),
     text: new Text({
       text: cp.name,
       offsetY: -20,
@@ -152,6 +150,6 @@ export function controlPointStyle(
       stroke: new Stroke({ color: pal.labelHalo, width: 3 }),
     }),
   })
-  labeledStyleCache.set(labeledKey, style)
+  labelOnlyCache.set(key, style)
   return style
 }
