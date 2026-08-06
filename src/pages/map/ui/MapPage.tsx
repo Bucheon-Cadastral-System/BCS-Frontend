@@ -697,6 +697,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
             <ControlPointDetail
               point={selected}
               activeProjectName={surveyVisible && selectedIsTarget ? (activeProject?.name ?? null) : null}
+              activeProjectId={surveyVisible && selectedIsTarget ? activeProjectId : null}
               surveyorName={
                 surveyVisible && selectedIsTarget && selected !== null
                   ? (records.find((r) => r.pointId === selected.id)?.surveyorName ?? null)
@@ -714,6 +715,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
                   ? showToast('클립보드로 복사되었습니다.', 'success')
                   : showToast('클립보드로 복사하지 못했습니다.', 'error')
               }
+              onImageSuccess={(message) => showToast(message, 'success')}
+              onImageError={(message) => showToast(message, 'error')}
             />
             </div>
         </div>

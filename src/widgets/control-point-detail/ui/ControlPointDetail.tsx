@@ -3,10 +3,12 @@ import { CHIP_BTN, CHIP_BTN_DANGER, PANEL } from '@/shared/ui/classes'
 import type { ControlPoint } from '@/entities/control-point'
 import { PointTypeIcon } from '@/entities/control-point'
 import { SURVEY_STATUS_LABEL } from '@/entities/survey-record'
+import { ControlPointImageUpload } from '@/features/upload-control-point-image'
 
 interface ControlPointDetailProps {
   point: ControlPoint | null
   activeProjectName: string | null
+  activeProjectId: string | null
   /** 이 점을 마지막으로 판정한 조사원 표시명 — 기록이 없거나 인증 없이 남긴 기록이면 null */
   surveyorName: string | null
   surveyed: boolean
@@ -19,6 +21,8 @@ interface ControlPointDetailProps {
   onDelete: (point: ControlPoint) => void
   /** 관리번호를 복사한 결과 — 알림은 화면 전체를 아는 쪽이 띄운다 */
   onCopied: (ok: boolean) => void
+  onImageSuccess: (message: string) => void
+  onImageError: (message: string) => void
 }
 
 function epsgLabel(epsg: string): string {
@@ -189,6 +193,14 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
               {props.lost ? '망실 해제' : '망실'}
             </button>
           </div>
+          {props.activeProjectId !== null && (
+            <ControlPointImageUpload
+              projectId={props.activeProjectId}
+              pointId={p.id}
+              onSuccess={props.onImageSuccess}
+              onError={props.onImageError}
+            />
+          )}
         </div>
       )}
     </aside>
