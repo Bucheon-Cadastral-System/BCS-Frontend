@@ -13,6 +13,7 @@ import { exchangeOAuthCode, refreshAccessToken, startKakaoLogin } from '@/shared
 import { subscribeAuthenticationLost } from '@/shared/api/tokenStore'
 import { BTN_SECONDARY, MODAL_SHELL } from '@/shared/ui/classes'
 import { ErrorBoundary } from '@/shared/ui/ErrorBoundary'
+import { getOAuthLoginErrorMessage } from '@/pages/login/model/oauthLoginError'
 
 type AuthState = { loading: boolean; profile: UserProfile | null }
 
@@ -37,11 +38,12 @@ function AuthErrorPage({ message, onBack }: { message: string; onBack: () => voi
 function LoginRoute() {
   const location = useLocation()
   const navigate = useNavigate()
-  const isInactive = new URLSearchParams(location.search).get('error') === 'inactive'
+  const errorCode = new URLSearchParams(location.search).get('error')
+  const isInactive = errorCode === 'inactive'
 
   return isInactive
     ? <InactivePage onBackToLogin={() => navigate('/login', { replace: true })} />
-    : <LoginPage onKakaoLogin={startKakaoLogin} />
+    : <LoginPage onKakaoLogin={startKakaoLogin} errorMessage={getOAuthLoginErrorMessage(errorCode)} />
 }
 
 function Protected({ auth, admin = false, children }: { auth: AuthState; admin?: boolean; children: ReactNode }) {
