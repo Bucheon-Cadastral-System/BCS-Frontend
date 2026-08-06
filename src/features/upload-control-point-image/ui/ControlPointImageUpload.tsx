@@ -18,7 +18,7 @@ import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 interface ControlPointImageUploadProps {
   projectId: string
   pointId: string
-  onSuccess: (message: string) => void
+  onSuccess: () => void
   onError: (message: string) => void
 }
 
@@ -98,7 +98,7 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
   async function upload(file: File, capturedAt: string) {
     const prepared = await prepareControlPointImage(file, capturedAt)
     await mutation.mutateAsync({ projectId: props.projectId, pointId: props.pointId, ...prepared })
-    props.onSuccess('현장 이미지를 등록했습니다.')
+    props.onSuccess()
   }
 
   async function download() {

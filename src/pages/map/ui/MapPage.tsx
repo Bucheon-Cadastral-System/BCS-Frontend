@@ -490,6 +490,21 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     )
   }
 
+  /** 현장 이미지 등록 성공은 실제 현장 확인으로 간주해 미조사 점을 정상 조사 완료로 기록한다. */
+  function handleImageUploaded(pointId: string) {
+    if (activeProjectId === null || surveyedIds.has(pointId)) {
+      showToast('현장 이미지를 등록했습니다.', 'success')
+      return
+    }
+    recordMutation.mutate(
+      { projectId: activeProjectId, pointId, lost: false },
+      {
+        onSuccess: () => showToast('현장 이미지를 등록하고 조사 완료 처리했습니다.', 'success'),
+        onError: () => showToast('이미지는 등록했지만 조사 완료 처리에 실패했습니다. 다시 시도해 주세요.', 'error'),
+      },
+    )
+  }
+
   /**
    * 화면에 떨어뜨린 파일은 언제나 프로젝트를 추가한다 — 화면에 적힌 안내와 벌어지는 일이 늘 같아야 한다.
    * 기준점 파일은 기준점 창 안에 놓아야 기준점으로 읽힌다.
@@ -715,7 +730,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
                   ? showToast('클립보드로 복사되었습니다.', 'success')
                   : showToast('클립보드로 복사하지 못했습니다.', 'error')
               }
-              onImageSuccess={(message) => showToast(message, 'success')}
+              onImageSuccess={() => selected !== null && handleImageUploaded(selected.id)}
               onImageError={(message) => showToast(message, 'error')}
             />
             </div>

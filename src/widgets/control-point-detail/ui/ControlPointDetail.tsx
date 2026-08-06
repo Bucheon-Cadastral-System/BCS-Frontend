@@ -21,7 +21,7 @@ interface ControlPointDetailProps {
   onDelete: (point: ControlPoint) => void
   /** 관리번호를 복사한 결과 — 알림은 화면 전체를 아는 쪽이 띄운다 */
   onCopied: (ok: boolean) => void
-  onImageSuccess: (message: string) => void
+  onImageSuccess: () => void
   onImageError: (message: string) => void
 }
 
