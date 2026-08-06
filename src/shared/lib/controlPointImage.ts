@@ -84,11 +84,12 @@ export function currentLocalDateTime(): string {
 async function decodeHeic(file: File): Promise<Blob> {
   try {
     // 디코더가 크므로 일반 이미지의 첫 화면에는 싣지 않고 HEIC를 골랐을 때만 받는다.
-    const { default: heic2any } = await import('heic2any')
-    const decoded = await heic2any({ blob: file, toType: 'image/png', quality: 1 })
-    return Array.isArray(decoded) ? decoded[0] : decoded
-  } catch {
-    throw new Error('HEIC/HEIF 사진을 변환하지 못했습니다. 파일이 손상되지 않았는지 확인해 주세요.')
+    // CSP 빌드는 unsafe-eval 없이 동작하고 최신 libheif가 최근 iPhone 형식을 해석한다.
+    const { heicTo } = await import('heic-to/csp')
+    return await heicTo({ blob: file, type: 'image/png' })
+  } catch (error) {
+    console.error('HEIC/HEIF decode failed', error)
+    throw new Error('이 HEIC/HEIF 사진 형식을 해석하지 못했습니다. 사진 앱에서 JPG로 내보낸 뒤 다시 시도해 주세요.')
   }
 }
 

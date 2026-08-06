@@ -1,5 +1,10 @@
-import { useRef, useState } from 'react'
-import { useUploadControlPointImageMutation } from '@/entities/control-point-image'
+import { useEffect, useRef, useState } from 'react'
+import {
+  downloadControlPointImage,
+  fetchControlPointImageFile,
+  useControlPointImageQuery,
+  useUploadControlPointImageMutation,
+} from '@/entities/control-point-image'
 import { ApiError } from '@/shared/api/http'
 import {
   currentLocalDateTime,
@@ -25,10 +30,36 @@ interface MissingCaptureTime {
 export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const mutation = useUploadControlPointImageMutation()
+  const imageQuery = useControlPointImageQuery(props.projectId, props.pointId)
   const [preparing, setPreparing] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState(false)
   const [missingCaptureTime, setMissingCaptureTime] = useState<MissingCaptureTime | null>(null)
   const [dialogError, setDialogError] = useState<string | null>(null)
   const pending = preparing || mutation.isPending
+
+  useEffect(() => {
+    const image = imageQuery.data
+    if (image === null || image === undefined) {
+      setPreviewUrl(null)
+      return
+    }
+    let active = true
+    let objectUrl: string | null = null
+    void fetchControlPointImageFile(image.id)
+      .then((blob) => {
+        if (!active) return
+        objectUrl = URL.createObjectURL(blob)
+        setPreviewUrl(objectUrl)
+      })
+      .catch(() => {
+        if (active) setPreviewUrl(null)
+      })
+    return () => {
+      active = false
+      if (objectUrl !== null) URL.revokeObjectURL(objectUrl)
+    }
+  }, [imageQuery.data])
 
   async function select(file: File | undefined) {
     if (file === undefined) return
@@ -70,8 +101,51 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
     props.onSuccess('현장 이미지를 등록했습니다.')
   }
 
+  async function download() {
+    if (imageQuery.data === null || imageQuery.data === undefined) return
+    setDownloading(true)
+    try {
+      await downloadControlPointImage(imageQuery.data)
+    } catch (error) {
+      props.onError(messageOf(error))
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   return (
     <div className="mt-2.5 border-t border-line-soft pt-2.5">
+      {imageQuery.isPending && <p className="mb-2 text-center text-[11px] text-ink-3">현장 이미지를 불러오는 중…</p>}
+      {imageQuery.isError && (
+        <button type="button" className="mb-2 w-full text-[11px] text-danger" onClick={() => void imageQuery.refetch()}>
+          이미지를 불러오지 못했습니다. 다시 시도
+        </button>
+      )}
+      {imageQuery.data !== null && imageQuery.data !== undefined && (
+        <div className="mb-2.5 overflow-hidden rounded-chip border border-line-soft bg-field">
+          {previewUrl === null ? (
+            <div className="flex h-[132px] items-center justify-center text-[11px] text-ink-3">미리보기 불러오는 중…</div>
+          ) : (
+            <img src={previewUrl} alt="등록된 기준점 현장" className="h-[132px] w-full object-cover" />
+          )}
+          <div className="flex items-center gap-2 border-t border-line-soft px-2.5 py-2">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[11.5px] text-ink-2">{imageQuery.data.originalFileName}</p>
+              <p className="mt-0.5 text-[10.5px] text-ink-3">
+                촬영 {formatCapturedAt(imageQuery.data.capturedAt)} · {imageQuery.data.width}×{imageQuery.data.height}
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={downloading}
+              className="shrink-0 text-[11px] font-medium text-teal-text disabled:opacity-50"
+              onClick={() => void download()}
+            >
+              {downloading ? '받는 중…' : '다운로드'}
+            </button>
+          </div>
+        </div>
+      )}
       <input
         ref={inputRef}
         type="file"
@@ -128,4 +202,12 @@ function messageOf(error: unknown): string {
   if (error instanceof ApiError) return error.message
   if (error instanceof Error) return error.message
   return '이미지를 처리하지 못했습니다.'
+}
+
+function formatCapturedAt(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat('ko-KR', {
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+  }).format(date)
 }
