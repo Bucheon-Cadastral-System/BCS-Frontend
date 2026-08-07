@@ -477,15 +477,16 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
 
 
   /** 상세 카드의 조사 기록 UI에서 결과 하나를 고르면 그대로 기록한다. 사유는 기타를 고를 때만 채워 온다. */
-  function handleRecordSurvey(pointId: string, result: SurveyResult, note: string | null) {
+  // 완료·실패를 그대로 돌려준다 — 카드가 답을 기다리는 동안 다음 선택을 막고, 실패하면 고른 값을 놓는다
+  async function handleRecordSurvey(pointId: string, result: SurveyResult, note: string | null) {
     if (!activeProjectId) return
-    recordMutation.mutate({ projectId: activeProjectId, pointId, result, note }, { onError: notifySurveySaveFailed })
+    await recordMutation.mutateAsync({ projectId: activeProjectId, pointId, result, note }, { onError: notifySurveySaveFailed })
   }
 
   /** 상세 카드에서 미조사로 되돌리기. 기록 자체를 지운다. */
-  function handleCancelSurvey(pointId: string) {
+  async function handleCancelSurvey(pointId: string) {
     if (!activeProjectId) return
-    cancelMutation.mutate({ projectId: activeProjectId, pointId }, { onError: notifySurveySaveFailed })
+    await cancelMutation.mutateAsync({ projectId: activeProjectId, pointId }, { onError: notifySurveySaveFailed })
   }
 
   /**

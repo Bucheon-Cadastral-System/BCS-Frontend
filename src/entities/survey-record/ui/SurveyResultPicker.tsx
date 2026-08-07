@@ -21,6 +21,8 @@ export function SurveyResultPicker(props: {
   result: SurveyResult | null
   /** 아직 반영되지 않았지만 고른 값. 주면 칩이 이 값을 보여 준다 */
   pending?: SurveyResult | null
+  /** 보낸 값의 답을 기다리는 동안 잠근다 — 겹쳐 고르면 마지막 선택과 다른 값이 남는다 */
+  disabled?: boolean
   /** 미조사는 'NONE' 으로 온다 */
   onSelect: (choice: SurveyResult | 'NONE') => void
 }) {
@@ -38,6 +40,7 @@ export function SurveyResultPicker(props: {
   }
 
   function toggle() {
+    if (props.disabled === true) return
     if (open) {
       close()
       return
@@ -46,6 +49,11 @@ export function SurveyResultPicker(props: {
     if (rect === undefined) return
     setBox({ top: rect.bottom + 4, left: rect.left, width: rect.width })
   }
+
+  // 잠기면 펼쳐 둔 목록도 접는다 — 열어 둔 채로 잠그면 누를 수 없는 목록이 남는다
+  useEffect(() => {
+    if (props.disabled === true) close()
+  }, [props.disabled])
 
   // 바깥을 누르거나 Esc, 그리고 판이 움직이면 닫는다. 좌표로 세운 목록이라 스크롤을 따라가지 않는다
   useEffect(() => {
@@ -81,8 +89,9 @@ export function SurveyResultPicker(props: {
         ref={triggerRef}
         type="button"
         onClick={toggle}
+        disabled={props.disabled}
         aria-expanded={open}
-        className={`flex w-full items-center gap-1.5 rounded-chip border px-2.5 py-1.5 text-[12px] font-medium transition-colors ${
+        className={`flex w-full items-center gap-1.5 rounded-chip border px-2.5 py-1.5 text-[12px] font-medium transition-colors disabled:opacity-60 ${
           shown === null || shown === undefined
             ? 'border-line-btn bg-btn text-ink-3 hover:bg-hover'
             : SURVEY_STATUS_TONE[status]

@@ -3,8 +3,8 @@ import { TM_ORIGINS } from '@/shared/lib/crs'
 import { BTN_SM_PRIMARY, CHIP_BTN, FIELD_AREA, PANEL } from '@/shared/ui/classes'
 import type { ControlPoint } from '@/entities/control-point'
 import { PointTypeIcon, useLastSurveyorNameQuery } from '@/entities/control-point'
-import { SURVEY_STATUS_LABEL, SurveyResultPicker, deriveSurveyStatus } from '@/entities/survey-record'
-import type { SurveyResult, SurveyStatus } from '@/entities/survey-record'
+import { SURVEY_STATUS_LABEL, SURVEY_STATUS_TONE, SurveyResultPicker, deriveSurveyStatus } from '@/entities/survey-record'
+import type { SurveyResult } from '@/entities/survey-record'
 
 interface ControlPointDetailProps {
   point: ControlPoint | null
@@ -15,25 +15,16 @@ interface ControlPointDetailProps {
   surveyResult: SurveyResult | null
   /** 기록에 딸린 사유. 기타가 아니거나 기록이 없으면 null */
   surveyNote: string | null
-  /** 결과 기록·정정. note는 기타를 고를 때만 채워 온다 */
-  onRecordSurvey: (id: string, result: SurveyResult, note: string | null) => void
+  /** 결과 기록·정정. note는 기타를 고를 때만 채워 온다. 실패하면 거절되는 약속을 돌려준다 */
+  onRecordSurvey: (id: string, result: SurveyResult, note: string | null) => Promise<void>
   /** 미조사로 되돌리기(기록 삭제) */
-  onCancelSurvey: (id: string) => void
+  onCancelSurvey: (id: string) => Promise<void>
   onClose: () => void
   /** 이 점 수정·삭제. 입력과 확인은 화면 전체를 아는 쪽의 창이 받는다 */
   onEdit: (point: ControlPoint) => void
   onDelete: (point: ControlPoint) => void
   /** 관리번호를 복사한 결과. 알림은 화면 전체를 아는 쪽이 띄운다 */
   onCopied: (ok: boolean) => void
-}
-
-/** 상태별 배지·칩 색조. 정상은 청록, 망실은 빨강, 조사불가는 호박, 기타는 중립 강조, 미조사는 옅은 회색 */
-const STATUS_TONE: Record<SurveyStatus, string> = {
-  done: 'border-teal-btn-edge bg-teal-wash-strong text-teal-text',
-  lost: 'border-danger-btn-edge bg-danger-wash text-danger',
-  unavailable: 'border-amber/40 bg-amber-wash text-amber',
-  etc: 'border-line-btn bg-hover text-ink',
-  todo: 'border-line-btn bg-soft text-ink-3',
 }
 
 /** 값이 없으면 정보 없음으로 세운다. 줄을 감추면 항목이 없는 것과 구분되지 않는다. */
@@ -94,11 +85,26 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
   // 골랐지만 아직 서버 응답이 돌아오지 않은 값. 머리말 칩과 고르기 칩이 함께 이 값을 따른다
   const [pending, setPending] = useState<SurveyResult | 'NONE' | null>(null)
   const [etcNote, setEtcNote] = useState('')
+  // 보내 놓고 아직 답을 못 받은 상태. 이 동안 다른 결과를 고르면 두 요청이 겹쳐 마지막 선택과 다른 값이 남는다
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     setPending(null)
     setEtcNote('')
   }, [p?.id])
+
+  /** 고른 값을 먼저 보이고 보낸다. 실패하면 고른 값을 놓아 카드가 저장된 값을 다시 보이게 한다. */
+  async function applySurvey(next: SurveyResult | 'NONE', send: () => void | Promise<void>) {
+    setPending(next)
+    setSaving(true)
+    try {
+      await send()
+    } catch {
+      setPending(null)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   // 서버가 따라잡으면 놓는다. 먼저 놓으면 그 사이 한 프레임 동안 이전 값이 보인다
   useEffect(() => {
@@ -111,7 +117,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
   const shownResult = pending === 'NONE' ? null : (pending ?? props.surveyResult)
   const pendingEtc = pending === 'ETC'
   const status = deriveSurveyStatus(shownResult ?? undefined)
-  const chipTone = STATUS_TONE[status]
+  const chipTone = SURVEY_STATUS_TONE[status]
 
 
 
@@ -217,10 +223,10 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
           <SurveyResultPicker
             result={props.surveyResult}
             pending={shownResult}
+            disabled={saving}
             onSelect={(choice) => {
               if (choice === 'NONE') {
-                setPending('NONE')
-                props.onCancelSurvey(p.id)
+                void applySurvey('NONE', () => props.onCancelSurvey(p.id))
                 return
               }
               if (choice === 'ETC') {
@@ -229,8 +235,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
                 setPending('ETC')
                 return
               }
-              setPending(choice)
-              props.onRecordSurvey(p.id, choice, null)
+              void applySurvey(choice, () => props.onRecordSurvey(p.id, choice, null))
             }}
           />
 
@@ -246,10 +251,12 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
               <div className="flex gap-1.5">
                 <button
                   type="button"
-                  disabled={etcNote.trim() === ''}
+                  disabled={etcNote.trim() === '' || saving}
                   onClick={() => {
-                    props.onRecordSurvey(p.id, 'ETC', etcNote.trim())
-                    setPending(null)
+                    void applySurvey('ETC', async () => {
+                      await props.onRecordSurvey(p.id, 'ETC', etcNote.trim())
+                      setPending(null)
+                    })
                   }}
                   className={`${BTN_SM_PRIMARY} flex-1`}
                 >
