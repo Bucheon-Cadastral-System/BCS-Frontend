@@ -159,7 +159,22 @@ export async function changeAdminMember(memberId: string, action: AdminMemberAct
 }
 
 export type AdminActivityType = 'MEMBER_APPROVED' | 'MEMBER_REJECTED' | 'MEMBER_DEACTIVATED' | 'MEMBER_ACTIVATED' | 'MEMBER_PROFILE_UPDATED' | 'MEMBER_PROMOTED_TO_ADMIN' | 'MEMBER_DEMOTED_TO_USER'
-export interface AdminActivity { id: number; actorAdminId: number; targetMemberId: number; activityType: AdminActivityType; message: string; createdAt: string }
+/**
+ * 관리자 활동 한 줄.
+ *
+ * <p>이름은 기록하는 순간 함께 적어 둔 값이라 그 뒤에 개명하거나 탈퇴해도 그때의 이름이 남는다.
+ * 회원을 다시 조회해 붙이면 지금 이름이 나와, 로그가 말하는 시점과 어긋난다.
+ */
+export interface AdminActivity {
+  id: number
+  actorAdminId: number
+  actorName: string
+  targetMemberId: number
+  targetName: string
+  activityType: AdminActivityType
+  message: string
+  createdAt: string
+}
 export interface CursorPage<T> { content: T[]; nextCursor: string | null; hasNext: boolean; size: number }
 
 export async function getAdminActivities(cursor?: string, activityType?: AdminActivityType): Promise<CursorPage<AdminActivity>> {

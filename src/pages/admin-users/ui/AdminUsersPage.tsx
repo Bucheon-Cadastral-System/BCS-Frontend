@@ -84,8 +84,8 @@ type ActivityColumnKey = 'createdAt' | 'activityType' | 'actor' | 'target' | 'me
 const ACTIVITY_COLUMNS: Column<ActivityColumnKey>[] = [
   { key: 'message', label: '내용', grow: true },
   { key: 'activityType', label: '유형', width: 108 },
-  { key: 'actor', label: '관리자', width: 72 },
-  { key: 'target', label: '대상 회원', width: 80 },
+  { key: 'actor', label: '관리자', width: 116 },
+  { key: 'target', label: '대상 회원', width: 116 },
   { key: 'createdAt', label: '시각', width: 180 },
 ]
 
@@ -730,10 +730,25 @@ function ActivityCell({ column, activity }: { column: ActivityColumnKey; activit
       </span>
     )
   }
-  // 응답이 id 만 주므로 id 만 보여 준다 — 이름을 함께 세우려면 응답에 이름이 실려야 한다
-  if (column === 'actor') return <span className="block truncate text-[11.5px] text-ink-3">#{activity.actorAdminId}</span>
-  if (column === 'target') return <span className="block truncate text-[11.5px] text-ink-3">#{activity.targetMemberId}</span>
+  if (column === 'actor') return <ActivityWho name={activity.actorName} id={activity.actorAdminId} />
+  if (column === 'target') return <ActivityWho name={activity.targetName} id={activity.targetMemberId} />
   return <span className="block truncate text-[12.5px] text-ink-2">{activity.message}</span>
+}
+
+/**
+ * 활동 로그의 사람 한 칸 — 이름 뒤에 아이디를 붙여 한 줄로 세운다.
+ *
+ * <p>이름은 기록한 시점의 것이라 동명이인이 있거나 나중에 개명하면 이름만으로 가려낼 수 없다.
+ * 아이디를 함께 세워 그때 누구였는지가 남게 한다. 자리가 모자라면 이름만 줄고 아이디는 남는다 —
+ * 이름은 잘려도 무엇을 가리키는지 짐작할 수 있지만 아이디는 한 글자만 잘려도 다른 사람이 된다.
+ */
+function ActivityWho({ name, id }: { name: string | null | undefined; id: number }) {
+  return (
+    <span className="flex min-w-0 items-baseline gap-1 text-[11.5px]" title={`${name ?? ''} #${id}`.trim()}>
+      {name !== null && name !== undefined && name !== '' && <span className="truncate text-ink-2">{name}</span>}
+      <span className="shrink-0 text-ink-4">#{id}</span>
+    </span>
+  )
 }
 
 /** 열 이름이 곧 정렬 버튼이다 — 같은 열을 다시 누르면 방향이 뒤집힌다 */
