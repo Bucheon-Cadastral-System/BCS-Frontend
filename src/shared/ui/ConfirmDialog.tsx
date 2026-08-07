@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useId, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { useDialogBehavior } from '@/shared/lib/useDialogBehavior'
 import { useFileDrop } from '@/shared/lib/useFileDrop'
@@ -25,6 +25,8 @@ export function ConfirmDialog(props: {
   onCancel: () => void
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
+  // 확인 창이 둘 이상 떠 있을 수 있어 id 를 고정하면 보조기술이 먼저 만난 쪽의 문구를 읽는다
+  const messageId = useId()
   const cancelRef = useRef<HTMLButtonElement>(null)
   const confirmRef = useRef<HTMLButtonElement>(null)
   const danger = props.danger ?? false
@@ -37,12 +39,12 @@ export function ConfirmDialog(props: {
 
   // showModal 로 연 dialog 는 top layer 로 올라가므로, 화면 기준을 맞추려고 body 로 내보내던 portal은 이제 필요 없다.
   return (
-    <dialog ref={dialogRef} aria-labelledby="confirm-dialog-message" className="m-0 border-0 bg-transparent p-0">
+    <dialog ref={dialogRef} aria-labelledby={messageId} className="m-0 border-0 bg-transparent p-0">
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={close} {...dropHandlers}>
         {/* 폭은 내용에 맞춘다(최소 320) — 안내 한 줄이 상한 안에 들면 어색하게 꺾이지 않고 한 줄로 선다.
             상한을 넘는 긴 글만 break-keep 으로 단어 경계에서 접는다. */}
         <div className={`panel-in w-fit min-w-[min(320px,100%)] max-w-[min(440px,100%)] p-5 ${MODAL_SHELL}`} onClick={(e) => e.stopPropagation()}>
-          <p id="confirm-dialog-message" className="break-keep text-center text-[13.5px] font-medium text-ink">
+          <p id={messageId} className="break-keep text-center text-[13.5px] font-medium text-ink">
             {props.message}
           </p>
           {/* div — 임의의 노드(변경 요약)를 받으므로 p 안에 블록이 중첩되지 않게 한다. 여러 줄 문자열은 pre-line 이 갈라 준다 */}

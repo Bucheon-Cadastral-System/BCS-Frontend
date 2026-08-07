@@ -4,7 +4,8 @@ import type { RefObject } from 'react'
 /**
  * 모달 대화상자의 공통 열고 닫힘. 네이티브 dialog 의 showModal 로 연다.
  * 포커스 가둠, Esc 닫기, 겹친 대화상자 사이의 순서, 닫힌 뒤 포커스 복원은 모두 브라우저가 대신한다.
- * 콜백과 busy 는 ref 로 최신값을 읽으므로 부모가 인라인 함수를 넘겨도 여닫는 효과가 다시 돌지 않는다.
+ * 닫기 요청은 useEffectEvent 로 감싸 최신 콜백과 busy 를 읽는다. 그래서 부모가 인라인 함수를 넘겨도
+ * 여닫는 효과의 의존성이 바뀌지 않아 창이 다시 열리고 닫히지 않는다.
  */
 export function useDialogBehavior(options: {
   dialogRef: RefObject<HTMLDialogElement | null>
