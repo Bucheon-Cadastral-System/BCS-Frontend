@@ -189,9 +189,10 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
   const totalPages = membersQuery.data?.totalPages ?? 0
   const counts = countsQuery.data ?? { ALL: 0, PENDING: 0, ACTIVE: 0, INACTIVE: 0 }
 
-  // 걸러 보기 등으로 총 페이지가 줄어 지금 페이지가 그 밖에 나면 마지막 페이지로 되돌린다
+  // 걸러 보기 등으로 총 페이지가 줄어 지금 페이지가 그 밖에 나면 마지막 페이지로 되돌린다.
+  // 결과가 아예 없으면 총 페이지가 0이라 첫 페이지로 돌아온다
   useEffect(() => {
-    if (totalPages > 0 && page >= totalPages) setPage(totalPages - 1)
+    if (page >= totalPages) setPage(Math.max(0, totalPages - 1))
   }, [totalPages, page])
 
   // 활동 로그 페이지가 도착할 때마다 화면용 목록에 반영한다.
