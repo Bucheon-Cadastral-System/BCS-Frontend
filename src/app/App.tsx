@@ -9,6 +9,7 @@ import { RegistrationPage } from '@/pages/registration'
 import { LoginPage } from '@/pages/login'
 import { InactivePage } from '@/pages/inactive'
 import { MapPage } from '@/pages/map'
+import { clearChatStorage } from '@/widgets/chatbot'
 import { WaitingPage } from '@/pages/waiting'
 import { exchangeOAuthCode, refreshAccessToken, startKakaoLogin } from '@/shared/api/auth'
 import { subscribeAuthenticationLost } from '@/shared/api/tokenStore'
@@ -116,10 +117,11 @@ function AppRoutes() {
   const [auth, setAuth] = useState<AuthState>({ loading: true, profile: null })
 
   /**
-   * 로그인한 계정이 바뀌면 받아 둔 응답을 통째로 버린다.
+   * 로그인한 계정이 바뀌면 그 계정에 딸린 것을 모두 버린다.
    *
-   * 대화 이력·회원 목록처럼 계정에 딸린 데이터가 캐시에 남아 있으면, 같은 브라우저에서 계정을 바꾼 뒤
-   * 앞 계정의 값이 새 화면에 그대로 복원된다. 화면마다 열쇠에 계정을 섞는 대신 경계에서 한 번 비운다.
+   * 받아 둔 응답(대화 이력·회원 목록)이 캐시에 남아 있으면 계정을 바꾼 뒤 앞 계정의 값이 새 화면에
+   * 그대로 복원된다. 브라우저에 담아 둔 챗봇 창 배치도 그 사람의 작업 방식이라 함께 지운다.
+   * 화면마다 열쇠에 계정을 섞는 대신 경계에서 한 번 비운다.
    */
   const accountRef = useRef<string | null | undefined>(undefined) // undefined = 아직 로그인 상태를 모른다
   useEffect(() => {
@@ -127,7 +129,9 @@ function AppRoutes() {
     const accountId = auth.profile?.id ?? null
     const previous = accountRef.current
     accountRef.current = accountId
-    if (previous !== undefined && previous !== accountId) queryClient.clear()
+    if (previous === undefined || previous === accountId) return
+    queryClient.clear()
+    clearChatStorage()
   }, [auth.loading, auth.profile, queryClient])
 
   const reloadProfile = useCallback(async () => {

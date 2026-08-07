@@ -51,3 +51,14 @@ export function saveChatUi(ui: PersistedChatUi): void {
 export function clearLegacyChatMessages(): void {
   safeStorage.remove(LEGACY_MESSAGES_KEY)
 }
+
+/**
+ * 이 브라우저에 남은 챗봇 흔적을 모두 지운다 — 계정이 바뀌는 자리에서 부른다.
+ *
+ * <p>창을 어디에 어떻게 띄워 두었는지는 그 사람의 작업 방식이다. 같은 기기를 나눠 쓰는 곳에서
+ * 남겨 두면 다음 사람이 앞사람의 배치로 시작한다. 화면 테마는 계정이 아니라 기기의 것이라 건드리지 않는다.
+ */
+export function clearChatStorage(): void {
+  safeStorage.remove(UI_KEY)
+  safeStorage.remove(LEGACY_MESSAGES_KEY)
+}
