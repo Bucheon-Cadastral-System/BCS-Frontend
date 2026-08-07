@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { TM_ORIGINS } from '@/shared/lib/crs'
-import { FIELD_AREA, PANEL } from '@/shared/ui/classes'
+import { FIELD_AREA, ICON_BTN, ICON_BTN_DANGER, PANEL, PANEL_HEADER, PANEL_HEADER_RULE } from '@/shared/ui/classes'
 import { FormActions } from '@/shared/ui/FormActions'
 import type { ControlPoint } from '@/entities/control-point'
 import { PointTypeIcon, useLastSurveyQuery } from '@/entities/control-point'
@@ -125,7 +125,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
 
   return (
     <aside className={`panel-in w-[320px] overflow-hidden ${PANEL}`}>
-      <div className="flex items-center gap-[9px] border-b border-line-soft py-3 pl-3.5 pr-2.5">
+      <div className={`items-center ${PANEL_HEADER} ${PANEL_HEADER_RULE}`}>
         <span className="flex shrink-0 text-teal-text">
           <PointTypeIcon type={p.type} className="size-[18px]" />
         </span>
@@ -133,25 +133,13 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
           <span className="block truncate text-[14.5px] font-semibold text-ink">{p.name}</span>
           <span className="block text-[11.5px] text-ink-3">{p.type}</span>
         </span>
-        <button
-          type="button"
-          onClick={() => props.onEdit(p)}
-          title="수정"
-          aria-label="기준점 수정"
-          className="flex size-[26px] shrink-0 items-center justify-center rounded-chip text-ink-3 transition-colors hover:bg-hover hover:text-teal-text"
-        >
+        <button type="button" onClick={() => props.onEdit(p)} title="수정" aria-label="기준점 수정" className={ICON_BTN}>
           <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M12 20h9" />
             <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
           </svg>
         </button>
-        <button
-          type="button"
-          onClick={() => props.onDelete(p)}
-          title="삭제"
-          aria-label="기준점 삭제"
-          className="flex size-[26px] shrink-0 items-center justify-center rounded-chip text-ink-3 transition-colors hover:bg-danger-wash hover:text-danger"
-        >
+        <button type="button" onClick={() => props.onDelete(p)} title="삭제" aria-label="기준점 삭제" className={ICON_BTN_DANGER}>
           <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M4 7h16" />
             <path d="M10 11v6M14 11v6" />
@@ -159,15 +147,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
             <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
           </svg>
         </button>
-        {/* 삭제와 닫기는 이웃한 데다 강조색이 같다. 사이를 갈라 잘못 누르지 않게 한다 */}
-        <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 self-center bg-line-soft" />
-        <button
-          type="button"
-          onClick={props.onClose}
-          title="닫기"
-          aria-label="닫기"
-          className="flex size-[26px] shrink-0 items-center justify-center rounded-chip text-ink-3 transition-colors hover:bg-danger-wash hover:text-danger"
-        >
+        <button type="button" onClick={props.onClose} title="닫기" aria-label="닫기" className={ICON_BTN_DANGER}>
           <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             <path d="M18 6 6 18M6 6l12 12" />
           </svg>

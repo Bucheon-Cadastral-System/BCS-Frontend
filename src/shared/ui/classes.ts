@@ -46,6 +46,25 @@ export const CHIP_BTN =
 export const CHIP_BTN_DANGER =
   'rounded-chip border border-danger-btn-edge bg-danger-wash text-center font-medium text-danger transition-colors hover:bg-danger-wash-strong'
 
+/**
+ * 판 머리말에 서는 아이콘 버튼(접기·닫기·수정·삭제).
+ *
+ * <p>글자 없이 뜻만 있는 자리라 평소에는 조용히 있다가 손을 올렸을 때만 색을 낸다.
+ * 되돌릴 수 없는 쪽(닫기·삭제)만 붉게 물들어, 색 하나로 무거운 버튼과 가벼운 버튼이 갈린다.
+ */
+const ICON_BTN_BASE =
+  'flex size-[26px] shrink-0 items-center justify-center rounded-chip text-ink-3 transition-colors'
+export const ICON_BTN = `${ICON_BTN_BASE} hover:bg-hover hover:text-ink-2`
+export const ICON_BTN_DANGER = `${ICON_BTN_BASE} hover:bg-danger-wash hover:text-danger`
+
+/**
+ * 판 머리말 — 제목이 왼쪽, 아이콘이 오른쪽. 머리말과 본문의 경계는 언제나 청록 두 겹 선이다
+ * (창·좌측 판·대화 판이 모두 이 선을 쓴다). 세로 정렬은 제목이 한 줄인지 두 줄인지에 따라 쓰는 쪽이 정한다.
+ */
+export const PANEL_HEADER = 'flex shrink-0 gap-[7px] pb-[11px] pl-3.5 pr-2.5 pt-[13px]'
+/** 머리말과 본문의 경계 — 머리말에 걸거나, 아래 칸에 border-t-2 border-t-teal 로 건다 */
+export const PANEL_HEADER_RULE = 'border-b-2 border-b-teal'
+
 /** 입력칸 */
 export const FIELD =
   'h-[38px] w-full rounded-ctl border border-line-field bg-field px-3 text-[13px] text-ink placeholder:text-ink-4 outline-none transition-colors focus:border-teal-edge'

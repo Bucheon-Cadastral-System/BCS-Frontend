@@ -14,7 +14,7 @@ import type { AdminActivity, AdminActivityType, AdminMemberAction, AdminMemberSo
 import { UserAvatar } from '@/entities/user'
 import { ActivityIcon, AppHeader, UsersIcon } from '@/widgets/app-header'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
-import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY, FIELD, FIELD_SELECT, FIELD_SM, FIELD_SM_SELECT, ROW_ACCENT } from '@/shared/ui/classes'
+import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY, FIELD, FIELD_SELECT, FIELD_SM, FIELD_SM_SELECT, ICON_BTN_DANGER, ROW_ACCENT } from '@/shared/ui/classes'
 
 interface AdminUsersPageProps {
   /** 지금 로그인한 관리자 — 헤더 표시에 쓴다 */
@@ -465,7 +465,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                     onClick={closeDetail}
                     aria-label="닫기"
                     title="닫기"
-                    className="absolute right-3 top-3 z-10 flex size-[26px] items-center justify-center rounded-chip text-ink-3 transition-colors hover:bg-danger-wash hover:text-danger"
+                    className={`absolute right-3 top-3 z-10 ${ICON_BTN_DANGER}`}
                   >
                     <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                       <path d="M18 6 6 18M6 6l12 12" />

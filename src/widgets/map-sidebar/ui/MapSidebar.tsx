@@ -4,7 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { SURVEY_STATUS_DOT, SURVEY_STATUS_LABEL, SURVEY_STATUS_ORDER, deriveSurveyStatus } from '@/entities/survey-record'
 import type { SurveyResult, SurveyStatus } from '@/entities/survey-record'
 import { Skeleton, SkeletonRows } from '@/shared/ui/Skeleton'
-import { CHIP_BTN, CHIP_BTN_DANGER, PANEL, PROGRESS_FILL, ROW_ACCENT } from '@/shared/ui/classes'
+import { CHIP_BTN, CHIP_BTN_DANGER, ICON_BTN, ICON_BTN_DANGER, PANEL, PANEL_HEADER, PROGRESS_FILL, ROW_ACCENT } from '@/shared/ui/classes'
 import { percent } from '@/shared/lib/percent'
 import { formatDate } from '@/shared/lib/date'
 import { SURVEY_ONGOING_LABEL, isProjectComplete, type SurveyProject } from '@/entities/survey-project'
@@ -130,7 +130,7 @@ export function MapSidebar(props: MapSidebarProps) {
 
 function PanelHeader(props: { title: string; count?: number; onMinimize: () => void; onClose: () => void }) {
   return (
-    <header className="flex shrink-0 items-baseline gap-[7px] pb-[11px] pl-3.5 pr-2.5 pt-[13px]">
+    <header className={`items-baseline ${PANEL_HEADER}`}>
       <h2 className="flex min-w-0 flex-1 items-baseline gap-[7px]">
         <span className="text-[13.5px] font-semibold text-ink">{props.title}</span>
         {props.count !== undefined && (
@@ -144,7 +144,7 @@ function PanelHeader(props: { title: string; count?: number; onMinimize: () => v
         onClick={props.onMinimize}
         aria-label="판 접기"
         title="접기"
-        className="flex size-[26px] shrink-0 items-center justify-center self-center rounded-chip text-ink-3 transition-colors hover:bg-hover hover:text-ink-2"
+        className={`self-center ${ICON_BTN}`}
       >
         <span className="flex size-4 items-center justify-center">
           <IconMinimize />
@@ -155,7 +155,7 @@ function PanelHeader(props: { title: string; count?: number; onMinimize: () => v
         onClick={props.onClose}
         aria-label="판 닫기"
         title="닫기"
-        className="flex size-[26px] shrink-0 items-center justify-center self-center rounded-chip text-ink-3 transition-colors hover:bg-danger-wash hover:text-danger"
+        className={`self-center ${ICON_BTN_DANGER}`}
       >
         <span className="size-4">
           <IconClose />
