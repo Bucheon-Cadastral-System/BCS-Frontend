@@ -1,8 +1,8 @@
 import { useRef } from 'react'
-import { createPortal } from 'react-dom'
 import type { ReactNode, RefObject } from 'react'
 import { useDialogBehavior } from '@/shared/lib/useDialogBehavior'
 import { useFileDrop } from '@/shared/lib/useFileDrop'
+import { FIELD_LABEL } from '@/shared/ui/classes'
 import { FileDropOverlay } from '@/shared/ui/FileDropOverlay'
 import { MODAL_SHELL } from './classes'
 
@@ -45,73 +45,71 @@ export function Modal(props: {
   onClose: () => void
   onSubmit?: () => void
 }) {
-  const panelRef = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLDialogElement>(null)
   const onDropFile = props.onDropFile
   // 받든 안 받든 이 창이 가로챈다 — 받지 않을 때는 삼키기만 한다
   const { dragging, dropHandlers } = useFileDrop((files) => onDropFile?.(files))
-  // 감춰진 동안엔 Esc·포커스 트랩을 끈다 — 안 보이는 창이 Esc를 가로채 입력하던 값을 날리면 안 된다
-  useDialogBehavior({ panelRef, onClose: props.onClose, busy: props.busy, enabled: !props.hidden })
+  // 감춰진 동안엔 대화상자를 닫아 둔다. 안 보이는 창이 Esc를 가로채 입력하던 값을 날리면 안 된다
+  useDialogBehavior({ dialogRef, onClose: props.onClose, busy: props.busy, enabled: !props.hidden })
 
-  // body 로 내보내 세운다 — 선언한 자리의 조상이 transform(판 등장 애니메이션 등)을 들면 fixed 의
-  // 기준이 화면이 아니라 그 조상이 되고, space-y 간격 계산에도 형제로 끼어 판 크기를 미세하게 바꾼다
-  return createPortal(
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 ${props.hidden ? 'hidden' : ''}`}
-      role="dialog"
-      aria-modal="true"
-      aria-label={props.title}
-      onClick={() => {
-        if (!props.busy) props.onClose()
-      }}
-      {...dropHandlers}
-    >
-      {/* 창과 옆판을 함께 감싼다 — 포커스 순환이 두 판을 함께 돌고, 바깥 클릭으로 닫히는 범위에서도 함께 빠진다.
-          옆판은 이 자리에 얹기만 하므로 창은 옆판이 있든 없든 화면 한가운데 그대로 선다. */}
-      {/* 창 높이는 화면을 넘지 않는다 — 넘기면 가운데 정렬이 창을 위로 밀어 머리말이 화면 밖으로 잘린다.
-          늘어나는 것은 본문뿐이고 머리말·버튼 줄은 언제나 제자리에 남는다. */}
-      <div ref={panelRef} className="relative flex max-h-full w-full max-w-[448px] flex-col" onClick={(e) => e.stopPropagation()}>
-      <div className={`panel-in relative flex min-h-0 flex-col overflow-clip ${MODAL_SHELL}`}>
-        <form
-          ref={props.formRef}
-          noValidate
-          className="flex min-h-0 flex-col"
-          onSubmit={(e) => {
-            e.preventDefault()
-            props.onSubmit?.()
-          }}
-        >
-          <div className={MODAL_HEADER}>
-            <h2 className="text-[15px] font-semibold text-ink">{props.title}</h2>
-            {props.description && <p className="mt-[5px] text-[11.5px] text-ink-3">{props.description}</p>}
-          </div>
-          {/* overscroll-contain — 목록을 끝까지 굴린 뒤 더 굴려도 그 움직임이 뒤쪽 화면으로 넘어가지 않게 한다 */}
-          <div
-            className={`min-h-0 flex-1 space-y-3 px-[18px] pb-4 pt-3.5 ${
-              props.scrollInside ? 'flex flex-col overflow-hidden' : 'overflow-y-auto overscroll-contain'
-            }`}
+  // showModal 로 연 dialog 는 top layer 로 올라가 조상의 transform, overflow 등의 영향을 받지 않는다.
+  // 화면 기준을 맞추려고 body 로 내보내던 portal은 이제 필요 없다.
+  return (
+    <dialog ref={dialogRef} aria-label={props.title} className="m-0 border-0 bg-transparent p-0">
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        onClick={() => {
+          if (!props.busy) props.onClose()
+        }}
+        {...dropHandlers}
+      >
+        {/* 창과 옆판을 함께 감싼다 — 포커스 순환이 두 판을 함께 돌고, 바깥 클릭으로 닫히는 범위에서도 함께 빠진다.
+            옆판은 이 자리에 얹기만 하므로 창은 옆판이 있든 없든 화면 한가운데 그대로 선다. */}
+        {/* 창 높이는 화면을 넘지 않는다 — 넘기면 가운데 정렬이 창을 위로 밀어 머리말이 화면 밖으로 잘린다.
+            늘어나는 것은 본문뿐이고 머리말·버튼 줄은 언제나 제자리에 남는다. */}
+        <div className="relative flex max-h-full w-full max-w-[448px] flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className={`panel-in relative flex min-h-0 flex-col overflow-clip ${MODAL_SHELL}`}>
+          <form
+            ref={props.formRef}
+            noValidate
+            className="flex min-h-0 flex-col"
+            onSubmit={(e) => {
+              e.preventDefault()
+              props.onSubmit?.()
+            }}
           >
-            {props.children}
-          </div>
-          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line-soft bg-soft px-[18px] py-3">
-            {props.footer}
-          </div>
-        </form>
+            <div className={MODAL_HEADER}>
+              <h2 className="text-[15px] font-semibold text-ink">{props.title}</h2>
+              {props.description && <p className="mt-[5px] text-[11.5px] text-ink-3">{props.description}</p>}
+            </div>
+            {/* overscroll-contain — 목록을 끝까지 굴린 뒤 더 굴려도 그 움직임이 뒤쪽 화면으로 넘어가지 않게 한다 */}
+            <div
+              className={`min-h-0 flex-1 space-y-3 px-[18px] pb-4 pt-3.5 ${
+                props.scrollInside ? 'flex flex-col overflow-hidden' : 'overflow-y-auto overscroll-contain'
+              }`}
+            >
+              {props.children}
+            </div>
+            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line-soft bg-soft px-[18px] py-3">
+              {props.footer}
+            </div>
+          </form>
+        </div>
+        {props.aside && (
+          // 창 오른쪽 바깥에 따로 세운다. 높이는 내용만큼만 쓰고 창 높이를 넘지 않는다 —
+          // 창에 맞춰 늘이면 건이 적을 때 빈 판이 길게 남고, 창이 화면 안이므로 이 상한이면 옆판도 화면을 넘지 않는다.
+          // overflow-clip 은 잘라 내되 굴릴 수는 없다. hidden 으로 두면 이 판도 '굴릴 수 있는 상자'가 되어,
+          // 안쪽 목록이 제 자리를 찾을 때(scrollIntoView) 이 판까지 함께 굴러 머리말이 화면 밖으로 밀려난다.
+          <aside className={`panel-in absolute left-full top-0 ml-4 hidden max-h-full w-64 flex-col overflow-clip lg:flex ${MODAL_SHELL}`}>
+            {props.aside}
+          </aside>
+        )}
+        </div>
+        {/* 창이 이벤트를 멈춰 화면 안내가 뜨지 않으므로, 받는 쪽이 어디인지 이 창이 직접 알린다.
+            문구는 기본값을 쓴다 — 공용 껍데기라 무슨 파일을 받는지 모른다 */}
+        {onDropFile && dragging && <FileDropOverlay />}
       </div>
-      {props.aside && (
-        // 창 오른쪽 바깥에 따로 세운다. 높이는 내용만큼만 쓰고 창 높이를 넘지 않는다 —
-        // 창에 맞춰 늘이면 건이 적을 때 빈 판이 길게 남고, 창이 화면 안이므로 이 상한이면 옆판도 화면을 넘지 않는다.
-        // overflow-clip 은 잘라 내되 굴릴 수는 없다. hidden 으로 두면 이 판도 '굴릴 수 있는 상자'가 되어,
-        // 안쪽 목록이 제 자리를 찾을 때(scrollIntoView) 이 판까지 함께 굴러 머리말이 화면 밖으로 밀려난다.
-        <aside className={`panel-in absolute left-full top-0 ml-4 hidden max-h-full w-64 flex-col overflow-clip lg:flex ${MODAL_SHELL}`}>
-          {props.aside}
-        </aside>
-      )}
-      </div>
-      {/* 창이 이벤트를 멈춰 화면 안내가 뜨지 않으므로, 받는 쪽이 어디인지 이 창이 직접 알린다.
-          문구는 기본값을 쓴다 — 공용 껍데기라 무슨 파일을 받는지 모른다 */}
-      {onDropFile && dragging && <FileDropOverlay />}
-    </div>,
-    document.body,
+    </dialog>
   )
 }
 
@@ -119,7 +117,7 @@ export function Modal(props: {
 export function ModalField(props: { label: string; required?: boolean; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[11px] font-medium tracking-[.08em] text-ink-3">
+      <span className={FIELD_LABEL}>
         {props.label}
         {/* 별표는 장식이라 읽어 줄 필요가 없다. 필수 여부는 입력 요소의 required 가 보조기술에 알린다 */}
         {props.required && (

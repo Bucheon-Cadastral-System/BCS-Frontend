@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useEffectEvent } from 'react'
 import type { RefObject } from 'react'
 
 /**
@@ -12,19 +12,16 @@ export function useDismiss(options: {
   ref?: RefObject<HTMLElement | null>
 }) {
   const { enabled, ref } = options
-  const dismissRef = useRef(options.onDismiss)
-  // 렌더 중 ref 대입 금지(버려지는 렌더의 콜백 노출 방지) → 커밋 후 동기화
-  useEffect(() => {
-    dismissRef.current = options.onDismiss
-  }, [options.onDismiss])
+  // 콜백은 늘 최신 것을 부르되 그것 때문에 리스너를 다시 걸지는 않는다
+  const dismiss = useEffectEvent(() => options.onDismiss())
 
   useEffect(() => {
     if (!enabled) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') dismissRef.current()
+      if (e.key === 'Escape') dismiss()
     }
     const onPointerDown = (e: PointerEvent) => {
-      if (!ref?.current?.contains(e.target as Node)) dismissRef.current()
+      if (!ref?.current?.contains(e.target as Node)) dismiss()
     }
     window.addEventListener('keydown', onKey)
     if (ref) window.addEventListener('pointerdown', onPointerDown)
