@@ -133,13 +133,20 @@ export interface LastSurvey {
   result: string | null
   /** 최종조사일(ISO 날짜). 없으면 null */
   surveyedOn: string | null
-  /** 최종조사원 표시명. 파일로 들어온 기록과 인증 전에 남긴 기록은 null */
+  /** 최종조사원 표시명. 시드 조사와 인증 전에 남긴 기록은 null */
   surveyorName: string | null
+  /** 판정에 딸린 비고. 기타가 아니거나 시드 조사면 null */
+  note: string | null
 }
 
 export async function fetchLastSurvey(id: string): Promise<LastSurvey> {
   const res = await http.get<LastSurvey>(`/api/control-points/${id}/last-survey`)
-  return { result: res.data.result ?? null, surveyedOn: res.data.surveyedOn ?? null, surveyorName: res.data.surveyorName ?? null }
+  return {
+    result: res.data.result ?? null,
+    surveyedOn: res.data.surveyedOn ?? null,
+    surveyorName: res.data.surveyorName ?? null,
+    note: res.data.note ?? null,
+  }
 }
 
 export async function fetchControlPointUsage(id: string): Promise<boolean> {

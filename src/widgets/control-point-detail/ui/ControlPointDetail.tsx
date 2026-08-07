@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { TM_ORIGINS } from '@/shared/lib/crs'
-import { BTN_SM_PRIMARY, CHIP_BTN, FIELD_AREA, PANEL } from '@/shared/ui/classes'
+import { FIELD_AREA, PANEL } from '@/shared/ui/classes'
+import { FormActions } from '@/shared/ui/FormActions'
 import type { ControlPoint } from '@/entities/control-point'
 import { PointTypeIcon, useLastSurveyQuery } from '@/entities/control-point'
 import { SURVEY_STATUS_LABEL, SURVEY_STATUS_TONE, SurveyResultPicker, deriveSurveyStatus } from '@/entities/survey-record'
@@ -200,6 +201,13 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
           {/* 값이 없어도 줄을 세운다. 줄이 사라지면 값이 없는 것인지 항목 자체가 없는 것인지 알 수 없다 */}
           <dt>최종조사</dt>
           <dd>{noneOr(lastSurvey?.result)}</dd>
+          {/* 기타는 무엇이었는지 비고가 있어야 뜻이 통한다. 다른 갈래는 결과가 곧 뜻이라 줄을 세우지 않는다 */}
+          {lastSurvey?.result === SURVEY_STATUS_LABEL.etc && (
+            <>
+              <dt>비고</dt>
+              <dd className="break-keep leading-[1.55] wrap-anywhere">{noneOr(lastSurvey.note)}</dd>
+            </>
+          )}
           <dt>최종조사일</dt>
           <dd>{noneOr(lastSurvey?.surveyedOn)}</dd>
           <dt>최종조사원</dt>
@@ -244,26 +252,20 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
                 className={`${FIELD_AREA} h-16`}
                 autoFocus
               />
-              <div className="flex gap-1.5">
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => {
-                    // 비고는 적으면 좋지만 없다고 판정을 막지 않는다. 빈 칸은 적지 않은 것으로 보낸다
-                    const note = etcNote.trim()
-                    void applySurvey('ETC', async () => {
-                      await props.onRecordSurvey(p.id, 'ETC', note === '' ? null : note)
-                      setPending(null)
-                    })
-                  }}
-                  className={`${BTN_SM_PRIMARY} flex-1`}
-                >
-                  저장
-                </button>
-                <button type="button" onClick={() => setPending(null)} className={`${CHIP_BTN} h-9 flex-1 text-[12px]`}>
-                  취소
-                </button>
-              </div>
+              <FormActions
+                fill
+                submitLabel="저장"
+                busy={saving}
+                onCancel={() => setPending(null)}
+                onSubmit={() => {
+                  // 비고는 적으면 좋지만 없다고 판정을 막지 않는다. 빈 칸은 적지 않은 것으로 보낸다
+                  const note = etcNote.trim()
+                  void applySurvey('ETC', async () => {
+                    await props.onRecordSurvey(p.id, 'ETC', note === '' ? null : note)
+                    setPending(null)
+                  })
+                }}
+              />
             </div>
           )}
 
