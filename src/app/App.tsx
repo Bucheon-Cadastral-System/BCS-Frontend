@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import 'ol/ol.css'
 import './App.css'
@@ -13,7 +14,6 @@ import { exchangeOAuthCode, refreshAccessToken, startKakaoLogin } from '@/shared
 import { subscribeAuthenticationLost } from '@/shared/api/tokenStore'
 import { BTN_SECONDARY, MODAL_SHELL } from '@/shared/ui/classes'
 import { ErrorBoundary } from '@/shared/ui/ErrorBoundary'
-import { getOAuthLoginErrorMessage } from '@/pages/login/model/oauthLoginError'
 
 type AuthState = { loading: boolean; profile: UserProfile | null }
 
@@ -38,12 +38,11 @@ function AuthErrorPage({ message, onBack }: { message: string; onBack: () => voi
 function LoginRoute() {
   const location = useLocation()
   const navigate = useNavigate()
-  const errorCode = new URLSearchParams(location.search).get('error')
-  const isInactive = errorCode === 'inactive'
+  const isInactive = new URLSearchParams(location.search).get('error') === 'inactive'
 
   return isInactive
     ? <InactivePage onBackToLogin={() => navigate('/login', { replace: true })} />
-    : <LoginPage onKakaoLogin={startKakaoLogin} errorMessage={getOAuthLoginErrorMessage(errorCode)} />
+    : <LoginPage onKakaoLogin={startKakaoLogin} />
 }
 
 function Protected({ auth, admin = false, children }: { auth: AuthState; admin?: boolean; children: ReactNode }) {
@@ -113,7 +112,23 @@ function SignupRoute() {
 function AppRoutes() {
   const navigate = useNavigate()
   const location = useLocation()
+  const queryClient = useQueryClient()
   const [auth, setAuth] = useState<AuthState>({ loading: true, profile: null })
+
+  /**
+   * 로그인한 계정이 바뀌면 받아 둔 응답을 통째로 버린다.
+   *
+   * 대화 이력·회원 목록처럼 계정에 딸린 데이터가 캐시에 남아 있으면, 같은 브라우저에서 계정을 바꾼 뒤
+   * 앞 계정의 값이 새 화면에 그대로 복원된다. 화면마다 열쇠에 계정을 섞는 대신 경계에서 한 번 비운다.
+   */
+  const accountRef = useRef<string | null | undefined>(undefined) // undefined = 아직 로그인 상태를 모른다
+  useEffect(() => {
+    if (auth.loading) return
+    const accountId = auth.profile?.id ?? null
+    const previous = accountRef.current
+    accountRef.current = accountId
+    if (previous !== undefined && previous !== accountId) queryClient.clear()
+  }, [auth.loading, auth.profile, queryClient])
 
   const reloadProfile = useCallback(async () => {
     try {
