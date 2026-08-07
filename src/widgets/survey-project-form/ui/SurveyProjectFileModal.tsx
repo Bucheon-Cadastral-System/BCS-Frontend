@@ -5,7 +5,7 @@ import type { ReadFile, SendStatus } from '@/features/import-file'
 import { today } from '@/shared/lib/date'
 import { fileBaseName } from '@/shared/lib/file'
 import { percent } from '@/shared/lib/percent'
-import { PROGRESS_FILL } from '@/shared/ui/classes'
+import { FIELD_LABEL, PROGRESS_FILL } from '@/shared/ui/classes'
 import { MODAL_CANCEL_BTN, MODAL_DANGER_BTN, MODAL_HEADER, MODAL_SUBMIT_BTN, Modal } from '@/shared/ui/Modal'
 import { Spinner } from '@/shared/ui/Spinner'
 import { FormNotice } from '@/shared/ui/FormNotice'
@@ -91,7 +91,7 @@ function StepDot({ tone, shape, current }: { tone: StatusTone; shape: StatusShap
         <svg viewBox="0 0 24 24" className="size-[9px]" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
           {shape === 'cross' ? (
             <path d="M6 6l12 12M18 6L6 18" />
-          ) : shape === 'warn' ? (
+          ) : shape === 'warn' || shape === 'caution' ? (
             <path d="M12 5.5v8.5M12 18.5h.01" />
           ) : (
             <path d="m5 13 4 4L19 7" />
@@ -547,7 +547,7 @@ export function SurveyProjectFileModal(props: {
 
       {/* 파일은 이 건의 대상 그 자체라 여기서 뺄 수 없다 — 이 파일로 만들지 않으려면 건을 폐기한다 */}
       <div>
-        <span className="mb-1.5 block text-[11px] font-medium tracking-[.08em] text-ink-3">대상지 파일</span>
+        <span className={FIELD_LABEL}>대상지 파일</span>
         <span className="flex items-center gap-2 rounded-ctl border border-line-field bg-field px-2.5 py-2">
           <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">
             {current.read.file.name}

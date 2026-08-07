@@ -3,10 +3,8 @@ import { http } from '@/shared/api/http'
 /** 파일을 등록하지 않고 읽어만 본 결과. */
 export interface ImportFilePreview {
   totalRows: number
-  /** 파일의 열 이름 → 읽어 들인 항목 */
-  recognizedColumns: Record<string, string>
-  /** 뜻을 해석하지 않고 값만 보관하는 열 — 버리지 않고 조사 대상에 그대로 저장된다 */
-  extraColumns: string[]
+  // 해석한 열 대응표와 그대로 보관하는 열 목록은 서버가 함께 주지만 화면에 쓰지 않는다.
+  // 사용자에게는 "버리지 않고 저장한다"는 사실만 중요하고, 되돌려 받을 때 복원되면 그만이라 여기 담지 않는다.
   errors: { row: number; message: string }[]
   /** 읽히기는 했으나 확인이 필요한 행(부천 범위 밖 등) — 등록을 막지 않는다 */
   warnings: { row: number; message: string }[]
@@ -20,15 +18,13 @@ export interface ImportFilePreview {
 
 /** 이 행이 등록되면 벌어지는 일 — 갱신은 기존 성과를 덮으므로 확정 전에 무엇이 바뀌는지 보여야 한다. */
 export interface PointPreview {
+  /** 원본 파일의 몇 번째 행인지 — 경고·오류가 난 점을 사용자가 원본에서 찾을 수 있게 */
   row: number
   pointNo: string
-  type: string
   name: string
   crs: string
   northing: string
   easting: string
-  longitude: string
-  latitude: string
   action: 'NEW' | 'UPDATE' | 'UNCHANGED'
   /** 갱신될 항목 — 신규·그대로면 비어 있다 */
   changes: { field: string; before: string; after: string }[]
@@ -71,7 +67,6 @@ export async function previewImportFile(
     ...res.data,
     errors: res.data.errors ?? [],
     warnings: res.data.warnings ?? [],
-    extraColumns: res.data.extraColumns ?? [],
     missingColumns: res.data.missingColumns ?? [],
     foreignColumns: res.data.foreignColumns ?? [],
   }
