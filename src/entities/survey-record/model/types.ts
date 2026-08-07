@@ -15,6 +15,6 @@ export interface SurveyRecord {
   lost: boolean
   /** 마지막으로 판정한 조사원 표시명 — 인증 없이 남긴 기록·파일로 들어온 기록은 null */
   surveyorName: string | null
-  /** 판정에 덧붙인 사유·비고 — 적지 않았으면 null */
+  /** 판정에 덧붙인 비고 — 적지 않았으면 null */
   note: string | null
 }

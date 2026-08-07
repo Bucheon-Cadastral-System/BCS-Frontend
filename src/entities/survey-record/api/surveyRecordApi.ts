@@ -31,7 +31,7 @@ export async function fetchSurveyRecords(projectId: string): Promise<SurveyRecor
 
 /**
  * 조사 기록/정정 — 서버가 기존 기록이면 판정 정정으로 처리한다.
- * note는 기타를 고를 때 적는 사유다. 그 외 결과는 적지 않으므로 null로 보낸다.
+ * note는 기타를 고를 때 적는 비고다. 그 외 결과는 적지 않으므로 null로 보낸다.
  */
 export async function putSurveyRecord(
   projectId: string,

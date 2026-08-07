@@ -228,7 +228,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
 
   // 활성 프로젝트의 조사기록만 조회하므로 맵에 있으면 조사됨이고, 값이 그 점의 조사 결과다
   const resultById = useMemo(() => new Map(records.map((r) => [r.pointId, r.result])), [records])
-  // 기타 사유는 상세 카드가 이어서 고칠 수 있어야 해서 결과와 함께 들고 있는다
+  // 기타 비고는 상세 카드가 이어서 고칠 수 있어야 해서 결과와 함께 들고 있는다
   const noteById = useMemo(() => new Map(records.map((r) => [r.pointId, r.note])), [records])
   // 기준점 탭에서는 조사 표시를 걷는다 — 선택은 유지하되 화면(마커 뱃지·카드 조사 상태)은 선택 해제와 같은 모습이어야 한다
   const surveyVisible = activeProjectId !== null && panel?.key !== 'points'
@@ -476,7 +476,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
 
 
 
-  /** 상세 카드의 조사 기록 UI에서 결과 하나를 고르면 그대로 기록한다. 사유는 기타를 고를 때만 채워 온다. */
+  /** 상세 카드의 조사 기록 UI에서 결과 하나를 고르면 그대로 기록한다. 비고는 기타를 고를 때만 채워 온다. */
   // 완료·실패를 그대로 돌려준다 — 카드가 답을 기다리는 동안 다음 선택을 막고, 실패하면 고른 값을 놓는다
   async function handleRecordSurvey(pointId: string, result: SurveyResult, note: string | null) {
     if (!activeProjectId) return
