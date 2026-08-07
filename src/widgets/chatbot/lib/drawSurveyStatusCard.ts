@@ -29,6 +29,11 @@ const PAD = 16
 const ROW = 20
 /** 제목 한 줄이 차지하는 높이 */
 const TITLE_LINE = 18
+/**
+ * 제목에 내주는 최대 줄 수. 이름 길이에는 상한이 없어 못을 박지 않으면 종이가 끝없이 길어지고,
+ * 그만큼 큰 그림을 만들다 실패하면 저장 버튼이 아무 일도 하지 않은 것처럼 보인다.
+ */
+const TITLE_MAX_LINES = 3
 /** 제목 아래(진행률·구분선·일곱 줄·여백)에 필요한 높이보다 넉넉히 잡은 값 */
 const BODY_ROOM = 320
 /** 레티나에서 글자가 뭉개지지 않게 두 배로 그린다 */
@@ -65,6 +70,14 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, max: number): string[
   return lines
 }
 
+/** 줄 수를 상한까지만 남기고, 잘렸다는 것을 마지막 줄 끝으로 알린다. */
+function clamp(lines: string[]): string[] {
+  if (lines.length <= TITLE_MAX_LINES) return lines
+  const kept = lines.slice(0, TITLE_MAX_LINES)
+  kept[TITLE_MAX_LINES - 1] = `${kept[TITLE_MAX_LINES - 1].slice(0, -1)}…`
+  return kept
+}
+
 /**
  * 조사 현황 카드를 흰 바탕 그림으로 그린다.
  *
@@ -85,7 +98,7 @@ export function drawSurveyStatusCard(spec: SurveyStatusSpec): HTMLCanvasElement 
   const gauge = document.createElement('canvas').getContext('2d')
   if (gauge === null) return null
   gauge.font = `600 13px ${font}`
-  const titleLines = spec.title === undefined ? [] : wrap(gauge, spec.title, WIDTH - PAD * 2)
+  const titleLines = clamp(spec.title === undefined ? [] : wrap(gauge, spec.title, WIDTH - PAD * 2))
   const room = BODY_ROOM + titleLines.length * TITLE_LINE
 
   const draft = document.createElement('canvas')
