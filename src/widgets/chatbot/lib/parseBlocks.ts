@@ -34,6 +34,8 @@ export function stripStrayHtml(md: string): string {
       i % 2 === 1
         ? part
         : part
+            // 스크립트·스타일은 태그만 지우면 그 안의 코드가 글자로 드러난다. 통째로 걷는다
+            .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ')
             .replace(/<br\s*\/?>/gi, ' ')
             .replace(/<\/?(?:p|div)\b[^>]*>/gi, ' ')
             .replace(/<\/?(?:span|font|small|sub|sup|u|b|i|em|strong|center)\b[^>]*>/gi, ''),

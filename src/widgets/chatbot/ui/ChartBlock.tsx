@@ -142,6 +142,7 @@ export function ChartBlock({ json }: { json: string }) {
   const asked = picked ?? spec?.type ?? 'bar'
   const type = multi && (asked === 'doughnut' || asked === 'pie') ? 'bar' : asked
   const [menuOpen, setMenuOpen] = useState(false)
+  const [broken, setBroken] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   // 저장할 때 캔버스 픽셀과 화면 px 의 배율을 알아야 한다(레티나에서 둘이 다르다)
   const chartRef = useRef<Chart | null>(null)
@@ -216,7 +217,16 @@ export function ChartBlock({ json }: { json: string }) {
       },
     } as unknown as ChartConfiguration
 
-    const chart = new Chart(canvas, config)
+    // 그리다 터지면 이 자리만 원문으로 물러난다. 감싸지 않으면 그리기 중의 예외가 리액트를 타고 올라가
+    // 화면 전체의 오류 경계가 받는다 — 차트 하나 때문에 대화 판과 지도가 함께 사라진다
+    let chart: Chart
+    try {
+      chart = new Chart(canvas, config)
+    } catch {
+      setBroken(true)
+      return
+    }
+    setBroken(false)
     chartRef.current = chart
     return () => {
       chartRef.current = null
@@ -224,7 +234,8 @@ export function ChartBlock({ json }: { json: string }) {
     }
   }, [spec, type])
 
-  if (!spec) {
+  // 형식이 어긋났거나 그리다 터졌으면 원문을 보인다 — 무엇이 왔는지는 남겨 둔다
+  if (!spec || broken) {
     return <pre className="my-1 overflow-x-auto rounded bg-soft p-2 text-xs text-ink-3">{json.trim()}</pre>
   }
 
