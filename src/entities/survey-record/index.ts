@@ -1,6 +1,6 @@
 export type { SurveyRecord, SurveyResult } from './model/types'
-export { SURVEY_RESULT_LABEL } from './model/types'
-export { deriveSurveyStatus, isSurveyed, SURVEY_STATUS_LABEL } from './model/status'
+export { deriveSurveyStatus, SURVEY_STATUS_LABEL, SURVEY_STATUS_TONE } from './model/status'
+export { SurveyResultPicker } from './ui/SurveyResultPicker'
 export type { SurveyStatus } from './model/status'
 export { fetchSurveyRecords, putSurveyRecord, deleteSurveyRecord } from './api/surveyRecordApi'
 export { useSurveyRecordsQuery, useRecordSurveyMutation, useCancelSurveyMutation, surveyRecordsKey, SURVEY_RECORDS_KEY } from './api/queries'

@@ -16,6 +16,7 @@ import type { ControlPoint } from '@/entities/control-point'
 import { useCreateSurveyProjectMutation, useDeleteSurveyProjectMutation, useSurveyProjectsQuery, useSurveyTargetsQuery, useUpdateSurveyProjectMutation } from '@/entities/survey-project'
 import type { SurveyProject, SurveyProjectDraft } from '@/entities/survey-project'
 import { useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
+import type { SurveyResult } from '@/entities/survey-record'
 import { useImportControlPoints, useImportSurveyCsv } from '@/features/import-file'
 import { ControlPointFileModal, ControlPointFormModal } from '@/widgets/add-control-point'
 import type { ControlPointFormValues } from '@/widgets/add-control-point'
@@ -44,8 +45,8 @@ interface MapPageProps {
 const EMPTY_POINTS: ControlPoint[] = []
 /** 아무것도 보이지 않을 때의 고정 집합 — 참조가 바뀌면 지도 레이어가 헛되이 재스타일된다 */
 const EMPTY_ID_SET: ReadonlySet<string> = new Set()
-/** 조사 표시를 걷을 때 지도에 넘기는 고정 빈 집합(기준점 탭 — 선택은 유지하되 뱃지는 숨긴다) */
-const NO_SURVEY_IDS: Set<string> = new Set()
+/** 조사 표시를 걷을 때 지도에 넘기는 고정 빈 맵(기준점 탭. 선택은 유지하되 뱃지는 숨긴다) */
+const EMPTY_RESULT_MAP: ReadonlyMap<string, SurveyResult> = new Map()
 /**
  * 판이 화면 가장자리에서 떨어진 거리 — 상세 카드가 대화 판 옆으로 비켜 서는 계산에 쓴다.
  * 판·헤더·커맨드 바는 이 값을 유틸리티(`left-4`·`right-4`·`inset-x-4` = 16px)로 두므로 함께 움직여야 한다.
@@ -225,9 +226,10 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     setSelectedId((cur) => (cur !== null && !points.some((p) => p.id === cur) ? null : cur))
   }, [points])
 
-  // 활성 프로젝트의 조사기록만 조회하므로 레코드 존재=조사됨, lost=망실
-  const surveyedIds = useMemo(() => new Set(records.map((r) => r.pointId)), [records])
-  const lostIds = useMemo(() => new Set(records.filter((r) => r.lost).map((r) => r.pointId)), [records])
+  // 활성 프로젝트의 조사기록만 조회하므로 맵에 있으면 조사됨이고, 값이 그 점의 조사 결과다
+  const resultById = useMemo(() => new Map(records.map((r) => [r.pointId, r.result])), [records])
+  // 기타 사유는 상세 카드가 이어서 고칠 수 있어야 해서 결과와 함께 들고 있는다
+  const noteById = useMemo(() => new Map(records.map((r) => [r.pointId, r.note])), [records])
   // 기준점 탭에서는 조사 표시를 걷는다 — 선택은 유지하되 화면(마커 뱃지·카드 조사 상태)은 선택 해제와 같은 모습이어야 한다
   const surveyVisible = activeProjectId !== null && panel?.key !== 'points'
 
@@ -472,22 +474,18 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     showToast('조사 상태를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.', 'error')
   }
 
-  function handleToggleSurvey(pointId: string) {
+
+
+  /** 상세 카드의 조사 기록 UI에서 결과 하나를 고르면 그대로 기록한다. 사유는 기타를 고를 때만 채워 온다. */
+  function handleRecordSurvey(pointId: string, result: SurveyResult, note: string | null) {
     if (!activeProjectId) return
-    if (surveyedIds.has(pointId)) {
-      cancelMutation.mutate({ projectId: activeProjectId, pointId }, { onError: notifySurveySaveFailed })
-    } else {
-      recordMutation.mutate({ projectId: activeProjectId, pointId, lost: false }, { onError: notifySurveySaveFailed })
-    }
+    recordMutation.mutate({ projectId: activeProjectId, pointId, result, note }, { onError: notifySurveySaveFailed })
   }
 
-  function handleToggleLost(pointId: string) {
+  /** 상세 카드에서 미조사로 되돌리기. 기록 자체를 지운다. */
+  function handleCancelSurvey(pointId: string) {
     if (!activeProjectId) return
-    // 미조사면 망실로 기록(서버 upsert), 망실이면 정상으로 정정
-    recordMutation.mutate(
-      { projectId: activeProjectId, pointId, lost: !lostIds.has(pointId) },
-      { onError: notifySurveySaveFailed },
-    )
+    cancelMutation.mutate({ projectId: activeProjectId, pointId }, { onError: notifySurveySaveFailed })
   }
 
   /**
@@ -574,11 +572,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
           }}
           points={points}
           targetPoints={targetPoints}
-          surveyedIds={surveyedIds}
-          lostIds={lostIds}
+          resultById={resultById}
           onFocusPoint={focusPoint}
-          onToggleSurvey={handleToggleSurvey}
-          onToggleLost={handleToggleLost}
           onStartAddPoint={startAddPoint}
           onImportPoints={() => {
             // 위치 찍기 중에도 이 버튼이 살아 있다 — 찍기 안내·좌표 수신이 파일 창과 겹치지 않게 흐름을 접는다
@@ -622,8 +617,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               showCadastral={showCadastral}
               selectedId={selectedId}
               surveyMode={surveyVisible}
-              surveyedIds={surveyVisible ? surveyedIds : NO_SURVEY_IDS}
-              lostIds={surveyVisible ? lostIds : NO_SURVEY_IDS}
+              resultById={surveyVisible ? resultById : EMPTY_RESULT_MAP}
               theme={theme}
               focusNonce={focusNonce}
               homeNonce={homeNonce}
@@ -662,7 +656,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
                   <MinimizedPanelChip
                     label="프로젝트"
                     value={activeProject?.name ?? '선택 중인 프로젝트 없음'}
-                    trailing={activeProject ? { surveyed: surveyedIds.size, total: targetPoints.length } : undefined}
+                    trailing={activeProject ? { surveyed: resultById.size, total: targetPoints.length } : undefined}
                     onOpen={() => setPanel({ key: 'project', minimized: false })}
                     onClose={closePanel}
                   />
@@ -702,11 +696,11 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
                   ? (records.find((r) => r.pointId === selected.id)?.surveyorName ?? null)
                   : null
               }
-              surveyed={surveyVisible && selected !== null && surveyedIds.has(selected.id)}
-              lost={surveyVisible && selected !== null && lostIds.has(selected.id)}
-              onToggleSurvey={handleToggleSurvey}
+              surveyResult={surveyVisible && selected !== null ? (resultById.get(selected.id) ?? null) : null}
+            surveyNote={surveyVisible && selected !== null ? (noteById.get(selected.id) ?? null) : null}
+              onRecordSurvey={handleRecordSurvey}
+              onCancelSurvey={handleCancelSurvey}
               onClose={() => setSelectedId(null)}
-              onToggleLost={handleToggleLost}
               onEdit={startEditPoint}
               onDelete={(p) => void startDeletePoint(p)}
               onCopied={(ok) =>
