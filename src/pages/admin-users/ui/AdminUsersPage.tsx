@@ -467,7 +467,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                     title="닫기"
                     className={`absolute right-3 top-3 z-10 ${ICON_BTN_DANGER}`}
                   >
-                    <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" className="size-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                       <path d="M18 6 6 18M6 6l12 12" />
                     </svg>
                   </button>

@@ -51,9 +51,13 @@ export const CHIP_BTN_DANGER =
  *
  * <p>글자 없이 뜻만 있는 자리라 평소에는 조용히 있다가 손을 올렸을 때만 색을 낸다.
  * 되돌릴 수 없는 쪽(닫기·삭제)만 붉게 물들어, 색 하나로 무거운 버튼과 가벼운 버튼이 갈린다.
+ *
+ * <p>그림 크기는 이 버튼이 정한다 — 안쪽 여백만큼 뺀 자리가 곧 그림 자리다.
+ * 그래서 안에 넣는 아이콘은 크기를 적지 않고 size-full 로 자리를 채우기만 한다.
+ * 크기를 아이콘마다 적어 두면 자리마다 조금씩 다른 값이 남는다.
  */
 const ICON_BTN_BASE =
-  'flex size-[26px] shrink-0 items-center justify-center rounded-chip text-ink-3 transition-colors'
+  'flex size-[26px] shrink-0 items-center justify-center rounded-chip p-[5px] text-ink-3 transition-colors'
 export const ICON_BTN = `${ICON_BTN_BASE} hover:bg-hover hover:text-ink-2`
 export const ICON_BTN_DANGER = `${ICON_BTN_BASE} hover:bg-danger-wash hover:text-danger`
 

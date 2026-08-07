@@ -125,30 +125,31 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
 
   return (
     <aside className={`panel-in w-[320px] overflow-hidden ${PANEL}`}>
-      <div className={`items-center ${PANEL_HEADER} ${PANEL_HEADER_RULE}`}>
-        <span className="flex shrink-0 text-teal-text">
+      {/* 이름과 종류를 한 줄에 나란히 — 좌측 판 머리말(제목 + 총 N개)과 같은 규격이다 */}
+      <div className={`items-baseline ${PANEL_HEADER} ${PANEL_HEADER_RULE}`}>
+        <span className="flex shrink-0 self-center text-teal-text">
           <PointTypeIcon type={p.type} className="size-[18px]" />
         </span>
-        <span className="min-w-0 flex-1 leading-tight">
-          <span className="block truncate text-[14.5px] font-semibold text-ink">{p.name}</span>
-          <span className="block text-[11.5px] text-ink-3">{p.type}</span>
-        </span>
-        <button type="button" onClick={() => props.onEdit(p)} title="수정" aria-label="기준점 수정" className={ICON_BTN}>
-          <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <h2 className="flex min-w-0 flex-1 items-baseline gap-[7px]">
+          <span className="min-w-0 truncate text-[13.5px] font-semibold text-ink">{p.name}</span>
+          <span className="shrink-0 text-[11px] text-ink-3">{p.type}</span>
+        </h2>
+        <button type="button" onClick={() => props.onEdit(p)} title="수정" aria-label="기준점 수정" className={`self-center ${ICON_BTN}`}>
+          <svg viewBox="0 0 24 24" className="size-full" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M12 20h9" />
             <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
           </svg>
         </button>
-        <button type="button" onClick={() => props.onDelete(p)} title="삭제" aria-label="기준점 삭제" className={ICON_BTN_DANGER}>
-          <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <button type="button" onClick={() => props.onDelete(p)} title="삭제" aria-label="기준점 삭제" className={`self-center ${ICON_BTN_DANGER}`}>
+          <svg viewBox="0 0 24 24" className="size-full" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M4 7h16" />
             <path d="M10 11v6M14 11v6" />
             <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
             <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
           </svg>
         </button>
-        <button type="button" onClick={props.onClose} title="닫기" aria-label="닫기" className={ICON_BTN_DANGER}>
-          <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+        <button type="button" onClick={props.onClose} title="닫기" aria-label="닫기" className={`self-center ${ICON_BTN_DANGER}`}>
+          <svg viewBox="0 0 24 24" className="size-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             <path d="M18 6 6 18M6 6l12 12" />
           </svg>
         </button>

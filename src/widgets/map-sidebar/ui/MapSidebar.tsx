@@ -146,9 +146,7 @@ function PanelHeader(props: { title: string; count?: number; onMinimize: () => v
         title="접기"
         className={`self-center ${ICON_BTN}`}
       >
-        <span className="flex size-4 items-center justify-center">
-          <IconMinimize />
-        </span>
+        <IconMinimize />
       </button>
       <button
         type="button"
@@ -157,9 +155,7 @@ function PanelHeader(props: { title: string; count?: number; onMinimize: () => v
         title="닫기"
         className={`self-center ${ICON_BTN_DANGER}`}
       >
-        <span className="size-4">
-          <IconClose />
-        </span>
+        <IconClose />
       </button>
     </header>
   )

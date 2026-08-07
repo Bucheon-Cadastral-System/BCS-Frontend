@@ -4,7 +4,7 @@ import { CloseIcon, CollapseIcon, ExpandIcon, NewChatIcon, SendIcon, SparkleIcon
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { MessageContent } from './MessageContent'
 import { QuickActions } from './QuickActions'
-import { FIELD_AREA } from '@/shared/ui/classes'
+import { FIELD_AREA, ICON_BTN, ICON_BTN_DANGER, PANEL_HEADER, PANEL_HEADER_RULE } from '@/shared/ui/classes'
 
 // 대화 시작 전부터 맨 위에 두는 웰컴 안내(어시스턴트 말풍선). 메시지 배열 밖이라 저장·전송되지 않는다.
 const WELCOME_MESSAGE = ['안녕하세요! BCS 어시스턴트입니다.', '무엇을 도와드릴까요?'].join('\n')
@@ -32,8 +32,6 @@ interface ChatPanelProps {
   onAction?: (action: ChatAction) => void
 }
 
-const HEADER_BTN = 'flex size-7 items-center justify-center rounded-ctl text-ink-4 transition-colors hover:bg-hover hover:text-ink-2'
-const CLOSE_BTN = 'flex size-7 items-center justify-center rounded-ctl text-ink-4 transition-colors hover:bg-danger-wash hover:text-danger'
 
 /**
  * 상태 없는 대화 셸 — 글래스 헤더·입력이 스크롤 위에 떠 있고 메시지는 그 아래로 흐른다(참고 디자인).
@@ -115,10 +113,10 @@ export function ChatPanel(props: ChatPanelProps) {
 
       {/* 글래스 헤더 — 스크롤 위에 떠 있다. 코너 모드에선 좌상단 리사이즈 힌트와 이름을 띄운다 */}
       {/* 아래 경계는 청록 — 좌측 판이 목록 위에 두는 것과 같은 뜻의 구분선이다 */}
-      <header className="absolute inset-x-0 top-0 z-20 flex items-center gap-1 border-b-2 border-b-teal bg-pill px-3.5 py-3">
-        <strong className={`min-w-0 flex-1 select-none truncate text-[13px] font-semibold text-ink ${props.expanded ? '' : 'pl-4'}`}>BCS 어시스턴트</strong>
-        <button type="button" onClick={props.onToggleExpand} aria-label={props.expanded ? '코너로 축소' : '우측으로 확장'} aria-pressed={props.expanded} title={props.expanded ? '코너로 축소' : '우측으로 확장'} className={HEADER_BTN}>
-          {props.expanded ? <CollapseIcon className="size-4" /> : <ExpandIcon className="size-4" />}
+      <header className={`absolute inset-x-0 top-0 z-20 items-center bg-pill ${PANEL_HEADER} ${PANEL_HEADER_RULE}`}>
+        <strong className={`min-w-0 flex-1 select-none truncate text-[13.5px] font-semibold text-ink ${props.expanded ? '' : 'pl-4'}`}>BCS 어시스턴트</strong>
+        <button type="button" onClick={props.onToggleExpand} aria-label={props.expanded ? '코너로 축소' : '우측으로 확장'} aria-pressed={props.expanded} title={props.expanded ? '코너로 축소' : '우측으로 확장'} className={ICON_BTN}>
+          {props.expanded ? <CollapseIcon className="size-full" /> : <ExpandIcon className="size-full" />}
         </button>
         <button
           type="button"
@@ -126,12 +124,12 @@ export function ChatPanel(props: ChatPanelProps) {
           onClick={() => (props.messages.length === 0 ? props.onNewChat() : setConfirmNew(true))}
           aria-label="새 대화"
           title="새 대화 (대화 기록 비우기)"
-          className={HEADER_BTN}
+          className={ICON_BTN}
         >
-          <NewChatIcon className="size-4" />
+          <NewChatIcon className="size-full" />
         </button>
-        <button type="button" onClick={props.onClose} aria-label="닫기" title="닫기" className={CLOSE_BTN}>
-          <CloseIcon className="size-4" />
+        <button type="button" onClick={props.onClose} aria-label="닫기" title="닫기" className={ICON_BTN_DANGER}>
+          <CloseIcon className="size-full" />
         </button>
       </header>
 
