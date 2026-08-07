@@ -10,8 +10,8 @@ export const SURVEY_RESULT_LABEL: Record<SurveyResult, string> = {
 
 /**
  * 조사기록 = 기준점 × 프로젝트 조인.
- * 레코드가 존재하면 해당 프로젝트에서 그 기준점은 "조사완료".
- * → 망실은 "조사해봤더니 없어졌다"는 조사 결과이므로 조사완료의 한 종류이며, 프로젝트(조사회차)별로 다를 수 있다.
+ * 레코드가 존재하면 해당 프로젝트에서 그 기준점은 조사한 것이다.
+ * → 조사한 점은 정상과 망실로 갈리고, 같은 점이라도 프로젝트(조사회차)마다 다를 수 있다.
  */
 export interface SurveyRecord {
   projectId: string

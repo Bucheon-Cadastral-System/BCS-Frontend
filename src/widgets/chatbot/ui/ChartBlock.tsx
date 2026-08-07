@@ -14,11 +14,8 @@ const SUPPORTED = ['bar', 'line', 'pie', 'doughnut']
  * 값은 화면이 쓰는 테마 토큰에서 읽어, 라이트·다크가 바뀌어도 같은 색 규칙을 따른다.
  */
 const LABEL_COLOR_VAR: Record<string, string> = {
-  조사완료: '--color-teal',
-  완전: '--color-teal',
+  정상: '--color-teal',
   망실: '--color-danger',
-  조사불가: '--color-amber',
-  기타: '--color-ink-4',
   미조사: '--color-idle',
 }
 
