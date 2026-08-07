@@ -69,6 +69,9 @@ function parseSpec(raw: string): ChartSpec | null {
 /** 글자를 앉힐 수 있는 가장 좁은 조각(라디안) — 전체의 약 7%. 이보다 좁으면 범례에 맡긴다. */
 const ARC_LABEL_MIN = 0.45
 
+/** 그림 위쪽에 비워 두는 자리(px) — 값 글자가 잘리지 않게, 그리고 저장·메뉴 버튼이 제목을 덮지 않게. */
+const TOP_ROOM = 16
+
 /**
  * 수치를 막대·점·조각 위에 직접 그린다.
  *
@@ -132,6 +135,8 @@ export function ChartBlock({ json }: { json: string }) {
   const type = picked ?? spec?.type ?? 'bar'
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  // 저장할 때 캔버스 픽셀과 화면 px 의 배율을 알아야 한다(레티나에서 둘이 다르다)
+  const chartRef = useRef<Chart | null>(null)
 
   useEffect(() => {
     if (!menuOpen) return
@@ -189,9 +194,7 @@ export function ChartBlock({ json }: { json: string }) {
         responsive: true,
         maintainAspectRatio: false,
         color: AXIS,
-        // 위를 띄운다 — 막대·점 위에 얹은 값 글자가 잘리지 않게, 그리고 오른쪽 위 버튼이 제목을 덮지 않게.
-        // 원형은 값 글자가 안쪽이지만 버튼 자리는 똑같이 필요하다
-        layout: { padding: { top: 16 } },
+        layout: { padding: { top: TOP_ROOM } },
         plugins: {
           legend: { display: isPie || spec.datasets.length > 1, labels: { boxWidth: 12, font: { size: 12 }, color: AXIS } },
           title: { display: !!spec.title, text: spec.title, font: { size: 13 }, color: AXIS },
@@ -206,7 +209,11 @@ export function ChartBlock({ json }: { json: string }) {
     } as unknown as ChartConfiguration
 
     const chart = new Chart(canvas, config)
-    return () => chart.destroy()
+    chartRef.current = chart
+    return () => {
+      chartRef.current = null
+      chart.destroy()
+    }
   }, [spec, type])
 
   if (!spec) {
@@ -217,15 +224,19 @@ export function ChartBlock({ json }: { json: string }) {
   const download = () => {
     const src = canvasRef.current
     if (!src) return
-    const padY = Math.round(src.height * 0.12)
+    // 위쪽은 그림 안에 이미 버튼 자리만큼 비어 있다. 그만큼 덜 덧대야 위아래 여백이 같아 보인다.
+    // 캔버스는 화면보다 촘촘하게 그려지므로 그 배율로 환산한다
+    const density = chartRef.current === null ? 1 : src.height / chartRef.current.height
+    const padBottom = Math.round(src.height * 0.12)
+    const padTop = Math.max(0, padBottom - Math.round(TOP_ROOM * density))
     const out = document.createElement('canvas')
     out.width = src.width
-    out.height = src.height + padY * 2
+    out.height = src.height + padTop + padBottom
     const ctx = out.getContext('2d')
     if (!ctx) return
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, out.width, out.height)
-    ctx.drawImage(src, 0, padY)
+    ctx.drawImage(src, 0, padTop)
     const a = document.createElement('a')
     a.download = `${spec.title ?? 'chart'}.png`
     a.href = out.toDataURL('image/png')
