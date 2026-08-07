@@ -24,7 +24,18 @@ export function formatDate(iso: string): string {
  * 날짜만 오는 값은 formatDate 를 쓴다 — 이쪽은 시각이 실려 오는 값 전용이다.
  */
 export function formatKstDate(iso: string): string {
-  const at = new Date(iso)
+  const at = new Date(withOffset(iso))
   if (Number.isNaN(at.getTime())) return iso
   return at.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'numeric', day: 'numeric' })
+}
+
+/**
+ * 시간대가 빠진 값은 한국 시각으로 읽는다.
+ *
+ * <p>서버는 시각에 `+09:00` 을 붙여 보내므로 보통은 손댈 것이 없다. 다만 그 표기가 빠진 값이 오면
+ * 브라우저가 보는 사람의 시간대로 읽어 날짜가 하루 어긋날 수 있다. 그때 UTC 로 읽으면 아홉 시간이
+ * 밀리므로, 이 시스템이 서 있는 자리인 한국 시각으로 읽는다.
+ */
+function withOffset(iso: string): string {
+  return /(?:Z|[+-]\d{2}:?\d{2})$/.test(iso) ? iso : `${iso}+09:00`
 }
