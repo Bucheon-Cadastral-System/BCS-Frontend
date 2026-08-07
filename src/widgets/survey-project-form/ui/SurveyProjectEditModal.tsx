@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { SURVEY_ONGOING_LABEL } from '@/entities/survey-project'
 import type { SurveyProject, SurveyProjectDraft } from '@/entities/survey-project'
 import type { ControlPoint } from '@/entities/control-point'
-import { MODAL_DANGER_BTN, MODAL_SUBMIT_BTN, Modal } from '@/shared/ui/Modal'
+import { Modal } from '@/shared/ui/Modal'
+import { FormActions } from '@/shared/ui/FormActions'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { FormNotice } from '@/shared/ui/FormNotice'
 import { useFormNotice } from '@/shared/lib/useFormNotice'
@@ -113,18 +114,14 @@ export function SurveyProjectEditModal(props: {
       onClose={props.onCancel}
       onSubmit={submit}
       footer={
-        <>
-          {/* 입력을 버리는 취소 — 직접 생성·기준점 폼과 같은 규격 */}
-          <button type="button" className={MODAL_DANGER_BTN} onClick={props.onCancel} disabled={props.submitting}>
-            취소
-          </button>
-          <div className="ml-auto flex items-center gap-3">
-            <FormNotice message={form.notice} />
-            <button type="submit" className={MODAL_SUBMIT_BTN} disabled={props.submitting}>
-              {props.submitting ? '저장 중…' : '저장'}
-            </button>
-          </div>
-        </>
+        <FormActions
+          submitType="submit"
+          submitLabel="저장"
+          busyLabel="저장 중…"
+          busy={props.submitting}
+          onCancel={props.onCancel}
+          notice={<FormNotice message={form.notice} />}
+        />
       }
     >
       <ProjectFields draft={draft} author={props.author} onPatch={patch} />

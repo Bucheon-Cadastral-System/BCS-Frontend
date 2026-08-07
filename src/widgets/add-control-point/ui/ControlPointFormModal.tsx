@@ -3,7 +3,8 @@ import { POINT_TYPES } from '@/entities/control-point'
 import type { PointType } from '@/entities/control-point'
 import { TM_ORIGINS } from '@/shared/lib/crs'
 import type { TmEpsg } from '@/shared/lib/crs'
-import { MODAL_DANGER_BTN, MODAL_INPUT, MODAL_SELECT, MODAL_SUBMIT_BTN, Modal, ModalField } from '@/shared/ui/Modal'
+import { MODAL_INPUT, MODAL_SELECT, Modal, ModalField } from '@/shared/ui/Modal'
+import { FormActions } from '@/shared/ui/FormActions'
 import { FormNotice } from '@/shared/ui/FormNotice'
 import { useFormNotice } from '@/shared/lib/useFormNotice'
 
@@ -99,17 +100,13 @@ export function ControlPointFormModal(props: {
       onSubmit={submit}
       formRef={form.formRef}
       footer={
-        <>
-          <button type="button" className={MODAL_DANGER_BTN} onClick={props.onCancel} disabled={props.submitting}>
-            취소
-          </button>
-          <div className="ml-auto flex min-w-0 items-center gap-3">
-            <FormNotice message={form.notice} />
-            <button type="submit" className={MODAL_SUBMIT_BTN} disabled={props.submitting}>
-              {props.submitting ? `${props.submitLabel} 중…` : props.submitLabel}
-            </button>
-          </div>
-        </>
+        <FormActions
+          submitType="submit"
+          submitLabel={props.submitLabel}
+          busy={props.submitting}
+          onCancel={props.onCancel}
+          notice={<FormNotice message={form.notice} />}
+        />
       }
     >
       {/* 좌표를 손에 들고 있지 않을 때의 시작 동작이라 맨 위에 크게 세운다 — 찍고 내려오며 나머지를 채우는 순서.

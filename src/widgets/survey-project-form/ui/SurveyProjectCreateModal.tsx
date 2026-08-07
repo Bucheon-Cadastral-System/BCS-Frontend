@@ -2,7 +2,8 @@ import { useState } from 'react'
 import type { SurveyProjectDraft } from '@/entities/survey-project'
 import type { ControlPoint } from '@/entities/control-point'
 import { today } from '@/shared/lib/date'
-import { MODAL_DANGER_BTN, MODAL_SUBMIT_BTN, Modal } from '@/shared/ui/Modal'
+import { Modal } from '@/shared/ui/Modal'
+import { FormActions } from '@/shared/ui/FormActions'
 import { FormNotice } from '@/shared/ui/FormNotice'
 import { useFormNotice } from '@/shared/lib/useFormNotice'
 import { ProjectFields, isPeriodReversed, trimmedOrNull } from './ProjectFields'
@@ -64,17 +65,14 @@ export function SurveyProjectCreateModal(props: {
       onClose={props.onCancel}
       onSubmit={submit}
       footer={
-        <>
-          <button type="button" className={MODAL_DANGER_BTN} onClick={props.onCancel} disabled={props.submitting}>
-            취소
-          </button>
-          <div className="ml-auto flex items-center gap-3">
-            <FormNotice message={form.notice} />
-            <button type="submit" className={MODAL_SUBMIT_BTN} disabled={props.submitting}>
-              {props.submitting ? '등록 중…' : selected.size > 0 ? `대상 ${selected.size}점으로 등록` : '등록'}
-            </button>
-          </div>
-        </>
+        <FormActions
+          submitType="submit"
+          submitLabel={selected.size > 0 ? `대상 ${selected.size}점으로 등록` : '등록'}
+          busyLabel="등록 중…"
+          busy={props.submitting}
+          onCancel={props.onCancel}
+          notice={<FormNotice message={form.notice} />}
+        />
       }
     >
       <ProjectFields draft={draft} author={props.author} onPatch={patch} />
