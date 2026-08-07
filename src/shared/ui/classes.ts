@@ -46,13 +46,6 @@ export const CHIP_BTN =
 export const CHIP_BTN_DANGER =
   'rounded-chip border border-danger-btn-edge bg-danger-wash text-center font-medium text-danger transition-colors hover:bg-danger-wash-strong'
 
-/** 지도 위 컨트롤(커맨드 바 안의 토글·줌) */
-export const BTN_CTL =
-  'inline-flex h-[30px] items-center justify-center gap-1.5 rounded-ctl border border-line-btn px-2.5 text-[11.5px] font-medium text-ink-2 transition-colors hover:bg-hover disabled:opacity-40'
-/** 켜져 있는 컨트롤 */
-export const BTN_CTL_ON =
-  'inline-flex h-[30px] items-center justify-center gap-1.5 rounded-ctl border border-teal-btn-edge bg-teal-wash-strong px-2.5 text-[11.5px] font-medium text-teal-text transition-colors'
-
 /** 입력칸 */
 export const FIELD =
   'h-[38px] w-full rounded-ctl border border-line-field bg-field px-3 text-[13px] text-ink placeholder:text-ink-4 outline-none transition-colors focus:border-teal-edge'

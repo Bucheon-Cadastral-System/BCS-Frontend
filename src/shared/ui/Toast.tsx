@@ -50,7 +50,7 @@ export function Toast(props: {
       clearTimeout(t)
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current) // 이전 토스트의 지연 dismiss가 새 토스트를 닫는 것 방지
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // 의존성은 duration 만 둔다 — onClose 가 바뀔 때마다 타이머를 다시 걸면 토스트가 안 닫힌다
   }, [duration])
 
   const R = 15
