@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { ChatPanel } from './ChatPanel'
 import { ChatBubbleIcon, CloseIcon } from './icons'
-import { useSendChatMutation } from '../api/chat'
+import { useQueryClient } from '@tanstack/react-query'
+import { CHAT_MESSAGES_KEY, useChatHistoryQuery, useClearChatMutation, useSendChatMutation } from '../api/chat'
 import type { ChatAction, ChatMessage, ChatMode, Size } from '../model/types'
-import { loadChatMessages, loadChatUi, saveChatMessages, saveChatUi } from '../model/storage'
+import { clearLegacyChatMessages, loadChatUi, saveChatUi } from '../model/storage'
 import { useDismiss } from '@/shared/lib/useDismiss'
 import { PANEL } from '@/shared/ui/classes'
 
@@ -39,10 +40,15 @@ export function ChatDockLayout({
   const [mode, setMode] = useState<ChatMode>(initial.mode)
   const [floatSize, setFloatSize] = useState<Size>(initial.floatSize)
 
-  const [messages, setMessages] = useState<ChatMessage[]>(loadChatMessages)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
 
   const chatMutation = useSendChatMutation()
+  const clearMutation = useClearChatMutation()
   const pending = chatMutation.isPending
+
+  const queryClient = useQueryClient()
+  const history = useChatHistoryQuery().data
+  const restored = useRef(false)
 
   const areaRef = useRef<HTMLDivElement>(null)
 
@@ -57,9 +63,21 @@ export function ChatDockLayout({
     onDockWidthChange?.(docked ? dockWidth : 0)
   }, [docked, dockWidth, onDockWidthChange])
 
+  // 대화를 브라우저에 담던 시절의 값이 남아 있으면 계정이 바뀌어도 그대로 보인다 — 한 번 지운다
+  useEffect(clearLegacyChatMessages, [])
+
+  // 서버에 남은 대화를 첫 응답에서 한 번만 얹는다. 응답이 늦는 사이 이미 질문을 보냈다면 그 대화를 지키고 덮지 않는다
   useEffect(() => {
-    saveChatMessages(messages)
-  }, [messages])
+    if (restored.current || history === undefined) return
+    restored.current = true
+    setMessages((prev) => (prev.length === 0 ? history : prev))
+  }, [history])
+
+  // 화면이 대화의 최신 상태이므로 캐시를 따라 맞춘다 — 창을 다시 세워도 같은 대화로 돌아온다
+  useEffect(() => {
+    if (!restored.current) return
+    queryClient.setQueryData(CHAT_MESSAGES_KEY, messages)
+  }, [messages, queryClient])
 
   // 코너 오버레이는 ESC로 닫는다(도킹은 자리 차지라 유지)
   useDismiss({ enabled: open && mode === 'corner', onDismiss: () => setOpen(false) })
@@ -89,6 +107,7 @@ export function ChatDockLayout({
   function newChat() {
     sessionRef.current += 1
     setMessages([])
+    clearMutation.mutate() // 서버에 남은 대화도 함께 비운다
   }
 
   // 코너 카드 좌상단 리사이즈(우하단 고정)
