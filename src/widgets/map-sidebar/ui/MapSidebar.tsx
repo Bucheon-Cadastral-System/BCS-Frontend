@@ -130,7 +130,7 @@ export function MapSidebar(props: MapSidebarProps) {
 
 function PanelHeader(props: { title: string; count?: number; onMinimize: () => void; onClose: () => void }) {
   return (
-    <header className={`items-baseline ${PANEL_HEADER}`}>
+    <header className={PANEL_HEADER}>
       <h2 className="flex min-w-0 flex-1 items-baseline gap-[7px]">
         <span className="text-[13.5px] font-semibold text-ink">{props.title}</span>
         {props.count !== undefined && (
@@ -144,7 +144,7 @@ function PanelHeader(props: { title: string; count?: number; onMinimize: () => v
         onClick={props.onMinimize}
         aria-label="판 접기"
         title="접기"
-        className={`self-center ${ICON_BTN}`}
+        className={ICON_BTN}
       >
         <IconMinimize />
       </button>
@@ -153,7 +153,7 @@ function PanelHeader(props: { title: string; count?: number; onMinimize: () => v
         onClick={props.onClose}
         aria-label="판 닫기"
         title="닫기"
-        className={`self-center ${ICON_BTN_DANGER}`}
+        className={ICON_BTN_DANGER}
       >
         <IconClose />
       </button>

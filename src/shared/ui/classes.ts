@@ -63,9 +63,13 @@ export const ICON_BTN_DANGER = `${ICON_BTN_BASE} hover:bg-danger-wash hover:text
 
 /**
  * 판 머리말 — 제목이 왼쪽, 아이콘이 오른쪽. 머리말과 본문의 경계는 언제나 청록 두 겹 선이다
- * (창·좌측 판·대화 판이 모두 이 선을 쓴다). 세로 정렬은 제목이 한 줄인지 두 줄인지에 따라 쓰는 쪽이 정한다.
+ * (창·좌측 판·대화 판이 모두 이 선을 쓴다).
+ *
+ * <p>줄 안에서는 가운데로 맞춘다. 글줄 기준선(baseline)으로 맞추면 제목만 줄 맨 위로 붙고
+ * 아이콘 버튼은 가운데에 남아, 제목이 아이콘보다 위로 뜬 것처럼 보인다.
+ * 제목 안에서 크기가 다른 글자끼리(이름과 종류, 제목과 개수) 맞추는 것은 그 안쪽 상자가 할 일이다.
  */
-export const PANEL_HEADER = 'flex shrink-0 gap-[7px] pb-[11px] pl-3.5 pr-2.5 pt-[13px]'
+export const PANEL_HEADER = 'flex shrink-0 items-center gap-[7px] pb-[11px] pl-3.5 pr-2.5 pt-[13px]'
 /** 머리말과 본문의 경계 — 머리말에 걸거나, 아래 칸에 border-t-2 border-t-teal 로 건다 */
 export const PANEL_HEADER_RULE = 'border-b-2 border-b-teal'
 
