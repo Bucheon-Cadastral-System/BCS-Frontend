@@ -8,6 +8,28 @@ const AXIS = '#9ca3af' // 축·범례 글자(양쪽 테마 중립)
 const GRID = 'rgba(128,128,128,0.15)'
 const SUPPORTED = ['bar', 'line', 'pie', 'doughnut']
 
+/**
+ * 조사 상태·결과 라벨은 색을 고정한다 — 순서대로 팔레트를 배정하면 같은 답변 안에서도
+ * 지도·목록과 다른 색이 나와(망실이 초록으로 그려지는 등) 뜻이 반대로 읽힌다.
+ * 값은 화면이 쓰는 테마 토큰에서 읽어, 라이트·다크가 바뀌어도 같은 색 규칙을 따른다.
+ */
+const LABEL_COLOR_VAR: Record<string, string> = {
+  조사완료: '--color-teal',
+  완전: '--color-teal',
+  망실: '--color-danger',
+  조사불가: '--color-amber',
+  기타: '--color-ink-4',
+  미조사: '--color-idle',
+}
+
+/** 라벨에 정해 둔 색 — 규칙에 없는 라벨은 기존 팔레트를 순서대로 쓴다. */
+function colorOf(label: string, index: number): string {
+  const token = LABEL_COLOR_VAR[label.trim()]
+  if (token === undefined) return PALETTE[index % PALETTE.length]
+  const value = getComputedStyle(document.documentElement).getPropertyValue(token).trim()
+  return value === '' ? PALETTE[index % PALETTE.length] : value
+}
+
 // LLM이 낸 ```chart JSON을 안전하게 파싱·검증. 형식이 어긋나면 null(폴백 노출)
 function parseSpec(raw: string): ChartSpec | null {
   try {
@@ -43,13 +65,21 @@ export function ChartBlock({ json }: { json: string }) {
     const canvas = canvasRef.current
     if (!canvas || !spec) return
     const isPie = spec.type === 'pie' || spec.type === 'doughnut'
-    const datasets = isPie
-      ? [{ data: spec.datasets[0]?.data ?? [], backgroundColor: spec.labels.map((_, j) => PALETTE[j % PALETTE.length]), borderWidth: 0 }]
+    // 한 계열을 라벨로 나눠 보여주는 차트(원형·단일 막대)는 막대마다 그 라벨의 색을 쓴다.
+    // 계열이 여럿이면 색이 라벨이 아니라 계열을 가리키므로 계열 단위로 배정한다.
+    const perLabel = isPie || (spec.type === 'bar' && spec.datasets.length === 1)
+    const datasets = perLabel
+      ? [{
+          label: spec.datasets[0]?.label ?? '',
+          data: spec.datasets[0]?.data ?? [],
+          backgroundColor: spec.labels.map((label, j) => colorOf(label, j)),
+          borderWidth: 0,
+        }]
       : spec.datasets.map((d, i) => ({
           label: d.label,
           data: d.data,
-          backgroundColor: PALETTE[i % PALETTE.length],
-          borderColor: PALETTE[i % PALETTE.length],
+          backgroundColor: colorOf(d.label, i),
+          borderColor: colorOf(d.label, i),
           borderWidth: spec.type === 'line' ? 2 : 0,
         }))
 
