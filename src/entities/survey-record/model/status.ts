@@ -26,17 +26,31 @@ export const SURVEY_STATUS_TONE: Record<SurveyStatus, string> = {
 }
 
 /**
- * 상태별 색을 담은 테마 토큰 이름.
+ * 상태별 색 한 벌.
  *
- * <p>캔버스에 그리는 자리(챗봇 차트)는 CSS 클래스를 받을 수 없어 색을 값으로 읽어야 한다.
- * 위 SURVEY_STATUS_TONE 과 같은 뜻을 가리키므로 갈래가 늘면 두 곳을 함께 채운다.
+ * <p>화면은 클래스로 칠하고, 캔버스에 그리는 자리(챗봇 차트)는 클래스를 받을 수 없어 토큰 이름으로 값을 읽는다.
+ * 두 표현이 같은 색을 가리켜야 목록 마크와 차트가 같은 뜻으로 읽힌다. 한 줄에 나란히 두어 한쪽만 바뀌면 눈에 띈다.
+ *
+ * <p>클래스 이름은 글자 그대로 적는다. 조각을 이어 붙여 만들면 테일윈드가 그 클래스를 훑지 못해 색이 빠진다.
  */
-export const SURVEY_STATUS_COLOR_VAR: Record<SurveyStatus, string> = {
-  done: '--color-teal',
-  lost: '--color-danger',
-  unavailable: '--color-amber',
-  etc: '--color-ink-3',
-  todo: '--color-idle',
+const STATUS_COLOR: Record<SurveyStatus, { className: string; token: string }> = {
+  done: { className: 'text-teal-text', token: '--color-teal-text' },
+  lost: { className: 'text-danger', token: '--color-danger' },
+  unavailable: { className: 'text-amber', token: '--color-amber' },
+  etc: { className: 'text-ink-3', token: '--color-ink-3' },
+  todo: { className: 'text-ink-4', token: '--color-ink-4' },
+}
+
+/** 글자·아이콘 색 클래스 */
+export const SURVEY_STATUS_TEXT_COLOR: Record<SurveyStatus, string> = pick('className')
+
+/** 캔버스가 값으로 읽는 테마 토큰 이름 */
+export const SURVEY_STATUS_COLOR_VAR: Record<SurveyStatus, string> = pick('token')
+
+function pick(key: 'className' | 'token'): Record<SurveyStatus, string> {
+  return Object.fromEntries(
+    Object.entries(STATUS_COLOR).map(([status, color]) => [status, color[key]]),
+  ) as Record<SurveyStatus, string>
 }
 
 const STATUS_BY_RESULT: Record<SurveyResult, SurveyStatus> = {
