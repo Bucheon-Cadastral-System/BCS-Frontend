@@ -121,7 +121,7 @@ export function SurveyStatusBlock({ json }: { json: string }) {
       {breakdown !== null && (
         <dl className="mt-2.5 border-t border-line-soft pt-2 text-[11.5px] text-ink-3">
           <Row label="전체 대상" value={spec.total} lead />
-          <Row label="조사 완료" value={spec.surveyed} bar indent apart="sm" />
+          <Row label="조사 완료" value={spec.surveyed} bar indent apart />
           {/* 세로선이 끊기지 않게 줄 사이를 띄우지 않는다 — 여백은 줄 안쪽 padding 이 만든다 */}
           {DONE_STATUSES.map((status) => (
             <Row
@@ -132,7 +132,7 @@ export function SurveyStatusBlock({ json }: { json: string }) {
               rail
             />
           ))}
-          <Row label={SURVEY_STATUS_LABEL.todo} value={notSurveyed} dot={SURVEY_STATUS_DOT.todo} indent apart="lg" />
+          <Row label={SURVEY_STATUS_LABEL.todo} value={notSurveyed} dot={SURVEY_STATUS_DOT.todo} indent apart />
         </dl>
       )}
     </div>
@@ -156,8 +156,8 @@ function Row(props: {
   lead?: boolean
   rail?: boolean
   indent?: boolean
-  /** 윗줄과 띄우는 정도 — 전체 대상 아래는 조금, 조사 완료 묶음을 벗어나는 미조사 앞은 넉넉히 */
-  apart?: 'sm' | 'lg'
+  /** 윗줄과 띄운다 — 켜가 바뀌는 자리(전체 대상 아래, 조사 완료 묶음을 벗어나는 미조사 앞)에 준다 */
+  apart?: boolean
 }) {
   const mark: ReactNode =
     props.bar === true ? (
@@ -169,11 +169,7 @@ function Row(props: {
     )
   const tier = props.rail === true ? 'ml-[9px] border-l border-line pl-3' : props.indent === true ? 'pl-2.5' : ''
   return (
-    <div
-      className={`flex items-center gap-1.5 py-[2.5px] ${tier} ${
-        props.apart === 'lg' ? 'mt-3' : props.apart === 'sm' ? 'mt-1.5' : ''
-      }`}
-    >
+    <div className={`flex items-center gap-1.5 py-[2.5px] ${tier} ${props.apart === true ? 'mt-1.5' : ''}`}>
       {props.lead !== true && mark}
       <dt className={`min-w-0 flex-1 truncate ${props.lead === true ? 'font-medium text-ink-2' : ''}`}>{props.label}</dt>
       <dd className={`tabular-nums ${props.lead === true ? 'font-semibold text-ink' : 'font-medium text-ink-2'}`}>

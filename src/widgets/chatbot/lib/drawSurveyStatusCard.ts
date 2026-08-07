@@ -179,7 +179,7 @@ export function drawSurveyStatusCard(spec: SurveyStatusSpec): HTMLCanvasElement 
     ctx.lineTo(RAIL_X + 0.5, y)
     ctx.stroke()
 
-    y += 12
+    y += 6
     const todoMid = line(TIER2_LABEL, SURVEY_STATUS_LABEL.todo, spec.total - spec.surveyed, false)
     ctx.strokeStyle = RING
     ctx.lineWidth = 1.5
