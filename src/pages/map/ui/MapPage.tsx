@@ -701,6 +701,11 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
                   ? (records.find((r) => r.pointId === selected.id)?.surveyorName ?? null)
                   : null
               }
+              surveyedAt={
+                surveyVisible && selectedIsTarget && selected !== null
+                  ? (records.find((r) => r.pointId === selected.id)?.surveyedAt ?? null)
+                  : null
+              }
               surveyResult={surveyVisible && selected !== null ? (resultById.get(selected.id) ?? null) : null}
             surveyNote={surveyVisible && selected !== null ? (noteById.get(selected.id) ?? null) : null}
               onRecordSurvey={handleRecordSurvey}

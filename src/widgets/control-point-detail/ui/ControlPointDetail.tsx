@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { TM_ORIGINS } from '@/shared/lib/crs'
+import { formatDate, formatKstDate } from '@/shared/lib/date'
 import { FIELD_AREA, ICON_BTN, ICON_BTN_DANGER, PANEL, PANEL_HEADER, PANEL_HEADER_RULE } from '@/shared/ui/classes'
 import { FormActions } from '@/shared/ui/FormActions'
 import type { ControlPoint } from '@/entities/control-point'
@@ -12,6 +13,8 @@ interface ControlPointDetailProps {
   activeProjectName: string | null
   /** 이 점을 마지막으로 판정한 조사원 표시명. 기록이 없거나 인증 없이 남긴 기록이면 null */
   surveyorName: string | null
+  /** 이 회차에서 판정한 시각. 기록이 없으면 null */
+  surveyedAt: string | null
   /** 이 점의 조사 결과. 기록이 없으면(미조사) null */
   surveyResult: SurveyResult | null
   /** 기록에 딸린 비고. 기타가 아니거나 기록이 없으면 null */
@@ -178,6 +181,9 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
           <dd>{p.northing.toFixed(3)} m</dd>
           <dt>TM Y</dt>
           <dd>{p.easting.toFixed(3)} m</dd>
+          {/* 표지를 언제 묻었는지 — 조사 이력과 달리 점 자체의 내력이라 성과 아래에 둔다 */}
+          <dt>설치일자</dt>
+          <dd>{noneOr(p.installedDate === null ? null : formatDate(p.installedDate))}</dd>
           {/* 회차와 무관한 최근 조사 요약. 아래 프로젝트 구역의 조사원과 달리 마지막으로 조사한 사람이다 */}
           {/* 값이 없어도 줄을 세운다. 줄이 사라지면 값이 없는 것인지 항목 자체가 없는 것인지 알 수 없다 */}
           <dt>최종조사</dt>
@@ -190,7 +196,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
             </>
           )}
           <dt>최종조사일</dt>
-          <dd>{noneOr(lastSurvey?.surveyedOn)}</dd>
+          <dd>{noneOr(lastSurvey?.surveyedOn === null || lastSurvey?.surveyedOn === undefined ? null : formatDate(lastSurvey.surveyedOn))}</dd>
           <dt>최종조사원</dt>
           <dd>{noneOr(lastSurvey?.surveyorName)}</dd>
         </dl>
@@ -250,19 +256,21 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
             </div>
           )}
 
-          {/* 고른 값에 딸린 정보 — 비고는 기타일 때만 붙고, 조사원은 언제나 자리를 지킨다.
+          {/* 고른 값에 딸린 정보 — 비고는 기타일 때만 붙고, 조사일과 조사원은 자리를 지킨다.
               비고를 적지 않은 기타도 있고, 파일로 들어온 기록과 인증 전에 남긴 기록은 조사원이 비어 있다.
-              프로젝트의 비고와 같은 말을 쓴다. 자유롭게 적어 두는 칸이라는 점이 같아 층만 다르다 */}
+              차례는 위쪽 최종조사 구역과 같다. 같은 성격의 값이 층만 달리해 두 번 서므로 순서가 어긋나면 눈이 헤맨다 */}
           {!pendingEtc && (
             <dl className="mt-2.5 grid grid-cols-[38px_1fr] gap-x-2.5 gap-y-1 text-[11.5px] [&_dd]:text-ink-2 [&_dt]:text-ink-3">
-              <dt>조사원</dt>
-              <dd className="truncate">{noneOr(props.surveyorName)}</dd>
               {props.surveyResult === 'ETC' && (
                 <>
                   <dt>비고</dt>
                   <dd className="break-keep leading-[1.55] wrap-anywhere">{noneOr(props.surveyNote)}</dd>
                 </>
               )}
+              <dt>조사일</dt>
+              <dd>{noneOr(props.surveyedAt === null ? null : formatKstDate(props.surveyedAt))}</dd>
+              <dt>조사원</dt>
+              <dd className="truncate">{noneOr(props.surveyorName)}</dd>
             </dl>
           )}
         </div>

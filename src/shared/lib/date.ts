@@ -18,3 +18,13 @@ export function formatDate(iso: string): string {
   const [, year, month, day] = matched
   return `${year}. ${Number(month)}. ${Number(day)}.`
 }
+
+/**
+ * 시각을 한국 날짜로. 서버가 최종조사일을 KST 로 뽑는 것과 같은 규칙이라 두 줄이 어긋나지 않는다.
+ * 날짜만 오는 값은 formatDate 를 쓴다 — 이쪽은 시각이 실려 오는 값 전용이다.
+ */
+export function formatKstDate(iso: string): string {
+  const at = new Date(iso)
+  if (Number.isNaN(at.getTime())) return iso
+  return at.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'numeric', day: 'numeric' })
+}
