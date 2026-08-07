@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { TM_ORIGINS } from '@/shared/lib/crs'
 import { BTN_SM_PRIMARY, CHIP_BTN, FIELD_AREA, PANEL } from '@/shared/ui/classes'
 import type { ControlPoint } from '@/entities/control-point'
-import { PointTypeIcon, useLastSurveyorNameQuery } from '@/entities/control-point'
+import { PointTypeIcon, useLastSurveyQuery } from '@/entities/control-point'
 import { SURVEY_STATUS_LABEL, SURVEY_STATUS_TONE, SurveyResultPicker, deriveSurveyStatus } from '@/entities/survey-record'
 import type { SurveyResult } from '@/entities/survey-record'
 
@@ -13,7 +13,7 @@ interface ControlPointDetailProps {
   surveyorName: string | null
   /** 이 점의 조사 결과. 기록이 없으면(미조사) null */
   surveyResult: SurveyResult | null
-  /** 기록에 딸린 사유. 기타가 아니거나 기록이 없으면 null */
+  /** 기록에 딸린 비고. 기타가 아니거나 기록이 없으면 null */
   surveyNote: string | null
   /** 결과 기록·정정. note는 기타를 고를 때만 채워 온다. 실패하면 거절되는 약속을 돌려준다 */
   onRecordSurvey: (id: string, result: SurveyResult, note: string | null) => Promise<void>
@@ -79,8 +79,8 @@ function CopyButton(props: { value: string; label: string; onCopied: (ok: boolea
 /** 고른 기준점의 성과와 조사 상태. 지도 위 우측에 떠 있는 카드다. */
 export function ControlPointDetail(props: ControlPointDetailProps) {
   const p = props.point
-  // 최종조사원은 점을 고른 뒤에만 필요해서 목록과 따로 읽는다
-  const lastSurveyorName = useLastSurveyorNameQuery(p?.id ?? null).data
+  // 최종조사 요약은 점을 고른 뒤에만 필요해서 목록과 따로 읽는다
+  const lastSurvey = useLastSurveyQuery(p?.id ?? null).data
 
   // 골랐지만 아직 서버 응답이 돌아오지 않은 값. 머리말 칩과 고르기 칩이 함께 이 값을 따른다
   const [pending, setPending] = useState<SurveyResult | 'NONE' | null>(null)
@@ -199,11 +199,11 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
           {/* 회차와 무관한 최근 조사 요약. 아래 프로젝트 구역의 조사원과 달리 마지막으로 조사한 사람이다 */}
           {/* 값이 없어도 줄을 세운다. 줄이 사라지면 값이 없는 것인지 항목 자체가 없는 것인지 알 수 없다 */}
           <dt>최종조사</dt>
-          <dd>{noneOr(p.lastSurveyResult)}</dd>
+          <dd>{noneOr(lastSurvey?.result)}</dd>
           <dt>최종조사일</dt>
-          <dd>{noneOr(p.lastSurveyedOn)}</dd>
+          <dd>{noneOr(lastSurvey?.surveyedOn)}</dd>
           <dt>최종조사원</dt>
-          <dd>{noneOr(lastSurveyorName)}</dd>
+          <dd>{noneOr(lastSurvey?.surveyorName)}</dd>
         </dl>
       </div>
 
@@ -226,7 +226,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
                 return
               }
               if (choice === 'ETC') {
-                // 사유는 카드 안에서 이어 받는다. 떠 있는 창을 하나 더 띄우지 않는다
+                // 비고는 카드 안에서 이어 받는다. 떠 있는 창을 하나 더 띄우지 않는다
                 setEtcNote(props.surveyResult === 'ETC' ? (props.surveyNote ?? '') : '')
                 setPending('ETC')
                 return
@@ -240,7 +240,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
               <textarea
                 value={etcNote}
                 onChange={(e) => setEtcNote(e.target.value)}
-                placeholder="판정 사유"
+                placeholder="현장 상태·참고 사항"
                 className={`${FIELD_AREA} h-16`}
                 autoFocus
               />
@@ -249,7 +249,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
                   type="button"
                   disabled={saving}
                   onClick={() => {
-                    // 사유는 적으면 좋지만 없다고 판정을 막지 않는다. 빈 칸은 적지 않은 것으로 보낸다
+                    // 비고는 적으면 좋지만 없다고 판정을 막지 않는다. 빈 칸은 적지 않은 것으로 보낸다
                     const note = etcNote.trim()
                     void applySurvey('ETC', async () => {
                       await props.onRecordSurvey(p.id, 'ETC', note === '' ? null : note)
@@ -267,15 +267,16 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
             </div>
           )}
 
-          {/* 고른 값에 딸린 정보 — 사유는 기타일 때만 붙고, 조사원은 언제나 자리를 지킨다.
-              사유를 적지 않은 기타도 있고, 파일로 들어온 기록과 인증 전에 남긴 기록은 조사원이 비어 있다 */}
+          {/* 고른 값에 딸린 정보 — 비고는 기타일 때만 붙고, 조사원은 언제나 자리를 지킨다.
+              비고를 적지 않은 기타도 있고, 파일로 들어온 기록과 인증 전에 남긴 기록은 조사원이 비어 있다.
+              프로젝트의 비고와 같은 말을 쓴다. 자유롭게 적어 두는 칸이라는 점이 같아 층만 다르다 */}
           {!pendingEtc && (
             <dl className="mt-2.5 grid grid-cols-[38px_1fr] gap-x-2.5 gap-y-1 text-[11.5px] [&_dd]:text-ink-2 [&_dt]:text-ink-3">
               <dt>조사원</dt>
               <dd className="truncate">{noneOr(props.surveyorName)}</dd>
               {props.surveyResult === 'ETC' && (
                 <>
-                  <dt>사유</dt>
+                  <dt>비고</dt>
                   <dd className="break-keep leading-[1.55] wrap-anywhere">{noneOr(props.surveyNote)}</dd>
                 </>
               )}

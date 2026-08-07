@@ -45,9 +45,6 @@ interface ServerControlPoint {
   easting: number
   longitude: number
   latitude: number
-  /** 최근 조사 요약 — 파일의 최종조사 열 문구 그대로 */
-  lastSurveyResult: string | null
-  lastSurveyedOn: string | null
 }
 
 /** 서버 응답 → 프론트 모델. */
@@ -62,8 +59,6 @@ function toControlPoint(server: ServerControlPoint): ControlPoint {
     northing: server.northing,
     easting: server.easting,
     tmEpsg: EPSG_FROM_CRS[server.crs],
-    lastSurveyResult: server.lastSurveyResult ?? null,
-    lastSurveyedOn: server.lastSurveyedOn ?? null,
   }
 }
 
@@ -132,9 +127,19 @@ export async function deleteControlPoint(id: string): Promise<void> {
 
 /** 조사 데이터가 참조 중인지 — 삭제 확인 창을 물음/불가로 갈라 여는 근거다. */
 /** 이 점을 마지막으로 조사한 사람. 목록에 싣지 않고 점을 고른 뒤에만 읽는다. */
-export async function fetchLastSurveyorName(id: string): Promise<string | null> {
-  const res = await http.get<{ name: string | null }>(`/api/control-points/${id}/last-surveyor`)
-  return res.data.name
+/** 기준점의 최종조사 요약 — 회차와 무관하게 마지막으로 조사한 결과다. 조사한 적이 없으면 세 칸이 비어 있다. */
+export interface LastSurvey {
+  /** 최종조사내용. 없으면 null */
+  result: string | null
+  /** 최종조사일(ISO 날짜). 없으면 null */
+  surveyedOn: string | null
+  /** 최종조사원 표시명. 파일로 들어온 기록과 인증 전에 남긴 기록은 null */
+  surveyorName: string | null
+}
+
+export async function fetchLastSurvey(id: string): Promise<LastSurvey> {
+  const res = await http.get<LastSurvey>(`/api/control-points/${id}/last-survey`)
+  return { result: res.data.result ?? null, surveyedOn: res.data.surveyedOn ?? null, surveyorName: res.data.surveyorName ?? null }
 }
 
 export async function fetchControlPointUsage(id: string): Promise<boolean> {

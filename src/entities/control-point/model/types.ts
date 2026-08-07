@@ -32,8 +32,6 @@ export interface ControlPoint {
   northing: number
   easting: number
   tmEpsg: TmEpsg
-  /** 최근 조사 요약 — 파일의 최종조사 열 문구 그대로(어휘를 강제하지 않는다). 없으면 null */
-  lastSurveyResult: string | null
-  /** 최종조사일(ISO 날짜). 없으면 null */
-  lastSurveyedOn: string | null
+  // 최종조사 요약(결과·조사일·조사원)은 이 모델에 없다.
+  // 점 하나를 고른 뒤 상세 카드만 쓰는 값이라 그때 따로 읽는다(LastSurvey).
 }
