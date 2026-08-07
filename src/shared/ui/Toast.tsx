@@ -6,6 +6,10 @@ export type ToastTone = 'info' | 'success' | 'error'
  * 하단 중앙 토스트. 아래에서 튀어나오고(enter), duration 후 다시 내려가며 사라짐(exit).
  * onAction을 주면 복원 버튼(↺ + 둘레 링 게이지 카운트다운), 없으면 닫기 버튼만 둔다.
  * 매 토스트마다 부모에서 key 를 바꿔 새로 마운트 → 타이머·애니 재시작.
+ *
+ * <p>팝오버로 띄운다. 모달 대화상자가 showModal 로 열려 있으면 그 창과 딤이 top layer 에 서므로,
+ * 보통 자리에 그린 토스트는 z-index 를 아무리 올려도 딤 뒤에 가린다. 창 안에서 벌어진 일을 알리는
+ * 토스트가 정작 그 창 뒤에 숨는다. 팝오버도 같은 top layer 로 올라가고 대화상자보다 나중에 열려 위에 선다.
  */
 type ToastAction =
   // 되돌리기 버튼은 아이콘뿐이라 라벨이 없으면 보조기술이 무슨 동작인지 알 수 없다 → 항상 짝으로 받는다
@@ -25,6 +29,7 @@ export function Toast(props: {
   dismissRef.current = props.onDismiss
   const closedRef = useRef(false)
   const closeTimerRef = useRef<number | undefined>(undefined)
+  const boxRef = useRef<HTMLDivElement>(null)
 
   const close = () => {
     if (closedRef.current) return
@@ -38,6 +43,16 @@ export function Toast(props: {
     props.onAction?.()
     close()
   }
+
+  // 팝오버를 지원하지 않는 브라우저에서는 속성이 무시되어 보통 자리에 그대로 그려진다
+  useEffect(() => {
+    const box = boxRef.current
+    if (box === null || typeof box.showPopover !== 'function') return
+    box.showPopover()
+    return () => {
+      if (box.isConnected && box.matches(':popover-open')) box.hidePopover()
+    }
+  }, [])
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
@@ -61,9 +76,12 @@ export function Toast(props: {
 
   return (
     <div
+      ref={boxRef}
+      popover="manual"
       role="status"
       aria-live={tone === 'error' ? 'assertive' : 'polite'}
-      className={`fixed bottom-6 left-1/2 z-50 flex max-w-[90vw] items-center gap-2 rounded-pill border bg-pill py-2 pl-4 pr-2 text-[12.5px] text-ink shadow-pill ${toneRing}`}
+      /* top-auto·right-auto·m-0 은 팝오버 기본 배치(inset 0 + margin auto)를 덮어 하단 중앙에 세우기 위한 것 */
+      className={`fixed inset-auto bottom-6 left-1/2 z-50 m-0 flex max-w-[90vw] items-center gap-2 overflow-visible rounded-pill border bg-pill py-2 pl-4 pr-2 text-[12.5px] text-ink shadow-pill ${toneRing}`}
       style={{
         transform: `translateX(-50%) translateY(${visible ? '0px' : '24px'})`,
         opacity: visible ? 1 : 0,
