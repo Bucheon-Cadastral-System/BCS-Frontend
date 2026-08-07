@@ -3,17 +3,8 @@ import { PROGRESS_FILL } from '@/shared/ui/classes'
 import { percent } from '@/shared/lib/percent'
 import { SURVEY_STATUS_DOT, SURVEY_STATUS_LABEL } from '@/entities/survey-record'
 import type { SurveyStatus } from '@/entities/survey-record'
-
-/** 조사 완료를 이루는 네 갈래 — 미조사는 이 아래가 아니라 조사 완료의 형제라 따로 둔다. */
-const DONE_STATUSES: Exclude<SurveyStatus, 'todo'>[] = ['done', 'lost', 'unavailable', 'etc']
-
-interface SurveyStatusSpec {
-  title?: string
-  total: number
-  surveyed: number
-  /** 네 갈래가 다 오고 합이 조사 완료와 맞을 때만 채운다. 하나라도 어긋나면 진행률만 그린다. */
-  breakdown: Record<Exclude<SurveyStatus, 'todo'>, number> | null
-}
+import { DONE_STATUSES, drawSurveyStatusCard } from '../lib/drawSurveyStatusCard'
+import type { SurveyStatusSpec } from '../lib/drawSurveyStatusCard'
 
 const FIELD_OF: Record<Exclude<SurveyStatus, 'todo'>, string> = {
   done: 'intact',
@@ -77,13 +68,40 @@ export function SurveyStatusBlock({ json }: { json: string }) {
   const pct = percent(spec.surveyed, spec.total)
   const notSurveyed = spec.total - spec.surveyed
   const breakdown = spec.breakdown
+
+  const download = () => {
+    const canvas = drawSurveyStatusCard(spec)
+    if (canvas === null) return
+    const a = document.createElement('a')
+    a.download = `${spec.title ?? '조사 현황'}.png`
+    a.href = canvas.toDataURL('image/png')
+    a.click()
+  }
+
   return (
-    <div className="my-1 rounded-ctl border border-line-soft bg-soft px-3 py-2.5">
+    <div className="relative my-1 rounded-ctl border border-line-soft bg-soft px-3 py-2.5">
+      <button
+        type="button"
+        onClick={download}
+        aria-label="조사 현황 이미지 저장"
+        title="조사 현황 이미지 저장"
+        className="absolute right-1.5 top-1.5 rounded-chip bg-pill p-1 text-ink-4 transition-colors hover:text-ink-2"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+      </button>
+
       {spec.title !== undefined && (
-        <div className="mb-2 text-[12px] text-ink-2 [overflow-wrap:anywhere]">{spec.title}</div>
+        <div className="mb-2 pr-7 text-[12px] text-ink-2 [overflow-wrap:anywhere]">{spec.title}</div>
       )}
 
-      <div className="mb-[7px] flex items-baseline text-[11.5px] text-ink-3">
+      {/* 제목이 없으면 백분율이 맨 윗줄에 서므로, 그 줄이 저장 버튼 자리를 비켜 준다 */}
+      <div
+        className={`mb-[7px] flex items-baseline text-[11.5px] text-ink-3 ${spec.title === undefined ? 'pr-7' : ''}`}
+      >
         <span className="flex-1">
           조사 <b className="font-semibold text-teal-text">{spec.surveyed}</b> / 전체 <span>{spec.total}</span>
         </span>
@@ -103,7 +121,7 @@ export function SurveyStatusBlock({ json }: { json: string }) {
       {breakdown !== null && (
         <dl className="mt-2.5 border-t border-line-soft pt-2 text-[11.5px] text-ink-3">
           <Row label="전체 대상" value={spec.total} lead />
-          <Row label="조사 완료" value={spec.surveyed} bar indent />
+          <Row label="조사 완료" value={spec.surveyed} bar indent apart="sm" />
           {/* 세로선이 끊기지 않게 줄 사이를 띄우지 않는다 — 여백은 줄 안쪽 padding 이 만든다 */}
           {DONE_STATUSES.map((status) => (
             <Row
@@ -114,7 +132,7 @@ export function SurveyStatusBlock({ json }: { json: string }) {
               rail
             />
           ))}
-          <Row label={SURVEY_STATUS_LABEL.todo} value={notSurveyed} dot={SURVEY_STATUS_DOT.todo} indent apart />
+          <Row label={SURVEY_STATUS_LABEL.todo} value={notSurveyed} dot={SURVEY_STATUS_DOT.todo} indent apart="lg" />
         </dl>
       )}
     </div>
@@ -138,7 +156,8 @@ function Row(props: {
   lead?: boolean
   rail?: boolean
   indent?: boolean
-  apart?: boolean
+  /** 윗줄과 띄우는 정도 — 전체 대상 아래는 조금, 조사 완료 묶음을 벗어나는 미조사 앞은 넉넉히 */
+  apart?: 'sm' | 'lg'
 }) {
   const mark: ReactNode =
     props.bar === true ? (
@@ -150,7 +169,11 @@ function Row(props: {
     )
   const tier = props.rail === true ? 'ml-[9px] border-l border-line pl-3' : props.indent === true ? 'pl-2.5' : ''
   return (
-    <div className={`flex items-center gap-1.5 py-[2.5px] ${tier} ${props.apart === true ? 'mt-3' : ''}`}>
+    <div
+      className={`flex items-center gap-1.5 py-[2.5px] ${tier} ${
+        props.apart === 'lg' ? 'mt-3' : props.apart === 'sm' ? 'mt-1.5' : ''
+      }`}
+    >
       {props.lead !== true && mark}
       <dt className={`min-w-0 flex-1 truncate ${props.lead === true ? 'font-medium text-ink-2' : ''}`}>{props.label}</dt>
       <dd className={`tabular-nums ${props.lead === true ? 'font-semibold text-ink' : 'font-medium text-ink-2'}`}>
