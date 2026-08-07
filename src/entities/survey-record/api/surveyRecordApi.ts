@@ -1,8 +1,8 @@
 import { http } from '@/shared/api/http'
 import type { SurveyRecord, SurveyResult } from '../model/types'
 
+/** 서버는 기록을 (프로젝트, 기준점)으로 식별한다 — 별도의 번호가 없다. */
 interface ServerSurveyRecord {
-  id: number
   projectId: number
   pointId: number
   result: SurveyResult
