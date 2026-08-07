@@ -142,7 +142,11 @@ export function ChartBlock({ json }: { json: string }) {
   const asked = picked ?? spec?.type ?? 'bar'
   const type = multi && (asked === 'doughnut' || asked === 'pie') ? 'bar' : asked
   const [menuOpen, setMenuOpen] = useState(false)
-  const [broken, setBroken] = useState(false)
+  /**
+   * 그리다 터진 자료가 무엇이었는지 기억한다 — 참·거짓이 아니라 열쇠로 든다.
+   * 참·거짓으로 두면 한 번 터진 뒤 종류를 바꾸거나 새 답변이 와도 계속 터진 상태로 남는다.
+   */
+  const [brokenKey, setBrokenKey] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   // 저장할 때 캔버스 픽셀과 화면 px 의 배율을 알아야 한다(레티나에서 둘이 다르다)
   const chartRef = useRef<Chart | null>(null)
@@ -223,21 +227,21 @@ export function ChartBlock({ json }: { json: string }) {
     try {
       chart = new Chart(canvas, config)
     } catch {
-      setBroken(true)
+      setBrokenKey(`${json}|${type}`)
       return
     }
-    setBroken(false)
     chartRef.current = chart
     return () => {
       chartRef.current = null
       chart.destroy()
     }
-  }, [spec, type])
+  }, [spec, type, json])
 
-  // 형식이 어긋났거나 그리다 터졌으면 원문을 보인다 — 무엇이 왔는지는 남겨 둔다
-  if (!spec || broken) {
+  // 형식이 어긋나면 그릴 대상이 없다 — 무엇이 왔는지만 남긴다
+  if (!spec) {
     return <pre className="my-1 overflow-x-auto rounded bg-soft p-2 text-xs text-ink-3">{json.trim()}</pre>
   }
+  const broken = brokenKey === `${json}|${type}`
 
   // 차트 캔버스를 흰 배경 PNG로 저장(상하 여백 추가)
   const download = () => {
@@ -275,7 +279,12 @@ export function ChartBlock({ json }: { json: string }) {
 
   return (
     <div className="relative my-1 rounded-ctl border border-line-soft bg-soft p-2" style={{ height: 200 }}>
+      {/* 터졌을 때도 캔버스는 트리에 남긴다 — 빼 버리면 종류를 바꿔도 다시 그려 볼 자리가 없다.
+          원문은 그 위에 덮어 보이고, 다른 종류로 그리기에 성공하면 열쇠가 어긋나 저절로 걷힌다 */}
       <canvas ref={canvasRef} role="img" aria-label={summary} />
+      {broken && (
+        <pre className="absolute inset-0 m-2 overflow-auto rounded bg-soft p-2 text-xs text-ink-3">{json.trim()}</pre>
+      )}
       <button
         type="button"
         onClick={download}
