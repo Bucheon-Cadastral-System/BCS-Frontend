@@ -84,9 +84,22 @@ export function ChatDockLayout({
 
   // 진행 중 요청의 응답이 '새 대화'로 초기화된 뒤 섞이지 않게 세션을 센다
   const sessionRef = useRef(0)
+  const clearing = clearMutation.isPending
+  /** 질문이 나가 있는 동안 눌린 '새 대화' — 그 요청이 끝난 뒤에 지운다 */
+  const clearAfterSendRef = useRef(false)
+
+  /** 서버 기록을 비운다. 실패하면 서버가 진짜 값이므로 화면을 그쪽으로 되돌린다. */
+  function clearOnServer() {
+    clearMutation.mutate(undefined, {
+      onError: () => {
+        restored.current = false
+        void queryClient.invalidateQueries({ queryKey: CHAT_MESSAGES_KEY })
+      },
+    })
+  }
 
   function send(text: string) {
-    if (pending) return // 입력창·빠른 질의 등 모든 전송 경로를 응답 대기 중엔 막는다
+    if (pending || clearing) return // 응답 대기 중과 비우는 중에는 모든 전송 경로를 막는다
     const session = sessionRef.current
     setMessages((prev) => [...prev, { role: 'user', text }])
     chatMutation.mutate(text, {
@@ -101,13 +114,24 @@ export function ChatDockLayout({
           { role: 'assistant', text: '답변을 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.' },
         ])
       },
+      onSettled: () => {
+        if (!clearAfterSendRef.current) return
+        clearAfterSendRef.current = false
+        clearOnServer()
+      },
     })
   }
 
   function newChat() {
+    if (clearing) return
     sessionRef.current += 1
     setMessages([])
-    clearMutation.mutate() // 서버에 남은 대화도 함께 비운다
+    // 질문이 나가 있는 동안 지우면 서버가 그 답을 뒤늦게 적어 빈 대화에 남는다. 그 요청이 끝난 뒤에 지운다
+    if (pending) {
+      clearAfterSendRef.current = true
+      return
+    }
+    clearOnServer()
   }
 
   // 코너 카드 좌상단 리사이즈(우하단 고정)
