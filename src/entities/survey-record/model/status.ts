@@ -25,6 +25,20 @@ export const SURVEY_STATUS_TONE: Record<SurveyStatus, string> = {
   todo: 'border-line-btn bg-soft text-ink-3',
 }
 
+/**
+ * 상태별 색을 담은 테마 토큰 이름.
+ *
+ * <p>캔버스에 그리는 자리(챗봇 차트)는 CSS 클래스를 받을 수 없어 색을 값으로 읽어야 한다.
+ * 위 SURVEY_STATUS_TONE 과 같은 뜻을 가리키므로 갈래가 늘면 두 곳을 함께 채운다.
+ */
+export const SURVEY_STATUS_COLOR_VAR: Record<SurveyStatus, string> = {
+  done: '--color-teal',
+  lost: '--color-danger',
+  unavailable: '--color-amber',
+  etc: '--color-ink-3',
+  todo: '--color-idle',
+}
+
 const STATUS_BY_RESULT: Record<SurveyResult, SurveyStatus> = {
   INTACT: 'done',
   LOST: 'lost',

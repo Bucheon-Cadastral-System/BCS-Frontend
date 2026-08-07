@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import Chart, { type ChartConfiguration } from 'chart.js/auto'
+import { SURVEY_STATUS_COLOR_VAR, SURVEY_STATUS_LABEL } from '@/entities/survey-record'
+import type { SurveyStatus } from '@/entities/survey-record'
 import type { ChartSpec } from '../model/types'
 
 // 라이트·다크 양쪽에서 무난한 팔레트
@@ -12,12 +14,16 @@ const SUPPORTED = ['bar', 'line', 'pie', 'doughnut']
  * 조사 상태·결과 라벨은 색을 고정한다 — 순서대로 팔레트를 배정하면 같은 답변 안에서도
  * 지도·목록과 다른 색이 나와(망실이 초록으로 그려지는 등) 뜻이 반대로 읽힌다.
  * 값은 화면이 쓰는 테마 토큰에서 읽어, 라이트·다크가 바뀌어도 같은 색 규칙을 따른다.
+ *
+ * 짝은 조사 상태 규칙에서 그대로 만든다. 여기에 라벨을 손으로 적어 두면 갈래가 늘거나 말이 바뀔 때
+ * 이 표만 옛 상태로 남아 새 갈래가 임의의 색으로 그려진다.
  */
-const LABEL_COLOR_VAR: Record<string, string> = {
-  정상: '--color-teal',
-  망실: '--color-danger',
-  미조사: '--color-idle',
-}
+const LABEL_COLOR_VAR: Record<string, string> = Object.fromEntries(
+  Object.entries(SURVEY_STATUS_LABEL).map(([status, label]) => [
+    label,
+    SURVEY_STATUS_COLOR_VAR[status as SurveyStatus],
+  ]),
+)
 
 /** 라벨에 정해 둔 색 — 규칙에 없는 라벨은 기존 팔레트를 순서대로 쓴다. */
 function colorOf(label: string, index: number): string {
