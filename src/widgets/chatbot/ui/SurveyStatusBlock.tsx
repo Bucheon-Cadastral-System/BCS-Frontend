@@ -103,7 +103,7 @@ export function SurveyStatusBlock({ json }: { json: string }) {
       {breakdown !== null && (
         <dl className="mt-2.5 border-t border-line-soft pt-2 text-[11.5px] text-ink-3">
           <Row label="전체 대상" value={spec.total} lead />
-          <Row label="조사 완료" value={spec.surveyed} indent />
+          <Row label="조사 완료" value={spec.surveyed} bar indent />
           {/* 세로선이 끊기지 않게 줄 사이를 띄우지 않는다 — 여백은 줄 안쪽 padding 이 만든다 */}
           {DONE_STATUSES.map((status) => (
             <Row
@@ -114,7 +114,7 @@ export function SurveyStatusBlock({ json }: { json: string }) {
               rail
             />
           ))}
-          <Row label={SURVEY_STATUS_LABEL.todo} value={notSurveyed} dot={SURVEY_STATUS_DOT.todo} indent />
+          <Row label={SURVEY_STATUS_LABEL.todo} value={notSurveyed} dot={SURVEY_STATUS_DOT.todo} indent apart />
         </dl>
       )}
     </div>
@@ -123,19 +123,35 @@ export function SurveyStatusBlock({ json }: { json: string }) {
 
 /**
  * 계층 한 줄. 켜는 왼쪽 들여쓰기가 말하고, 조사 완료 아래 네 갈래만 세로선을 덧대 묶음을 보인다.
- * 점이 없는 줄도 자리는 비워 둬야 같은 켜의 글자가 같은 세로선에서 시작한다.
+ *
+ * <p>줄머리 표시는 어느 켜든 자리를 차지한다. 한 줄만 비워 두면 그 줄의 글자가 홀로 오른쪽으로 밀려
+ * 같은 켜인데 한 단 더 들어간 것처럼 읽힌다.
+ *
+ * <p>조사 완료는 갈래가 아니라 네 갈래를 더한 값이라 갈래 색을 가져다 쓸 수 없다.
+ * 위 진행률 막대의 채운 쪽을 그대로 줄여 놓아, 저 막대에서 찬 부분이 이 수라는 것이 보이게 한다.
  */
-function Row(props: { label: string; value: number; dot?: string; lead?: boolean; rail?: boolean; indent?: boolean }) {
-  const dot: ReactNode =
-    props.dot === undefined ? (
+function Row(props: {
+  label: string
+  value: number
+  dot?: string
+  bar?: boolean
+  lead?: boolean
+  rail?: boolean
+  indent?: boolean
+  apart?: boolean
+}) {
+  const mark: ReactNode =
+    props.bar === true ? (
+      <i className={`h-[3px] w-[7px] shrink-0 rounded-full ${PROGRESS_FILL}`} aria-hidden />
+    ) : props.dot === undefined ? (
       <span className="size-[7px] shrink-0" aria-hidden />
     ) : (
       <i className={`size-[7px] shrink-0 rounded-full ${props.dot}`} aria-hidden />
     )
   const tier = props.rail === true ? 'ml-[9px] border-l border-line pl-3' : props.indent === true ? 'pl-2.5' : ''
   return (
-    <div className={`flex items-center gap-1.5 py-[2.5px] ${tier}`}>
-      {props.lead !== true && dot}
+    <div className={`flex items-center gap-1.5 py-[2.5px] ${tier} ${props.apart === true ? 'mt-1.5' : ''}`}>
+      {props.lead !== true && mark}
       <dt className={`min-w-0 flex-1 truncate ${props.lead === true ? 'font-medium text-ink-2' : ''}`}>{props.label}</dt>
       <dd className={`tabular-nums ${props.lead === true ? 'font-semibold text-ink' : 'font-medium text-ink-2'}`}>
         {props.value}
