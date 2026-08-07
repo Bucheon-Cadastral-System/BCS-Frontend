@@ -6,16 +6,6 @@ import { FormNotice } from '@/shared/ui/FormNotice'
 import { useFormNotice } from '@/shared/lib/useFormNotice'
 import { BTN_DANGER, BTN_PRIMARY, FIELD, FIELD_READONLY, FIELD_SELECT, MODAL_SHELL } from '@/shared/ui/classes'
 
-const PHONE_PATTERN = /^01[016789]\d{7,8}$/
-const PHONE_GUIDE = '휴대전화 번호는 010-1234-5678 형식으로 입력해 주세요.'
-
-function registrationErrorMessage(error: unknown) {
-  if (error instanceof Error && /phone|전화번호/i.test(error.message) && /(일치|정규식|pattern|regexp)/i.test(error.message)) {
-    return PHONE_GUIDE
-  }
-  return error instanceof Error ? error.message : '가입 신청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'
-}
-
 export interface RegistrationData {
   name: string
   phone: string
@@ -33,7 +23,6 @@ interface RegistrationPageProps {
 
 export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) {
   const [phone, setPhone] = useState('')
-  const [phoneError, setPhoneError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const form = useFormNotice()
@@ -50,27 +39,21 @@ export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) 
     // 못 채운 칸은 화면 안에서 알린다 — 브라우저 기본 말풍선은 우리 규격 밖에서 그려진다
     if (!form.validate()) return
     const data = new FormData(event.currentTarget)
-    const normalizedPhone = String(data.get('phone')).replace(/\D/g, '')
-    if (!PHONE_PATTERN.test(normalizedPhone)) {
-      setPhoneError(PHONE_GUIDE)
-      return
-    }
 
     setSubmitting(true)
     setError('')
-    setPhoneError('')
     try {
       await onSubmit({
         name: String(data.get('name')),
-        phone: normalizedPhone,
+        phone: String(data.get('phone')).replace(/\D/g, ''),
         email: String(data.get('email')),
-        district: String(data.get('district')) as RegistrationData['district'],
+        district: pick(data.get('district'), DISTRICTS, '소속 지역을'),
         department: '민원지적과',
-        team: String(data.get('team')) as RegistrationData['team'],
-        position: String(data.get('position')) as RegistrationData['position'],
+        team: pick(data.get('team'), TEAMS, '소속 팀을'),
+        position: pick(data.get('position'), POSITIONS, '직위를'),
       })
     } catch (e) {
-      setError(registrationErrorMessage(e))
+      setError(e instanceof Error ? e.message : '가입 신청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.')
     } finally {
       setSubmitting(false)
     }
@@ -106,20 +89,12 @@ export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) 
                 type="tel"
                 className={FIELD}
                 value={phone}
-                onChange={(event) => {
-                  setPhone(formatPhone(event.target.value))
-                  if (phoneError) setPhoneError('')
-                }}
+                onChange={(event) => setPhone(formatPhone(event.target.value))}
                 placeholder="010-0000-0000"
                 autoComplete="tel"
                 inputMode="numeric"
-                aria-describedby="phone-guide"
-                aria-invalid={phoneError ? 'true' : undefined}
                 required
               />
-              <small id="phone-guide" className={phoneError ? '!text-danger' : undefined}>
-                {phoneError || '010으로 시작하는 휴대전화 번호를 입력해 주세요. 예: 010-1234-5678'}
-              </small>
             </label>
 
             <label className="sm:col-span-2">
@@ -184,4 +159,15 @@ export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) 
       </section>
     </main>
   )
+}
+
+/**
+ * 고른 값이 목록에 실제로 있는지 보고 좁힌다.
+ * as 로 단언하면 선택지 목록과 타입이 어긋나는 날 컴파일이 조용히 통과하고 서버가 400 을 돌려준다.
+ */
+function pick<T extends string>(value: FormDataEntryValue | null, allowed: readonly T[], label: string): T {
+  const text = String(value ?? '')
+  const found = allowed.find((v) => v === text)
+  if (found === undefined) throw new Error(`${label} 다시 선택해 주세요.`)
+  return found
 }

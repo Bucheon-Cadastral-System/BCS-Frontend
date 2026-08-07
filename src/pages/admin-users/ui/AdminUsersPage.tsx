@@ -1,12 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { changeAdminMember, getAdminActivities, getAdminMemberCounts, getAdminMembers, updateAdminMember, DISTRICTS, POSITIONS, TEAMS } from '@/entities/user'
+import {
+  DISTRICTS,
+  POSITIONS,
+  TEAMS,
+  useAdminActivitiesQuery,
+  useAdminMemberCountsQuery,
+  useAdminMembersQuery,
+  useChangeAdminMemberMutation,
+  useUpdateAdminMemberMutation,
+} from '@/entities/user'
 import type { AdminActivity, AdminActivityType, AdminMemberAction, AdminMemberSortBy, ManagedUser, SortDirection, UserProfile, UserStatus } from '@/entities/user'
 import { UserAvatar } from '@/entities/user'
 import { ActivityIcon, AppHeader, UsersIcon } from '@/widgets/app-header'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY, FIELD, FIELD_SELECT, FIELD_SM, FIELD_SM_SELECT, ROW_ACCENT } from '@/shared/ui/classes'
-import { formatActivityMemberLabel } from '../model/formatActivityMemberLabel'
 
 interface AdminUsersPageProps {
   /** 지금 로그인한 관리자 — 헤더 표시에 쓴다 */
@@ -42,6 +50,14 @@ type AdminTab = 'members' | 'activities'
 
 /** 상세가 미끄러져 나가는 시간(ms) — 내용을 트리에서 빼는 시점이 이보다 빨라선 안 된다 */
 const DETAIL_LEAVE_MS = 200
+
+/** 승인·거절·상태 전환·권한 변경 확인 창에 필요한 값 */
+interface PendingChange {
+  id: string
+  action: AdminMemberAction
+  status?: UserStatus
+  label: string
+}
 
 /**
  * 목록 열 — 이름·기본 너비·정렬 가능 여부를 한 곳에서 정한다.
@@ -125,89 +141,81 @@ function normalizeMemberDraft(member: ManagedUser): ManagedUser {
   }
 }
 
+/** 쿼리·뮤테이션 오류에서 보여줄 문구를 뽑는다. 서버 메시지가 있으면 그걸 쓰고, 없으면 기본 문구를 쓴다 */
+function errorMessageOf(error: unknown, fallback: string): string {
+  if (!error) return ''
+  return error instanceof Error ? error.message : fallback
+}
+
 export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
-  const [users, setUsers] = useState<ManagedUser[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [activities, setActivities] = useState<AdminActivity[]>([])
-  const [activitiesLoading, setActivitiesLoading] = useState(true)
-  const [activitiesError, setActivitiesError] = useState('')
-  const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [filter, setFilter] = useState<'ALL' | UserStatus>('ALL')
-  const [counts, setCounts] = useState<Record<'ALL' | UserStatus, number>>({ ALL: 0, PENDING: 0, ACTIVE: 0, INACTIVE: 0 })
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [searchField, setSearchField] = useState<SearchField>('name')
   const [sort, setSort] = useState<{ field: SortField; direction: SortDirection }>({ field: 'name', direction: 'ASC' })
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(20)
-  const [totalElements, setTotalElements] = useState(0)
-  const [totalPages, setTotalPages] = useState(0)
   const [draft, setDraft] = useState<ManagedUser | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [changingStatus, setChangingStatus] = useState(false)
-  // 상태 변경 실패는 확인 창 안에서 알린다 — 뒤쪽 배너에 띄우면 배경 딤에 가려 사용자가 이유를 볼 수 없다
-  const [changeError, setChangeError] = useState('')
-  const [pendingChange, setPendingChange] = useState<{ id: string; action: AdminMemberAction; status?: UserStatus; label: string } | null>(null)
-  const memberRequestId = useRef(0)
+  // 저장 전 값 검증 실패. 서버로 보내기 전에 걸러지므로 뮤테이션 오류와는 별개로 둔다
+  const [validationError, setValidationError] = useState('')
+  const [pendingChange, setPendingChange] = useState<PendingChange | null>(null)
   const [tab, setTab] = useState<AdminTab>('members')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-
-  const loadActivities = useCallback(async (cursor?: string) => {
-    setActivitiesLoading(true)
-    setActivitiesError('')
-    try {
-      const result = await getAdminActivities(cursor)
-      setActivities((current) => cursor ? [...current, ...result.content] : result.content)
-      setNextCursor(result.nextCursor)
-    } catch (e) {
-      setActivitiesError(e instanceof Error ? e.message : '관리자 활동 로그를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.')
-    } finally {
-      setActivitiesLoading(false)
-    }
-  }, [])
-
-  const loadMembers = useCallback(async (signal?: AbortSignal) => {
-    const requestId = ++memberRequestId.current
-    setLoading(true)
-    setError('')
-    try {
-      const keyword = debouncedQuery.trim()
-      const result = await getAdminMembers({
-        page,
-        size: pageSize,
-        sortBy: API_SORT_FIELD[sort.field],
-        direction: sort.direction,
-        ...(filter !== 'ALL' ? { memberStatus: filter } : {}),
-        ...(keyword ? { [searchField]: keyword } : {}),
-      }, signal)
-      if (signal?.aborted || requestId !== memberRequestId.current) return
-      if (result.totalPages > 0 && page >= result.totalPages) {
-        setPage(result.totalPages - 1)
-        return
-      }
-      setUsers(result.content)
-      setTotalElements(result.totalElements)
-      setTotalPages(result.totalPages)
-    } catch (e) {
-      if (signal?.aborted || requestId !== memberRequestId.current) return
-      setError(e instanceof Error ? e.message : '관리자 정보를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.')
-    } finally {
-      if (!signal?.aborted && requestId === memberRequestId.current) setLoading(false)
-    }
-  }, [debouncedQuery, filter, page, pageSize, searchField, sort])
-
-  const loadCounts = async () => {
-    try { setCounts(await getAdminMemberCounts()) } catch (e) { setError(e instanceof Error ? e.message : '회원 현황을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.') }
-  }
+  // 활동 로그에서 지금 요청 중인 커서. 비어 있으면 최신 1페이지
+  const [activityCursor, setActivityCursor] = useState<string | undefined>(undefined)
+  // 커서별로 도착한 페이지를 이어 붙인 화면용 목록
+  const [activities, setActivities] = useState<AdminActivity[]>([])
+  // 같은 커서 페이지가 다시 도착했을 때(무효화로 인한 재조회 등) 중복으로 잇지 않도록 마지막으로 이어 붙인 커서를 기억한다
+  const appendedActivityCursorRef = useRef<string | undefined>(undefined)
 
   useEffect(() => { const timeout = window.setTimeout(() => setDebouncedQuery(query), 300); return () => window.clearTimeout(timeout) }, [query])
+
+  const keyword = debouncedQuery.trim()
+  const membersQuery = useAdminMembersQuery({
+    page,
+    size: pageSize,
+    sortBy: API_SORT_FIELD[sort.field],
+    direction: sort.direction,
+    ...(filter !== 'ALL' ? { memberStatus: filter } : {}),
+    ...(keyword ? { [searchField]: keyword } : {}),
+  })
+  const countsQuery = useAdminMemberCountsQuery()
+  const activitiesQuery = useAdminActivitiesQuery(activityCursor)
+  const updateMemberMutation = useUpdateAdminMemberMutation()
+  const changeMemberMutation = useChangeAdminMemberMutation()
+
+  const users = membersQuery.data?.content ?? []
+  const totalElements = membersQuery.data?.totalElements ?? 0
+  const totalPages = membersQuery.data?.totalPages ?? 0
+  const counts = countsQuery.data ?? { ALL: 0, PENDING: 0, ACTIVE: 0, INACTIVE: 0 }
+
+  // 걸러 보기 등으로 총 페이지가 줄어 지금 페이지가 그 밖에 나면 마지막 페이지로 되돌린다
   useEffect(() => {
-    const controller = new AbortController()
-    void loadMembers(controller.signal)
-    return () => controller.abort()
-  }, [loadMembers])
-  useEffect(() => { void loadCounts(); void loadActivities() }, [loadActivities])
+    if (totalPages > 0 && page >= totalPages) setPage(totalPages - 1)
+  }, [totalPages, page])
+
+  // 활동 로그 페이지가 도착할 때마다 화면용 목록에 반영한다.
+  // 커서가 없는 1페이지는 최신 값으로 통째로 갈아 끼우고(방금 생긴 활동을 곧바로 보여준다), 그 다음 페이지는 뒤에 잇는다.
+  useEffect(() => {
+    const content = activitiesQuery.data?.content
+    if (!content) return
+    if (activityCursor === undefined) {
+      setActivities(content)
+      appendedActivityCursorRef.current = undefined
+      return
+    }
+    if (appendedActivityCursorRef.current === activityCursor) return
+    setActivities((current) => [...current, ...content])
+    appendedActivityCursorRef.current = activityCursor
+  }, [activitiesQuery.data, activityCursor])
+
+  const error = validationError
+    || errorMessageOf(updateMemberMutation.error, '회원 정보를 수정하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+    || errorMessageOf(membersQuery.error, '관리자 정보를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.')
+    || errorMessageOf(countsQuery.error, '회원 현황을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.')
+  // 상태 변경 실패는 확인 창 안에서 알린다 — 뒤쪽 배너에 띄우면 배경 딤에 가려 사용자가 이유를 볼 수 없다
+  const changeError = errorMessageOf(changeMemberMutation.error, '회원 상태를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+  const activitiesErrorMessage = errorMessageOf(activitiesQuery.error, '관리자 활동 로그를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.')
 
   /** 상세를 닫는다 — 고르던 사람과 고치던 값을 함께 놓는다 */
   const closeDetail = () => {
@@ -215,55 +223,57 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
     setDraft(null)
   }
 
+  /** 확인 창을 연다. 앞서 다른 대상에서 실패했던 오류가 새 창에 남아 있지 않게 먼저 비운다 */
+  const openPendingChange = (change: PendingChange) => {
+    changeMemberMutation.reset()
+    setPendingChange(change)
+  }
+
+  const closePendingChange = () => {
+    setPendingChange(null)
+    changeMemberMutation.reset()
+  }
+
   const updateStatus = (id: string, status: UserStatus) => {
     const current = users.find((user) => user.id === id)
     if (!current) return
     const action = status === 'INACTIVE' ? 'deactivate' : current.status === 'PENDING' ? 'approve' : 'activate'
-    setPendingChange({ id, action, status, label: actionLabelOf(current.status, status) })
+    openPendingChange({ id, action, status, label: actionLabelOf(current.status, status) })
   }
 
   const applyStatusChange = async () => {
-    if (!pendingChange || changingStatus) return
-    const { id, action } = pendingChange
-    setChangingStatus(true)
-    setError('')
-    setChangeError('')
+    if (!pendingChange || changeMemberMutation.isPending) return
     try {
-      await changeAdminMember(id, action)
+      await changeMemberMutation.mutateAsync({ memberId: pendingChange.id, action: pendingChange.action })
       setPendingChange(null)
-      await Promise.all([loadMembers(), loadCounts(), loadActivities()])
-    } catch (e) {
-      // 창은 열어 둔다 — 사유를 읽고 그 자리에서 다시 시도할 수 있게
-      setChangeError(e instanceof Error ? e.message : '회원 상태를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.')
-    } finally {
-      setChangingStatus(false)
+      setActivityCursor(undefined)
+    } catch {
+      // 실패 사유는 changeMemberMutation.error 로 확인 창 안에 그대로 보인다. 창은 열어 둔 채 다시 시도할 수 있게 둔다
     }
   }
 
   const startEditing = (user: ManagedUser) => {
-    setError('')
+    setValidationError('')
+    updateMemberMutation.reset()
     setDraft(normalizeMemberDraft(user))
   }
 
   const saveEditing = async () => {
-    if (!draft || saving) return
+    if (!draft || updateMemberMutation.isPending) return
     const normalizedDraft = normalizeMemberDraft(draft)
-    const validationError = validateMemberDraft(normalizedDraft)
-    if (validationError) {
-      setError(validationError)
+    const nextValidationError = validateMemberDraft(normalizedDraft)
+    if (nextValidationError) {
+      setValidationError(nextValidationError)
       return
     }
 
-    setSaving(true)
-    setError('')
+    setValidationError('')
     try {
-      await updateAdminMember(normalizedDraft)
+      await updateMemberMutation.mutateAsync(normalizedDraft)
       setDraft(null)
-      await Promise.all([loadMembers(), loadActivities()])
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '회원 정보를 수정하지 못했습니다. 잠시 후 다시 시도해 주세요.')
-    } finally {
-      setSaving(false)
+      setActivityCursor(undefined)
+    } catch {
+      // 실패 사유는 updateMemberMutation.error 로 위 배너에 그대로 보인다
     }
   }
 
@@ -411,12 +421,12 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                   })}
                 </div>
 
-                {loading && <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-3">사용자 정보를 불러오는 중…</p>}
-                {!loading && users.length === 0 && (
+                {membersQuery.isPending && <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-3">사용자 정보를 불러오는 중…</p>}
+                {!membersQuery.isPending && users.length === 0 && (
                   <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-3">조건에 맞는 사용자 없음</p>
                 )}
 
-                {!loading && users.map((user) => (
+                {!membersQuery.isPending && users.map((user) => (
                   <button
                     type="button"
                     key={user.id}
@@ -521,11 +531,11 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                     {editing ? (
                       <>
                         {/* 고치던 값을 버리는 취소 — 앱 전역 규격대로 빨강 */}
-                        <button type="button" disabled={saving} className={BTN_SM_DANGER} onClick={() => setDraft(null)}>
+                        <button type="button" disabled={updateMemberMutation.isPending} className={BTN_SM_DANGER} onClick={() => setDraft(null)}>
                           취소
                         </button>
-                        <button type="button" disabled={saving} className={BTN_SM_PRIMARY} onClick={saveEditing}>
-                          {saving ? '저장 중…' : '변경사항 저장'}
+                        <button type="button" disabled={updateMemberMutation.isPending} className={BTN_SM_PRIMARY} onClick={saveEditing}>
+                          {updateMemberMutation.isPending ? '저장 중…' : '변경사항 저장'}
                         </button>
                       </>
                     ) : (
@@ -535,7 +545,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                         </button>
                         {!isSelf && detail.status === 'PENDING' && (
                           <>
-                            <button type="button" className={BTN_SM_DANGER} onClick={() => setPendingChange({ id: detail.id, action: 'reject', label: '가입 거절' })}>
+                            <button type="button" className={BTN_SM_DANGER} onClick={() => openPendingChange({ id: detail.id, action: 'reject', label: '가입 거절' })}>
                               가입 거절
                             </button>
                             <button type="button" className={BTN_SM_PRIMARY} onClick={() => updateStatus(detail.id, 'ACTIVE')}>
@@ -548,7 +558,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                             <button
                               type="button"
                               className={BTN_SM_SECONDARY}
-                              onClick={() => setPendingChange(
+                              onClick={() => openPendingChange(
                                 detail.role === 'ADMIN'
                                   ? { id: detail.id, action: 'role/user', label: '관리자 권한 회수' }
                                   : { id: detail.id, action: 'role/admin', label: '관리자 권한 부여' },
@@ -619,16 +629,16 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
               })}
             </div>
 
-            {activitiesLoading && activities.length === 0 && (
+            {activitiesQuery.isFetching && activities.length === 0 && (
               <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-3">관리자 활동 로그를 불러오는 중…</p>
             )}
-            {!activitiesLoading && activitiesError && activities.length === 0 && (
+            {!activitiesQuery.isFetching && activitiesErrorMessage && activities.length === 0 && (
               <div className="px-[22px] py-10 text-center">
-                <p className="text-[12.5px] text-danger">{activitiesError}</p>
-                <button type="button" className={`${BTN_SM_SECONDARY} mt-3`} onClick={() => void loadActivities()}>다시 시도</button>
+                <p className="text-[12.5px] text-danger">{activitiesErrorMessage}</p>
+                <button type="button" className={`${BTN_SM_SECONDARY} mt-3`} onClick={() => void activitiesQuery.refetch()}>다시 시도</button>
               </div>
             )}
-            {!activitiesLoading && !activitiesError && activities.length === 0 && (
+            {!activitiesQuery.isFetching && !activitiesErrorMessage && activities.length === 0 && (
               <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-3">기록된 관리자 활동 없음</p>
             )}
 
@@ -645,13 +655,18 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
               </div>
             ))}
 
-            {activitiesError && activities.length > 0 && (
-              <p className="mx-[22px] mt-3 rounded-pop border border-danger-btn-edge bg-danger-wash px-4 py-2.5 text-center text-[12.5px] text-danger">{activitiesError}</p>
+            {activitiesErrorMessage && activities.length > 0 && (
+              <p className="mx-[22px] mt-3 rounded-pop border border-danger-btn-edge bg-danger-wash px-4 py-2.5 text-center text-[12.5px] text-danger">{activitiesErrorMessage}</p>
             )}
-            {nextCursor && (
+            {activitiesQuery.data?.nextCursor && (
               <div className="px-[22px] py-4">
-                <button type="button" disabled={activitiesLoading} className={`${BTN_SM_SECONDARY} h-10 w-full`} onClick={() => void loadActivities(nextCursor)}>
-                  {activitiesLoading ? '불러오는 중…' : '활동 더 보기'}
+                <button
+                  type="button"
+                  disabled={activitiesQuery.isFetching}
+                  className={`${BTN_SM_SECONDARY} h-10 w-full`}
+                  onClick={() => setActivityCursor(activitiesQuery.data?.nextCursor ?? undefined)}
+                >
+                  {activitiesQuery.isFetching ? '불러오는 중…' : '활동 더 보기'}
                 </button>
               </div>
             )}
@@ -665,11 +680,11 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
           confirmLabel={pendingChange.label}
           cancelLabel="취소"
           danger={pendingChange.action === 'deactivate' || pendingChange.action === 'reject'}
-          busy={changingStatus}
+          busy={changeMemberMutation.isPending}
           busyLabel="처리 중…"
           error={changeError}
           onConfirm={applyStatusChange}
-          onCancel={() => { setPendingChange(null); setChangeError('') }}
+          onCancel={closePendingChange}
         />
       )}
     </main>
@@ -714,12 +729,9 @@ function ActivityCell({ column, activity }: { column: ActivityColumnKey; activit
       </span>
     )
   }
-  if (column === 'actor') {
-    return <span className="block truncate text-[11.5px] text-ink-3">{formatActivityMemberLabel(activity.actorAdminId, activity.actorAdminName)}</span>
-  }
-  if (column === 'target') {
-    return <span className="block truncate text-[11.5px] text-ink-3">{formatActivityMemberLabel(activity.targetMemberId, activity.targetMemberName)}</span>
-  }
+  // 응답이 id 만 주므로 id 만 보여 준다 — 이름을 함께 세우려면 응답에 이름이 실려야 한다
+  if (column === 'actor') return <span className="block truncate text-[11.5px] text-ink-3">#{activity.actorAdminId}</span>
+  if (column === 'target') return <span className="block truncate text-[11.5px] text-ink-3">#{activity.targetMemberId}</span>
   return <span className="block truncate text-[12.5px] text-ink-2">{activity.message}</span>
 }
 
