@@ -27,6 +27,10 @@ const RING = '#9ca3af'
 const WIDTH = 360
 const PAD = 16
 const ROW = 20
+/** 제목 한 줄이 차지하는 높이 */
+const TITLE_LINE = 18
+/** 제목 아래(진행률·구분선·일곱 줄·여백)에 필요한 높이보다 넉넉히 잡은 값 */
+const BODY_ROOM = 320
 /** 레티나에서 글자가 뭉개지지 않게 두 배로 그린다 */
 const SCALE = 2
 
@@ -67,8 +71,10 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, max: number): string[
  * <p>화면 카드는 HTML 이라 그대로는 그림이 되지 않는다. 남에게 보내거나 문서에 붙이는 자리라
  * 같은 내용을 캔버스에 다시 그린다 — 차트 저장과 같은 방식이고, 받는 쪽에 이 앱이 없어도 열린다.
  *
- * <p>높이는 미리 셈하지 않고 넉넉한 canvas 에 그린 뒤 쓴 만큼만 잘라 낸다.
+ * <p>높이는 줄 단위로 셈하지 않고 넉넉한 canvas 에 그린 뒤 쓴 만큼만 잘라 낸다.
  * 셈을 따로 두면 줄 하나를 더할 때마다 그리는 코드와 셈하는 코드가 갈라진다.
+ * 다만 제목은 길이 제한이 없어 줄 수만 미리 재고 그만큼 종이를 길게 잡는다.
+ * 넉넉한 높이를 상수로 박아 두면 긴 이름이 오는 순간 진행률과 내역이 종이 밖에서 잘린다.
  */
 export function drawSurveyStatusCard(spec: SurveyStatusSpec): HTMLCanvasElement | null {
   const font = readVar('--font-sans', 'system-ui, sans-serif')
@@ -76,21 +82,27 @@ export function drawSurveyStatusCard(spec: SurveyStatusSpec): HTMLCanvasElement 
   const fillFrom = readVar('--color-teal-edge', '#0e6b5c')
   const fillTo = readVar('--color-teal-bright', '#14806d')
 
+  const gauge = document.createElement('canvas').getContext('2d')
+  if (gauge === null) return null
+  gauge.font = `600 13px ${font}`
+  const titleLines = spec.title === undefined ? [] : wrap(gauge, spec.title, WIDTH - PAD * 2)
+  const room = BODY_ROOM + titleLines.length * TITLE_LINE
+
   const draft = document.createElement('canvas')
   draft.width = WIDTH * SCALE
-  draft.height = 640 * SCALE
+  draft.height = room * SCALE
   const ctx = draft.getContext('2d')
   if (ctx === null) return null
   ctx.scale(SCALE, SCALE)
   ctx.fillStyle = PAPER
-  ctx.fillRect(0, 0, WIDTH, 640)
+  ctx.fillRect(0, 0, WIDTH, room)
 
   let y = PAD
 
-  if (spec.title !== undefined) {
+  if (titleLines.length > 0) {
     ctx.font = `600 13px ${font}`
     ctx.fillStyle = INK
-    for (const line of wrap(ctx, spec.title, WIDTH - PAD * 2)) {
+    for (const line of titleLines) {
       y += 14
       ctx.fillText(line, PAD, y)
       y += 4

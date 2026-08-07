@@ -13,10 +13,14 @@ const FIELD_OF: Record<Exclude<SurveyStatus, 'todo'>, string> = {
   etc: 'etc',
 }
 
-/** 0 이상의 정수만 통과시킨다 — 음수·소수·문자열은 수치가 아니라 사고다. */
+/**
+ * 0 이상의 정수인 JSON 숫자만 통과시킨다.
+ *
+ * <p>숫자로 바꿔서 보면 `null`·빈 문자열·`true`·`"3"` 이 모두 통과한다. 그런 값이 실려 온 블록은
+ * 모델이 형식을 어긴 것이라 원문을 그대로 보여야 하는데, 멀쩡한 카드로 그려져 어긴 사실이 묻힌다.
+ */
 function count(value: unknown): number | null {
-  const n = Number(value)
-  return Number.isInteger(n) && n >= 0 ? n : null
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null
 }
 
 /**
