@@ -132,7 +132,15 @@ export function ChartBlock({ json }: { json: string }) {
   const spec = useMemo(() => parseSpec(json), [json])
   // 사용자가 고른 종류. 이 차트 하나에만 남는다 — 다음 질문의 답은 다시 모델이 고른 종류로 그려진다
   const [picked, setPicked] = useState<ChartSpec['type'] | null>(null)
-  const type = picked ?? spec?.type ?? 'bar'
+  /**
+   * 원형은 계열 하나를 라벨로 나눠 그리는 그림이라 계열이 여럿이면 첫 계열만 남고
+   * 나머지가 화면에서도 저장한 그림에서도 사라진다. 그런 자료에서는 고를 수 없게 하고,
+   * 모델이 원형을 내더라도 막대로 돌린다 — 값이 없어지는 것보다 그림이 달라지는 편이 낫다.
+   */
+  const multi = (spec?.datasets.length ?? 0) > 1
+  const options = multi ? TYPE_OPTIONS.filter((option) => option.type !== 'doughnut') : TYPE_OPTIONS
+  const asked = picked ?? spec?.type ?? 'bar'
+  const type = multi && (asked === 'doughnut' || asked === 'pie') ? 'bar' : asked
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   // 저장할 때 캔버스 픽셀과 화면 px 의 배율을 알아야 한다(레티나에서 둘이 다르다)
@@ -289,7 +297,7 @@ export function ChartBlock({ json }: { json: string }) {
         </button>
         {menuOpen && (
           <div role="menu" className={`${POPOVER} absolute right-1.5 top-9 z-10 min-w-[104px] overflow-hidden py-1`}>
-            {TYPE_OPTIONS.map((option) => (
+            {options.map((option) => (
               <button
                 key={option.type}
                 type="button"
