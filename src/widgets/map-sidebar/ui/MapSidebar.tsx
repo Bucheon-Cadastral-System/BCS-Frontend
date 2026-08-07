@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { PanelKey } from '@/shared/model/panel'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { SURVEY_STATUS_LABEL, deriveSurveyStatus } from '@/entities/survey-record'
+import { SURVEY_STATUS_DOT, SURVEY_STATUS_LABEL, SURVEY_STATUS_ORDER, deriveSurveyStatus } from '@/entities/survey-record'
 import type { SurveyResult, SurveyStatus } from '@/entities/survey-record'
 import { Skeleton, SkeletonRows } from '@/shared/ui/Skeleton'
 import { CHIP_BTN, CHIP_BTN_DANGER, PANEL, PROGRESS_FILL, ROW_ACCENT } from '@/shared/ui/classes'
@@ -20,17 +20,6 @@ import { POINT_TYPES, PointTypeIcon, StatusMark } from '@/entities/control-point
  */
 const ROW_HEIGHT = 34
 
-/** 진행률 아래 내역에 세우는 차례 — 조사한 갈래를 앞에 두고 미조사를 끝에 둔다 */
-const STATUS_ORDER: SurveyStatus[] = ['done', 'lost', 'unavailable', 'etc', 'todo']
-
-/** 내역 앞의 점 색 — 지도 마커·상세 카드와 같은 뜻으로 쓴다 */
-const STATUS_DOT: Record<SurveyStatus, string> = {
-  done: 'bg-teal',
-  lost: 'bg-danger',
-  unavailable: 'bg-amber',
-  etc: 'bg-ink-3',
-  todo: 'border-[1.5px] border-idle',
-}
 /** 패널 상단 검색창 — 프로젝트·기준점 두 패널이 같은 모양을 쓴다 */
 const PANEL_SEARCH_INPUT =
   'h-[34px] w-full rounded-ctl border border-line-field bg-field pl-9 pr-3 text-[12.5px] text-ink placeholder:text-ink-4 outline-none transition-colors focus:border-teal-edge'
@@ -457,8 +446,8 @@ function ProjectDetail(props: {
             </div>
             {/* 결과별 내역 — 색은 아래 범례·지도 마커와 같은 뜻으로 쓴다 */}
             <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-[5px] text-[11.5px] text-ink-3">
-              {STATUS_ORDER.map((key) => (
-                <StatusCount key={key} label={SURVEY_STATUS_LABEL[key]} count={byStatus[key]} dotClass={STATUS_DOT[key]} />
+              {SURVEY_STATUS_ORDER.map((key) => (
+                <StatusCount key={key} label={SURVEY_STATUS_LABEL[key]} count={byStatus[key]} dotClass={SURVEY_STATUS_DOT[key]} />
               ))}
             </div>
           </>
