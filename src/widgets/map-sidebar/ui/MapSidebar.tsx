@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { PanelKey } from '@/shared/model/panel'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { SURVEY_STATUS_LABEL, deriveSurveyStatus } from '@/entities/survey-record'
-import type { SurveyResult } from '@/entities/survey-record'
+import type { SurveyResult, SurveyStatus } from '@/entities/survey-record'
 import { Skeleton, SkeletonRows } from '@/shared/ui/Skeleton'
 import { CHIP_BTN, CHIP_BTN_DANGER, PANEL, PROGRESS_FILL, ROW_ACCENT } from '@/shared/ui/classes'
 import { percent } from '@/shared/lib/percent'
@@ -19,6 +19,18 @@ import { POINT_TYPES, PointTypeIcon, StatusMark } from '@/entities/control-point
  * 둘이 어긋나면 굴리는 동안 전체 높이가 계속 고쳐져 막대와 손 위치가 밀린다.
  */
 const ROW_HEIGHT = 34
+
+/** 진행률 아래 내역에 세우는 차례 — 조사한 갈래를 앞에 두고 미조사를 끝에 둔다 */
+const STATUS_ORDER: SurveyStatus[] = ['done', 'lost', 'unavailable', 'etc', 'todo']
+
+/** 내역 앞의 점 색 — 지도 마커·상세 카드와 같은 뜻으로 쓴다 */
+const STATUS_DOT: Record<SurveyStatus, string> = {
+  done: 'bg-teal',
+  lost: 'bg-danger',
+  unavailable: 'bg-amber',
+  etc: 'bg-ink-3',
+  todo: 'border-[1.5px] border-idle',
+}
 /** 패널 상단 검색창 — 프로젝트·기준점 두 패널이 같은 모양을 쓴다 */
 const PANEL_SEARCH_INPUT =
   'h-[34px] w-full rounded-ctl border border-line-field bg-field pl-9 pr-3 text-[12.5px] text-ink placeholder:text-ink-4 outline-none transition-colors focus:border-teal-edge'
@@ -389,13 +401,13 @@ function ProjectDetail(props: {
   const progressLoading = props.recordsLoading === true || props.targetsLoading === true
   const surveyed = props.resultById.size
   const pct = percent(surveyed, total)
-  // 망실도 '조사됨'이라 진행률에는 함께 세고, 내역에서는 결과별로 갈라 보여 준다
-  let lost = 0
+  // 망실도 조사불가도 기타도 '조사됨'이라 진행률에는 함께 세고, 내역에서는 결과별로 갈라 보여 준다.
+  // 넷을 뭉뚱그리면 정상 건수가 부풀고 조사불가·기타는 화면 어디에도 드러나지 않는다
+  const byStatus: Record<SurveyStatus, number> = { done: 0, lost: 0, unavailable: 0, etc: 0, todo: 0 }
   for (const result of props.resultById.values()) {
-    if (result === 'LOST') lost++
+    byStatus[deriveSurveyStatus(result)]++
   }
-  const done = Math.max(0, surveyed - lost)
-  const todo = Math.max(0, total - surveyed)
+  byStatus.todo = Math.max(0, total - surveyed)
 
   return (
     <>
@@ -445,9 +457,9 @@ function ProjectDetail(props: {
             </div>
             {/* 결과별 내역 — 색은 아래 범례·지도 마커와 같은 뜻으로 쓴다 */}
             <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-[5px] text-[11.5px] text-ink-3">
-              <StatusCount label={SURVEY_STATUS_LABEL.done} count={done} dotClass="bg-teal" />
-              <StatusCount label={SURVEY_STATUS_LABEL.lost} count={lost} dotClass="bg-danger" />
-              <StatusCount label={SURVEY_STATUS_LABEL.todo} count={todo} dotClass="border-[1.5px] border-idle" />
+              {STATUS_ORDER.map((key) => (
+                <StatusCount key={key} label={SURVEY_STATUS_LABEL[key]} count={byStatus[key]} dotClass={STATUS_DOT[key]} />
+              ))}
             </div>
           </>
         )}
@@ -729,7 +741,7 @@ function PointRowList(props: {
             >
               <PointRow
                 cp={cp}
-                status={hasSurvey ? SURVEY_STATUS_LABEL[status] : undefined}
+                status={hasSurvey ? status : undefined}
                 expanded={expandedPointId === cp.id}
                 onClick={() => {
                   const cur = cbRef.current
@@ -777,7 +789,7 @@ function PointRowList(props: {
  */
 function PointRow(props: {
   cp: ControlPoint
-  status?: string
+  status?: SurveyStatus
   onClick: () => void
   expanded?: boolean
 }) {
