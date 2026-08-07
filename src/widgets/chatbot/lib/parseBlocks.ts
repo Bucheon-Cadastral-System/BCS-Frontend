@@ -1,20 +1,21 @@
-/** 어시스턴트 본문 한 조각 — 마크다운 / 차트 / 진행률 / 액션(각 raw 문자열, 파싱은 렌더 컴포넌트가 맡는다). */
+/** 어시스턴트 본문 한 조각 — 마크다운 / 차트 / 조사 현황 / 액션(각 raw 문자열, 파싱은 렌더 컴포넌트가 맡는다). */
 export interface MessageSegment {
-  kind: 'md' | 'chart' | 'progress' | 'action'
+  kind: 'md' | 'chart' | 'survey' | 'action'
   value: string
 }
 
-// ```chart / ```progress / ```action 코드펜스만 뽑고, 나머지는 마크다운으로 둔다
-const FENCE = /```(chart|progress|action)[^\n]*\n([\s\S]*?)```/g
+// ```chart / ```survey / ```action 코드펜스만 뽑고, 나머지는 마크다운으로 둔다.
+// progress 는 진행률 막대만 그리던 시절의 이름 — 그때 오간 대화가 화면에 남아 있어 함께 받는다
+const FENCE = /```(chart|survey|progress|action)[^\n]*\n([\s\S]*?)```/g
 
-/** 본문을 마크다운·차트·액션 세그먼트로 순서대로 쪼갠다. */
+/** 본문을 마크다운·차트·현황·액션 세그먼트로 순서대로 쪼갠다. */
 export function splitBlocks(text: string): MessageSegment[] {
   const segments: MessageSegment[] = []
   let last = 0
   for (const m of text.matchAll(FENCE)) {
     const start = m.index ?? 0
     if (start > last) segments.push({ kind: 'md', value: text.slice(last, start) })
-    segments.push({ kind: m[1] as 'chart' | 'progress' | 'action', value: m[2] ?? '' })
+    segments.push({ kind: m[1] === 'progress' ? 'survey' : (m[1] as MessageSegment['kind']), value: m[2] ?? '' })
     last = start + m[0].length
   }
   if (last < text.length) segments.push({ kind: 'md', value: text.slice(last) })
