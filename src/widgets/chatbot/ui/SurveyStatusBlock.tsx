@@ -150,7 +150,7 @@ function Row(props: {
     )
   const tier = props.rail === true ? 'ml-[9px] border-l border-line pl-3' : props.indent === true ? 'pl-2.5' : ''
   return (
-    <div className={`flex items-center gap-1.5 py-[2.5px] ${tier} ${props.apart === true ? 'mt-1.5' : ''}`}>
+    <div className={`flex items-center gap-1.5 py-[2.5px] ${tier} ${props.apart === true ? 'mt-3' : ''}`}>
       {props.lead !== true && mark}
       <dt className={`min-w-0 flex-1 truncate ${props.lead === true ? 'font-medium text-ink-2' : ''}`}>{props.label}</dt>
       <dd className={`tabular-nums ${props.lead === true ? 'font-semibold text-ink' : 'font-medium text-ink-2'}`}>
