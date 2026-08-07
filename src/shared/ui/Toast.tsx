@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export type ToastTone = 'info' | 'success' | 'error'
 
@@ -31,12 +31,13 @@ export function Toast(props: {
   const closeTimerRef = useRef<number | undefined>(undefined)
   const boxRef = useRef<HTMLDivElement>(null)
 
-  const close = () => {
+  // 참조가 고정되어야 아래 타이머가 duration 이 바뀔 때만 다시 걸린다. onDismiss 는 ref 로 최신값을 읽는다
+  const close = useCallback(() => {
     if (closedRef.current) return
     closedRef.current = true
     setVisible(false)
     closeTimerRef.current = window.setTimeout(() => dismissRef.current(), 220) // 내려가는 애니 후 언마운트
-  }
+  }, [])
 
   const handleUndo = () => {
     if (closedRef.current) return // 연속 클릭 시 이중 복원 방지
@@ -65,8 +66,7 @@ export function Toast(props: {
       clearTimeout(t)
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current) // 이전 토스트의 지연 dismiss가 새 토스트를 닫는 것 방지
     }
-    // 의존성은 duration 만 둔다 — onClose 가 바뀔 때마다 타이머를 다시 걸면 토스트가 안 닫힌다
-  }, [duration])
+  }, [duration, close])
 
   const R = 15
   const C = 2 * Math.PI * R // 링 둘레

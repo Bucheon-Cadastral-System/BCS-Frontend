@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useId, useState, type FormEvent } from 'react'
 import { DISTRICTS, POSITIONS, TEAMS } from '@/entities/user'
 import type { District, Position, Team } from '@/entities/user'
 import { BrandLockup } from '@/shared/ui/BrandLockup'
@@ -37,6 +37,7 @@ export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) 
   const [phoneError, setPhoneError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const phoneErrorId = useId()
   const form = useFormNotice()
 
   const formatPhone = (value: string) => {
@@ -48,6 +49,8 @@ export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) 
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    // 새로 보내는 순간 앞서 받은 서버 오류를 지운다 — 남겨 두면 지금 입력의 문제와 겹쳐 보인다
+    setError('')
     // 못 채운 칸은 화면 안에서 알린다 — 브라우저 기본 말풍선은 우리 규격 밖에서 그려진다
     if (!form.validate()) return
     const data = new FormData(event.currentTarget)
@@ -59,7 +62,6 @@ export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) 
     }
 
     setSubmitting(true)
-    setError('')
     setPhoneError('')
     try {
       await onSubmit({
@@ -116,10 +118,11 @@ export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) 
                 autoComplete="tel"
                 inputMode="numeric"
                 aria-invalid={phoneError !== '' ? 'true' : undefined}
+                aria-describedby={phoneError !== '' ? phoneErrorId : undefined}
                 required
               />
               {/* 형식 오류는 그 칸 아래에서 알린다 — 버튼 옆 한 줄은 못 채운 칸을 알리는 자리다 */}
-              {phoneError !== '' && <small className="!text-danger" role="alert">{phoneError}</small>}
+              {phoneError !== '' && <small id={phoneErrorId} className="!text-danger" role="alert">{phoneError}</small>}
             </label>
 
             <label className="sm:col-span-2">
