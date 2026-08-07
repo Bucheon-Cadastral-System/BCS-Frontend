@@ -20,6 +20,7 @@ function toSurveyRecord(server: ServerSurveyRecord): SurveyRecord {
     result: server.result,
     lost: server.result === 'LOST',
     surveyorName: server.surveyorName,
+    note: server.note,
   }
 }
 
@@ -28,11 +29,19 @@ export async function fetchSurveyRecords(projectId: string): Promise<SurveyRecor
   return res.data.content.map(toSurveyRecord)
 }
 
-/** 조사 기록/정정 — 서버가 기존 기록이면 판정 정정으로 처리한다. */
-export async function putSurveyRecord(projectId: string, pointId: string, lost: boolean): Promise<SurveyRecord> {
+/**
+ * 조사 기록/정정 — 서버가 기존 기록이면 판정 정정으로 처리한다.
+ * note는 기타를 고를 때 적는 사유다. 그 외 결과는 적지 않으므로 null로 보낸다.
+ */
+export async function putSurveyRecord(
+  projectId: string,
+  pointId: string,
+  result: SurveyResult,
+  note: string | null,
+): Promise<SurveyRecord> {
   const res = await http.put<ServerSurveyRecord>(
     `/api/survey-projects/${projectId}/records/${pointId}`,
-    { result: lost ? 'LOST' : 'INTACT' },
+    { result, note },
   )
   return toSurveyRecord(res.data)
 }

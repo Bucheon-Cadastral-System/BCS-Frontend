@@ -1,12 +1,15 @@
 import type { StatusShape } from './statusRow'
 import { SHAPE_COLOR } from './statusRow'
 
-/** 목록 줄 오른쪽 끝의 상태 표시 — 성공은 체크, 제외는 X, 오류·확인 요청은 경고 삼각형 */
-export function StatusIcon({ shape, label }: { shape: StatusShape; label: string }) {
+/**
+ * 목록 줄 오른쪽 끝의 상태 표시 — 성공은 체크, 제외는 X, 오류·확인 요청은 경고 삼각형.
+ * color 를 주면 모양별 기본색 대신 그 색을 쓴다(뜻이 모양이 아니라 도메인 상태에서 오는 자리용).
+ */
+export function StatusIcon({ shape, label, color }: { shape: StatusShape; label: string; color?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      className={`size-4 shrink-0 ${SHAPE_COLOR[shape]}`}
+      className={`size-4 shrink-0 ${color ?? SHAPE_COLOR[shape]}`}
       fill="none"
       stroke="currentColor"
       strokeWidth="2.2"
