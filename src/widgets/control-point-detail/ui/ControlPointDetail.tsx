@@ -215,10 +215,6 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
               {SURVEY_STATUS_LABEL[status]}
             </span>
           </div>
-          {/* 조사원, 마지막 판정 주체. 상세 패널의 '작성자'와 같은 표기 규격 */}
-          {/* 파일로 들어온 기록과 인증 전에 남긴 기록은 조사원이 비어 있다 */}
-          <div className="-mt-1.5 mb-2.5 truncate text-[11.5px] text-ink-3">조사원 {noneOr(props.surveyorName)}</div>
-
           {/* 자리를 하나만 쓴다. 칩을 누르면 목록이 펼쳐지고 고르면 접힌다 */}
           <SurveyResultPicker
             result={props.surveyResult}
@@ -251,10 +247,12 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
               <div className="flex gap-1.5">
                 <button
                   type="button"
-                  disabled={etcNote.trim() === '' || saving}
+                  disabled={saving}
                   onClick={() => {
+                    // 사유는 적으면 좋지만 없다고 판정을 막지 않는다. 빈 칸은 적지 않은 것으로 보낸다
+                    const note = etcNote.trim()
                     void applySurvey('ETC', async () => {
-                      await props.onRecordSurvey(p.id, 'ETC', etcNote.trim())
+                      await props.onRecordSurvey(p.id, 'ETC', note === '' ? null : note)
                       setPending(null)
                     })
                   }}
@@ -269,11 +267,19 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
             </div>
           )}
 
-          {/* 기타는 사유가 있어야 뜻이 통한다. 고른 값 아래에 그대로 보여 준다 */}
-          {!pendingEtc && props.surveyResult === 'ETC' && props.surveyNote !== null && props.surveyNote !== '' && (
-            <p className="mt-1.5 break-keep text-[11.5px] leading-[1.55] wrap-anywhere text-ink-3">
-              사유 {props.surveyNote}
-            </p>
+          {/* 고른 값에 딸린 정보 — 사유는 기타일 때만 붙고, 조사원은 언제나 자리를 지킨다.
+              사유를 적지 않은 기타도 있고, 파일로 들어온 기록과 인증 전에 남긴 기록은 조사원이 비어 있다 */}
+          {!pendingEtc && (
+            <dl className="mt-2.5 grid grid-cols-[38px_1fr] gap-x-2.5 gap-y-1 text-[11.5px] [&_dd]:text-ink-2 [&_dt]:text-ink-3">
+              {props.surveyResult === 'ETC' && (
+                <>
+                  <dt>사유</dt>
+                  <dd className="break-keep leading-[1.55] wrap-anywhere">{noneOr(props.surveyNote)}</dd>
+                </>
+              )}
+              <dt>조사원</dt>
+              <dd className="truncate">{noneOr(props.surveyorName)}</dd>
+            </dl>
           )}
         </div>
       )}
