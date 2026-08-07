@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { deleteControlPoint, fetchControlPoints, registerControlPoint, updateControlPoint } from './controlPointApi'
+import { deleteControlPoint, fetchControlPoints, fetchLastSurveyorName, registerControlPoint, updateControlPoint } from './controlPointApi'
 
 export const CONTROL_POINTS_KEY = ['control-points'] as const
 
@@ -28,5 +28,15 @@ export function useDeleteControlPointMutation() {
   return useMutation({
     mutationFn: deleteControlPoint,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: CONTROL_POINTS_KEY }),
+  })
+}
+
+/** 최종조사원 이름 — 고른 점 하나에 대해서만 읽는다. */
+export function useLastSurveyorNameQuery(pointId: string | null) {
+  return useQuery({
+    queryKey: ['control-point', 'last-surveyor', pointId],
+    queryFn: () => fetchLastSurveyorName(pointId as string),
+    enabled: pointId !== null,
+    staleTime: 60_000,
   })
 }

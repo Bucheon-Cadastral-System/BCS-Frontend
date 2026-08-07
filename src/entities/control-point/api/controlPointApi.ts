@@ -131,6 +131,12 @@ export async function deleteControlPoint(id: string): Promise<void> {
 }
 
 /** 조사 데이터가 참조 중인지 — 삭제 확인 창을 물음/불가로 갈라 여는 근거다. */
+/** 이 점을 마지막으로 조사한 사람. 목록에 싣지 않고 점을 고른 뒤에만 읽는다. */
+export async function fetchLastSurveyorName(id: string): Promise<string | null> {
+  const res = await http.get<{ name: string | null }>(`/api/control-points/${id}/last-surveyor`)
+  return res.data.name
+}
+
 export async function fetchControlPointUsage(id: string): Promise<boolean> {
   const res = await http.get<{ referenced: boolean }>(`/api/control-points/${id}/usage`)
   return res.data.referenced
