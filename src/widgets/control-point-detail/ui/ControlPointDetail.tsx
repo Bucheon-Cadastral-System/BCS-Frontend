@@ -271,14 +271,14 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
               사유를 적지 않은 기타도 있고, 파일로 들어온 기록과 인증 전에 남긴 기록은 조사원이 비어 있다 */}
           {!pendingEtc && (
             <dl className="mt-2.5 grid grid-cols-[38px_1fr] gap-x-2.5 gap-y-1 text-[11.5px] [&_dd]:text-ink-2 [&_dt]:text-ink-3">
+              <dt>조사원</dt>
+              <dd className="truncate">{noneOr(props.surveyorName)}</dd>
               {props.surveyResult === 'ETC' && (
                 <>
                   <dt>사유</dt>
                   <dd className="break-keep leading-[1.55] wrap-anywhere">{noneOr(props.surveyNote)}</dd>
                 </>
               )}
-              <dt>조사원</dt>
-              <dd className="truncate">{noneOr(props.surveyorName)}</dd>
             </dl>
           )}
         </div>
