@@ -189,8 +189,9 @@ export function ChartBlock({ json }: { json: string }) {
         responsive: true,
         maintainAspectRatio: false,
         color: AXIS,
-        // 막대·점 위에 얹은 값 글자가 잘리지 않게 위를 띄운다(원형은 글자가 안쪽이라 필요 없다)
-        layout: { padding: { top: isPie ? 0 : 16 } },
+        // 위를 띄운다 — 막대·점 위에 얹은 값 글자가 잘리지 않게, 그리고 오른쪽 위 버튼이 제목을 덮지 않게.
+        // 원형은 값 글자가 안쪽이지만 버튼 자리는 똑같이 필요하다
+        layout: { padding: { top: 16 } },
         plugins: {
           legend: { display: isPie || spec.datasets.length > 1, labels: { boxWidth: 12, font: { size: 12 }, color: AXIS } },
           title: { display: !!spec.title, text: spec.title, font: { size: 13 }, color: AXIS },
@@ -238,14 +239,12 @@ export function ChartBlock({ json }: { json: string }) {
       .map((d) => `${d.label ? `${d.label}: ` : ''}${spec.labels.map((l, i) => `${l} ${d.data[i]}`).join(', ')}`)
       .join(' / ')
 
-  // 손이 없는 기기에서는 늘 보이고, 손이 있는 기기에서는 카드에 올렸을 때 나타난다.
-  // 메뉴를 펼쳐 둔 동안에는 손이 버튼을 벗어나도 남아 있어야 고르는 중에 사라지지 않는다
-  const toolBtn = `absolute top-1.5 rounded-chip bg-pill p-1 text-ink-4 transition-opacity hover:text-ink-2 focus-visible:opacity-100 [@media(hover:hover)]:opacity-0 ${
-    menuOpen ? 'opacity-100 [@media(hover:hover)]:opacity-100' : 'group-hover:opacity-100'
-  }`
+  // 늘 보인다 — 그림 위쪽은 어차피 버튼 자리로 비워 두므로, 숨겨 봐야 빈자리만 남고
+  // 손을 올려 봐야 뭐가 있는지 알 수 있는 기능이 된다
+  const toolBtn = 'absolute top-1.5 rounded-chip bg-pill p-1 text-ink-4 transition-colors hover:text-ink-2'
 
   return (
-    <div className="group relative my-1 rounded-ctl border border-line-soft bg-soft p-2" style={{ height: 200 }}>
+    <div className="relative my-1 rounded-ctl border border-line-soft bg-soft p-2" style={{ height: 200 }}>
       <canvas ref={canvasRef} role="img" aria-label={summary} />
       <button
         type="button"
@@ -269,7 +268,7 @@ export function ChartBlock({ json }: { json: string }) {
           title="차트 종류 바꾸기"
           aria-haspopup="menu"
           aria-expanded={menuOpen}
-          className={`${toolBtn} right-1.5`}
+          className={`${toolBtn} right-1.5 ${menuOpen ? 'text-ink-2' : ''}`}
         >
           <svg viewBox="0 0 24 24" fill="currentColor" className="size-4">
             <circle cx="12" cy="5" r="1.6" />
