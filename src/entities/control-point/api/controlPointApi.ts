@@ -45,6 +45,7 @@ interface ServerControlPoint {
   easting: number
   longitude: number
   latitude: number
+  version: number
 }
 
 /** 서버 응답 → 프론트 모델. */
@@ -59,6 +60,7 @@ function toControlPoint(server: ServerControlPoint): ControlPoint {
     northing: server.northing,
     easting: server.easting,
     tmEpsg: EPSG_FROM_CRS[server.crs],
+    version: server.version,
   }
 }
 
@@ -109,13 +111,16 @@ export interface UpdateControlPointOutcome {
   warning: string | null
 }
 
-/** 수정 — 식별·성과만 보낸다. 소재지·설치·최종조사 항목은 서버가 기존 값을 유지한다. */
+/**
+ * 수정 — 식별·성과만 보낸다. 소재지·설치·최종조사 항목은 서버가 기존 값을 유지한다.
+ * 화면이 읽을 때 받은 판 번호를 함께 보낸다. 그사이 누가 먼저 저장했으면 서버가 409로 거절한다.
+ */
 export async function updateControlPoint(
-  args: RegisterControlPointArgs & { id: string },
+  args: RegisterControlPointArgs & { id: string; version: number },
 ): Promise<UpdateControlPointOutcome> {
   const res = await http.put<{ point: ServerControlPoint; warning: string | null }>(
     `/api/control-points/${args.id}`,
-    toPayload(args),
+    { ...toPayload(args), version: args.version },
   )
   return { point: toControlPoint(res.data.point), warning: res.data.warning ?? null }
 }

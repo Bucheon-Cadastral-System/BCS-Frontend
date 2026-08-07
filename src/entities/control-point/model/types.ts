@@ -32,6 +32,11 @@ export interface ControlPoint {
   northing: number
   easting: number
   tmEpsg: TmEpsg
+  /**
+   * 판 번호 — 수정 요청이 그대로 돌려보내 그사이 다른 사람이 먼저 고쳤는지 서버가 가린다.
+   * 수정 창을 열어 둔 시간은 두 요청 사이라 서버 잠금으로는 덮을 수 없다.
+   */
+  version: number
   // 최종조사 요약(결과·조사일·조사원)은 이 모델에 없다.
   // 점 하나를 고른 뒤 상세 카드만 쓰는 값이라 그때 따로 읽는다(LastSurvey).
 }

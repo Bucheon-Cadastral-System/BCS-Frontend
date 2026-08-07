@@ -277,7 +277,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   function submitEditPoint(values: ControlPointFormValues) {
     if (editingPoint === null) return
     updatePointMutation.mutate(
-      { ...values, id: editingPoint.id },
+      // 창을 열 때 본 판 번호를 되보낸다 — 그사이 누가 먼저 고쳤으면 서버가 거절한다
+      { ...values, id: editingPoint.id, version: editingPoint.version },
       {
         onSuccess: (outcome) => {
           closeEditPoint()
@@ -288,7 +289,10 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
         },
         onError: (e) =>
           showToast(
-            e instanceof ApiError && (e.code === 'CONTROL_POINT_DUPLICATE' || e.code === 'CONTROL_POINT_NOT_FOUND')
+            e instanceof ApiError
+            && (e.code === 'CONTROL_POINT_DUPLICATE'
+              || e.code === 'CONTROL_POINT_NOT_FOUND'
+              || e.code === 'CONTROL_POINT_MODIFIED')
               ? e.message
               : '기준점을 수정하지 못했습니다.',
             'error',
