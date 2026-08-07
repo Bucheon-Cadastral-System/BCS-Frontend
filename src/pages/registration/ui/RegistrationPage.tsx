@@ -6,6 +6,17 @@ import { FormNotice } from '@/shared/ui/FormNotice'
 import { useFormNotice } from '@/shared/lib/useFormNotice'
 import { BTN_DANGER, BTN_PRIMARY, FIELD, FIELD_READONLY, FIELD_SELECT, MODAL_SHELL } from '@/shared/ui/classes'
 
+const PHONE_PATTERN = /^01[016789]\d{7,8}$/
+const PHONE_GUIDE = '휴대전화 번호는 010-1234-5678 형식으로 입력해 주세요.'
+
+/** 서버가 정규식 위반을 그대로 돌려주면 사람이 읽을 문구로 바꾼다. */
+function registrationErrorMessage(error: unknown) {
+  if (error instanceof Error && /phone|전화번호/i.test(error.message) && /(일치|정규식|pattern|regexp)/i.test(error.message)) {
+    return PHONE_GUIDE
+  }
+  return error instanceof Error ? error.message : '가입 신청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+}
+
 export interface RegistrationData {
   name: string
   phone: string
@@ -23,6 +34,7 @@ interface RegistrationPageProps {
 
 export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) {
   const [phone, setPhone] = useState('')
+  const [phoneError, setPhoneError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const form = useFormNotice()
@@ -39,13 +51,20 @@ export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) 
     // 못 채운 칸은 화면 안에서 알린다 — 브라우저 기본 말풍선은 우리 규격 밖에서 그려진다
     if (!form.validate()) return
     const data = new FormData(event.currentTarget)
+    // 칸을 채웠는지와 형식이 맞는지는 다른 검사다 — 형식은 브라우저가 모르므로 여기서 짚는다
+    const normalizedPhone = String(data.get('phone')).replace(/\D/g, '')
+    if (!PHONE_PATTERN.test(normalizedPhone)) {
+      setPhoneError(PHONE_GUIDE)
+      return
+    }
 
     setSubmitting(true)
     setError('')
+    setPhoneError('')
     try {
       await onSubmit({
         name: String(data.get('name')),
-        phone: String(data.get('phone')).replace(/\D/g, ''),
+        phone: normalizedPhone,
         email: String(data.get('email')),
         district: pick(data.get('district'), DISTRICTS, '소속 지역을'),
         department: '민원지적과',
@@ -53,7 +72,7 @@ export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) 
         position: pick(data.get('position'), POSITIONS, '직위를'),
       })
     } catch (e) {
-      setError(e instanceof Error ? e.message : '가입 신청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+      setError(registrationErrorMessage(e))
     } finally {
       setSubmitting(false)
     }
@@ -89,12 +108,18 @@ export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) 
                 type="tel"
                 className={FIELD}
                 value={phone}
-                onChange={(event) => setPhone(formatPhone(event.target.value))}
+                onChange={(event) => {
+                  setPhone(formatPhone(event.target.value))
+                  if (phoneError) setPhoneError('')
+                }}
                 placeholder="010-0000-0000"
                 autoComplete="tel"
                 inputMode="numeric"
+                aria-invalid={phoneError !== '' ? 'true' : undefined}
                 required
               />
+              {/* 형식 오류는 그 칸 아래에서 알린다 — 버튼 옆 한 줄은 못 채운 칸을 알리는 자리다 */}
+              {phoneError !== '' && <small className="!text-danger" role="alert">{phoneError}</small>}
             </label>
 
             <label className="sm:col-span-2">
