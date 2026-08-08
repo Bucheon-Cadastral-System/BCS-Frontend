@@ -16,7 +16,6 @@ import {
 } from '@/shared/lib/controlPointImage'
 import { CHIP_BTN, FIELD, FIELD_AREA } from '@/shared/ui/classes'
 import { FormActions } from '@/shared/ui/FormActions'
-import { FormNotice } from '@/shared/ui/FormNotice'
 import { Modal, ModalField } from '@/shared/ui/Modal'
 
 const PREVIEW_BOX = 'flex h-[132px] w-full items-center justify-center'
@@ -60,7 +59,6 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
   const [downloading, setDownloading] = useState(false)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [draftUrl, setDraftUrl] = useState<string | null>(null)
-  const [dialogError, setDialogError] = useState<string | null>(null)
   const [preparing, setPreparing] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -135,7 +133,6 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
       const localDateTime = currentLocalDateTime()
       // 창을 열기 전에 변환한다 — 창에 띄울 미리보기가 곧 전송할 그림이다
       const prepared = await prepareControlPointImage(file, capturedAt ?? localDateTimeToOffset(localDateTime))
-      setDialogError(null)
       setDraft({
         image: prepared.image,
         capturedAt,
@@ -154,7 +151,6 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
   async function confirm() {
     if (draft === null) return
     setSaving(true)
-    setDialogError(null)
     try {
       const note = draft.result === 'ETC' && draft.note.trim() !== '' ? draft.note.trim() : null
       await mutation.mutateAsync({
@@ -169,8 +165,12 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
       setDraft(null)
       props.onSuccess()
     } catch (error) {
-      // 창이 떠 있는 동안의 실패는 이 자리에서 알린다 — 뒤쪽에 띄우면 배경 딤에 가려 보이지 않는다
-      setDialogError(messageOf(error))
+      /*
+       * 실패는 토스트로 알린다. 창 안에 문구를 세우면 뜰 때마다 버튼 줄이 밀려 자리가 들쭉날쭉해진다.
+       * 토스트는 팝오버로 떠서 showModal 로 열린 이 창보다 위에 서므로 딤에 가리지 않는다(shared/ui/Toast).
+       * 창은 닫지 않는다 — 고른 사진과 적은 값을 그대로 두고 다시 누를 수 있어야 한다.
+       */
+      props.onError(messageOf(error))
     } finally {
       setSaving(false)
     }
@@ -261,7 +261,6 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
               busy={saving}
               submitDisabled={draft.capturedAt === null && draft.localDateTime === ''}
               onCancel={() => setDraft(null)}
-              notice={<FormNotice message={dialogError} />}
             />
           )}
         >
