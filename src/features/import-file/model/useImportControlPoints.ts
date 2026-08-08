@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { http } from '@/shared/api/http'
-import { CONTROL_POINTS_KEY } from '@/entities/control-point'
+import { CONTROL_POINTS_KEY, LAST_SURVEY_KEY } from '@/entities/control-point'
 
 export interface ControlPointImportSummary {
   totalRows: number
@@ -24,6 +24,8 @@ export function useImportControlPoints() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CONTROL_POINTS_KEY })
+      // 기준점 파일은 시드 조사를 고쳐 쓴다 — 시드가 바뀌면 최종조사 계산 결과도 바뀐다
+      queryClient.invalidateQueries({ queryKey: LAST_SURVEY_KEY })
     },
   })
 }

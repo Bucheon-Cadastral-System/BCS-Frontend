@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 // 조사기록 캐시 키는 그 엔티티가 소유한다 — 문자열을 따로 적으면 키가 바뀔 때 무효화가 조용히 어긋난다
 import { SURVEY_RECORDS_KEY, surveyRecordsKey } from '@/entities/survey-record'
+import { LAST_SURVEY_KEY } from '@/entities/control-point'
 import type { SurveyRecord } from '@/entities/survey-record'
 import { createSurveyProjectApi, deleteSurveyProjectApi, fetchSurveyProjects, fetchSurveyTargets, updateSurveyProjectApi } from './surveyProjectApi'
 
@@ -51,6 +52,8 @@ export function useUpdateSurveyProjectMutation() {
       void queryClient.invalidateQueries({ queryKey: SURVEY_PROJECTS_KEY })
       void queryClient.invalidateQueries({ queryKey: SURVEY_TARGETS_KEY })
       void queryClient.invalidateQueries({ queryKey: SURVEY_RECORDS_KEY })
+      // 대상에서 빠진 점은 그 회차 기록을 잃는다 — 그것이 최신 기록이었다면 최종조사가 되돌아간다
+      void queryClient.invalidateQueries({ queryKey: LAST_SURVEY_KEY })
     },
   })
 }
@@ -59,11 +62,14 @@ export function useDeleteSurveyProjectMutation() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: deleteSurveyProjectApi,
-    // 대상·기록이 함께 지워지므로 그 캐시들도 비운다
+    // 대상·기록이 함께 지워지므로 그 캐시들도 비운다.
+    // 지워진 기록이 그 점의 최신 기록이었다면 최종조사가 이전 회차로 되돌아간다 —
+    // 어느 점이 그랬는지는 응답에 없으므로 최종조사는 통째로 비운다
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: SURVEY_PROJECTS_KEY })
       void queryClient.invalidateQueries({ queryKey: SURVEY_TARGETS_KEY })
       void queryClient.invalidateQueries({ queryKey: SURVEY_RECORDS_KEY })
+      void queryClient.invalidateQueries({ queryKey: LAST_SURVEY_KEY })
     },
   })
 }
