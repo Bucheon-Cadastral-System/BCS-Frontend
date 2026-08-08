@@ -23,12 +23,25 @@ export function SurveyResultPicker(props: {
   pending?: SurveyResult | null
   /** 보낸 값의 답을 기다리는 동안 잠근다 — 겹쳐 고르면 마지막 선택과 다른 값이 남는다 */
   disabled?: boolean
+  /**
+   * 미조사도 고를 수 있는지. 기본은 고를 수 있다(기록을 지우는 길).
+   * 현장 사진과 함께 고르는 자리처럼 '안 봤다'가 성립하지 않는 곳에서는 끈다.
+   */
+  allowNone?: boolean
   /** 미조사는 'NONE' 으로 온다 */
   onSelect: (choice: SurveyResult | 'NONE') => void
 }) {
   const [box, setBox] = useState<{ top: number; left: number; width: number } | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  /**
+   * 목록을 내보낼 자리.
+   *
+   * <p>기본은 body 다. 다만 이 컴포넌트가 showModal 로 띄운 대화상자 안에 놓이면 body 로 내보낸 목록은
+   * 대화상자 뒤에 깔린다 — top layer 에 올라간 요소는 z-index 와 무관하게 그 밖의 모든 것보다 위다.
+   * 그 경우 대화상자 안으로 내보내 같은 층에 서게 한다.
+   */
+  const container = useRef<HTMLElement | null>(null)
 
   const open = box !== null
   // 저장 전에 고른 값이 있으면 그것을 보여 준다. 이전 값이 남아 있으면 무엇을 골랐는지 알 수 없다
@@ -47,6 +60,7 @@ export function SurveyResultPicker(props: {
     }
     const rect = triggerRef.current?.getBoundingClientRect()
     if (rect === undefined) return
+    container.current = triggerRef.current?.closest('dialog') ?? document.body
     setBox({ top: rect.bottom + 4, left: rect.left, width: rect.width })
   }
 
@@ -119,7 +133,7 @@ export function SurveyResultPicker(props: {
             style={{ position: 'fixed', top: box.top, left: box.left, width: box.width }}
             className={`z-[60] overflow-hidden ${POPOVER}`}
           >
-            {CHOICES.map((choice) => {
+            {(props.allowNone === false ? CHOICES.filter((c) => c !== 'NONE') : CHOICES).map((choice) => {
                 const optionStatus = choice === 'NONE' ? 'todo' : deriveSurveyStatus(choice)
                 const active = optionStatus === deriveSurveyStatus(props.result ?? undefined)
                 return (
@@ -137,7 +151,7 @@ export function SurveyResultPicker(props: {
                 )
               })}
           </div>,
-          document.body,
+          container.current ?? document.body,
         )}
     </>
   )

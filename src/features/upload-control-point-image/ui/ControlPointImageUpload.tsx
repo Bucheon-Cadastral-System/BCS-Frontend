@@ -5,11 +5,10 @@ import {
   useControlPointImageQuery,
   useUploadControlPointImageMutation,
 } from '@/entities/control-point-image'
-import { SURVEY_STATUS_LABEL, SURVEY_STATUS_TONE, deriveSurveyStatus } from '@/entities/survey-record'
+import { SurveyResultPicker } from '@/entities/survey-record'
 import type { SurveyResult } from '@/entities/survey-record'
 import { ApiError } from '@/shared/api/http'
 import {
-  SUPPORTED_LABEL,
   currentLocalDateTime,
   extractCapturedAt,
   localDateTimeToOffset,
@@ -17,9 +16,6 @@ import {
 } from '@/shared/lib/controlPointImage'
 import { CHIP_BTN, FIELD_AREA } from '@/shared/ui/classes'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
-
-/** 고를 수 있는 판정. 미조사는 여기 없다 — 현장에 다녀와 사진을 남기면서 '안 봤다'를 고를 수는 없다. */
-const CHOICES: SurveyResult[] = ['INTACT', 'LOST', 'UNAVAILABLE', 'ETC']
 
 const PREVIEW_BOX = 'flex h-[132px] w-full items-center justify-center'
 
@@ -36,7 +32,14 @@ interface ControlPointImageUploadProps {
 
 /** 사진을 고른 뒤 등록을 확정하기까지 들고 있는 값. */
 interface Draft {
-  file: File
+  /**
+   * 변환까지 마친 WebP.
+   *
+   * <p>고른 원본이 아니라 변환한 결과를 든다. 미리보기와 전송이 같은 것을 가리켜 화면에서 본 그림이
+   * 그대로 저장되고, 변환도 한 번만 한다. HEIC 원본은 브라우저가 그리지 못하므로 이 순서가 아니면
+   * 아이폰 사진의 미리보기가 빈칸으로 뜬다.
+   */
+  image: File
   /** EXIF 에서 읽은 촬영 시각. 없으면 null 이고 사용자가 직접 적는다 */
   capturedAt: string | null
   /** capturedAt 이 null 일 때 쓰는 입력값 */
@@ -54,7 +57,9 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
   const [reloadKey, setReloadKey] = useState(0)
   const [downloading, setDownloading] = useState(false)
   const [draft, setDraft] = useState<Draft | null>(null)
+  const [draftUrl, setDraftUrl] = useState<string | null>(null)
   const [dialogError, setDialogError] = useState<string | null>(null)
+  const [preparing, setPreparing] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const image = imageQuery.data ?? null
@@ -100,6 +105,19 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
     notify.current('기준점 사진을 불러오지 못했습니다.')
   }, [loadFailed])
 
+  // 고른 사진의 미리보기 — 서버에 올리기 전이라 브라우저가 들고 있는 것을 그대로 그린다.
+  // 창 안에서 상태를 바꿔도 다시 만들지 않게 파일만 지켜본다
+  const draftImage = draft?.image ?? null
+  useEffect(() => {
+    if (draftImage === null) {
+      setDraftUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(draftImage)
+    setDraftUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [draftImage])
+
   function reload() {
     setPreviewFailed(false)
     setReloadKey((count) => count + 1)
@@ -109,19 +127,25 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
   async function select(file: File | undefined) {
     if (file === undefined) return
     if (inputRef.current !== null) inputRef.current.value = ''
+    setPreparing(true)
     try {
       const capturedAt = await extractCapturedAt(file)
+      const localDateTime = currentLocalDateTime()
+      // 창을 열기 전에 변환한다 — 창에 띄울 미리보기가 곧 전송할 그림이다
+      const prepared = await prepareControlPointImage(file, capturedAt ?? localDateTimeToOffset(localDateTime))
       setDialogError(null)
       setDraft({
-        file,
+        image: prepared.image,
         capturedAt,
-        localDateTime: currentLocalDateTime(),
+        localDateTime,
         // 지금 기록이 있으면 그것을 처음 값으로 둔다. 대개 지난번과 같은 판정이라 손이 덜 간다
         result: props.result ?? 'INTACT',
         note: '',
       })
     } catch (error) {
       props.onError(messageOf(error))
+    } finally {
+      setPreparing(false)
     }
   }
 
@@ -130,15 +154,15 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
     setSaving(true)
     setDialogError(null)
     try {
-      const capturedAt = draft.capturedAt ?? localDateTimeToOffset(draft.localDateTime)
-      const prepared = await prepareControlPointImage(draft.file, capturedAt)
       const note = draft.result === 'ETC' && draft.note.trim() !== '' ? draft.note.trim() : null
       await mutation.mutateAsync({
         projectId: props.projectId,
         pointId: props.pointId,
+        image: draft.image,
+        // 창에서 고친 값이 있으면 그것을 따른다 — 변환은 이미 끝났고 시각만 여기서 확정된다
+        capturedAt: draft.capturedAt ?? localDateTimeToOffset(draft.localDateTime),
         result: draft.result,
         note,
-        ...prepared,
       })
       setDraft(null)
       props.onSuccess()
@@ -213,39 +237,38 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
       <button
         type="button"
         className={`${CHIP_BTN} h-9 w-full text-[12.5px]`}
+        disabled={preparing}
         onClick={() => inputRef.current?.click()}
       >
-        {image === null ? '사진 등록' : '사진 교체'}
+        {preparing ? '사진 처리 중…' : image === null ? '사진 등록' : '사진 교체'}
       </button>
-      <p className="mt-1.5 text-[10.5px] leading-relaxed text-ink-3">{SUPPORTED_LABEL} 파일을 올릴 수 있습니다.</p>
 
       {draft !== null && (
         <ConfirmDialog
           message="기준점 사진 등록"
           detail={(
             <div className="text-left">
+              {draftUrl !== null && (
+                <img
+                  src={draftUrl}
+                  alt="고른 사진"
+                  className="mb-3 h-[148px] w-full rounded-chip border border-line-soft bg-field object-contain"
+                />
+              )}
               {/* 사진만으로는 정상인지 망실인지 가릴 수 없다. 올리는 사람이 그 자리에서 고른다 */}
-              <p className="mb-2 text-center">현장에서 본 상태를 함께 남깁니다.</p>
-              <span className="block text-[11.5px] text-ink-2">판정</span>
-              <div className="mt-1 flex flex-wrap gap-1.5">
-                {CHOICES.map((choice) => {
-                  const status = deriveSurveyStatus(choice)
-                  const picked = draft.result === choice
-                  return (
-                    <button
-                      key={choice}
-                      type="button"
-                      disabled={saving}
-                      aria-pressed={picked}
-                      onClick={() => setDraft({ ...draft, result: choice })}
-                      className={`rounded-chip border px-2.5 py-[5px] text-[12px] font-medium transition-colors disabled:opacity-50 ${
-                        picked ? SURVEY_STATUS_TONE[status] : 'border-line-btn bg-transparent text-ink-3 hover:bg-hover'
-                      }`}
-                    >
-                      {SURVEY_STATUS_LABEL[status]}
-                    </button>
-                  )
-                })}
+              <span className="block text-[11.5px] text-ink-2">상태</span>
+              <div className="mt-1">
+                {/* 상세 카드에서 쓰는 그 드롭다운이다 — 같은 값을 고르는 자리라 생김새도 같아야 한다.
+                    미조사는 빼 둔다. 현장에 다녀와 사진을 남기면서 '안 봤다'를 고를 수는 없다 */}
+                <SurveyResultPicker
+                  result={draft.result}
+                  disabled={saving}
+                  allowNone={false}
+                  onSelect={(choice) => {
+                    if (choice === 'NONE') return
+                    setDraft({ ...draft, result: choice })
+                  }}
+                />
               </div>
 
               {draft.result === 'ETC' && (
@@ -262,7 +285,7 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
               )}
 
               <label className="mt-2 block text-[11.5px] text-ink-2">
-                촬영 날짜와 시간
+                촬영 일시
                 {draft.capturedAt === null ? (
                   <input
                     type="datetime-local"
@@ -276,12 +299,6 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
                   <span className="mt-1 block text-[12.5px] text-ink">{formatCapturedAt(draft.capturedAt)}</span>
                 )}
               </label>
-              {/* 사진에 촬영 정보가 없을 때만 뜬다 — 조사일이 이 값을 따르므로 맞는지 한 번 보게 한다 */}
-              {draft.capturedAt === null && (
-                <p className="mt-1 text-[11px] text-ink-3">
-                  사진에 촬영 정보가 없어 현재 시간을 넣었습니다. 다르면 고쳐 주세요.
-                </p>
-              )}
             </div>
           )}
           error={dialogError ?? undefined}

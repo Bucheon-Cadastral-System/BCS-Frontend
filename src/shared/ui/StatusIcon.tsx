@@ -26,12 +26,8 @@ export function StatusIcon({ shape, label, color }: { shape: StatusShape; label:
           <path d="M12 10v3.5M12 17h.01" />
         </>
       ) : shape === 'caution' ? (
-        /* 삼각형은 같고 안쪽 글자만 가로줄 — 지도 마커가 기타를 가로줄로 그리는 것과 같은 규칙이다.
-           경고와 색만 달리 두면 색을 가리기 어려운 눈에는 두 갈래가 한 갈래로 보인다 */
-        <>
-          <path d="M12 4 2.5 20h19L12 4z" />
-          <path d="M9 15h6" />
-        </>
+        // 가로줄 하나. 삼각형을 씌우면 경고와 한눈에 갈리지 않는다
+        <path d="M5 12h14" />
       ) : (
         <path d="m5 13 4 4L19 7" />
       )}
