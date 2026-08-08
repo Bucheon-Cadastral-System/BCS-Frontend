@@ -4,7 +4,7 @@ import { CloseIcon, CollapseIcon, ExpandIcon, NewChatIcon, SendIcon, SparkleIcon
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { MessageContent } from './MessageContent'
 import { QuickActions } from './QuickActions'
-import { FIELD_AREA } from '@/shared/ui/classes'
+import { FIELD_AREA, ICON_BTN, ICON_BTN_DANGER, PANEL_HEADER, PANEL_HEADER_RULE } from '@/shared/ui/classes'
 
 // 대화 시작 전부터 맨 위에 두는 웰컴 안내(어시스턴트 말풍선). 메시지 배열 밖이라 저장·전송되지 않는다.
 const WELCOME_MESSAGE = ['안녕하세요! BCS 어시스턴트입니다.', '무엇을 도와드릴까요?'].join('\n')
@@ -24,6 +24,8 @@ function AssistantAvatar() {
 interface ChatPanelProps {
   messages: ChatMessage[]
   pending: boolean
+  /** 서버 기록을 비우는 중 — 그 사이 보낸 말은 지워질 대화에 붙으므로 전송 자체를 막는다 */
+  clearing?: boolean
   expanded: boolean
   onSend: (text: string) => void
   onNewChat: () => void
@@ -32,14 +34,14 @@ interface ChatPanelProps {
   onAction?: (action: ChatAction) => void
 }
 
-const HEADER_BTN = 'flex size-7 items-center justify-center rounded-ctl text-ink-4 transition-colors hover:bg-hover hover:text-ink-2'
-const CLOSE_BTN = 'flex size-7 items-center justify-center rounded-ctl text-ink-4 transition-colors hover:bg-danger-wash hover:text-danger'
 
 /**
  * 상태 없는 대화 셸 — 글래스 헤더·입력이 스크롤 위에 떠 있고 메시지는 그 아래로 흐른다(참고 디자인).
  * 배치/상태는 ChatDockLayout이 소유한다.
  */
 export function ChatPanel(props: ChatPanelProps) {
+  // 답을 기다리는 것과 비우는 것은 이유가 다르지만 화면이 할 일은 같다 — 입력을 받지 않는다
+  const busy = props.pending || props.clearing === true
   const [input, setInput] = useState('')
   const composingRef = useRef(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -62,7 +64,8 @@ export function ChatPanel(props: ChatPanelProps) {
 
   function send() {
     const text = input.trim()
-    if (!text || props.pending) return
+    // 막을 때 입력을 비우지 않는다 — 비우면 보내지지도 않은 말이 사라져 되찾을 수 없다
+    if (!text || busy) return
     props.onSend(text)
     setInput('')
   }
@@ -80,7 +83,7 @@ export function ChatPanel(props: ChatPanelProps) {
         </div>
 
         {/* 대화 시작 전에만 자주 쓰는 질의 빠른실행 버튼 노출 */}
-        {props.messages.length === 0 && <QuickActions onQuery={props.onSend} disabled={props.pending} />}
+        {props.messages.length === 0 && <QuickActions onQuery={props.onSend} disabled={busy} />}
 
         {props.messages.map((m, i) => (
           <div key={i} className="chat-msg-in space-y-2">
@@ -97,7 +100,7 @@ export function ChatPanel(props: ChatPanelProps) {
               </div>
             </div>
             {/* 어시스턴트 답변 아래마다 빠른 질의 버튼 노출 */}
-            {m.role === 'assistant' && <QuickActions onQuery={props.onSend} disabled={props.pending} />}
+            {m.role === 'assistant' && <QuickActions onQuery={props.onSend} disabled={busy} />}
           </div>
         ))}
 
@@ -115,23 +118,24 @@ export function ChatPanel(props: ChatPanelProps) {
 
       {/* 글래스 헤더 — 스크롤 위에 떠 있다. 코너 모드에선 좌상단 리사이즈 힌트와 이름을 띄운다 */}
       {/* 아래 경계는 청록 — 좌측 판이 목록 위에 두는 것과 같은 뜻의 구분선이다 */}
-      <header className="absolute inset-x-0 top-0 z-20 flex items-center gap-1 border-b-2 border-b-teal bg-pill px-3.5 py-3">
-        <strong className={`min-w-0 flex-1 select-none truncate text-[13px] font-semibold text-ink ${props.expanded ? '' : 'pl-4'}`}>BCS 어시스턴트</strong>
-        <button type="button" onClick={props.onToggleExpand} aria-label={props.expanded ? '코너로 축소' : '우측으로 확장'} aria-pressed={props.expanded} title={props.expanded ? '코너로 축소' : '우측으로 확장'} className={HEADER_BTN}>
-          {props.expanded ? <CollapseIcon className="size-4" /> : <ExpandIcon className="size-4" />}
+      <header className={`absolute inset-x-0 top-0 z-20 bg-pill ${PANEL_HEADER} ${PANEL_HEADER_RULE}`}>
+        <strong className={`min-w-0 flex-1 select-none truncate text-[13.5px] font-semibold text-ink ${props.expanded ? '' : 'pl-4'}`}>BCS 어시스턴트</strong>
+        <button type="button" onClick={props.onToggleExpand} aria-label={props.expanded ? '코너로 축소' : '우측으로 확장'} aria-pressed={props.expanded} title={props.expanded ? '코너로 축소' : '우측으로 확장'} className={ICON_BTN}>
+          {props.expanded ? <CollapseIcon className="size-full" /> : <ExpandIcon className="size-full" />}
         </button>
         <button
           type="button"
           // 비어 있으면 지울 것이 없으므로 묻지 않는다
           onClick={() => (props.messages.length === 0 ? props.onNewChat() : setConfirmNew(true))}
+          disabled={props.clearing === true}
           aria-label="새 대화"
           title="새 대화 (대화 기록 비우기)"
-          className={HEADER_BTN}
+          className={ICON_BTN}
         >
-          <NewChatIcon className="size-4" />
+          <NewChatIcon className="size-full" />
         </button>
-        <button type="button" onClick={props.onClose} aria-label="닫기" title="닫기" className={CLOSE_BTN}>
-          <CloseIcon className="size-4" />
+        <button type="button" onClick={props.onClose} aria-label="닫기" title="닫기" className={ICON_BTN_DANGER}>
+          <CloseIcon className="size-full" />
         </button>
       </header>
 
@@ -156,7 +160,7 @@ export function ChatPanel(props: ChatPanelProps) {
         <button
           type="button"
           onClick={send}
-          disabled={!input.trim() || props.pending}
+          disabled={!input.trim() || busy}
           aria-label="전송"
           className="flex size-10 shrink-0 items-center justify-center rounded-ctl border-[1.5px] border-teal-btn-edge bg-teal-wash text-teal-text transition-colors hover:border-teal-text hover:bg-teal-wash-strong disabled:opacity-40"
         >

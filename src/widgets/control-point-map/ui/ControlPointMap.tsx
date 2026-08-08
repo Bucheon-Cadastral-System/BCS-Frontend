@@ -21,6 +21,7 @@ import { VWORLD_KEY, DEFAULT_CENTER, DEFAULT_ZOOM, MIN_ZOOM } from '@/shared/con
 import { MARKER_ATLAS_CELL, controlPointLabelStyle, controlPointStyle, markerAtlasUrl, markerSymbolIndex } from '@/entities/control-point'
 import type { ControlPoint, MapTheme } from '@/entities/control-point'
 import { deriveSurveyStatus } from '@/entities/survey-record'
+import type { SurveyResult } from '@/entities/survey-record'
 
 /** 이 줌부터 점 이름을 그린다. 더 멀리서는 라벨끼리 겹쳐 읽을 수 없어 도식만 남긴다. */
 const LABEL_MIN_ZOOM = 16
@@ -73,8 +74,8 @@ interface ControlPointMapProps {
   showCadastral: boolean
   selectedId: string | null
   surveyMode: boolean
-  surveyedIds: Set<string>
-  lostIds: Set<string>
+  /** 점 id별 조사 결과. 맵에 없으면 미조사 */
+  resultById: ReadonlyMap<string, SurveyResult>
   theme: MapTheme
   focusNonce: number
   /** 처음 보던 자리로 되돌리라는 신호 — 값이 바뀔 때마다 한 번 움직인다(0 = 아직 누르지 않음) */
@@ -103,8 +104,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const onSelectRef = useRef(props.onSelect)
   const selectedIdRef = useRef(props.selectedId)
   const surveyModeRef = useRef(props.surveyMode)
-  const surveyedIdsRef = useRef(props.surveyedIds)
-  const lostIdsRef = useRef(props.lostIds)
+  const resultByIdRef = useRef(props.resultById)
   const themeRef = useRef(props.theme)
   const visibleIdsRef = useRef(props.visibleIds)
   const pointsRef = useRef(props.points)
@@ -119,8 +119,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     onSelectRef.current = props.onSelect
     selectedIdRef.current = props.selectedId
     surveyModeRef.current = props.surveyMode
-    surveyedIdsRef.current = props.surveyedIds
-    lostIdsRef.current = props.lostIds
+    resultByIdRef.current = props.resultById
     themeRef.current = props.theme
     visibleIdsRef.current = props.visibleIds
     pointsRef.current = props.points
@@ -170,7 +169,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
       const visible = visibleIdsRef.current
       if (visible !== null && !visible.has(cp.id)) return undefined
       const survey = surveyModeRef.current
-        ? deriveSurveyStatus(cp.id, surveyedIdsRef.current, lostIdsRef.current)
+        ? deriveSurveyStatus(resultByIdRef.current.get(cp.id))
         : 'none'
       return controlPointStyle(cp, cp.id === selectedIdRef.current, survey, themeRef.current)
     }
@@ -302,7 +301,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     markerSymbolIndex(
       cp.type,
       cp.id === selectedIdRef.current,
-      surveyModeRef.current ? deriveSurveyStatus(cp.id, surveyedIdsRef.current, lostIdsRef.current) : 'none',
+      surveyModeRef.current ? deriveSurveyStatus(resultByIdRef.current.get(cp.id)) : 'none',
       themeRef.current,
     )
 
@@ -370,7 +369,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     if (touched) rawSourceRef.current?.changed()
     pointLayerRef.current?.changed()
     labelLayerRef.current?.changed()
-  }, [props.selectedId, props.surveyMode, props.surveyedIds, props.lostIds, props.theme])
+  }, [props.selectedId, props.surveyMode, props.resultById, props.theme])
 
   // 보이는 집합 변경 → hidden 속성 갱신(탭·조사 전환이 소스 재구성 없이 여기서 끝난다)
   useEffect(() => {

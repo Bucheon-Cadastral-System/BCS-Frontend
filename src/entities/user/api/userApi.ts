@@ -26,13 +26,11 @@ interface ApiMember {
   phone: string | null
   email: string | null
   district: string | null
-  department?: string | null
+  department: string | null
   team: string | null
   position: string | null
-  memberStatus?: UserStatus
-  memberRole?: UserRole
-  status?: UserStatus
-  role?: UserRole
+  status: UserStatus
+  role: UserRole
 }
 
 export interface RegistrationInput {
@@ -59,16 +57,16 @@ export interface MemberState { status: UserStatus; profileCompleted: boolean }
 function mapMember(member: ApiMember): ManagedUser {
   return {
     id: String(member.id), name: member.name ?? '', phone: member.phone ?? '', email: member.email ?? '',
-    district: enumDisplayValue(districtFromApi, member.district), department: member.department ?? '민원지적과',
+    district: enumDisplayValue(districtFromApi, member.district), department: member.department ?? '',
     team: enumDisplayValue(teamFromApi, member.team), position: enumDisplayValue(positionFromApi, member.position),
-    status: member.memberStatus ?? member.status ?? 'PENDING', role: member.memberRole ?? member.role ?? 'USER',
+    status: member.status, role: member.role,
   }
 }
 
 /** 아직 고르지 않은 값(회원 정보 입력 전)은 빈 칸으로 두고, 우리가 모르는 값이 왔을 때만 원문을 드러낸다 */
 function enumDisplayValue<T extends string>(values: Record<string, T>, value: string | null | undefined): T | UnknownEnumValue | '' {
   if (!value) return ''
-  return values[value] ?? '알 수 없음'
+  return values[value] ?? `알 수 없음 (${value})`
 }
 
 function enumApiValue<T extends string>(values: Record<string, T>, value: string, label: string): T {
@@ -116,7 +114,7 @@ export async function updateMyProfile(input: Pick<RegistrationInput, 'phone' | '
   })
 }
 
-export type AdminMemberSortBy = 'name' | 'email' | 'district' | 'team' | 'position' | 'memberStatus' | 'memberRole' | 'createdAt'
+export type AdminMemberSortBy = 'name' | 'email' | 'district' | 'team' | 'position' | 'status' | 'role' | 'createdAt'
 export type SortDirection = 'ASC' | 'DESC'
 
 export interface AdminMemberQuery {
@@ -124,7 +122,7 @@ export interface AdminMemberQuery {
   size: number
   sortBy: AdminMemberSortBy
   direction: SortDirection
-  memberStatus?: UserStatus
+  status?: UserStatus
   name?: string
   email?: string
   phone?: string
@@ -139,17 +137,21 @@ export async function getAdminMemberCounts(): Promise<Record<'ALL' | UserStatus,
   const base = { page: 0, size: 1, sortBy: 'name' as const, direction: 'ASC' as const }
   const [all, pending, active, inactive] = await Promise.all([
     getAdminMembers(base),
-    getAdminMembers({ ...base, memberStatus: 'PENDING' }),
-    getAdminMembers({ ...base, memberStatus: 'ACTIVE' }),
-    getAdminMembers({ ...base, memberStatus: 'INACTIVE' }),
+    getAdminMembers({ ...base, status: 'PENDING' }),
+    getAdminMembers({ ...base, status: 'ACTIVE' }),
+    getAdminMembers({ ...base, status: 'INACTIVE' }),
   ])
   return { ALL: all.totalElements, PENDING: pending.totalElements, ACTIVE: active.totalElements, INACTIVE: inactive.totalElements }
 }
 
+/**
+ * 소속 과는 보내지 않는다. 지금 이 시스템은 민원지적과 하나만 받으므로 고칠 값이 아니고,
+ * 화면이 들고 있는 값을 되보내면 그사이 다른 경로로 바뀐 값을 덮는다.
+ */
 export async function updateAdminMember(member: ManagedUser): Promise<void> {
   await http.patch(`/api/admin/members/${member.id}/profile`, {
     name: member.name, phone: member.phone, email: member.email, district: enumApiValue(districtToApi, member.district, '구청'),
-    department: member.department, team: enumApiValue(teamToApi, member.team, '팀'), position: enumApiValue(positionToApi, member.position, '직위'),
+    team: enumApiValue(teamToApi, member.team, '팀'), position: enumApiValue(positionToApi, member.position, '직위'),
   })
 }
 
@@ -159,32 +161,25 @@ export async function changeAdminMember(memberId: string, action: AdminMemberAct
 }
 
 export type AdminActivityType = 'MEMBER_APPROVED' | 'MEMBER_REJECTED' | 'MEMBER_DEACTIVATED' | 'MEMBER_ACTIVATED' | 'MEMBER_PROFILE_UPDATED' | 'MEMBER_PROMOTED_TO_ADMIN' | 'MEMBER_DEMOTED_TO_USER'
+/**
+ * 관리자 활동 한 줄.
+ *
+ * <p>이름은 기록하는 순간 함께 적어 둔 값이라 그 뒤에 개명하거나 탈퇴해도 그때의 이름이 남는다.
+ * 회원을 다시 조회해 붙이면 지금 이름이 나와, 로그가 말하는 시점과 어긋난다.
+ */
 export interface AdminActivity {
   id: number
   actorAdminId: number
-  actorAdminName?: string | null
-  targetMemberId?: number | null
-  targetMemberName?: string | null
+  actorName: string
+  targetMemberId: number
+  targetName: string
   activityType: AdminActivityType
   message: string
   createdAt: string
 }
-interface ApiAdminActivity extends Omit<AdminActivity, 'actorAdminName' | 'targetMemberName'> {
-  actorName?: string | null
-  targetName?: string | null
-  actorAdminName?: string | null
-  targetMemberName?: string | null
-}
 export interface CursorPage<T> { content: T[]; nextCursor: string | null; hasNext: boolean; size: number }
 
 export async function getAdminActivities(cursor?: string, activityType?: AdminActivityType): Promise<CursorPage<AdminActivity>> {
-  const { data } = await http.get<CursorPage<ApiAdminActivity>>('/api/admin/activities', { params: { size: 20, cursor, activityType } })
-  return {
-    ...data,
-    content: data.content.map(({ actorName, targetName, ...activity }) => ({
-      ...activity,
-      actorAdminName: activity.actorAdminName ?? actorName,
-      targetMemberName: activity.targetMemberName ?? targetName,
-    })),
-  }
+  const { data } = await http.get<CursorPage<AdminActivity>>('/api/admin/activities', { params: { size: 20, cursor, activityType } })
+  return data
 }

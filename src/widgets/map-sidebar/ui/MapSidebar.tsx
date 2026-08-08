@@ -1,9 +1,10 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { PanelKey } from '@/shared/model/panel'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { SURVEY_STATUS_LABEL, deriveSurveyStatus } from '@/entities/survey-record'
+import { SURVEY_STATUS_DOT, SURVEY_STATUS_LABEL, SURVEY_STATUS_ORDER, deriveSurveyStatus } from '@/entities/survey-record'
+import type { SurveyResult, SurveyStatus } from '@/entities/survey-record'
 import { Skeleton, SkeletonRows } from '@/shared/ui/Skeleton'
-import { CHIP_BTN, CHIP_BTN_DANGER, PANEL, PROGRESS_FILL, ROW_ACCENT } from '@/shared/ui/classes'
+import { CHIP_BTN, CHIP_BTN_DANGER, ICON_BTN, ICON_BTN_DANGER, PANEL, PANEL_HEADER, PROGRESS_FILL, ROW_ACCENT } from '@/shared/ui/classes'
 import { percent } from '@/shared/lib/percent'
 import { formatDate } from '@/shared/lib/date'
 import { SURVEY_ONGOING_LABEL, isProjectComplete, type SurveyProject } from '@/entities/survey-project'
@@ -18,8 +19,7 @@ import { POINT_TYPES, PointTypeIcon, StatusMark } from '@/entities/control-point
  * 둘이 어긋나면 굴리는 동안 전체 높이가 계속 고쳐져 막대와 손 위치가 밀린다.
  */
 const ROW_HEIGHT = 34
-/** 펼친 행에 붙는 조사·망실 버튼 영역 높이 */
-const ROW_ACTIONS_HEIGHT = 46
+
 /** 패널 상단 검색창 — 프로젝트·기준점 두 패널이 같은 모양을 쓴다 */
 const PANEL_SEARCH_INPUT =
   'h-[34px] w-full rounded-ctl border border-line-field bg-field pl-9 pr-3 text-[12.5px] text-ink placeholder:text-ink-4 outline-none transition-colors focus:border-teal-edge'
@@ -30,8 +30,8 @@ const PANEL_ADD_BTN =
 const PANEL_SLIDE_MS = 220
 /** 프로젝트 상세 레이어가 밀려 나가는 시간(ms) — 본문을 트리에서 빼는 시점이 애니메이션보다 빨라선 안 된다 */
 const DETAIL_SLIDE_MS = 200
-/** 조사 프로젝트를 안 고른 목록(기준점 탭)에서 상태 판정에 넘길 빈 집합 */
-const EMPTY_IDS: Set<string> = new Set()
+/** 조사 프로젝트를 안 고른 목록(기준점 탭)에서 상태 판정에 넘길 빈 맵 */
+const EMPTY_RESULTS: ReadonlyMap<string, SurveyResult> = new Map()
 
 interface MapSidebarProps {
   // 조사 프로젝트
@@ -48,11 +48,9 @@ interface MapSidebarProps {
   points: ControlPoint[]
   /** 고른 조사의 대상 점 — 조사를 고르지 않았으면 points 와 같다 */
   targetPoints: ControlPoint[]
-  surveyedIds: Set<string>
-  lostIds: Set<string>
+  /** 점 id별 조사 결과. 맵에 없으면 미조사 */
+  resultById: ReadonlyMap<string, SurveyResult>
   onFocusPoint: (cp: ControlPoint) => void
-  onToggleSurvey: (pointId: string) => void
-  onToggleLost: (pointId: string) => void
   // 서버 조회 진행 여부 — 로딩 중엔 '없습니다' 대신 자리표시를 보여준다
   projectsLoading?: boolean
   pointsLoading?: boolean
@@ -132,7 +130,7 @@ export function MapSidebar(props: MapSidebarProps) {
 
 function PanelHeader(props: { title: string; count?: number; onMinimize: () => void; onClose: () => void }) {
   return (
-    <header className="flex shrink-0 items-baseline gap-[7px] pb-[11px] pl-3.5 pr-2.5 pt-[13px]">
+    <header className={PANEL_HEADER}>
       <h2 className="flex min-w-0 flex-1 items-baseline gap-[7px]">
         <span className="text-[13.5px] font-semibold text-ink">{props.title}</span>
         {props.count !== undefined && (
@@ -146,22 +144,18 @@ function PanelHeader(props: { title: string; count?: number; onMinimize: () => v
         onClick={props.onMinimize}
         aria-label="판 접기"
         title="접기"
-        className="flex size-[26px] shrink-0 items-center justify-center self-center rounded-chip text-ink-3 transition-colors hover:bg-hover hover:text-ink-2"
+        className={ICON_BTN}
       >
-        <span className="flex size-4 items-center justify-center">
-          <IconMinimize />
-        </span>
+        <IconMinimize />
       </button>
       <button
         type="button"
         onClick={props.onClose}
         aria-label="판 닫기"
         title="닫기"
-        className="flex size-[26px] shrink-0 items-center justify-center self-center rounded-chip text-ink-3 transition-colors hover:bg-danger-wash hover:text-danger"
+        className={ICON_BTN_DANGER}
       >
-        <span className="size-4">
-          <IconClose />
-        </span>
+        <IconClose />
       </button>
     </header>
   )
@@ -221,18 +215,15 @@ function ProjectPanel(props: MapSidebarProps) {
   // 밀려나는 화면의 대상 수·진행률이 전체 수로 튀는 것을 막는다
   const [heldDetail, setHeldDetail] = useState({
     targetPoints: props.targetPoints,
-    surveyedIds: props.surveyedIds,
-    lostIds: props.lostIds,
+    resultById: props.resultById,
   })
   useEffect(() => {
     if (active !== null) {
-      setHeldDetail({ targetPoints: props.targetPoints, surveyedIds: props.surveyedIds, lostIds: props.lostIds })
+      setHeldDetail({ targetPoints: props.targetPoints, resultById: props.resultById })
     }
-  }, [active, props.targetPoints, props.surveyedIds, props.lostIds])
+  }, [active, props.targetPoints, props.resultById])
   const detailData =
-    active !== null
-      ? { targetPoints: props.targetPoints, surveyedIds: props.surveyedIds, lostIds: props.lostIds }
-      : heldDetail
+    active !== null ? { targetPoints: props.targetPoints, resultById: props.resultById } : heldDetail
 
   // 대상 목록에서 조사 토글 버튼을 펼친 점 (보는 조사가 바뀌면 초기화)
   const [expandedPointId, setExpandedPointId] = useState<string | null>(null)
@@ -353,8 +344,7 @@ function ProjectPanel(props: MapSidebarProps) {
           <ProjectDetail
             project={shownProject}
             targetPoints={detailData.targetPoints}
-            surveyedIds={detailData.surveyedIds}
-            lostIds={detailData.lostIds}
+            resultById={detailData.resultById}
             recordsLoading={props.recordsLoading}
             targetsLoading={props.targetsLoading}
             pointsLoading={props.pointsLoading}
@@ -362,8 +352,6 @@ function ProjectPanel(props: MapSidebarProps) {
             onExpandPoint={setExpandedPointId}
             onBack={() => props.onChangeActive(null)}
             onFocusPoint={props.onFocusPoint}
-            onToggleSurvey={props.onToggleSurvey}
-            onToggleLost={props.onToggleLost}
             onEdit={props.onEditProject}
             onDelete={props.onDeleteProject}
           />
@@ -381,8 +369,7 @@ function ProjectPanel(props: MapSidebarProps) {
 function ProjectDetail(props: {
   project: SurveyProject
   targetPoints: ControlPoint[]
-  surveyedIds: Set<string>
-  lostIds: Set<string>
+  resultById: ReadonlyMap<string, SurveyResult>
   recordsLoading?: boolean
   targetsLoading?: boolean
   pointsLoading?: boolean
@@ -390,8 +377,6 @@ function ProjectDetail(props: {
   onExpandPoint: (id: string | null) => void
   onBack: () => void
   onFocusPoint: (cp: ControlPoint) => void
-  onToggleSurvey: (pointId: string) => void
-  onToggleLost: (pointId: string) => void
   onEdit: (project: SurveyProject) => void
   onDelete: (project: SurveyProject) => void
 }) {
@@ -399,12 +384,15 @@ function ProjectDetail(props: {
   const total = props.targetPoints.length
   // 대상·기록 중 하나라도 오는 중이면 0/0·0% 가 잠깐 보이므로 자리표시로 둔다
   const progressLoading = props.recordsLoading === true || props.targetsLoading === true
-  const surveyed = props.surveyedIds.size
+  const surveyed = props.resultById.size
   const pct = percent(surveyed, total)
-  // 망실도 '조사됨'이라 진행률에는 함께 세고, 내역에서는 결과별로 갈라 보여 준다
-  const lost = props.lostIds.size
-  const done = Math.max(0, surveyed - lost)
-  const todo = Math.max(0, total - surveyed)
+  // 망실도 조사불가도 기타도 '조사됨'이라 진행률에는 함께 세고, 내역에서는 결과별로 갈라 보여 준다.
+  // 넷을 뭉뚱그리면 정상 건수가 부풀고 조사불가·기타는 화면 어디에도 드러나지 않는다
+  const byStatus: Record<SurveyStatus, number> = { done: 0, lost: 0, unavailable: 0, etc: 0, todo: 0 }
+  for (const result of props.resultById.values()) {
+    byStatus[deriveSurveyStatus(result)]++
+  }
+  byStatus.todo = Math.max(0, total - surveyed)
 
   return (
     <>
@@ -454,9 +442,9 @@ function ProjectDetail(props: {
             </div>
             {/* 결과별 내역 — 색은 아래 범례·지도 마커와 같은 뜻으로 쓴다 */}
             <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-[5px] text-[11.5px] text-ink-3">
-              <StatusCount label={SURVEY_STATUS_LABEL.done} count={done} dotClass="bg-teal" />
-              <StatusCount label={SURVEY_STATUS_LABEL.lost} count={lost} dotClass="bg-danger" />
-              <StatusCount label={SURVEY_STATUS_LABEL.todo} count={todo} dotClass="border-[1.5px] border-idle" />
+              {SURVEY_STATUS_ORDER.map((key) => (
+                <StatusCount key={key} label={SURVEY_STATUS_LABEL[key]} count={byStatus[key]} dotClass={SURVEY_STATUS_DOT[key]} />
+              ))}
             </div>
           </>
         )}
@@ -487,12 +475,9 @@ function ProjectDetail(props: {
           points={props.targetPoints}
           onFocus={props.onFocusPoint}
           survey={{
-            surveyedIds: props.surveyedIds,
-            lostIds: props.lostIds,
+            resultById: props.resultById,
             expandedPointId: props.expandedPointId,
             onExpand: props.onExpandPoint,
-            onToggleSurvey: props.onToggleSurvey,
-            onToggleLost: props.onToggleLost,
           }}
           loading={props.pointsLoading === true || props.targetsLoading === true}
         />
@@ -678,12 +663,9 @@ function PointRowList(props: {
   points: ControlPoint[]
   onFocus: (cp: ControlPoint) => void
   survey?: {
-    surveyedIds: Set<string>
-    lostIds: Set<string>
+    resultById: ReadonlyMap<string, SurveyResult>
     expandedPointId: string | null
     onExpand: (id: string | null) => void
-    onToggleSurvey: (id: string) => void
-    onToggleLost: (id: string) => void
   }
   emptyText?: string
   /** 서버에서 목록을 받아오는 중 — 빈 목록 문구 대신 자리표시를 보여준다 */
@@ -701,19 +683,16 @@ function PointRowList(props: {
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const [scrolled, setScrolled] = useState(false) // 한참 내려갔을 때만 '맨 위로'를 띄운다
-  const expandedId = survey?.expandedPointId ?? null
   const virtualizer = useVirtualizer({
     count: points.length,
     getScrollElement: () => scrollRef.current,
-    // 접힌 행은 ROW_HEIGHT로 고정이라 추정이 정확하다(실측과 어긋나면 스크롤 중 위치가 밀린다).
-    // 펼친 행만 조사·망실 버튼만큼 높아지는데, 한 번에 하나뿐이라 measureElement가 그 차이를 보정한다.
-    estimateSize: (index) => (points[index].id === expandedId ? ROW_HEIGHT + ROW_ACTIONS_HEIGHT : ROW_HEIGHT),
+    // 모든 행이 ROW_HEIGHT 로 고정이다. 결과를 고르는 자리가 상세 카드로 옮겨가 펼친 행도 높아지지 않는다
+    estimateSize: () => ROW_HEIGHT,
     overscan: 8,
     getItemKey: (index) => points[index].id,
   })
 
-  const surveyedIds = survey?.surveyedIds
-  const lostIds = survey?.lostIds
+  const resultById = survey?.resultById
   const expandedPointId = survey?.expandedPointId ?? null
   const hasSurvey = Boolean(survey)
 
@@ -736,7 +715,7 @@ function PointRowList(props: {
       <ul className="relative w-full pb-1" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((item) => {
           const cp = points[item.index]
-          const status = deriveSurveyStatus(cp.id, surveyedIds ?? EMPTY_IDS, lostIds ?? EMPTY_IDS)
+          const status = deriveSurveyStatus((resultById ?? EMPTY_RESULTS).get(cp.id))
           return (
             <li
               key={item.key}
@@ -747,12 +726,8 @@ function PointRowList(props: {
             >
               <PointRow
                 cp={cp}
-                status={hasSurvey ? SURVEY_STATUS_LABEL[status] : undefined}
+                status={hasSurvey ? status : undefined}
                 expanded={expandedPointId === cp.id}
-                surveyed={status !== 'todo'}
-                lost={status === 'lost'}
-                onToggleSurvey={hasSurvey ? () => cbRef.current.survey?.onToggleSurvey(cp.id) : undefined}
-                onToggleLost={hasSurvey ? () => cbRef.current.survey?.onToggleLost(cp.id) : undefined}
                 onClick={() => {
                   const cur = cbRef.current
                   if (cur.survey) {
@@ -799,15 +774,12 @@ function PointRowList(props: {
  */
 function PointRow(props: {
   cp: ControlPoint
-  status?: string
+  status?: SurveyStatus
   onClick: () => void
   expanded?: boolean
-  surveyed?: boolean
-  lost?: boolean
-  onToggleSurvey?: () => void
-  onToggleLost?: () => void
 }) {
-  const hasActions = Boolean(props.onToggleSurvey && props.onToggleLost)
+  // 조사 화면일 때만 줄이 펼쳐진다(펼침은 지도 포커스와 강조를 위한 것이다)
+  const hasActions = props.status !== undefined
   // 바깥 <li>는 가상 스크롤 래퍼가 그린다(위치·높이 측정 대상).
   // 행 높이는 고정이고 ROW_HEIGHT 와 같은 값이어야 한다 — 어긋나면 굴리는 동안 위치가 밀린다.
   return (
@@ -825,25 +797,6 @@ function PointRow(props: {
         <span className="flex-1 truncate text-[13px] text-ink-2">{props.cp.name}</span>
         <span className="shrink-0 text-[11px] text-ink-3">{props.cp.type}</span>
       </button>
-      {/* 클릭 시 아래에 조사 완료/취소 · 망실 토글 (상세 모달과 동일 기능) */}
-      {props.expanded && hasActions && (
-        <div className="flex gap-2 px-3.5 py-2">
-          <button
-            type="button"
-            onClick={props.onToggleSurvey}
-            className={`${CHIP_BTN} flex-1 py-1.5 text-[12px]`}
-          >
-            {props.surveyed ? '조사 취소' : '조사 완료'}
-          </button>
-          <button
-            type="button"
-            onClick={props.onToggleLost}
-            className={`${CHIP_BTN_DANGER} flex-1 py-1.5 text-[12px]`}
-          >
-            {props.lost ? '망실 해제' : '망실'}
-          </button>
-        </div>
-      )}
     </div>
   )
 }

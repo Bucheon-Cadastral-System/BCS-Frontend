@@ -1,9 +1,11 @@
 import { http } from '@/shared/api/http'
 import type { SurveyRecord, SurveyResult } from '../model/types'
 
+/**
+ * 서버는 기록을 (프로젝트, 기준점)으로 식별한다 — 별도의 번호가 없다.
+ * 프로젝트 id 는 실려 오지 않는다. 이 목록 자체가 한 프로젝트로 좁혀 부른 결과다.
+ */
 interface ServerSurveyRecord {
-  id: number
-  projectId: number
   pointId: number
   result: SurveyResult
   surveyedAt: string
@@ -14,12 +16,12 @@ interface ServerSurveyRecord {
 /** 판정은 서버 어휘 그대로 들고, 지도가 쓰는 망실 여부만 함께 갈라 둔다. */
 function toSurveyRecord(server: ServerSurveyRecord): SurveyRecord {
   return {
-    projectId: String(server.projectId),
     pointId: String(server.pointId),
     surveyedAt: server.surveyedAt,
     result: server.result,
     lost: server.result === 'LOST',
     surveyorName: server.surveyorName,
+    note: server.note,
   }
 }
 
@@ -28,11 +30,19 @@ export async function fetchSurveyRecords(projectId: string): Promise<SurveyRecor
   return res.data.content.map(toSurveyRecord)
 }
 
-/** 조사 기록/정정 — 서버가 기존 기록이면 판정 정정으로 처리한다. */
-export async function putSurveyRecord(projectId: string, pointId: string, lost: boolean): Promise<SurveyRecord> {
+/**
+ * 조사 기록/정정 — 서버가 기존 기록이면 판정 정정으로 처리한다.
+ * note는 기타를 고를 때 적는 비고다. 그 외 결과는 적지 않으므로 null로 보낸다.
+ */
+export async function putSurveyRecord(
+  projectId: string,
+  pointId: string,
+  result: SurveyResult,
+  note: string | null,
+): Promise<SurveyRecord> {
   const res = await http.put<ServerSurveyRecord>(
     `/api/survey-projects/${projectId}/records/${pointId}`,
-    { result: lost ? 'LOST' : 'INTACT' },
+    { result, note },
   )
   return toSurveyRecord(res.data)
 }

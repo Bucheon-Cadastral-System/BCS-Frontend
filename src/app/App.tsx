@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import 'ol/ol.css'
 import './App.css'
@@ -8,12 +9,12 @@ import { RegistrationPage } from '@/pages/registration'
 import { LoginPage } from '@/pages/login'
 import { InactivePage } from '@/pages/inactive'
 import { MapPage } from '@/pages/map'
+import { clearChatStorage } from '@/widgets/chatbot'
 import { WaitingPage } from '@/pages/waiting'
 import { exchangeOAuthCode, refreshAccessToken, startKakaoLogin } from '@/shared/api/auth'
 import { subscribeAuthenticationLost } from '@/shared/api/tokenStore'
 import { BTN_SECONDARY, MODAL_SHELL } from '@/shared/ui/classes'
 import { ErrorBoundary } from '@/shared/ui/ErrorBoundary'
-import { getOAuthLoginErrorMessage } from '@/pages/login/model/oauthLoginError'
 
 type AuthState = { loading: boolean; profile: UserProfile | null }
 
@@ -35,15 +36,31 @@ function AuthErrorPage({ message, onBack }: { message: string; onBack: () => voi
   )
 }
 
+/**
+ * 로그인이 끊긴 사유 — 서버가 `/login?error=...` 로 되돌려보낼 때 싣는 코드다.
+ *
+ * <p>사유를 안 보이면 사용자는 버튼만 다시 누른다. 다시 눌러서 될 일인지 아닌지가 갈리므로
+ * 그 갈래를 문구로 말해 준다. 모르는 코드는 코드 자체를 보여 주지 않는다 — 사람에게 뜻이 없다.
+ */
+const LOGIN_FAILURE: Record<string, string> = {
+  oauth2_user_info_invalid: '카카오에서 받은 계정 정보가 올바르지 않습니다. 카카오 계정의 이메일 제공 동의를 확인한 뒤 다시 시도해 주세요.',
+  oauth2_provider_unsupported: '지원하지 않는 로그인 방식입니다. 카카오로 로그인해 주세요.',
+  oauth2_principal_invalid: '로그인 정보를 확인하지 못했습니다. 다시 시도해 주세요.',
+  oauth2_authentication_failed: '로그인을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+}
+
 function LoginRoute() {
   const location = useLocation()
   const navigate = useNavigate()
-  const errorCode = new URLSearchParams(location.search).get('error')
-  const isInactive = errorCode === 'inactive'
+  const error = new URLSearchParams(location.search).get('error')
 
-  return isInactive
-    ? <InactivePage onBackToLogin={() => navigate('/login', { replace: true })} />
-    : <LoginPage onKakaoLogin={startKakaoLogin} errorMessage={getOAuthLoginErrorMessage(errorCode)} />
+  if (error === 'inactive') return <InactivePage onBackToLogin={() => navigate('/login', { replace: true })} />
+  return (
+    <LoginPage
+      onKakaoLogin={startKakaoLogin}
+      failure={error === null ? null : (LOGIN_FAILURE[error] ?? '로그인을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.')}
+    />
+  )
 }
 
 function Protected({ auth, admin = false, children }: { auth: AuthState; admin?: boolean; children: ReactNode }) {
@@ -113,26 +130,55 @@ function SignupRoute() {
 function AppRoutes() {
   const navigate = useNavigate()
   const location = useLocation()
+  const queryClient = useQueryClient()
   const [auth, setAuth] = useState<AuthState>({ loading: true, profile: null })
+
+  /**
+   * 로그인한 계정이 바뀌면 그 계정에 딸린 것을 모두 버린다.
+   *
+   * 받아 둔 응답(대화 이력·회원 목록)이 캐시에 남아 있으면 계정을 바꾼 뒤 앞 계정의 값이 새 화면에
+   * 그대로 복원된다. 브라우저에 담아 둔 챗봇 창 배치도 그 사람의 작업 방식이라 함께 지운다.
+   * 화면마다 열쇠에 계정을 섞는 대신 경계에서 한 번 비운다.
+   */
+  const accountRef = useRef<string | null | undefined>(undefined) // undefined = 아직 로그인 상태를 모른다
+
+  /*
+   * 로그인 상태가 바뀌는 자리는 여기 하나뿐이고, 비우기는 setAuth 보다 먼저 일어난다.
+   *
+   * 렌더 중에 비우면 안 된다 — React 가 그 렌더를 버릴 수 있고, 그때 accountRef 만 새 계정으로 남으면
+   * 다음 렌더에서 조건이 거짓이 되어 앞 계정의 캐시가 그대로 살아난다.
+   * 그렇다고 효과로 미루면 아래 화면들이 이미 한 번 그려진 뒤에 돌아서 그 첫 그림이 앞 계정의 값을 읽는다
+   * (회원 목록·대화 이력 열쇠에 계정이 섞여 있지 않다).
+   * 상태를 바꾸기 직전에 비우면 둘 다 피한다. 비우기는 동기라 setAuth 가 부르는 렌더는 이미 빈 캐시를 본다.
+   */
+  const applyAuth = useCallback((profile: UserProfile | null) => {
+    const accountId = profile?.id ?? null
+    if (accountRef.current !== undefined && accountRef.current !== accountId) {
+      queryClient.clear()
+      clearChatStorage()
+    }
+    accountRef.current = accountId
+    setAuth({ loading: false, profile })
+  }, [queryClient])
 
   const reloadProfile = useCallback(async () => {
     try {
       const profile = await getMyProfile()
-      setAuth({ loading: false, profile })
+      applyAuth(profile)
       return profile
     } catch {
-      setAuth({ loading: false, profile: null })
+      applyAuth(null)
       return null
     }
-  }, [])
+  }, [applyAuth])
 
   useEffect(() => {
-    refreshAccessToken().then((token) => token ? reloadProfile() : (setAuth({ loading: false, profile: null }), null))
-  }, [reloadProfile])
+    refreshAccessToken().then((token) => token ? reloadProfile() : (applyAuth(null), null))
+  }, [applyAuth, reloadProfile])
 
   useEffect(() => subscribeAuthenticationLost(() => {
-    setAuth({ loading: false, profile: null })
-  }), [])
+    applyAuth(null)
+  }), [applyAuth])
 
   // 울타리는 라우터 안쪽·화면 바깥쪽에 둔다. 바깥에 두면 화면이 죽었을 때 주소를 옮길 길까지 함께 사라지고,
   // 로그인 상태는 이 위에 있어 화면을 옮겨도 다시 받아오지 않는다.

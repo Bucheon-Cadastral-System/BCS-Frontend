@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { UserAvatar } from '@/entities/user'
 import type { UserProfile } from '@/entities/user'
+import { logout } from '@/shared/api/auth'
 import { useDismiss } from '@/shared/lib/useDismiss'
 import { useElementWidth } from '@/shared/lib/useElementWidth'
 import { BrandMark } from '@/shared/ui/BrandMark'
@@ -41,9 +43,21 @@ export function AppHeader(props: {
   const [menuOpen, setMenuOpen] = useState(false)
   const userRef = useRef<HTMLDivElement>(null)
   useDismiss({ enabled: menuOpen, onDismiss: () => setMenuOpen(false), ref: userRef })
+  const navigate = useNavigate()
 
   const user = props.user
   const isAdmin = user?.role === 'ADMIN'
+
+  // 서버 호출이 실패해도 이 브라우저의 인증은 이미 끊어진 상태이므로 로그인 화면으로 이동한다.
+  async function handleLogout() {
+    setMenuOpen(false)
+    try {
+      await logout()
+    } catch {
+      // 실패해도 아래에서 로그인 화면으로 이동한다.
+    }
+    navigate('/login', { replace: true })
+  }
 
   // 켜진 탭 밑을 따라 미끄러지는 면 — 탭마다 면을 따로 켜고 끄면 자리가 옮겨 간다는 것이 보이지 않는다
   const tabsRef = useRef<HTMLDivElement>(null)
@@ -172,6 +186,15 @@ export function AppHeader(props: {
                   </svg>
                 </button>
               )}
+              <button
+                type="button"
+                onClick={handleLogout}
+                // 다른 화면으로 들어가는 항목이 아니라 실행되는 동작이라 진입 화살표를 두지 않고 가운데에 세운다
+                className="flex w-full items-center justify-center gap-[7px] border-t border-line-soft px-[13px] py-2.5 text-[12.5px] text-danger transition-colors hover:bg-danger-wash"
+              >
+                <LogoutIcon className="size-[15px] shrink-0" />
+                로그아웃
+              </button>
             </div>
           )}
         </div>
@@ -242,6 +265,17 @@ export function UsersIcon({ className }: { className?: string }) {
       <circle cx="9" cy="7" r="4" />
       <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  )
+}
+
+/** 로그아웃 아이콘. 문 밖으로 나가는 화살표 모양이다 */
+function LogoutIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
     </svg>
   )
 }

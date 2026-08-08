@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { ChatPanel } from './ChatPanel'
 import { ChatBubbleIcon, CloseIcon } from './icons'
-import { useSendChatMutation } from '../api/chat'
+import { useQueryClient } from '@tanstack/react-query'
+import { CHAT_MESSAGES_KEY, useChatHistoryQuery, useClearChatMutation, useSendChatMutation } from '../api/chat'
 import type { ChatAction, ChatMessage, ChatMode, Size } from '../model/types'
-import { loadChatMessages, loadChatUi, saveChatMessages, saveChatUi } from '../model/storage'
+import { clearLegacyChatMessages, loadChatUi, saveChatUi } from '../model/storage'
 import { useDismiss } from '@/shared/lib/useDismiss'
 import { PANEL } from '@/shared/ui/classes'
 
@@ -39,10 +40,17 @@ export function ChatDockLayout({
   const [mode, setMode] = useState<ChatMode>(initial.mode)
   const [floatSize, setFloatSize] = useState<Size>(initial.floatSize)
 
-  const [messages, setMessages] = useState<ChatMessage[]>(loadChatMessages)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
 
   const chatMutation = useSendChatMutation()
+  const clearMutation = useClearChatMutation()
   const pending = chatMutation.isPending
+
+  const queryClient = useQueryClient()
+  const history = useChatHistoryQuery().data
+  const restored = useRef(false)
+  /** '새 대화'로 비운 뒤 — 늦게 도착한 첫 조회가 지운 대화를 되살리면 안 된다 */
+  const discarded = useRef(false)
 
   const areaRef = useRef<HTMLDivElement>(null)
 
@@ -57,18 +65,45 @@ export function ChatDockLayout({
     onDockWidthChange?.(docked ? dockWidth : 0)
   }, [docked, dockWidth, onDockWidthChange])
 
+  // 대화를 브라우저에 담던 시절의 값이 남아 있으면 계정이 바뀌어도 그대로 보인다 — 한 번 지운다
+  useEffect(clearLegacyChatMessages, [])
+
+  // 서버에 남은 대화를 첫 응답에서 한 번만 얹는다.
+  // 응답이 늦는 사이 이미 질문을 보냈다면 그 대화를 지키고 서버 이력을 앞에 잇는다 — 덮으면 앞선 대화가 사라진다
   useEffect(() => {
-    saveChatMessages(messages)
-  }, [messages])
+    if (restored.current || discarded.current || history === undefined) return
+    restored.current = true
+    setMessages((prev) => (prev.length === 0 ? history : [...history, ...prev]))
+  }, [history])
+
+  // 화면이 대화의 최신 상태이므로 캐시를 따라 맞춘다 — 창을 다시 세워도 같은 대화로 돌아온다
+  useEffect(() => {
+    if (!restored.current) return
+    queryClient.setQueryData(CHAT_MESSAGES_KEY, messages)
+  }, [messages, queryClient])
 
   // 코너 오버레이는 ESC로 닫는다(도킹은 자리 차지라 유지)
   useDismiss({ enabled: open && mode === 'corner', onDismiss: () => setOpen(false) })
 
   // 진행 중 요청의 응답이 '새 대화'로 초기화된 뒤 섞이지 않게 세션을 센다
   const sessionRef = useRef(0)
+  const clearing = clearMutation.isPending
+  /** 질문이 나가 있는 동안 눌린 '새 대화' — 그 요청이 끝난 뒤에 지운다 */
+  const clearAfterSendRef = useRef(false)
+
+  /** 서버 기록을 비운다. 실패하면 서버가 진짜 값이므로 화면을 그쪽으로 되돌린다. */
+  function clearOnServer() {
+    clearMutation.mutate(undefined, {
+      onError: () => {
+        discarded.current = false
+        restored.current = false
+        void queryClient.invalidateQueries({ queryKey: CHAT_MESSAGES_KEY })
+      },
+    })
+  }
 
   function send(text: string) {
-    if (pending) return // 입력창·빠른 질의 등 모든 전송 경로를 응답 대기 중엔 막는다
+    if (pending || clearing) return // 응답 대기 중과 비우는 중에는 모든 전송 경로를 막는다
     const session = sessionRef.current
     setMessages((prev) => [...prev, { role: 'user', text }])
     chatMutation.mutate(text, {
@@ -83,12 +118,28 @@ export function ChatDockLayout({
           { role: 'assistant', text: '답변을 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.' },
         ])
       },
+      onSettled: () => {
+        if (!clearAfterSendRef.current) return
+        clearAfterSendRef.current = false
+        clearOnServer()
+      },
     })
   }
 
   function newChat() {
+    if (clearing) return
     sessionRef.current += 1
+    // 이제부터 화면이 대화의 주인이다 — 먼저 나가 있던 첫 조회를 끊어 지운 이력이 캐시로 돌아오지 않게 한다
+    discarded.current = true
+    restored.current = true
+    void queryClient.cancelQueries({ queryKey: CHAT_MESSAGES_KEY })
     setMessages([])
+    // 질문이 나가 있는 동안 지우면 서버가 그 답을 뒤늦게 적어 빈 대화에 남는다. 그 요청이 끝난 뒤에 지운다
+    if (pending) {
+      clearAfterSendRef.current = true
+      return
+    }
+    clearOnServer()
   }
 
   // 코너 카드 좌상단 리사이즈(우하단 고정)
@@ -117,6 +168,7 @@ export function ChatDockLayout({
     <ChatPanel
       messages={messages}
       pending={pending}
+      clearing={clearing}
       expanded={mode === 'right'}
       onSend={send}
       onNewChat={newChat}
@@ -187,10 +239,12 @@ export function ChatDockLayout({
         aria-expanded={open}
         aria-hidden={docked}
         tabIndex={docked ? -1 : 0}
-        className={`absolute bottom-6 right-6 z-40 flex size-14 items-center justify-center rounded-full border-[1.5px] bg-pill shadow-pill transition-[color,border-color,background-color,transform,opacity] duration-200 ${
+        /* 색조는 ::before 로 덧칠한다 — 바탕(bg-pill)을 갈아 끼우면 반투명 색조가 그 자리를 대신해
+           버튼이 지도 위에서 비쳐 보인다. 색조는 원래 불투명한 판 위에 얹으라고 만든 값이다 */
+        className={`absolute bottom-6 right-6 z-40 flex size-14 items-center justify-center rounded-full border-[1.5px] bg-pill shadow-pill transition-[color,border-color,transform,opacity] duration-200 before:absolute before:inset-0 before:rounded-full before:opacity-0 before:transition-opacity before:duration-200 hover:before:opacity-100 ${
           open
-            ? 'border-danger-edge text-danger hover:bg-danger-wash'
-            : 'border-teal-btn-edge text-teal-text hover:border-teal-text hover:bg-teal-wash'
+            ? 'border-danger-edge text-danger before:bg-danger-wash'
+            : 'border-teal-btn-edge text-teal-text before:bg-teal-wash hover:border-teal-text'
         } ${docked ? 'pointer-events-none scale-90 opacity-0' : 'scale-100 opacity-100 hover:scale-105'}`}
       >
         {/* 두 아이콘을 겹쳐 두고 돌려가며 바꾼다 — 무엇이 무엇으로 바뀌는지 보이게 */}

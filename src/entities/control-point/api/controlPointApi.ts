@@ -45,9 +45,8 @@ interface ServerControlPoint {
   easting: number
   longitude: number
   latitude: number
-  /** 최근 조사 요약 — 파일의 최종조사 열 문구 그대로 */
-  lastSurveyResult: string | null
-  lastSurveyedOn: string | null
+  installedDate: string | null
+  version: number
 }
 
 /** 서버 응답 → 프론트 모델. */
@@ -62,8 +61,8 @@ function toControlPoint(server: ServerControlPoint): ControlPoint {
     northing: server.northing,
     easting: server.easting,
     tmEpsg: EPSG_FROM_CRS[server.crs],
-    lastSurveyResult: server.lastSurveyResult ?? null,
-    lastSurveyedOn: server.lastSurveyedOn ?? null,
+    installedDate: server.installedDate,
+    version: server.version,
   }
 }
 
@@ -114,13 +113,16 @@ export interface UpdateControlPointOutcome {
   warning: string | null
 }
 
-/** 수정 — 식별·성과만 보낸다. 소재지·설치·최종조사 항목은 서버가 기존 값을 유지한다. */
+/**
+ * 수정 — 식별·성과만 보낸다. 소재지·설치·최종조사 항목은 서버가 기존 값을 유지한다.
+ * 화면이 읽을 때 받은 판 번호를 함께 보낸다. 그사이 누가 먼저 저장했으면 서버가 409로 거절한다.
+ */
 export async function updateControlPoint(
-  args: RegisterControlPointArgs & { id: string },
+  args: RegisterControlPointArgs & { id: string; version: number },
 ): Promise<UpdateControlPointOutcome> {
   const res = await http.put<{ point: ServerControlPoint; warning: string | null }>(
     `/api/control-points/${args.id}`,
-    toPayload(args),
+    { ...toPayload(args), version: args.version },
   )
   return { point: toControlPoint(res.data.point), warning: res.data.warning ?? null }
 }
@@ -131,6 +133,29 @@ export async function deleteControlPoint(id: string): Promise<void> {
 }
 
 /** 조사 데이터가 참조 중인지 — 삭제 확인 창을 물음/불가로 갈라 여는 근거다. */
+/** 이 점을 마지막으로 조사한 사람. 목록에 싣지 않고 점을 고른 뒤에만 읽는다. */
+/** 기준점의 최종조사 요약 — 회차와 무관하게 마지막으로 조사한 결과다. 조사한 적이 없으면 세 칸이 비어 있다. */
+export interface LastSurvey {
+  /** 최종조사내용. 없으면 null */
+  result: string | null
+  /** 최종조사일(ISO 날짜). 없으면 null */
+  surveyedOn: string | null
+  /** 최종조사원 표시명. 시드 조사와 인증 전에 남긴 기록은 null */
+  surveyorName: string | null
+  /** 판정에 딸린 비고. 기타가 아니거나 시드 조사면 null */
+  note: string | null
+}
+
+export async function fetchLastSurvey(id: string): Promise<LastSurvey> {
+  const res = await http.get<LastSurvey>(`/api/control-points/${id}/last-survey`)
+  return {
+    result: res.data.result ?? null,
+    surveyedOn: res.data.surveyedOn ?? null,
+    surveyorName: res.data.surveyorName ?? null,
+    note: res.data.note ?? null,
+  }
+}
+
 export async function fetchControlPointUsage(id: string): Promise<boolean> {
   const res = await http.get<{ referenced: boolean }>(`/api/control-points/${id}/usage`)
   return res.data.referenced

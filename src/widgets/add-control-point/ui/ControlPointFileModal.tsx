@@ -14,6 +14,8 @@ function PointPreviewRow({ point }: { point: PointPreview }) {
           {POINT_ACTION_LABEL[point.action]}
         </span>
         <span className="min-w-0 flex-1 truncate text-ink-2">{point.name}</span>
+        {/* 원본 파일의 행 번호 — 경고가 난 점을 사용자가 올린 파일에서 바로 찾을 수 있게 */}
+        <span className="shrink-0 text-[11px] text-ink-4">{point.row}행</span>
         <span className="shrink-0 text-[11px] text-ink-3">{point.pointNo}</span>
       </div>
       <p className="mt-1 text-[11px] text-ink-3">

@@ -1,9 +1,10 @@
 import { safeStorage } from '@/shared/lib/safeStorage'
-import type { ChatMessage, ChatMode, PersistedChatUi, Size } from './types'
+import type { ChatMode, PersistedChatUi, Size } from './types'
 
 const UI_KEY = 'bcs.chat.ui'
-const MESSAGES_KEY = 'bcs.chat.messages'
-const MAX_PERSISTED_MESSAGES = 50
+
+/** 대화를 브라우저에 담던 시절의 키 — 계정이 바뀌어도 남아 있으므로 한 번 지운다. */
+const LEGACY_MESSAGES_KEY = 'bcs.chat.messages'
 
 export const DEFAULT_FLOAT_SIZE: Size = { width: 380, height: 520 }
 export const DEFAULT_DOCK_WIDTH = 400
@@ -43,23 +44,21 @@ export function saveChatUi(ui: PersistedChatUi): void {
   safeStorage.set(UI_KEY, JSON.stringify({ ...ui, open: ui.open && ui.mode === 'right' }))
 }
 
-function isChatMessage(v: unknown): v is ChatMessage {
-  const m = v as Record<string, unknown>
-  return typeof v === 'object' && v !== null
-    && (m.role === 'user' || m.role === 'assistant') && typeof m.text === 'string'
+/**
+ * 이 브라우저에 남은 예전 대화를 지운다.
+ * 대화는 계정에 딸린 서버 데이터가 됐으므로, 남겨 두면 계정을 바꿔도 앞사람 대화가 그대로 보인다.
+ */
+export function clearLegacyChatMessages(): void {
+  safeStorage.remove(LEGACY_MESSAGES_KEY)
 }
 
-export function loadChatMessages(): ChatMessage[] {
-  const raw = safeStorage.get(MESSAGES_KEY)
-  if (!raw) return []
-  try {
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed.filter(isChatMessage) : []
-  } catch {
-    return []
-  }
-}
-
-export function saveChatMessages(messages: ChatMessage[]): void {
-  safeStorage.set(MESSAGES_KEY, JSON.stringify(messages.slice(-MAX_PERSISTED_MESSAGES)))
+/**
+ * 이 브라우저에 남은 챗봇 흔적을 모두 지운다 — 계정이 바뀌는 자리에서 부른다.
+ *
+ * <p>창을 어디에 어떻게 띄워 두었는지는 그 사람의 작업 방식이다. 같은 기기를 나눠 쓰는 곳에서
+ * 남겨 두면 다음 사람이 앞사람의 배치로 시작한다. 화면 테마는 계정이 아니라 기기의 것이라 건드리지 않는다.
+ */
+export function clearChatStorage(): void {
+  safeStorage.remove(UI_KEY)
+  safeStorage.remove(LEGACY_MESSAGES_KEY)
 }

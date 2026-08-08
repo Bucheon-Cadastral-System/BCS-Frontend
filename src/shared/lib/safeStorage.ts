@@ -14,4 +14,11 @@ export const safeStorage = {
       // 저장 실패는 무시 — 상태는 메모리로만 유지된다
     }
   },
+  remove(key: string): void {
+    try {
+      localStorage.removeItem(key)
+    } catch {
+      // 접근이 막힌 환경에서는 지울 것도 없다
+    }
+  },
 }

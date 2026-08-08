@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { http } from '@/shared/api/http'
-import { CONTROL_POINTS_KEY } from '@/entities/control-point'
+import { CONTROL_POINTS_KEY, LAST_SURVEY_KEY } from '@/entities/control-point'
 import { SURVEY_PROJECTS_KEY, SURVEY_TARGETS_KEY, toSurveyProjectPayload } from '@/entities/survey-project'
 import { SURVEY_RECORDS_KEY } from '@/entities/survey-record'
 import type { SurveyProjectDraft } from '@/entities/survey-project'
@@ -33,6 +33,8 @@ export function useImportSurveyCsv() {
       queryClient.invalidateQueries({ queryKey: SURVEY_PROJECTS_KEY })
       queryClient.invalidateQueries({ queryKey: SURVEY_TARGETS_KEY })
       queryClient.invalidateQueries({ queryKey: SURVEY_RECORDS_KEY })
+      // 임포트가 여러 점의 조사 기록을 한꺼번에 만든다 — 그 점들의 최종조사가 함께 바뀐다
+      queryClient.invalidateQueries({ queryKey: LAST_SURVEY_KEY })
     },
   })
 }

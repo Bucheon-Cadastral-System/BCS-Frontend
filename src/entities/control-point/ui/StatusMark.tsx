@@ -1,15 +1,23 @@
+import { SURVEY_STATUS_LABEL, SURVEY_STATUS_TEXT_COLOR, type SurveyStatus } from '@/entities/survey-record'
+import { StatusIcon } from '@/shared/ui/StatusIcon'
+import type { StatusShape } from '@/shared/ui/statusRow'
+
 /**
- * 조사여부 마크: 정상=체크(V) / 미조사·망실=X. 색은 상태별 고정(파랑/회색/빨강).
+ * 목록 줄의 조사 상태 마크.
+ *
+ * <p>다섯 갈래가 모두 다르게 보여야 한다. 모양으로 넷을 가르고(체크·X·경고·주의), 남은 하나인 미조사는
+ * 망실과 같은 X 를 쓰되 색으로 갈린다. 모양은 공용 StatusIcon 이 그리고 색은 조사 상태 규칙이 소유한다.
  */
-export function StatusMark({ status }: { status: string }) {
-  const color =
-    status === '정상' ? 'text-teal-text' : status === '망실' ? 'text-danger' : 'text-ink-4'
-  const path = status === '정상' ? 'm5 12 5 5 9-10' : 'M6 6l12 12M18 6 6 18'
+const SHAPE: Record<SurveyStatus, StatusShape> = {
+  done: 'check',
+  lost: 'cross',
+  unavailable: 'warn',
+  etc: 'caution',
+  todo: 'cross',
+}
+
+export function StatusMark({ status }: { status: SurveyStatus }) {
   return (
-    <span role="img" className={`inline-block h-4 w-4 shrink-0 ${color}`} title={status} aria-label={status}>
-      <svg viewBox="0 0 24 24" className="h-full w-full" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d={path} />
-      </svg>
-    </span>
+    <StatusIcon shape={SHAPE[status]} label={SURVEY_STATUS_LABEL[status]} color={SURVEY_STATUS_TEXT_COLOR[status]} />
   )
 }

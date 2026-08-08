@@ -46,12 +46,32 @@ export const CHIP_BTN =
 export const CHIP_BTN_DANGER =
   'rounded-chip border border-danger-btn-edge bg-danger-wash text-center font-medium text-danger transition-colors hover:bg-danger-wash-strong'
 
-/** 지도 위 컨트롤(커맨드 바 안의 토글·줌) */
-export const BTN_CTL =
-  'inline-flex h-[30px] items-center justify-center gap-1.5 rounded-ctl border border-line-btn px-2.5 text-[11.5px] font-medium text-ink-2 transition-colors hover:bg-hover disabled:opacity-40'
-/** 켜져 있는 컨트롤 */
-export const BTN_CTL_ON =
-  'inline-flex h-[30px] items-center justify-center gap-1.5 rounded-ctl border border-teal-btn-edge bg-teal-wash-strong px-2.5 text-[11.5px] font-medium text-teal-text transition-colors'
+/**
+ * 판 머리말에 서는 아이콘 버튼(접기·닫기·수정·삭제).
+ *
+ * <p>글자 없이 뜻만 있는 자리라 평소에는 조용히 있다가 손을 올렸을 때만 색을 낸다.
+ * 되돌릴 수 없는 쪽(닫기·삭제)만 붉게 물들어, 색 하나로 무거운 버튼과 가벼운 버튼이 갈린다.
+ *
+ * <p>그림 크기는 이 버튼이 정한다 — 안쪽 여백만큼 뺀 자리가 곧 그림 자리다.
+ * 그래서 안에 넣는 아이콘은 크기를 적지 않고 size-full 로 자리를 채우기만 한다.
+ * 크기를 아이콘마다 적어 두면 자리마다 조금씩 다른 값이 남는다.
+ */
+const ICON_BTN_BASE =
+  'flex size-[26px] shrink-0 items-center justify-center rounded-chip p-[5px] text-ink-3 transition-colors'
+export const ICON_BTN = `${ICON_BTN_BASE} hover:bg-hover hover:text-ink-2`
+export const ICON_BTN_DANGER = `${ICON_BTN_BASE} hover:bg-danger-wash hover:text-danger`
+
+/**
+ * 판 머리말 — 제목이 왼쪽, 아이콘이 오른쪽. 머리말과 본문의 경계는 언제나 청록 두 겹 선이다
+ * (창·좌측 판·대화 판이 모두 이 선을 쓴다).
+ *
+ * <p>줄 안에서는 가운데로 맞춘다. 글줄 기준선(baseline)으로 맞추면 제목만 줄 맨 위로 붙고
+ * 아이콘 버튼은 가운데에 남아, 제목이 아이콘보다 위로 뜬 것처럼 보인다.
+ * 제목 안에서 크기가 다른 글자끼리(이름과 종류, 제목과 개수) 맞추는 것은 그 안쪽 상자가 할 일이다.
+ */
+export const PANEL_HEADER = 'flex shrink-0 items-center gap-[7px] pb-[11px] pl-3.5 pr-2.5 pt-[13px]'
+/** 머리말과 본문의 경계 — 머리말에 걸거나, 아래 칸에 border-t-2 border-t-teal 로 건다 */
+export const PANEL_HEADER_RULE = 'border-b-2 border-b-teal'
 
 /** 입력칸 */
 export const FIELD =

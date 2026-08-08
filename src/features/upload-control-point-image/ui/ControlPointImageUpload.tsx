@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import {
   downloadControlPointImage,
   fetchControlPointImageFile,
   useControlPointImageQuery,
   useUploadControlPointImageMutation,
 } from '@/entities/control-point-image'
+import { SurveyResultPicker } from '@/entities/survey-record'
+import type { SurveyResult } from '@/entities/survey-record'
 import { ApiError } from '@/shared/api/http'
 import {
   currentLocalDateTime,
@@ -12,110 +14,173 @@ import {
   localDateTimeToOffset,
   prepareControlPointImage,
 } from '@/shared/lib/controlPointImage'
-import { CHIP_BTN } from '@/shared/ui/classes'
-import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
+import { CHIP_BTN, FIELD, FIELD_AREA } from '@/shared/ui/classes'
+import { FormActions } from '@/shared/ui/FormActions'
+import { Modal, ModalField } from '@/shared/ui/Modal'
+
+const PREVIEW_BOX = 'flex h-[132px] w-full items-center justify-center'
 
 interface ControlPointImageUploadProps {
   projectId: string
   pointId: string
-  pointName: string
+  /** 지금 기록된 판정 — 창을 열 때 미리 골라 둔다. 미조사면 null */
+  result: SurveyResult | null
+  /** 등록에 성공했다. 알림과 목록 갱신은 화면 전체를 아는 쪽이 한다 */
   onSuccess: () => void
+  /** 창 밖에서 알려야 할 실패 — 받는 쪽이 토스트로 띄운다 */
   onError: (message: string) => void
 }
 
-interface MissingCaptureTime {
-  file: File
+/** 사진을 고른 뒤 등록을 확정하기까지 들고 있는 값. */
+interface Draft {
+  /**
+   * 변환까지 마친 WebP.
+   *
+   * <p>고른 원본이 아니라 변환한 결과를 든다. 미리보기와 전송이 같은 것을 가리켜 화면에서 본 그림이
+   * 그대로 저장되고, 변환도 한 번만 한다. HEIC 원본은 브라우저가 그리지 못하므로 이 순서가 아니면
+   * 아이폰 사진의 미리보기가 빈칸으로 뜬다.
+   */
+  image: File
+  /** EXIF 에서 읽은 촬영 시각. 없으면 null 이고 사용자가 직접 적는다 */
+  capturedAt: string | null
+  /** capturedAt 이 null 일 때 쓰는 입력값 */
   localDateTime: string
+  result: SurveyResult
+  note: string
 }
 
 export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const mutation = useUploadControlPointImageMutation()
   const imageQuery = useControlPointImageQuery(props.projectId, props.pointId)
-  const [preparing, setPreparing] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [previewStatus, setPreviewStatus] = useState<'idle' | 'loading' | 'error'>('idle')
-  const [previewRetryCount, setPreviewRetryCount] = useState(0)
+  const [previewFailed, setPreviewFailed] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
   const [downloading, setDownloading] = useState(false)
-  const [missingCaptureTime, setMissingCaptureTime] = useState<MissingCaptureTime | null>(null)
-  const [dialogError, setDialogError] = useState<string | null>(null)
-  const pending = preparing || mutation.isPending
+  const [draft, setDraft] = useState<Draft | null>(null)
+  const [draftUrl, setDraftUrl] = useState<string | null>(null)
+  const [preparing, setPreparing] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const image = imageQuery.data ?? null
+  // 사진 정보를 못 받은 것과 사진 파일을 못 받은 것은 사용자에게 같은 일이다 — 사진이 안 보인다
+  const loadFailed = imageQuery.isError || previewFailed
 
   useEffect(() => {
-    const image = imageQuery.data
-    if (image === null || image === undefined) {
+    if (image === null) {
       setPreviewUrl(null)
-      setPreviewStatus('idle')
+      setPreviewFailed(false)
       return
     }
     let active = true
     let objectUrl: string | null = null
     setPreviewUrl(null)
-    setPreviewStatus('loading')
+    setPreviewFailed(false)
     void fetchControlPointImageFile(image.id)
       .then((blob) => {
         if (!active) return
         objectUrl = URL.createObjectURL(blob)
         setPreviewUrl(objectUrl)
-        setPreviewStatus('idle')
       })
       .catch(() => {
-        if (active) {
-          setPreviewUrl(null)
-          setPreviewStatus('error')
-        }
+        if (active) setPreviewFailed(true)
       })
     return () => {
       active = false
       if (objectUrl !== null) URL.revokeObjectURL(objectUrl)
     }
-  }, [imageQuery.data, previewRetryCount])
+  }, [image, reloadKey])
+
+  // 알림은 카드 밖으로 내보낸다. 늘 최신 onError 를 부르되 그 함수가 바뀌었다는 이유만으로 효과가
+  // 다시 돌지는 않아야 한다 — 부모가 다시 그려질 때마다 같은 실패가 또 뜬다
+  const notify = useEffectEvent((message: string) => props.onError(message))
+  const notified = useRef(false)
+  useEffect(() => {
+    if (!loadFailed) {
+      notified.current = false
+      return
+    }
+    if (notified.current) return
+    notified.current = true
+    notify('기준점 사진을 불러오지 못했습니다.')
+  }, [loadFailed])
+
+  // 고른 사진의 미리보기 — 서버에 올리기 전이라 브라우저가 들고 있는 것을 그대로 그린다.
+  // 창 안에서 상태를 바꿔도 다시 만들지 않게 파일만 지켜본다
+  const draftImage = draft?.image ?? null
+  useEffect(() => {
+    if (draftImage === null) {
+      setDraftUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(draftImage)
+    setDraftUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [draftImage])
+
+  function reload() {
+    setPreviewFailed(false)
+    setReloadKey((count) => count + 1)
+    void imageQuery.refetch()
+  }
 
   async function select(file: File | undefined) {
     if (file === undefined) return
+    if (inputRef.current !== null) inputRef.current.value = ''
     setPreparing(true)
     try {
       const capturedAt = await extractCapturedAt(file)
-      if (capturedAt === null) {
-        setDialogError(null)
-        setMissingCaptureTime({ file, localDateTime: currentLocalDateTime() })
-        return
-      }
-      await upload(file, capturedAt)
+      const localDateTime = currentLocalDateTime()
+      // 창을 열기 전에 변환한다 — 창에 띄울 미리보기가 곧 전송할 그림이다
+      const prepared = await prepareControlPointImage(file, capturedAt ?? localDateTimeToOffset(localDateTime))
+      setDraft({
+        image: prepared.image,
+        capturedAt,
+        localDateTime,
+        // 지금 기록이 있으면 그것을 처음 값으로 둔다. 대개 지난번과 같은 판정이라 손이 덜 간다
+        result: props.result ?? 'INTACT',
+        note: '',
+      })
     } catch (error) {
       props.onError(messageOf(error))
     } finally {
       setPreparing(false)
-      if (inputRef.current !== null) inputRef.current.value = ''
     }
   }
 
-  async function confirmMissingCaptureTime() {
-    if (missingCaptureTime === null) return
-    setPreparing(true)
-    setDialogError(null)
+  async function confirm() {
+    if (draft === null) return
+    setSaving(true)
     try {
-      const capturedAt = localDateTimeToOffset(missingCaptureTime.localDateTime)
-      await upload(missingCaptureTime.file, capturedAt)
-      setMissingCaptureTime(null)
+      const note = draft.result === 'ETC' && draft.note.trim() !== '' ? draft.note.trim() : null
+      await mutation.mutateAsync({
+        projectId: props.projectId,
+        pointId: props.pointId,
+        image: draft.image,
+        // 창에서 고친 값이 있으면 그것을 따른다 — 변환은 이미 끝났고 시각만 여기서 확정된다
+        capturedAt: draft.capturedAt ?? localDateTimeToOffset(draft.localDateTime),
+        result: draft.result,
+        note,
+      })
+      setDraft(null)
+      props.onSuccess()
     } catch (error) {
-      setDialogError(messageOf(error))
+      /*
+       * 실패는 토스트로 알린다. 창 안에 문구를 세우면 뜰 때마다 버튼 줄이 밀려 자리가 들쭉날쭉해진다.
+       * 토스트는 팝오버로 떠서 showModal 로 열린 이 창보다 위에 서므로 딤에 가리지 않는다(shared/ui/Toast).
+       * 창은 닫지 않는다 — 고른 사진과 적은 값을 그대로 두고 다시 누를 수 있어야 한다.
+       */
+      props.onError(messageOf(error))
     } finally {
-      setPreparing(false)
+      setSaving(false)
     }
-  }
-
-  async function upload(file: File, capturedAt: string) {
-    const prepared = await prepareControlPointImage(file, capturedAt)
-    await mutation.mutateAsync({ projectId: props.projectId, pointId: props.pointId, ...prepared })
-    props.onSuccess()
   }
 
   async function download() {
-    if (imageQuery.data === null || imageQuery.data === undefined) return
+    if (image === null) return
     setDownloading(true)
     try {
-      await downloadControlPointImage(imageQuery.data)
+      await downloadControlPointImage(image)
     } catch (error) {
       props.onError(messageOf(error))
     } finally {
@@ -125,47 +190,47 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
 
   return (
     <div className="mt-2.5 border-t border-line-soft pt-2.5">
-      {imageQuery.isPending && <p className="mb-2 text-center text-[11px] text-ink-3">현장 이미지를 불러오는 중…</p>}
-      {imageQuery.isError && (
-        <button type="button" className="mb-2 w-full text-[11px] text-danger" onClick={() => void imageQuery.refetch()}>
-          이미지를 불러오지 못했습니다. 다시 시도
-        </button>
-      )}
-      {imageQuery.data !== null && imageQuery.data !== undefined && (
+      {(image !== null || loadFailed) && (
         <div className="mb-2.5 overflow-hidden rounded-chip border border-line-soft bg-field">
-          {previewStatus === 'error' ? (
-            <button
-              type="button"
-              className="flex h-[132px] w-full items-center justify-center text-[11px] text-danger"
-              onClick={() => setPreviewRetryCount((count) => count + 1)}
-            >
-              미리보기를 불러오지 못했습니다. 다시 시도
-            </button>
-          ) : previewUrl === null ? (
-            <div className="flex h-[132px] items-center justify-center text-[11px] text-ink-3">미리보기 불러오는 중…</div>
-          ) : (
-            <img src={previewUrl} alt="등록된 기준점 현장" className="h-[132px] w-full object-cover" />
-          )}
-          <div className="flex items-center gap-2 border-t border-line-soft px-2.5 py-2">
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[11.5px] text-ink-2">
-                {displayImageName(imageQuery.data.capturedAt, props.pointName)}
-              </p>
-              <p className="mt-0.5 text-[10.5px] text-ink-3">
-                촬영 {formatCapturedAt(imageQuery.data.capturedAt)} · {imageQuery.data.width}×{imageQuery.data.height}
-              </p>
+          {loadFailed ? (
+            // 무엇이 잘못됐는지는 토스트가 말했다. 여기 남는 것은 다시 해 볼 자리 하나다
+            <div className={PREVIEW_BOX}>
+              <button
+                type="button"
+                onClick={reload}
+                aria-label="사진 다시 불러오기"
+                title="다시 불러오기"
+                className="flex size-9 items-center justify-center rounded-full border border-line-btn text-ink-3 transition-colors hover:bg-hover hover:text-ink-2"
+              >
+                <ReloadIcon className="size-4" />
+              </button>
             </div>
-            <button
-              type="button"
-              disabled={downloading}
-              className="shrink-0 text-[11px] font-medium text-teal-text disabled:opacity-50"
-              onClick={() => void download()}
-            >
-              {downloading ? '받는 중…' : '다운로드'}
-            </button>
-          </div>
+          ) : previewUrl === null ? (
+            <div className={`${PREVIEW_BOX} break-keep px-4 text-center text-[11px] leading-[1.6] text-ink-3`}>
+              사진을 불러오는 중입니다. 잠시만 기다려 주세요.
+            </div>
+          ) : (
+            <img src={previewUrl} alt="등록한 사진" className="h-[132px] w-full object-cover" />
+          )}
+          {image !== null && (
+            <div className="flex items-center gap-2 border-t border-line-soft px-2.5 py-2">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[11.5px] text-ink-2">{image.originalFileName}</p>
+                <p className="mt-0.5 text-[10.5px] text-ink-3">촬영 {formatCapturedAt(image.capturedAt)}</p>
+              </div>
+              <button
+                type="button"
+                disabled={downloading}
+                className="shrink-0 text-[11px] font-medium text-teal-text disabled:opacity-50"
+                onClick={() => void download()}
+              >
+                {downloading ? '받는 중…' : '다운로드'}
+              </button>
+            </div>
+          )}
         </div>
       )}
+
       <input
         ref={inputRef}
         type="file"
@@ -176,52 +241,97 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
       <button
         type="button"
         className={`${CHIP_BTN} h-9 w-full text-[12.5px]`}
-        disabled={pending}
+        disabled={preparing}
         onClick={() => inputRef.current?.click()}
       >
-        {preparing ? '사진 처리 중…' : mutation.isPending ? '업로드 중…' : '현장 이미지 등록·교체'}
+        {preparing ? '사진을 처리 중입니다. 잠시만 기다려 주세요.' : image === null ? '사진 등록' : '사진 교체'}
       </button>
-      <p className="mt-1.5 text-[10.5px] leading-relaxed text-ink-3">
-        JPG·PNG·WebP·HEIC를 최대 800px WebP로 변환해 등록합니다.
-      </p>
 
-      {missingCaptureTime !== null && (
-        <ConfirmDialog
-          message="사진 촬영정보가 없습니다."
-          detail={(
-            <div className="text-left">
-              <p className="mb-2 text-center">현재 시간을 촬영시각으로 사용합니다. 필요하면 직접 수정해 주세요.</p>
-              <label className="block text-[11.5px] text-ink-2">
-                촬영 날짜와 시간
-                <input
-                  type="datetime-local"
-                  step="1"
-                  value={missingCaptureTime.localDateTime}
-                  disabled={pending}
-                  className="mt-1 h-9 w-full rounded-chip border border-line bg-field px-2.5 text-[12.5px] text-ink outline-none focus:border-teal"
-                  onChange={(event) => setMissingCaptureTime({ ...missingCaptureTime, localDateTime: event.target.value })}
-                />
-              </label>
-            </div>
+      {draft !== null && (
+        <Modal
+          title="기준점 사진 등록"
+          busy={saving}
+          onClose={() => setDraft(null)}
+          onSubmit={() => void confirm()}
+          footer={(
+            <FormActions
+              submitType="submit"
+              submitLabel="등록"
+              busyLabel="등록 중…"
+              busy={saving}
+              submitDisabled={draft.capturedAt === null && draft.localDateTime === ''}
+              onCancel={() => setDraft(null)}
+            />
           )}
-          error={dialogError ?? undefined}
-          confirmLabel="이 시간으로 등록"
-          cancelLabel="취소"
-          busy={pending}
-          busyLabel="사진 처리 중…"
-          confirmDisabled={missingCaptureTime.localDateTime === ''}
-          onConfirm={() => void confirmMissingCaptureTime()}
-          onCancel={() => setMissingCaptureTime(null)}
-        />
+        >
+          {draftUrl !== null && (
+            <img
+              src={draftUrl}
+              alt="고른 사진"
+              className="h-[168px] w-full rounded-chip border border-line-soft bg-field object-contain"
+            />
+          )}
+
+          {/* 사진만으로는 정상인지 망실인지 가릴 수 없다. 올리는 사람이 그 자리에서 고른다.
+              상세 카드에서 쓰는 그 드롭다운이고, 미조사는 빼 둔다 — 현장에 다녀와 '안 봤다'를 고를 수는 없다 */}
+          <ModalField label="상태" required>
+            <SurveyResultPicker
+              result={draft.result}
+              disabled={saving}
+              allowNone={false}
+              onSelect={(choice) => {
+                if (choice === 'NONE') return
+                setDraft({ ...draft, result: choice })
+              }}
+            />
+          </ModalField>
+
+          {draft.result === 'ETC' && (
+            <ModalField label="비고">
+              <textarea
+                value={draft.note}
+                disabled={saving}
+                placeholder="현장 상태·참고 사항"
+                className={`${FIELD_AREA} h-16`}
+                onChange={(event) => setDraft({ ...draft, note: event.target.value })}
+              />
+            </ModalField>
+          )}
+
+          <ModalField label="촬영 일시" required>
+            {draft.capturedAt === null ? (
+              <input
+                type="datetime-local"
+                step="1"
+                required
+                value={draft.localDateTime}
+                disabled={saving}
+                className={FIELD}
+                onChange={(event) => setDraft({ ...draft, localDateTime: event.target.value })}
+              />
+            ) : (
+              <span className="block text-[12.5px] text-ink">{formatCapturedAt(draft.capturedAt)}</span>
+            )}
+          </ModalField>
+        </Modal>
       )}
     </div>
+  )
+}
+
+function ReloadIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+      <path d="M21 3v6h-6" />
+    </svg>
   )
 }
 
 function messageOf(error: unknown): string {
   if (error instanceof ApiError) return error.message
   if (error instanceof Error) return error.message
-  return '이미지를 처리하지 못했습니다.'
+  return '사진을 처리하지 못했습니다. 다른 사진으로 다시 시도해 주세요.'
 }
 
 function formatCapturedAt(value: string): string {
@@ -230,26 +340,4 @@ function formatCapturedAt(value: string): string {
   return new Intl.DateTimeFormat('ko-KR', {
     year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
   }).format(date)
-}
-
-function displayImageName(capturedAt: string, pointName: string): string {
-  const date = new Date(capturedAt)
-  if (Number.isNaN(date.getTime())) return sanitizePointName(pointName)
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
-  }).formatToParts(date)
-  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? ''
-  return `${part('year')}_${part('month')}_${part('day')}_${sanitizePointName(pointName)}`
-}
-
-/** 백엔드 저장 파일명의 기준점명 정리 규칙과 화면 표기를 맞춘다. */
-function sanitizePointName(value: string): string {
-  const sanitized = value
-    .trim()
-    .normalize('NFC')
-    .replace(/[\\/:*?"<>|\p{Cc}]/gu, '_')
-    .replace(/\s+/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^[._\s]+|[._\s]+$/g, '')
-  return Array.from(sanitized).slice(0, 50).join('')
 }

@@ -1,4 +1,5 @@
 import { ApiError, http } from '@/shared/api/http'
+import type { SurveyResult } from '@/entities/survey-record'
 
 export interface ControlPointImage {
   id: number
@@ -19,6 +20,10 @@ export interface UploadControlPointImageArgs {
   pointId: string
   image: File
   capturedAt: string
+  /** 그 자리에서 내린 판정 — 서버가 사진과 한 트랜잭션으로 조사기록에 남긴다 */
+  result: SurveyResult
+  /** 기타를 골랐을 때의 사유. 다른 갈래에서는 비운다 */
+  note: string | null
 }
 
 export async function fetchControlPointImage(projectId: string, pointId: string): Promise<ControlPointImage | null> {
@@ -49,7 +54,8 @@ export async function downloadControlPointImage(image: ControlPointImage): Promi
   document.body.append(anchor)
   anchor.click()
   anchor.remove()
-  URL.revokeObjectURL(url)
+  // 같은 틱에서 해제하면 브라우저가 저장을 시작하기 전에 주소가 사라져 다운로드가 취소되는 경우가 있다
+  setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
 function downloadFileName(contentDisposition: string | undefined, fallback: string): string {
@@ -69,10 +75,19 @@ function downloadFileName(contentDisposition: string | undefined, fallback: stri
     .normalize('NFC')
 }
 
+/**
+ * 사진과 판정을 한 요청으로 보낸다.
+ *
+ * <p>둘을 따로 보내면 한쪽만 성공하는 상태가 생기고, 그때 사용자에게 남는 안내는
+ * "사진은 올라갔으니 판정만 다시 하세요" 뿐인데 화면으로는 어디까지 됐는지 알 수 없다.
+ * 서버가 한 트랜잭션으로 받으므로 되든 안 되든 통째로 된다.
+ */
 export async function uploadControlPointImage(args: UploadControlPointImageArgs): Promise<ControlPointImage> {
   const form = new FormData()
   form.append('image', args.image)
   form.append('capturedAt', args.capturedAt)
+  form.append('result', args.result)
+  if (args.note !== null) form.append('note', args.note)
   const response = await http.put<ControlPointImage>(
     `/api/survey-projects/${args.projectId}/control-points/${args.pointId}/image`,
     form,
