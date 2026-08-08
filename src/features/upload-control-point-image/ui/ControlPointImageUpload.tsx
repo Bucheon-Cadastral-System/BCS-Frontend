@@ -18,6 +18,7 @@ import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 interface ControlPointImageUploadProps {
   projectId: string
   pointId: string
+  pointName: string
   onSuccess: () => void
   onError: (message: string) => void
 }
@@ -130,7 +131,9 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
           )}
           <div className="flex items-center gap-2 border-t border-line-soft px-2.5 py-2">
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[11.5px] text-ink-2">{imageQuery.data.originalFileName}</p>
+              <p className="truncate text-[11.5px] text-ink-2">
+                {displayImageName(imageQuery.data.capturedAt, props.pointName)}
+              </p>
               <p className="mt-0.5 text-[10.5px] text-ink-3">
                 촬영 {formatCapturedAt(imageQuery.data.capturedAt)} · {imageQuery.data.width}×{imageQuery.data.height}
               </p>
@@ -210,4 +213,26 @@ function formatCapturedAt(value: string): string {
   return new Intl.DateTimeFormat('ko-KR', {
     year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
   }).format(date)
+}
+
+function displayImageName(capturedAt: string, pointName: string): string {
+  const date = new Date(capturedAt)
+  if (Number.isNaN(date.getTime())) return sanitizePointName(pointName)
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(date)
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? ''
+  return `${part('year')}_${part('month')}_${part('day')}_${sanitizePointName(pointName)}`
+}
+
+/** 백엔드 저장 파일명의 기준점명 정리 규칙과 화면 표기를 맞춘다. */
+function sanitizePointName(value: string): string {
+  const sanitized = value
+    .trim()
+    .normalize('NFC')
+    .replace(/[\\/:*?"<>|\p{Cc}]/gu, '_')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^[._\s]+|[._\s]+$/g, '')
+  return Array.from(sanitized).slice(0, 50).join('')
 }

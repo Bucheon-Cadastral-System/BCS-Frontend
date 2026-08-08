@@ -197,6 +197,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
             <ControlPointImageUpload
               projectId={props.activeProjectId}
               pointId={p.id}
+              pointName={p.name}
               onSuccess={props.onImageSuccess}
               onError={props.onImageError}
             />
