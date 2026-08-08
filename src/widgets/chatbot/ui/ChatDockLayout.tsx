@@ -168,6 +168,7 @@ export function ChatDockLayout({
     <ChatPanel
       messages={messages}
       pending={pending}
+      clearing={clearing}
       expanded={mode === 'right'}
       onSend={send}
       onNewChat={newChat}

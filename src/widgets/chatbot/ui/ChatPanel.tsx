@@ -24,6 +24,8 @@ function AssistantAvatar() {
 interface ChatPanelProps {
   messages: ChatMessage[]
   pending: boolean
+  /** 서버 기록을 비우는 중 — 그 사이 보낸 말은 지워질 대화에 붙으므로 전송 자체를 막는다 */
+  clearing?: boolean
   expanded: boolean
   onSend: (text: string) => void
   onNewChat: () => void
@@ -38,6 +40,8 @@ interface ChatPanelProps {
  * 배치/상태는 ChatDockLayout이 소유한다.
  */
 export function ChatPanel(props: ChatPanelProps) {
+  // 답을 기다리는 것과 비우는 것은 이유가 다르지만 화면이 할 일은 같다 — 입력을 받지 않는다
+  const busy = props.pending || props.clearing === true
   const [input, setInput] = useState('')
   const composingRef = useRef(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -60,7 +64,8 @@ export function ChatPanel(props: ChatPanelProps) {
 
   function send() {
     const text = input.trim()
-    if (!text || props.pending) return
+    // 막을 때 입력을 비우지 않는다 — 비우면 보내지지도 않은 말이 사라져 되찾을 수 없다
+    if (!text || busy) return
     props.onSend(text)
     setInput('')
   }
@@ -78,7 +83,7 @@ export function ChatPanel(props: ChatPanelProps) {
         </div>
 
         {/* 대화 시작 전에만 자주 쓰는 질의 빠른실행 버튼 노출 */}
-        {props.messages.length === 0 && <QuickActions onQuery={props.onSend} disabled={props.pending} />}
+        {props.messages.length === 0 && <QuickActions onQuery={props.onSend} disabled={busy} />}
 
         {props.messages.map((m, i) => (
           <div key={i} className="chat-msg-in space-y-2">
@@ -95,7 +100,7 @@ export function ChatPanel(props: ChatPanelProps) {
               </div>
             </div>
             {/* 어시스턴트 답변 아래마다 빠른 질의 버튼 노출 */}
-            {m.role === 'assistant' && <QuickActions onQuery={props.onSend} disabled={props.pending} />}
+            {m.role === 'assistant' && <QuickActions onQuery={props.onSend} disabled={busy} />}
           </div>
         ))}
 
@@ -122,6 +127,7 @@ export function ChatPanel(props: ChatPanelProps) {
           type="button"
           // 비어 있으면 지울 것이 없으므로 묻지 않는다
           onClick={() => (props.messages.length === 0 ? props.onNewChat() : setConfirmNew(true))}
+          disabled={props.clearing === true}
           aria-label="새 대화"
           title="새 대화 (대화 기록 비우기)"
           className={ICON_BTN}
@@ -154,7 +160,7 @@ export function ChatPanel(props: ChatPanelProps) {
         <button
           type="button"
           onClick={send}
-          disabled={!input.trim() || props.pending}
+          disabled={!input.trim() || busy}
           aria-label="전송"
           className="flex size-10 shrink-0 items-center justify-center rounded-ctl border-[1.5px] border-teal-btn-edge bg-teal-wash text-teal-text transition-colors hover:border-teal-text hover:bg-teal-wash-strong disabled:opacity-40"
         >

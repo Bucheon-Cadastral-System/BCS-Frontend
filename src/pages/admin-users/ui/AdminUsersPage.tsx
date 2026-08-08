@@ -187,10 +187,14 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
   const counts = countsQuery.data ?? { ALL: 0, PENDING: 0, ACTIVE: 0, INACTIVE: 0 }
 
   // 걸러 보기 등으로 총 페이지가 줄어 지금 페이지가 그 밖에 나면 마지막 페이지로 되돌린다.
-  // 결과가 아예 없으면 총 페이지가 0이라 첫 페이지로 돌아온다
+  // 결과가 아예 없으면 총 페이지가 0이라 첫 페이지로 돌아온다.
+  //
+  // 목록이 도착한 뒤에만 본다. 아직 받아 두지 않은 페이지로 넘어가는 순간에는 응답이 없어 총 페이지가 0인데,
+  // 그것을 '범위를 벗어났다'로 읽으면 고른 페이지가 곧바로 첫 페이지로 튕긴다 — 캐시에 없는 페이지로는 아예 갈 수 없게 된다
   useEffect(() => {
+    if (membersQuery.data === undefined) return
     if (page >= totalPages) setPage(Math.max(0, totalPages - 1))
-  }, [totalPages, page])
+  }, [membersQuery.data, totalPages, page])
 
   // 활동 로그 페이지가 도착할 때마다 화면용 목록에 반영한다.
   // 커서가 없는 1페이지는 최신 값으로 통째로 갈아 끼우고(방금 생긴 활동을 곧바로 보여준다), 그 다음 페이지는 뒤에 잇는다.
@@ -656,8 +660,20 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
               </div>
             ))}
 
+            {/* 이어 불러오기가 실패하면 '더 보기' 버튼이 사라진다(다음 커서를 응답에서 읽으므로).
+                알리기만 하면 같은 커서를 다시 시도할 길이 없어져 목록이 그 자리에서 멈춘다 */}
             {activitiesErrorMessage && activities.length > 0 && (
-              <p className="mx-[22px] mt-3 rounded-pop border border-danger-btn-edge bg-danger-wash px-4 py-2.5 text-center text-[12.5px] text-danger">{activitiesErrorMessage}</p>
+              <div className="mx-[22px] mt-3 rounded-pop border border-danger-btn-edge bg-danger-wash px-4 py-2.5 text-center">
+                <p className="text-[12.5px] text-danger">{activitiesErrorMessage}</p>
+                <button
+                  type="button"
+                  disabled={activitiesQuery.isFetching}
+                  className={`${BTN_SM_SECONDARY} mt-2.5`}
+                  onClick={() => void activitiesQuery.refetch()}
+                >
+                  {activitiesQuery.isFetching ? '불러오는 중…' : '다시 시도'}
+                </button>
+              </div>
             )}
             {activitiesQuery.data?.nextCursor && (
               <div className="px-[22px] py-4">

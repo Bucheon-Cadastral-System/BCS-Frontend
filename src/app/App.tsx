@@ -141,15 +141,21 @@ function AppRoutes() {
    * 화면마다 열쇠에 계정을 섞는 대신 경계에서 한 번 비운다.
    */
   const accountRef = useRef<string | null | undefined>(undefined) // undefined = 아직 로그인 상태를 모른다
-  useEffect(() => {
-    if (auth.loading) return
+  /*
+   * 효과가 아니라 렌더 중에 비운다. 효과는 아래 화면들이 이미 그려진 뒤에 돌아서, 그 첫 그림이
+   * 앞 계정의 캐시를 읽는다(회원 목록·대화 이력 열쇠에 계정이 섞여 있지 않다).
+   * 여기서 비우면 계정이 바뀐 렌더가 시작되는 시점에 캐시가 이미 비어 있다.
+   * 같은 계정으로 다시 그릴 때는 아무 일도 하지 않으므로 한 렌더를 두 번 돌려도 안전하다.
+   */
+  if (!auth.loading) {
     const accountId = auth.profile?.id ?? null
     const previous = accountRef.current
+    if (previous !== undefined && previous !== accountId) {
+      queryClient.clear()
+      clearChatStorage()
+    }
     accountRef.current = accountId
-    if (previous === undefined || previous === accountId) return
-    queryClient.clear()
-    clearChatStorage()
-  }, [auth.loading, auth.profile, queryClient])
+  }
 
   const reloadProfile = useCallback(async () => {
     try {
