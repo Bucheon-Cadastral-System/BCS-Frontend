@@ -34,6 +34,8 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
   const imageQuery = useControlPointImageQuery(props.projectId, props.pointId)
   const [preparing, setPreparing] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewStatus, setPreviewStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [previewRetryCount, setPreviewRetryCount] = useState(0)
   const [downloading, setDownloading] = useState(false)
   const [missingCaptureTime, setMissingCaptureTime] = useState<MissingCaptureTime | null>(null)
   const [dialogError, setDialogError] = useState<string | null>(null)
@@ -43,24 +45,31 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
     const image = imageQuery.data
     if (image === null || image === undefined) {
       setPreviewUrl(null)
+      setPreviewStatus('idle')
       return
     }
     let active = true
     let objectUrl: string | null = null
+    setPreviewUrl(null)
+    setPreviewStatus('loading')
     void fetchControlPointImageFile(image.id)
       .then((blob) => {
         if (!active) return
         objectUrl = URL.createObjectURL(blob)
         setPreviewUrl(objectUrl)
+        setPreviewStatus('idle')
       })
       .catch(() => {
-        if (active) setPreviewUrl(null)
+        if (active) {
+          setPreviewUrl(null)
+          setPreviewStatus('error')
+        }
       })
     return () => {
       active = false
       if (objectUrl !== null) URL.revokeObjectURL(objectUrl)
     }
-  }, [imageQuery.data])
+  }, [imageQuery.data, previewRetryCount])
 
   async function select(file: File | undefined) {
     if (file === undefined) return
@@ -124,7 +133,15 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
       )}
       {imageQuery.data !== null && imageQuery.data !== undefined && (
         <div className="mb-2.5 overflow-hidden rounded-chip border border-line-soft bg-field">
-          {previewUrl === null ? (
+          {previewStatus === 'error' ? (
+            <button
+              type="button"
+              className="flex h-[132px] w-full items-center justify-center text-[11px] text-danger"
+              onClick={() => setPreviewRetryCount((count) => count + 1)}
+            >
+              미리보기를 불러오지 못했습니다. 다시 시도
+            </button>
+          ) : previewUrl === null ? (
             <div className="flex h-[132px] items-center justify-center text-[11px] text-ink-3">미리보기 불러오는 중…</div>
           ) : (
             <img src={previewUrl} alt="등록된 기준점 현장" className="h-[132px] w-full object-cover" />
