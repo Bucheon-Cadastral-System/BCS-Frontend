@@ -204,7 +204,9 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
               </button>
             </div>
           ) : previewUrl === null ? (
-            <div className={`${PREVIEW_BOX} text-[11px] text-ink-3`}>사진 불러오는 중…</div>
+            <div className={`${PREVIEW_BOX} break-keep px-4 text-center text-[11px] leading-[1.6] text-ink-3`}>
+              사진을 불러오는 중입니다. 잠시만 기다려 주세요.
+            </div>
           ) : (
             <img src={previewUrl} alt="등록한 사진" className="h-[132px] w-full object-cover" />
           )}
@@ -240,7 +242,7 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
         disabled={preparing}
         onClick={() => inputRef.current?.click()}
       >
-        {preparing ? '사진 처리 중…' : image === null ? '사진 등록' : '사진 교체'}
+        {preparing ? '사진을 처리 중입니다. 잠시만 기다려 주세요.' : image === null ? '사진 등록' : '사진 교체'}
       </button>
 
       {draft !== null && (
