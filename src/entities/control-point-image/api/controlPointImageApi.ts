@@ -54,7 +54,8 @@ export async function downloadControlPointImage(image: ControlPointImage): Promi
   document.body.append(anchor)
   anchor.click()
   anchor.remove()
-  URL.revokeObjectURL(url)
+  // 같은 틱에서 해제하면 브라우저가 저장을 시작하기 전에 주소가 사라져 다운로드가 취소되는 경우가 있다
+  setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
 function downloadFileName(contentDisposition: string | undefined, fallback: string): string {

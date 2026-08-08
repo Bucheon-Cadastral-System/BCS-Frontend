@@ -141,40 +141,44 @@ function AppRoutes() {
    * 화면마다 열쇠에 계정을 섞는 대신 경계에서 한 번 비운다.
    */
   const accountRef = useRef<string | null | undefined>(undefined) // undefined = 아직 로그인 상태를 모른다
+
   /*
-   * 효과가 아니라 렌더 중에 비운다. 효과는 아래 화면들이 이미 그려진 뒤에 돌아서, 그 첫 그림이
-   * 앞 계정의 캐시를 읽는다(회원 목록·대화 이력 열쇠에 계정이 섞여 있지 않다).
-   * 여기서 비우면 계정이 바뀐 렌더가 시작되는 시점에 캐시가 이미 비어 있다.
-   * 같은 계정으로 다시 그릴 때는 아무 일도 하지 않으므로 한 렌더를 두 번 돌려도 안전하다.
+   * 로그인 상태가 바뀌는 자리는 여기 하나뿐이고, 비우기는 setAuth 보다 먼저 일어난다.
+   *
+   * 렌더 중에 비우면 안 된다 — React 가 그 렌더를 버릴 수 있고, 그때 accountRef 만 새 계정으로 남으면
+   * 다음 렌더에서 조건이 거짓이 되어 앞 계정의 캐시가 그대로 살아난다.
+   * 그렇다고 효과로 미루면 아래 화면들이 이미 한 번 그려진 뒤에 돌아서 그 첫 그림이 앞 계정의 값을 읽는다
+   * (회원 목록·대화 이력 열쇠에 계정이 섞여 있지 않다).
+   * 상태를 바꾸기 직전에 비우면 둘 다 피한다. 비우기는 동기라 setAuth 가 부르는 렌더는 이미 빈 캐시를 본다.
    */
-  if (!auth.loading) {
-    const accountId = auth.profile?.id ?? null
-    const previous = accountRef.current
-    if (previous !== undefined && previous !== accountId) {
+  const applyAuth = useCallback((profile: UserProfile | null) => {
+    const accountId = profile?.id ?? null
+    if (accountRef.current !== undefined && accountRef.current !== accountId) {
       queryClient.clear()
       clearChatStorage()
     }
     accountRef.current = accountId
-  }
+    setAuth({ loading: false, profile })
+  }, [queryClient])
 
   const reloadProfile = useCallback(async () => {
     try {
       const profile = await getMyProfile()
-      setAuth({ loading: false, profile })
+      applyAuth(profile)
       return profile
     } catch {
-      setAuth({ loading: false, profile: null })
+      applyAuth(null)
       return null
     }
-  }, [])
+  }, [applyAuth])
 
   useEffect(() => {
-    refreshAccessToken().then((token) => token ? reloadProfile() : (setAuth({ loading: false, profile: null }), null))
-  }, [reloadProfile])
+    refreshAccessToken().then((token) => token ? reloadProfile() : (applyAuth(null), null))
+  }, [applyAuth, reloadProfile])
 
   useEffect(() => subscribeAuthenticationLost(() => {
-    setAuth({ loading: false, profile: null })
-  }), [])
+    applyAuth(null)
+  }), [applyAuth])
 
   // 울타리는 라우터 안쪽·화면 바깥쪽에 둔다. 바깥에 두면 화면이 죽었을 때 주소를 옮길 길까지 함께 사라지고,
   // 로그인 상태는 이 위에 있어 화면을 옮겨도 다시 받아오지 않는다.

@@ -4,6 +4,16 @@ const MAX_DIMENSION = 800
 const WEBP_QUALITY = 0.85
 const SUPPORTED_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'])
 
+/**
+ * 시간대가 적히지 않은 촬영 시각은 한국 시각으로 읽는다 — `shared/lib/date.ts` 와 같은 규칙이다.
+ *
+ * <p>보는 사람의 시간대로 읽으면 안 된다. 여기서 만든 값이 곧 조사기록의 조사 시각이 되고,
+ * 최종조사는 그 값을 날짜로 견주므로 아홉 시간이 밀리면 회차 차례가 뒤집힌다. 부천시 현장을 찍은
+ * 사진의 벽시계는 노트북 설정이 무엇이든 한국 시각이다.
+ */
+const KST_OFFSET = '+09:00'
+const KST_ZONE = 'Asia/Seoul'
+
 /** 사용자에게 보이는 형식 목록 — 확장자 여섯 가지를 네 이름으로 묶는다(jpeg·heif 는 같은 것의 다른 표기다). */
 export const SUPPORTED_LABEL = 'JPG · PNG · WebP · HEIC'
 
@@ -76,18 +86,21 @@ export async function prepareControlPointImage(file: File, capturedAt: string): 
   }
 }
 
-/** datetime-local 입력값을 서버가 받는 OffsetDateTime 문자열로 바꾼다. */
+/** 사용자가 적은 촬영 일시를 서버가 받는 OffsetDateTime 문자열로 바꾼다 — 적힌 벽시계는 한국 시각이다. */
 export function localDateTimeToOffset(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) throw new Error('촬영 날짜와 시간을 확인해 주세요.')
-  return `${value.length === 16 ? `${value}:00` : value}${localOffset(date)}`
+  if (Number.isNaN(new Date(value).getTime())) throw new Error('촬영 일시를 확인해 주세요.')
+  return `${value.length === 16 ? `${value}:00` : value}${KST_OFFSET}`
 }
 
+/** 촬영 일시 입력칸의 처음 값 — 브라우저 시간대가 무엇이든 한국 시각을 적는다. */
 export function currentLocalDateTime(): string {
-  const now = new Date()
-  const pad = (value: number) => String(value).padStart(2, '0')
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
-    + `T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: KST_ZONE, hourCycle: 'h23',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(new Date())
+  const at = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? '00'
+  return `${at('year')}-${at('month')}-${at('day')}T${at('hour')}:${at('minute')}:${at('second')}`
 }
 
 async function decodeHeic(file: File): Promise<Blob> {
@@ -113,16 +126,15 @@ function isHeic(file: File): boolean {
   return /image\/hei[cf]/i.test(file.type) || /\.(heic|heif)$/i.test(file.name)
 }
 
+/**
+ * EXIF 의 촬영 시각을 OffsetDateTime 문자열로.
+ *
+ * <p>EXIF 의 `DateTimeOriginal` 은 시간대가 없는 벽시계라 exifr 이 그 숫자를 그대로 담아 준다.
+ * 카메라가 `OffsetTimeOriginal` 을 함께 적어 뒀으면 그 시간대를 쓰고, 없으면 한국 시각으로 읽는다.
+ */
 function formatOffsetDateTime(date: Date, explicitOffset?: string): string {
-  const offset = explicitOffset?.match(/^[+-]\d{2}:\d{2}$/)?.[0] ?? localOffset(date)
+  const offset = explicitOffset?.match(/^[+-]\d{2}:\d{2}$/)?.[0] ?? KST_OFFSET
   const pad = (value: number) => String(value).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
     + `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}${offset}`
-}
-
-function localOffset(date: Date): string {
-  const minutes = -date.getTimezoneOffset()
-  const sign = minutes >= 0 ? '+' : '-'
-  const absolute = Math.abs(minutes)
-  return `${sign}${String(Math.floor(absolute / 60)).padStart(2, '0')}:${String(absolute % 60).padStart(2, '0')}`
 }

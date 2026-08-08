@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import {
   downloadControlPointImage,
   fetchControlPointImageFile,
@@ -91,9 +91,9 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
     }
   }, [image, reloadKey])
 
-  // 알림은 카드 밖으로 내보내므로 부모가 바뀌어도 같은 실패로 두 번 뜨지 않게 최신 함수만 들고 있는다
-  const notify = useRef(props.onError)
-  notify.current = props.onError
+  // 알림은 카드 밖으로 내보낸다. 늘 최신 onError 를 부르되 그 함수가 바뀌었다는 이유만으로 효과가
+  // 다시 돌지는 않아야 한다 — 부모가 다시 그려질 때마다 같은 실패가 또 뜬다
+  const notify = useEffectEvent((message: string) => props.onError(message))
   const notified = useRef(false)
   useEffect(() => {
     if (!loadFailed) {
@@ -102,7 +102,7 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
     }
     if (notified.current) return
     notified.current = true
-    notify.current('기준점 사진을 불러오지 못했습니다.')
+    notify('기준점 사진을 불러오지 못했습니다.')
   }, [loadFailed])
 
   // 고른 사진의 미리보기 — 서버에 올리기 전이라 브라우저가 들고 있는 것을 그대로 그린다.
