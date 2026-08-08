@@ -1,4 +1,4 @@
-import { http } from '@/shared/api/http'
+import { ApiError, http } from '@/shared/api/http'
 
 export interface ControlPointImage {
   id: number
@@ -21,16 +21,16 @@ export interface UploadControlPointImageArgs {
   capturedAt: string
 }
 
-interface PageResponse<T> {
-  content: T[]
-}
-
 export async function fetchControlPointImage(projectId: string, pointId: string): Promise<ControlPointImage | null> {
-  const response = await http.get<PageResponse<ControlPointImage>>(
-    `/api/control-points/${pointId}/images`,
-    { params: { page: 0, size: 100 } },
-  )
-  return response.data.content.find((image) => String(image.projectId) === projectId) ?? null
+  try {
+    const response = await http.get<ControlPointImage>(
+      `/api/survey-projects/${projectId}/control-points/${pointId}/image`,
+    )
+    return response.data
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null
+    throw error
+  }
 }
 
 export async function fetchControlPointImageFile(imageId: number): Promise<Blob> {
