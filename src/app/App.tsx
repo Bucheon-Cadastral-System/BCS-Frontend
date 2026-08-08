@@ -36,14 +36,31 @@ function AuthErrorPage({ message, onBack }: { message: string; onBack: () => voi
   )
 }
 
+/**
+ * 로그인이 끊긴 사유 — 서버가 `/login?error=...` 로 되돌려보낼 때 싣는 코드다.
+ *
+ * <p>사유를 안 보이면 사용자는 버튼만 다시 누른다. 다시 눌러서 될 일인지 아닌지가 갈리므로
+ * 그 갈래를 문구로 말해 준다. 모르는 코드는 코드 자체를 보여 주지 않는다 — 사람에게 뜻이 없다.
+ */
+const LOGIN_FAILURE: Record<string, string> = {
+  oauth2_user_info_invalid: '카카오에서 받은 계정 정보가 올바르지 않습니다. 카카오 계정의 이메일 제공 동의를 확인한 뒤 다시 시도해 주세요.',
+  oauth2_provider_unsupported: '지원하지 않는 로그인 방식입니다. 카카오로 로그인해 주세요.',
+  oauth2_principal_invalid: '로그인 정보를 확인하지 못했습니다. 다시 시도해 주세요.',
+  oauth2_authentication_failed: '로그인을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+}
+
 function LoginRoute() {
   const location = useLocation()
   const navigate = useNavigate()
-  const isInactive = new URLSearchParams(location.search).get('error') === 'inactive'
+  const error = new URLSearchParams(location.search).get('error')
 
-  return isInactive
-    ? <InactivePage onBackToLogin={() => navigate('/login', { replace: true })} />
-    : <LoginPage onKakaoLogin={startKakaoLogin} />
+  if (error === 'inactive') return <InactivePage onBackToLogin={() => navigate('/login', { replace: true })} />
+  return (
+    <LoginPage
+      onKakaoLogin={startKakaoLogin}
+      failure={error === null ? null : (LOGIN_FAILURE[error] ?? '로그인을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.')}
+    />
+  )
 }
 
 function Protected({ auth, admin = false, children }: { auth: AuthState; admin?: boolean; children: ReactNode }) {

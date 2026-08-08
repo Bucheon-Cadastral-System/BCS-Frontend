@@ -3,10 +3,11 @@ import { MODAL_SHELL } from '@/shared/ui/classes'
 
 interface LoginPageProps {
   onKakaoLogin: () => void
-  errorMessage?: string | null
+  /** 앞선 로그인 시도가 왜 끊겼는지 — 처음 들어온 화면이면 null */
+  failure?: string | null
 }
 
-export function LoginPage({ onKakaoLogin, errorMessage }: LoginPageProps) {
+export function LoginPage({ onKakaoLogin, failure = null }: LoginPageProps) {
   return (
     <main className="app-bg flex h-full flex-col overflow-y-auto px-5 py-12 text-ink">
       <section
@@ -25,13 +26,13 @@ export function LoginPage({ onKakaoLogin, errorMessage }: LoginPageProps) {
           </p>
         </div>
 
-        {errorMessage && (
-          <p role="alert" className="mt-6 rounded-ctl border border-danger/20 bg-danger/10 px-4 py-3 text-[12px] leading-5 text-danger">
-            {errorMessage}
+        {failure !== null && (
+          <p role="alert" className="mt-8 rounded-pop border border-danger-btn-edge bg-danger-wash px-4 py-3 text-[12.5px] leading-[1.6] text-danger">
+            {failure}
           </p>
         )}
 
-        <div className={`${errorMessage ? 'mt-4' : 'mt-8'} grid gap-3`}>
+        <div className="mt-8 grid gap-3">
           <button type="button" className="relative h-[46px] w-full rounded-ctl bg-[#fee500] text-[13px] font-semibold text-black/85 transition-colors hover:bg-[#ffec4a]" onClick={onKakaoLogin}>
             <span className="absolute top-1/2 left-5 size-6 -translate-y-1/2" aria-hidden="true">
               <svg className="size-full fill-[#191919]" viewBox="0 0 24 24" role="img">
