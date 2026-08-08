@@ -32,6 +32,8 @@ export interface ControlPoint {
   northing: number
   easting: number
   tmEpsg: TmEpsg
+  /** 설치일자 — 파일이 적어 오지 않으면 null */
+  installedDate: string | null
   /**
    * 판 번호 — 수정 요청이 그대로 돌려보내 그사이 다른 사람이 먼저 고쳤는지 서버가 가린다.
    * 수정 창을 열어 둔 시간은 두 요청 사이라 서버 잠금으로는 덮을 수 없다.

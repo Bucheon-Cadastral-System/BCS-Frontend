@@ -45,6 +45,7 @@ interface ServerControlPoint {
   easting: number
   longitude: number
   latitude: number
+  installedDate: string | null
   version: number
 }
 
@@ -60,6 +61,7 @@ function toControlPoint(server: ServerControlPoint): ControlPoint {
     northing: server.northing,
     easting: server.easting,
     tmEpsg: EPSG_FROM_CRS[server.crs],
+    installedDate: server.installedDate,
     version: server.version,
   }
 }
