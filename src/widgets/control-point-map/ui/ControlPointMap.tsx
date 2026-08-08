@@ -15,7 +15,7 @@ import Point from 'ol/geom/Point'
 import { fromLonLat, toLonLat } from 'ol/proj'
 import { defaults as defaultControls } from 'ol/control/defaults'
 import type { FeatureLike } from 'ol/Feature'
-import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style'
+import { Circle as CircleStyle, Fill, RegularShape, Stroke, Style } from 'ol/style'
 import type { FlatStyleLike } from 'ol/style/flat'
 import { VWORLD_KEY, DEFAULT_CENTER, DEFAULT_ZOOM, MIN_ZOOM } from '@/shared/config/map'
 import { MARKER_ATLAS_CELL, controlPointLabelStyle, controlPointStyle, markerAtlasUrl, markerSymbolIndex } from '@/entities/control-point'
@@ -170,16 +170,30 @@ export function ControlPointMap(props: ControlPointMapProps) {
     const locationSource = new VectorSource()
     const locationFeature = new Feature()
     locationSource.addFeature(locationFeature)
+    const locationDotStyle = new Style({
+      image: new CircleStyle({
+        radius: 8,
+        fill: new Fill({ color: '#1688ff' }),
+        stroke: new Stroke({ color: '#ffffff', width: 3 }),
+      }),
+      zIndex: 101,
+    })
+    const locationDirection = new RegularShape({
+      points: 3,
+      radius: 15,
+      angle: 0,
+      fill: new Fill({ color: 'rgba(22, 136, 255, 0.72)' }),
+      stroke: new Stroke({ color: '#ffffff', width: 1.5 }),
+    })
+    const locationDirectionStyle = new Style({ image: locationDirection, zIndex: 100 })
     const locationLayer = new VectorLayer({
       source: locationSource,
-      style: new Style({
-        image: new CircleStyle({
-          radius: 8,
-          fill: new Fill({ color: '#1688ff' }),
-          stroke: new Stroke({ color: '#ffffff', width: 3 }),
-        }),
-        zIndex: 100,
-      }),
+      style: (feature) => {
+        const heading = feature.get('heading') as number | undefined
+        if (heading === undefined) return locationDotStyle
+        locationDirection.setRotation(heading * Math.PI / 180)
+        return [locationDirectionStyle, locationDotStyle]
+      },
     })
 
     // 점은 겹치더라도 하나씩 그대로 그린다. 이름은 가까이서 볼 때만 붙인다.
@@ -232,6 +246,8 @@ export function ControlPointMap(props: ControlPointMapProps) {
       ({ coords }) => {
         const coordinate = fromLonLat([coords.longitude, coords.latitude])
         locationFeature.setGeometry(new Point(coordinate))
+        const heading = coords.heading
+        locationFeature.set('heading', heading !== null && Number.isFinite(heading) ? heading : undefined)
         locationErrorShown = false
         if (!centeredOnLocation) {
           centeredOnLocation = true
