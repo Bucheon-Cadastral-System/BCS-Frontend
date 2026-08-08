@@ -7,10 +7,17 @@ import type { ControlPoint } from '@/entities/control-point'
 import { PointTypeIcon, useLastSurveyQuery } from '@/entities/control-point'
 import { SURVEY_STATUS_LABEL, SURVEY_STATUS_TONE, SurveyResultPicker, deriveSurveyStatus } from '@/entities/survey-record'
 import type { SurveyResult } from '@/entities/survey-record'
+import { ControlPointImageUpload } from '@/features/upload-control-point-image'
 
 interface ControlPointDetailProps {
   point: ControlPoint | null
   activeProjectName: string | null
+  /** 사진은 회차에 매달리므로 어느 회차인지 알아야 한다. 조사 대상이 아니면 null */
+  activeProjectId: string | null
+  /** 사진 등록에 성공했다. 알림은 화면 전체를 아는 쪽이 띄운다 */
+  onImageUploaded: () => void
+  /** 사진 쪽에서 창 밖으로 알려야 할 실패 */
+  onImageFailed: (message: string) => void
   /** 이 점을 마지막으로 판정한 조사원 표시명. 기록이 없거나 인증 없이 남긴 기록이면 null */
   surveyorName: string | null
   /** 이 회차에서 판정한 시각. 기록이 없으면 null */
@@ -272,6 +279,17 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
               <dt>조사원</dt>
               <dd className="truncate">{noneOr(props.surveyorName)}</dd>
             </dl>
+          )}
+
+          {/* 현장 사진 — 판정과 그에 딸린 정보 아래. 구역 자체가 대상일 때만 서므로 회차 id 는 여기서 다시 묻지 않는다 */}
+          {props.activeProjectId !== null && (
+            <ControlPointImageUpload
+              projectId={props.activeProjectId}
+              pointId={p.id}
+              result={props.surveyResult}
+              onSuccess={props.onImageUploaded}
+              onError={props.onImageFailed}
+            />
           )}
         </div>
       )}

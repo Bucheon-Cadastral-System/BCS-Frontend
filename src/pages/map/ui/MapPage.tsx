@@ -707,7 +707,10 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
                   : null
               }
               surveyResult={surveyVisible && selected !== null ? (resultById.get(selected.id) ?? null) : null}
-            surveyNote={surveyVisible && selected !== null ? (noteById.get(selected.id) ?? null) : null}
+              surveyNote={surveyVisible && selected !== null ? (noteById.get(selected.id) ?? null) : null}
+              activeProjectId={surveyVisible && selectedIsTarget ? activeProjectId : null}
+              onImageUploaded={() => showToast('기준점 사진을 등록했습니다.', 'success')}
+              onImageFailed={(message) => showToast(message, 'error')}
               onRecordSurvey={handleRecordSurvey}
               onCancelSurvey={handleCancelSurvey}
               onClose={() => setSelectedId(null)}
