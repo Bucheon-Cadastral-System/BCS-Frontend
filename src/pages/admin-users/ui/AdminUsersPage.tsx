@@ -38,7 +38,7 @@ const STATUS_TONE: Record<UserStatus, string> = {
 type SortField = 'name' | 'email' | 'district' | 'team' | 'position' | 'role' | 'status'
 type SearchField = 'name' | 'email' | 'phone'
 const API_SORT_FIELD: Record<SortField, AdminMemberSortBy> = {
-  name: 'name', email: 'email', district: 'district', team: 'team', position: 'position', role: 'memberRole', status: 'memberStatus',
+  name: 'name', email: 'email', district: 'district', team: 'team', position: 'position', role: 'role', status: 'status',
 }
 const SEARCH_LABEL: Record<SearchField, string> = { name: '이름', email: '이메일', phone: '전화번호' }
 
@@ -118,12 +118,10 @@ function actionLabelOf(from: UserStatus, to: UserStatus): string {
 function validateMemberDraft(member: ManagedUser): string | null {
   const name = member.name.trim()
   const email = member.email.trim()
-  const department = member.department.trim()
 
   if (name.length < 2 || name.length > 20) return '이름은 2자 이상 20자 이하로 입력해 주세요.'
   if (!/^01[016789]\d{7,8}$/.test(member.phone)) return '전화번호는 하이픈 없이 올바른 휴대전화 번호로 입력해 주세요.'
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return '올바른 이메일 주소를 입력해 주세요.'
-  if (department.length > 50) return '소속 과는 50자 이하로 입력해 주세요.'
   return null
 }
 
@@ -137,7 +135,6 @@ function normalizeMemberDraft(member: ManagedUser): ManagedUser {
     name: member.name.trim(),
     phone: member.phone.replace(/\D/g, ''),
     email: member.email.trim(),
-    department: member.department.trim(),
   }
 }
 
@@ -176,7 +173,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
     size: pageSize,
     sortBy: API_SORT_FIELD[sort.field],
     direction: sort.direction,
-    ...(filter !== 'ALL' ? { memberStatus: filter } : {}),
+    ...(filter !== 'ALL' ? { status: filter } : {}),
     ...(keyword ? { [searchField]: keyword } : {}),
   })
   const countsQuery = useAdminMemberCountsQuery()
@@ -511,7 +508,10 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                       options={DISTRICTS}
                       onChange={(v) => setDraft({ ...detail, district: v as ManagedUser['district'] })}
                     />
-                    <Field label="소속 과" editing={editing} value={detail.department} onChange={(v) => setDraft({ ...detail, department: v })} />
+                    {/* 소속 과는 고칠 수 없다 — 지금 이 시스템은 민원지적과 하나만 받는다 */}
+                    <ValueRow label="소속 과">
+                      <span className="block truncate text-[12.5px] text-ink-2">{detail.department || <span className="text-ink-4">정보 없음</span>}</span>
+                    </ValueRow>
                     <SelectField
                       label="소속 팀"
                       editing={editing}

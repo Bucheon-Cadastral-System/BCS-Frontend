@@ -26,13 +26,11 @@ interface ApiMember {
   phone: string | null
   email: string | null
   district: string | null
-  department?: string | null
+  department: string | null
   team: string | null
   position: string | null
-  memberStatus?: UserStatus
-  memberRole?: UserRole
-  status?: UserStatus
-  role?: UserRole
+  status: UserStatus
+  role: UserRole
 }
 
 export interface RegistrationInput {
@@ -59,9 +57,9 @@ export interface MemberState { status: UserStatus; profileCompleted: boolean }
 function mapMember(member: ApiMember): ManagedUser {
   return {
     id: String(member.id), name: member.name ?? '', phone: member.phone ?? '', email: member.email ?? '',
-    district: enumDisplayValue(districtFromApi, member.district), department: member.department ?? '민원지적과',
+    district: enumDisplayValue(districtFromApi, member.district), department: member.department ?? '',
     team: enumDisplayValue(teamFromApi, member.team), position: enumDisplayValue(positionFromApi, member.position),
-    status: member.memberStatus ?? member.status ?? 'PENDING', role: member.memberRole ?? member.role ?? 'USER',
+    status: member.status, role: member.role,
   }
 }
 
@@ -116,7 +114,7 @@ export async function updateMyProfile(input: Pick<RegistrationInput, 'phone' | '
   })
 }
 
-export type AdminMemberSortBy = 'name' | 'email' | 'district' | 'team' | 'position' | 'memberStatus' | 'memberRole' | 'createdAt'
+export type AdminMemberSortBy = 'name' | 'email' | 'district' | 'team' | 'position' | 'status' | 'role' | 'createdAt'
 export type SortDirection = 'ASC' | 'DESC'
 
 export interface AdminMemberQuery {
@@ -124,7 +122,7 @@ export interface AdminMemberQuery {
   size: number
   sortBy: AdminMemberSortBy
   direction: SortDirection
-  memberStatus?: UserStatus
+  status?: UserStatus
   name?: string
   email?: string
   phone?: string
@@ -139,17 +137,21 @@ export async function getAdminMemberCounts(): Promise<Record<'ALL' | UserStatus,
   const base = { page: 0, size: 1, sortBy: 'name' as const, direction: 'ASC' as const }
   const [all, pending, active, inactive] = await Promise.all([
     getAdminMembers(base),
-    getAdminMembers({ ...base, memberStatus: 'PENDING' }),
-    getAdminMembers({ ...base, memberStatus: 'ACTIVE' }),
-    getAdminMembers({ ...base, memberStatus: 'INACTIVE' }),
+    getAdminMembers({ ...base, status: 'PENDING' }),
+    getAdminMembers({ ...base, status: 'ACTIVE' }),
+    getAdminMembers({ ...base, status: 'INACTIVE' }),
   ])
   return { ALL: all.totalElements, PENDING: pending.totalElements, ACTIVE: active.totalElements, INACTIVE: inactive.totalElements }
 }
 
+/**
+ * 소속 과는 보내지 않는다. 지금 이 시스템은 민원지적과 하나만 받으므로 고칠 값이 아니고,
+ * 화면이 들고 있는 값을 되보내면 그사이 다른 경로로 바뀐 값을 덮는다.
+ */
 export async function updateAdminMember(member: ManagedUser): Promise<void> {
   await http.patch(`/api/admin/members/${member.id}/profile`, {
     name: member.name, phone: member.phone, email: member.email, district: enumApiValue(districtToApi, member.district, '구청'),
-    department: member.department, team: enumApiValue(teamToApi, member.team, '팀'), position: enumApiValue(positionToApi, member.position, '직위'),
+    team: enumApiValue(teamToApi, member.team, '팀'), position: enumApiValue(positionToApi, member.position, '직위'),
   })
 }
 

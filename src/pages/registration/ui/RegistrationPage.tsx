@@ -140,7 +140,8 @@ export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) 
 
             <label>
               <span>소속 과</span>
-              <input name="department" type="text" className={FIELD_READONLY} value="민원지적과" readOnly />
+              {/* 고칠 수 없는 칸이라 탭 순서에서 뺀다 — 멈춰 서 봐야 바꿀 것이 없어 넘어가는 손만 하나 더 든다 */}
+              <input name="department" type="text" className={FIELD_READONLY} value="민원지적과" readOnly tabIndex={-1} />
               <small>현재 민원지적과 소속 사용자만 가입할 수 있습니다.</small>
             </label>
 
