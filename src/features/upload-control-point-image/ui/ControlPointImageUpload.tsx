@@ -14,8 +14,10 @@ import {
   localDateTimeToOffset,
   prepareControlPointImage,
 } from '@/shared/lib/controlPointImage'
-import { CHIP_BTN, FIELD_AREA } from '@/shared/ui/classes'
-import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
+import { CHIP_BTN, FIELD, FIELD_AREA } from '@/shared/ui/classes'
+import { FormActions } from '@/shared/ui/FormActions'
+import { FormNotice } from '@/shared/ui/FormNotice'
+import { Modal, ModalField } from '@/shared/ui/Modal'
 
 const PREVIEW_BOX = 'flex h-[132px] w-full items-center justify-center'
 
@@ -246,72 +248,73 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
       </button>
 
       {draft !== null && (
-        <ConfirmDialog
-          message="기준점 사진 등록"
-          detail={(
-            <div className="text-left">
-              {draftUrl !== null && (
-                <img
-                  src={draftUrl}
-                  alt="고른 사진"
-                  className="mb-3 h-[148px] w-full rounded-chip border border-line-soft bg-field object-contain"
-                />
-              )}
-              {/* 사진만으로는 정상인지 망실인지 가릴 수 없다. 올리는 사람이 그 자리에서 고른다 */}
-              <span className="block text-[11.5px] text-ink-2">상태</span>
-              <div className="mt-1">
-                {/* 상세 카드에서 쓰는 그 드롭다운이다 — 같은 값을 고르는 자리라 생김새도 같아야 한다.
-                    미조사는 빼 둔다. 현장에 다녀와 사진을 남기면서 '안 봤다'를 고를 수는 없다 */}
-                <SurveyResultPicker
-                  result={draft.result}
-                  disabled={saving}
-                  allowNone={false}
-                  onSelect={(choice) => {
-                    if (choice === 'NONE') return
-                    setDraft({ ...draft, result: choice })
-                  }}
-                />
-              </div>
-
-              {draft.result === 'ETC' && (
-                <label className="mt-2 block text-[11.5px] text-ink-2">
-                  비고
-                  <textarea
-                    value={draft.note}
-                    disabled={saving}
-                    placeholder="현장 상태·참고 사항"
-                    className={`${FIELD_AREA} mt-1 h-14`}
-                    onChange={(event) => setDraft({ ...draft, note: event.target.value })}
-                  />
-                </label>
-              )}
-
-              <label className="mt-2 block text-[11.5px] text-ink-2">
-                촬영 일시
-                {draft.capturedAt === null ? (
-                  <input
-                    type="datetime-local"
-                    step="1"
-                    value={draft.localDateTime}
-                    disabled={saving}
-                    className="mt-1 h-9 w-full rounded-chip border border-line bg-field px-2.5 text-[12.5px] text-ink outline-none focus:border-teal"
-                    onChange={(event) => setDraft({ ...draft, localDateTime: event.target.value })}
-                  />
-                ) : (
-                  <span className="mt-1 block text-[12.5px] text-ink">{formatCapturedAt(draft.capturedAt)}</span>
-                )}
-              </label>
-            </div>
-          )}
-          error={dialogError ?? undefined}
-          confirmLabel="등록"
-          cancelLabel="취소"
+        <Modal
+          title="기준점 사진 등록"
           busy={saving}
-          busyLabel="등록 중…"
-          confirmDisabled={draft.capturedAt === null && draft.localDateTime === ''}
-          onConfirm={() => void confirm()}
-          onCancel={() => setDraft(null)}
-        />
+          onClose={() => setDraft(null)}
+          onSubmit={() => void confirm()}
+          footer={(
+            <FormActions
+              submitType="submit"
+              submitLabel="등록"
+              busyLabel="등록 중…"
+              busy={saving}
+              submitDisabled={draft.capturedAt === null && draft.localDateTime === ''}
+              onCancel={() => setDraft(null)}
+              notice={<FormNotice message={dialogError} />}
+            />
+          )}
+        >
+          {draftUrl !== null && (
+            <img
+              src={draftUrl}
+              alt="고른 사진"
+              className="h-[168px] w-full rounded-chip border border-line-soft bg-field object-contain"
+            />
+          )}
+
+          {/* 사진만으로는 정상인지 망실인지 가릴 수 없다. 올리는 사람이 그 자리에서 고른다.
+              상세 카드에서 쓰는 그 드롭다운이고, 미조사는 빼 둔다 — 현장에 다녀와 '안 봤다'를 고를 수는 없다 */}
+          <ModalField label="상태" required>
+            <SurveyResultPicker
+              result={draft.result}
+              disabled={saving}
+              allowNone={false}
+              onSelect={(choice) => {
+                if (choice === 'NONE') return
+                setDraft({ ...draft, result: choice })
+              }}
+            />
+          </ModalField>
+
+          {draft.result === 'ETC' && (
+            <ModalField label="비고">
+              <textarea
+                value={draft.note}
+                disabled={saving}
+                placeholder="현장 상태·참고 사항"
+                className={`${FIELD_AREA} h-16`}
+                onChange={(event) => setDraft({ ...draft, note: event.target.value })}
+              />
+            </ModalField>
+          )}
+
+          <ModalField label="촬영 일시" required>
+            {draft.capturedAt === null ? (
+              <input
+                type="datetime-local"
+                step="1"
+                required
+                value={draft.localDateTime}
+                disabled={saving}
+                className={FIELD}
+                onChange={(event) => setDraft({ ...draft, localDateTime: event.target.value })}
+              />
+            ) : (
+              <span className="block text-[12.5px] text-ink">{formatCapturedAt(draft.capturedAt)}</span>
+            )}
+          </ModalField>
+        </Modal>
       )}
     </div>
   )
