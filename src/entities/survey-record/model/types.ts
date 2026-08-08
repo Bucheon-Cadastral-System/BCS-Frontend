@@ -7,7 +7,6 @@ export type SurveyResult = 'INTACT' | 'LOST' | 'UNAVAILABLE' | 'ETC'
  * → 조사한 점은 정상과 망실로 갈리고, 같은 점이라도 프로젝트(조사회차)마다 다를 수 있다.
  */
 export interface SurveyRecord {
-  projectId: string
   pointId: string
   surveyedAt: string
   result: SurveyResult
