@@ -241,22 +241,22 @@ export function ControlPointMap(props: ControlPointMapProps) {
     onMapReadyRef.current?.(map)
 
     let centeredOnLocation = false
-    let locationErrorShown = false
+    let lastLocationErrorCode: number | null = null
     const watchId = navigator.geolocation?.watchPosition(
       ({ coords }) => {
         const coordinate = fromLonLat([coords.longitude, coords.latitude])
         locationFeature.setGeometry(new Point(coordinate))
         const heading = coords.heading
         locationFeature.set('heading', heading !== null && Number.isFinite(heading) ? heading : undefined)
-        locationErrorShown = false
+        lastLocationErrorCode = null
         if (!centeredOnLocation) {
           centeredOnLocation = true
           map.getView().animate({ center: coordinate, duration: 450 })
         }
       },
       (error) => {
-        if (locationErrorShown) return
-        locationErrorShown = true
+        if (lastLocationErrorCode === error.code) return
+        lastLocationErrorCode = error.code
         const message = error.code === GeolocationPositionError.PERMISSION_DENIED
           ? '위치 권한이 거부되어 현재 위치를 표시할 수 없습니다.'
           : error.code === GeolocationPositionError.POSITION_UNAVAILABLE
