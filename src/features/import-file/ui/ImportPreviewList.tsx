@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { PreviewEntry, PreviewStatus } from '../model/useImportPreviews'
 import type { ImportFilePreview } from '../api/previewImportFile'
-import { hasRowErrors, needsReview, rowIssueLines } from '../model/readFile'
+import { hasRowErrors, isMissingColumnFailure, needsReview, rowIssueLines, REQUIRED_COLUMNS } from '../model/readFile'
 import { STATUS_ROW, STATUS_ROW_TONE } from '@/shared/ui/statusRow'
 import { StatusIcon } from '@/shared/ui/StatusIcon'
 import type { StatusTone } from '@/shared/ui/statusRow'
@@ -115,7 +115,15 @@ function ProgressBar({ status }: { status: PreviewStatus }) {
 
 function StatusText({ status, unit }: { status: PreviewStatus; unit: string }) {
   if (status.kind === 'failed') {
-    return <p className="mt-1 break-keep text-[11px] leading-[1.5] wrap-anywhere text-danger">{status.reason}</p>
+    return (
+      <div className="mt-1 break-keep text-[11px] leading-[1.5] wrap-anywhere text-danger">
+        <p>{status.reason}</p>
+        {/* 열이 없어 거부된 파일에는 무엇을 갖춰야 하는지까지 적는다 — 빠진 열만 알면 나머지가 맞는지 알 수 없다 */}
+        {isMissingColumnFailure(status.reason) && (
+          <p className="mt-1 text-ink-3">필수 열: {REQUIRED_COLUMNS.join(' · ')}</p>
+        )}
+      </div>
+    )
   }
   if (status.kind !== 'done') return null
 

@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import type { SurveyProjectDraft } from '@/entities/survey-project'
-import { ImportPreviewList, NO_FILES, ReadSummary, SEND_LABEL, SendMark, blockingReasonOf, hasRowErrors, needsReview, rowIssueLines, summaryOf, useImportPreviews, useSequentialSend } from '@/features/import-file'
+import { ImportPreviewList, NO_FILES, ReadSummary, RequiredColumnsHint, SEND_LABEL, SendMark, blockingReasonOf, hasRowErrors, needsReview, rowIssueLines, summaryOf, useImportPreviews, useSequentialSend } from '@/features/import-file'
 import type { ReadFile, SendStatus } from '@/features/import-file'
 import { today } from '@/shared/lib/date'
 import { fileBaseName } from '@/shared/lib/file'
@@ -408,19 +408,22 @@ export function SurveyProjectFileModal(props: {
 
   // 화면 전체 드롭 안내와 같은 모양 — 여기에 끌어다 놓아도 되고 눌러서 골라도 된다는 뜻
   const pickerBody = (
-    <button
-      type="button"
-      onClick={openPicker}
-      className="flex w-full flex-col items-center justify-center gap-1.5 rounded-ctl border-2 border-dashed border-line-field py-10 text-ink-4 transition-colors hover:border-teal-edge hover:text-teal-text"
-    >
-      <svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M12 16V4" />
-        <path d="m7 9 5-5 5 5" />
-        <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-      </svg>
-      <span className="text-[13px] font-medium">파일을 끌어다 놓거나 눌러서 선택</span>
-      <span className="text-[11px]">CSV · XLS · XLSX</span>
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={openPicker}
+        className="flex w-full flex-col items-center justify-center gap-1.5 rounded-ctl border-2 border-dashed border-line-field py-10 text-ink-4 transition-colors hover:border-teal-edge hover:text-teal-text"
+      >
+        <svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 16V4" />
+          <path d="m7 9 5-5 5 5" />
+          <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+        </svg>
+        <span className="text-[13px] font-medium">파일을 끌어다 놓거나 눌러서 선택</span>
+        <span className="text-[11px]">CSV · XLS · XLSX</span>
+      </button>
+      <RequiredColumnsHint />
+    </>
   )
 
   // 입력 단계에서는 몇 번째를 보고 있는지가 곧 진행이고, 등록 단계에서는 손을 뗀 건수(등록·폐기)가 진행이다
