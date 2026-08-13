@@ -136,23 +136,43 @@ export function drawSurveyStatusCard(spec: SurveyStatusSpec): HTMLCanvasElement 
   y += 8
 
   const barWidth = WIDTH - PAD * 2
+  const breakdown = spec.breakdown
   ctx.fillStyle = LINE
   ctx.beginPath()
   ctx.roundRect(PAD, y, barWidth, 6, 3)
   ctx.fill()
-  if (pct > 0) {
-    const gradient = ctx.createLinearGradient(PAD, 0, PAD + barWidth, 0)
-    gradient.addColorStop(0, fillFrom)
-    gradient.addColorStop(1, fillTo)
-    ctx.fillStyle = gradient
+  if (breakdown === null) {
+    if (pct > 0) {
+      const gradient = ctx.createLinearGradient(PAD, 0, PAD + barWidth, 0)
+      gradient.addColorStop(0, fillFrom)
+      gradient.addColorStop(1, fillTo)
+      ctx.fillStyle = gradient
+      ctx.beginPath()
+      // 1%도 6px 은 그린다 — 더 좁으면 둥근 끝이 서로 겹쳐 막대가 아니라 점으로 보인다
+      ctx.roundRect(PAD, y, Math.max(6, (barWidth * pct) / 100), 6, 3)
+      ctx.fill()
+    }
+  } else if (spec.surveyed > 0) {
+    // 갈래를 다 받았으면 화면 카드와 같이 갈래별로 나눠 칠한다.
+    // 둥근 끝을 살리려고 막대 모양으로 오려 두고 그 안에 네모를 이어 붙인다.
+    // 칸의 끝자리는 누적 개수로 잡는다 — 폭을 하나씩 더해 가면 소수점이 쌓여 갈래 사이에 실금이 남는다
+    ctx.save()
     ctx.beginPath()
-    // 1%도 6px 은 그린다 — 더 좁으면 둥근 끝이 서로 겹쳐 막대가 아니라 점으로 보인다
-    ctx.roundRect(PAD, y, Math.max(6, (barWidth * pct) / 100), 6, 3)
-    ctx.fill()
+    ctx.roundRect(PAD, y, barWidth, 6, 3)
+    ctx.clip()
+    let counted = 0
+    for (const status of DONE_STATUSES) {
+      const from = PAD + (barWidth * counted) / spec.total
+      counted += breakdown[status]
+      const to = PAD + (barWidth * counted) / spec.total
+      if (to <= from) continue
+      ctx.fillStyle = readVar(SURVEY_STATUS_COLOR_VAR[status], INK_SOFT)
+      ctx.fillRect(from, y, to - from, 6)
+    }
+    ctx.restore()
   }
   y += 6
 
-  const breakdown = spec.breakdown
   if (breakdown !== null) {
     y += 12
     ctx.strokeStyle = LINE

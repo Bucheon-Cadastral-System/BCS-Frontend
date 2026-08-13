@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { PROGRESS_FILL } from '@/shared/ui/classes'
 import { percent } from '@/shared/lib/percent'
-import { SURVEY_STATUS_DOT, SURVEY_STATUS_LABEL } from '@/entities/survey-record'
+import { StatusDistributionBar, SURVEY_STATUS_DOT, SURVEY_STATUS_LABEL } from '@/entities/survey-record'
 import type { SurveyStatus } from '@/entities/survey-record'
 import { DONE_STATUSES, drawSurveyStatusCard } from '../lib/drawSurveyStatusCard'
 import type { SurveyStatusSpec } from '../lib/drawSurveyStatusCard'
@@ -111,16 +111,23 @@ export function SurveyStatusBlock({ json }: { json: string }) {
         </span>
         <span className="font-semibold text-teal-text">{pct}%</span>
       </div>
-      <div
-        className="h-1.5 overflow-hidden rounded-full bg-track"
-        role="progressbar"
-        aria-valuenow={pct}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label={spec.title === undefined ? '조사 진행률' : `${spec.title} 조사 진행률`}
-      >
-        <div className={`h-full rounded-full ${PROGRESS_FILL}`} style={{ width: `${pct}%` }} />
-      </div>
+      {/* 갈래를 다 받았으면 판의 프로젝트 상세와 같은 분포 막대를 세운다. 채운 길이는 그대로 조사한 만큼이라
+          진행률로 읽히면서, 그 안에서 무엇이 정상이고 무엇이 망실인지까지 한 줄로 드러난다.
+          갈래가 하나라도 어긋나 오면 나눌 수 없으므로 한 색으로 찬 진행률 막대로 물러선다 */}
+      {breakdown === null ? (
+        <div
+          className="h-1.5 overflow-hidden rounded-full bg-track"
+          role="progressbar"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={spec.title === undefined ? '조사 진행률' : `${spec.title} 조사 진행률`}
+        >
+          <div className={`h-full rounded-full ${PROGRESS_FILL}`} style={{ width: `${pct}%` }} />
+        </div>
+      ) : (
+        <StatusDistributionBar countByStatus={{ ...breakdown, todo: notSurveyed }} />
+      )}
 
       {breakdown !== null && (
         <dl className="mt-2.5 border-t border-line-soft pt-2 text-[11.5px] text-ink-3">
