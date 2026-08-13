@@ -54,7 +54,7 @@ const EMPTY_RESULT_MAP: ReadonlyMap<string, SurveyResult> = new Map()
  */
 const PANEL_MARGIN = 16
 /** 커맨드 바의 대표 폭(축척이 보통 길이일 때) — 바의 왼쪽 끝을 붙여 둘 기준 자리다. 좁은 화면 값은 글자를 접은 폭 */
-const COMMAND_BAR_NOMINAL = 'w-[703px] max-lg:w-[554px]'
+const COMMAND_BAR_NOMINAL = 'w-[606px] max-lg:w-[518px]'
 
 const BANNER_TONE = {
   warn: 'border-amber/40 bg-amber-wash text-amber',
@@ -641,6 +641,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
           targetPoints={targetPoints}
           resultById={resultById}
           statusById={statusById}
+          surveyStatusVisible={surveyStatusVisible}
+          onToggleSurveyStatus={() => dispatch(toggleSurveyStatus())}
           statusFilter={statusFilterSet}
           onToggleStatusFilter={(status) => dispatch(toggleStatusFilter(status))}
           onClearStatusFilter={() => dispatch(clearStatusFilter())}
@@ -713,9 +715,6 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
                     onToggleCadastral={() => setShowCadastral((v) => !v)}
                     theme={theme}
                     onToggleTheme={() => withoutTransition(() => dispatch(toggleTheme()))}
-                    showSurveyStatus={surveyStatusVisible}
-                    onToggleSurveyStatus={() => dispatch(toggleSurveyStatus())}
-                    surveyStatusBasis={statusFromProject ? (activeProject?.name ?? null) : null}
                     onResetView={() => setHomeNonce((n) => n + 1)}
                   />
                 </div>

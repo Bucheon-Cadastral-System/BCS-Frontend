@@ -3,7 +3,7 @@ import type { PanelKey } from '@/shared/model/panel'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { SURVEY_STATUS_DOT, SURVEY_STATUS_LABEL, SURVEY_STATUS_ORDER, deriveSurveyStatus } from '@/entities/survey-record'
 import type { SurveyResult, SurveyStatus } from '@/entities/survey-record'
-import { StatusFilterChips } from './StatusFilterChips'
+import { SurveyStatusFilter } from './SurveyStatusFilter'
 import { Skeleton, SkeletonRows } from '@/shared/ui/Skeleton'
 import { CHIP_BTN, CHIP_BTN_DANGER, ICON_BTN, ICON_BTN_DANGER, PANEL, PANEL_HEADER, PROGRESS_FILL, ROW_ACCENT } from '@/shared/ui/classes'
 import { percent } from '@/shared/lib/percent'
@@ -80,6 +80,9 @@ interface MapSidebarProps {
    * 상태 표시를 꺼 두면 null 이고, 그동안에는 거르개를 세우지 않는다.
    */
   statusById: ReadonlyMap<string, SurveyResult> | null
+  /** 상태 표시가 켜져 있는지 — 켜는 자리가 이 판이라 판이 그 값을 함께 든다 */
+  surveyStatusVisible: boolean
+  onToggleSurveyStatus: () => void
   /** 고른 상태 — 비어 있으면 거르지 않는다 */
   statusFilter: ReadonlySet<SurveyStatus>
   onToggleStatusFilter: (status: SurveyStatus) => void
@@ -380,6 +383,8 @@ function ProjectPanel(props: MapSidebarProps) {
             targetPoints={detailData.targetPoints}
             resultById={detailData.resultById}
             statusById={props.statusById}
+            surveyStatusVisible={props.surveyStatusVisible}
+            onToggleSurveyStatus={props.onToggleSurveyStatus}
             statusFilter={props.statusFilter}
             onToggleStatusFilter={props.onToggleStatusFilter}
             onClearStatusFilter={props.onClearStatusFilter}
@@ -410,6 +415,8 @@ function ProjectDetail(props: {
   resultById: ReadonlyMap<string, SurveyResult>
   /** 거르개가 볼 판정 표 — 상태 표시를 꺼 두면 null 이고, 그동안 내역은 세기만 한다 */
   statusById: ReadonlyMap<string, SurveyResult> | null
+  surveyStatusVisible: boolean
+  onToggleSurveyStatus: () => void
   statusFilter: ReadonlySet<SurveyStatus>
   onToggleStatusFilter: (status: SurveyStatus) => void
   onClearStatusFilter: () => void
@@ -485,24 +492,25 @@ function ProjectDetail(props: {
                 style={{ width: `${pct}%` }}
               />
             </div>
-            {/* 결과별 내역 — 색은 아래 범례·지도 마커와 같은 뜻으로 쓴다.
-                상태 표시를 켜면 같은 자리가 거르개가 된다. 세는 값과 고르는 값이 같아 두 벌로 두지 않는다 */}
-            {props.statusById !== null ? (
-              <div className="mt-2.5">
-                <StatusFilterChips
-                  selected={props.statusFilter}
-                  onToggle={props.onToggleStatusFilter}
-                  onClear={props.onClearStatusFilter}
-                  countByStatus={byStatus}
-                />
-              </div>
-            ) : (
-              <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-[5px] text-[11.5px] text-ink-3">
-                {SURVEY_STATUS_ORDER.map((key) => (
-                  <StatusCount key={key} label={SURVEY_STATUS_LABEL[key]} count={byStatus[key]} dotClass={SURVEY_STATUS_DOT[key]} />
-                ))}
-              </div>
-            )}
+            {/* 결과별 내역 — 색은 지도 마커와 같은 뜻으로 쓴다.
+                상태를 켜면 같은 자리가 거르개로 바뀐다. 세는 값과 고르는 값이 같아 두 벌로 두지 않는다 */}
+            <div className="mt-2.5">
+              <SurveyStatusFilter
+                visible={props.surveyStatusVisible}
+                onToggleVisible={props.onToggleSurveyStatus}
+                selected={props.statusFilter}
+                onToggle={props.onToggleStatusFilter}
+                onClear={props.onClearStatusFilter}
+                countByStatus={byStatus}
+                collapsed={
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-[5px] text-[11.5px] text-ink-3">
+                    {SURVEY_STATUS_ORDER.map((key) => (
+                      <StatusCount key={key} label={SURVEY_STATUS_LABEL[key]} count={byStatus[key]} dotClass={SURVEY_STATUS_DOT[key]} />
+                    ))}
+                  </div>
+                }
+              />
+            </div>
           </>
         )}
       </div>
@@ -614,7 +622,7 @@ function PointListPanel(props: MapSidebarProps) {
     () => filterByStatus(props.points, statusById, props.statusFilter),
     [props.points, statusById, props.statusFilter],
   )
-  // 칩 옆 숫자는 거르기 전 전체를 센다 — 고를 때마다 숫자가 바뀌면 무엇을 고를지 가늠할 수 없다
+  // 칸에 적히는 숫자는 거르기 전 전체를 센다 — 고를 때마다 숫자가 바뀌면 무엇을 고를지 가늠할 수 없다
   const counts = useMemo(
     () => countByStatus(props.points, statusById ?? EMPTY_RESULTS),
     [props.points, statusById],
@@ -660,15 +668,6 @@ function PointListPanel(props: MapSidebarProps) {
             className={PANEL_SEARCH_INPUT}
           />
         </span>
-        {/* 상태 거르개 — 여기서 고른 값이 이 목록과 지도에 함께 걸린다. 상태 표시를 켠 동안에만 선다 */}
-        {statusById !== null && (
-          <StatusFilterChips
-            selected={props.statusFilter}
-            onToggle={props.onToggleStatusFilter}
-            onClear={props.onClearStatusFilter}
-            countByStatus={counts}
-          />
-        )}
         {/* 입구에서 의도를 가른다 — 한 점 입력과 파일 등록은 다른 창이 맡는다 */}
         <div className="grid grid-cols-2 gap-2">
           <button type="button" onClick={props.onStartAddPoint} className={PANEL_ADD_BTN}>
@@ -684,6 +683,15 @@ function PointListPanel(props: MapSidebarProps) {
             파일 업로드
           </button>
         </div>
+        {/* 조사 상태 — 여기서 켠 값이 지도 마커와 아래 목록에 함께 걸린다 */}
+        <SurveyStatusFilter
+          visible={props.surveyStatusVisible}
+          onToggleVisible={props.onToggleSurveyStatus}
+          selected={props.statusFilter}
+          onToggle={props.onToggleStatusFilter}
+          onClear={props.onClearStatusFilter}
+          countByStatus={counts}
+        />
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col border-t-2 border-t-teal">

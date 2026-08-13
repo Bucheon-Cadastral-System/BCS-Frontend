@@ -28,17 +28,10 @@ export function MapCommandBar(props: {
   onToggleCadastral: () => void
   theme: MapTheme
   onToggleTheme: () => void
-  /** 조사 상태를 마커에 그릴지 — 끄면 종류만으로 그린다 */
-  showSurveyStatus: boolean
-  onToggleSurveyStatus: () => void
-  /** 켰을 때 무엇을 기준으로 세는지 — 고른 조사의 이름, 회차와 무관한 최신 상태면 null */
-  surveyStatusBasis: string | null
   /** 처음 보던 자리로 되돌리기 — 어디까지 옮겨야 하는지는 판이 가린 폭을 아는 지도가 정한다 */
   onResetView: () => void
 }) {
   const dark = props.theme === 'dark'
-  // 같은 점이라도 고른 회차의 결과와 점의 최신 상태는 다를 수 있어, 지금 무엇을 보는 중인지 버튼이 밝힌다
-  const statusTitle = `조사 상태 — ${props.surveyStatusBasis ?? '점별 최신'} 기준`
 
   return (
     <div className={`flex h-[34px] w-max items-center gap-2 px-2.5 ${PILL}`}>
@@ -74,24 +67,6 @@ export function MapCommandBar(props: {
           <path d="m3 13 9 5 9-5" />
         </svg>
         <span className="max-lg:hidden">지적도</span>
-      </button>
-
-      {/* 조사 상태 — 켜면 마커에 판정 뱃지가 얹힌다. 지적도와 같은 성격(지도를 보면서 켜고 끄는 표시)이라 나란히 둔다 */}
-      <button
-        type="button"
-        onClick={props.onToggleSurveyStatus}
-        aria-pressed={props.showSurveyStatus}
-        title={statusTitle}
-        aria-label={statusTitle}
-        className={`${CTL} ${
-          props.showSurveyStatus ? 'bg-teal-wash-strong text-teal-text' : 'text-ink-2 hover:bg-hover hover:text-ink'
-        }`}
-      >
-        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="8.5" />
-          <path d="m8.5 12 2.5 2.5 4.5-5" />
-        </svg>
-        <span className="max-lg:hidden">조사 상태</span>
       </button>
 
       {/* 라벨·아이콘이 지금 배경을 그대로 나타낸다(누르면 반대로 바뀜) */}
