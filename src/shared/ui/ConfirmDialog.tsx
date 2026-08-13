@@ -12,8 +12,6 @@ export function ConfirmDialog(props: {
   message: string
   /** 물음 아래 안내 — 확인을 누르면 무엇이 벌어지는지. 변경 요약처럼 여러 줄·강조가 필요하면 노드로 준다 */
   detail?: ReactNode
-  /** 실행이 실패한 이유 — 창을 닫지 않고 이 자리에서 알린다. 뒤쪽 화면에 띄우면 배경 딤에 가려 보이지 않는다. */
-  error?: string
   confirmLabel?: string
   cancelLabel?: string
   danger?: boolean
@@ -49,12 +47,6 @@ export function ConfirmDialog(props: {
           </p>
           {/* div — 임의의 노드(변경 요약)를 받으므로 p 안에 블록이 중첩되지 않게 한다. 여러 줄 문자열은 pre-line 이 갈라 준다 */}
           {props.detail && <div className="mt-1.5 whitespace-pre-line break-keep text-center text-[12px] leading-5 text-ink-3">{props.detail}</div>}
-          {/* 오류는 서버 문구라 공백 없는 긴 토큰이 올 수 있다 — 단어 경계 우선, 안 되면 아무 데서나 접는다 */}
-          {props.error && (
-            <p className="mt-2.5 break-keep rounded-chip bg-danger-wash px-2.5 py-1.5 text-center text-[11.5px] wrap-anywhere text-danger" role="alert">
-              {props.error}
-            </p>
-          )}
           <div className="mt-4 flex gap-2">
             <button
               ref={cancelRef}

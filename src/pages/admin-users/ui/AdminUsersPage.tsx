@@ -14,6 +14,7 @@ import type { AdminActivity, AdminActivityType, AdminMemberAction, AdminMemberSo
 import { UserAvatar } from '@/entities/user'
 import { ActivityIcon, AppHeader, UsersIcon } from '@/widgets/app-header'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
+import { Toast } from '@/shared/ui/Toast'
 import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY, FIELD, FIELD_SELECT, FIELD_SM, FIELD_SM_SELECT, ICON_BTN_DANGER, ROW_ACCENT } from '@/shared/ui/classes'
 
 interface AdminUsersPageProps {
@@ -217,6 +218,8 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
     || errorMessageOf(countsQuery.error, '회원 현황을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.')
   // 상태 변경 실패는 확인 창 안에서 알린다 — 뒤쪽 배너에 띄우면 배경 딤에 가려 사용자가 이유를 볼 수 없다
   const changeError = errorMessageOf(changeMemberMutation.error, '회원 상태를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+  // 같은 실패를 다시 만나도 토스트가 새로 뜨도록 회차를 센다
+  const [failureId, setFailureId] = useState(0)
   const activitiesErrorMessage = errorMessageOf(activitiesQuery.error, '관리자 활동 로그를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.')
 
   /** 상세를 닫는다 — 고르던 사람과 고치던 값을 함께 놓는다 */
@@ -250,7 +253,9 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
       setPendingChange(null)
       setActivityCursor(undefined)
     } catch {
-      // 실패 사유는 changeMemberMutation.error 로 확인 창 안에 그대로 보인다. 창은 열어 둔 채 다시 시도할 수 있게 둔다
+      // 실패는 토스트로 알린다 — 창 안에 세우면 뜰 때마다 버튼 줄이 밀린다.
+      // 창은 열어 둔 채라 그대로 다시 시도할 수 있다
+      setFailureId((n) => n + 1)
     }
   }
 
@@ -699,10 +704,13 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
           danger={pendingChange.action === 'deactivate' || pendingChange.action === 'reject'}
           busy={changeMemberMutation.isPending}
           busyLabel="처리 중…"
-          error={changeError}
           onConfirm={applyStatusChange}
           onCancel={closePendingChange}
         />
+      )}
+
+      {failureId > 0 && (
+        <Toast key={`change-${failureId}`} message={changeError} tone="error" onDismiss={() => setFailureId(0)} />
       )}
     </main>
   )
