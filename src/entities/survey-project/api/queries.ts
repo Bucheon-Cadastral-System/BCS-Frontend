@@ -1,17 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-// 조사기록 캐시 키는 그 엔티티가 소유한다 — 문자열을 따로 적으면 키가 바뀔 때 무효화가 조용히 어긋난다
-import { SURVEY_RECORDS_KEY, surveyRecordsKey } from '@/entities/survey-record'
-import { LAST_SURVEY_KEY } from '@/entities/control-point'
+import { LAST_SURVEY_KEY, SURVEY_PROJECTS_KEY, SURVEY_RECORDS_KEY, SURVEY_TARGETS_KEY, surveyRecordsKey } from '@/shared/api/queryKeys'
 import type { SurveyRecord } from '@/entities/survey-record'
 import { createSurveyProjectApi, deleteSurveyProjectApi, fetchSurveyProjects, fetchSurveyTargets, updateSurveyProjectApi } from './surveyProjectApi'
 
-export const SURVEY_PROJECTS_KEY = ['survey-projects'] as const
+export { SURVEY_PROJECTS_KEY, SURVEY_TARGETS_KEY } from '@/shared/api/queryKeys'
 
 export function useSurveyProjectsQuery() {
   return useQuery({ queryKey: SURVEY_PROJECTS_KEY, queryFn: fetchSurveyProjects })
 }
 
-export const SURVEY_TARGETS_KEY = ['survey-targets'] as const
 
 /** 선택한 조사의 대상 점 — 고른 조사가 없으면 조회하지 않는다. */
 export function useSurveyTargetsQuery(projectId: string | null) {

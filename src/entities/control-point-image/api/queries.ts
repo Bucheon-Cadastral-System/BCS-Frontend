@@ -1,9 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-// 사진 등록 한 번이 조사기록까지 바꾸므로(서버가 한 트랜잭션으로 처리한다) 그쪽 캐시도 함께 비운다.
-// 키는 각 엔티티가 소유한다 — 함수 안에서만 쓰므로 초기화 순환은 없다
-import { invalidateLastSurveys } from '@/entities/control-point'
-import { SURVEY_PROJECTS_KEY } from '@/entities/survey-project'
-import { surveyRecordsKey } from '@/entities/survey-record'
+// 사진 등록 한 번이 조사기록까지 바꾸므로(서버가 한 트랜잭션으로 처리한다) 그쪽 캐시도 함께 비운다
+import { invalidateLastSurveys, SURVEY_PROJECTS_KEY, surveyRecordsKey } from '@/shared/api/queryKeys'
 import { fetchControlPointImage, uploadControlPointImage } from './controlPointImageApi'
 
 export const CONTROL_POINT_IMAGES_KEY = ['control-point-images'] as const

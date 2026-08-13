@@ -1,17 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-// 프로젝트·기준점 목록 키는 각 엔티티가 소유한다(반대 방향 수입과 같은 이유).
-// 서로 수입하지만 둘 다 함수 안에서만 쓰므로 초기화 순환은 없다
-import { SURVEY_PROJECTS_KEY } from '@/entities/survey-project'
-import { invalidateLastSurveys } from '@/entities/control-point'
+import { invalidateLastSurveys, SURVEY_PROJECTS_KEY, surveyRecordsKey } from '@/shared/api/queryKeys'
 import { deleteSurveyRecord, fetchSurveyRecords, putSurveyRecord } from './surveyRecordApi'
 import type { SurveyResult } from '../model/types'
 
-/** 조사기록 캐시 키의 공통 접두 — 프로젝트 무관 일괄 무효화(프로젝트 삭제 등)가 이 값으로 맞춘다 */
-export const SURVEY_RECORDS_KEY = ['survey-records'] as const
-
-export function surveyRecordsKey(projectId: string) {
-  return [...SURVEY_RECORDS_KEY, projectId] as const
-}
+export { SURVEY_RECORDS_KEY, surveyRecordsKey } from '@/shared/api/queryKeys'
 
 /**
  * 활성 프로젝트의 조사기록 — 프로젝트 미선택(null)이면 조회하지 않는다.
