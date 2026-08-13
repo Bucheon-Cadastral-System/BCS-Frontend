@@ -20,13 +20,11 @@ export const POPOVER =
   'rounded-pop border border-line bg-panel-strong shadow-panel'
 
 /**
- * 꼬리가 달린 말풍선 — 그늘을 box-shadow 대신 filter 로 준다.
- *
- * <p>box-shadow 는 테두리 상자에만 걸린다. 꼬리는 그 상자 밖으로 나가 있으므로, 상자 아래로 깔린 그늘 띠 위에
- * 꼬리가 얹힌 모양이 되어 덧댄 조각처럼 보인다. filter 는 그려진 모양을 따라가 꼬리 끝까지 이어진다.
+ * 커맨드 바 위로 열리는 말풍선(레이어·기준점 상태) — 그늘을 두지 않는다.
+ * 바 자체가 이미 그늘을 진 알약이라, 그 위에 한 겹 더 얹으면 지도 위에 판이 두 장 겹쳐 보인다.
  */
-export const POPOVER_TAILED =
-  'rounded-pop border border-line bg-panel-strong [filter:var(--drop-elevation-2)]'
+export const POPOVER_FLAT =
+  'rounded-pop border border-line bg-panel-strong'
 
 const BTN_BASE =
   'inline-flex h-[42px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-ctl border-[1.5px] px-3.5 text-[13px] font-semibold transition-colors disabled:opacity-40'

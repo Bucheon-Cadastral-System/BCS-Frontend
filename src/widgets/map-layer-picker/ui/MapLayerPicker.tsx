@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
-import { MAP_BAR_BTN, POPOVER_TAILED } from '@/shared/ui/classes'
+import type { ReactNode } from 'react'
+import { MAP_BAR_BTN, POPOVER_FLAT } from '@/shared/ui/classes'
 import { CheckMark } from '@/shared/ui/CheckMark'
 import { useDismiss } from '@/shared/lib/useDismiss'
 
@@ -9,6 +10,10 @@ export interface MapLayerItem {
   label: string
   on: boolean
   onToggle: () => void
+  /** 지도에 어떤 선으로 그려지는지 보이는 견본 — 이름만으로는 켜 보기 전에 알 수 없다 */
+  swatch: ReactNode
+  /** 이름 뒤 괄호에 덧붙이는 조건(표시되는 축척 등) — 켜 두어도 안 보이는 이유를 그 자리에서 알린다 */
+  note?: string
 }
 
 /**
@@ -53,8 +58,8 @@ export function MapLayerPicker(props: { layers: MapLayerItem[] }) {
           role="group"
           aria-label="지도 레이어 고르기"
           // 안쪽 여백을 두지 않는다 — 줄이 말풍선 변까지 닿아야 판 안의 판으로 보이지 않는다.
-          // overflow-hidden 은 걸지 않는다(꼬리가 잘린다). 모서리는 첫·끝 줄이 스스로 깎는다
-          className={`absolute bottom-[calc(100%+11px)] left-1/2 flex w-[152px] -translate-x-1/2 flex-col ${POPOVER_TAILED}`}
+          // 모서리는 첫·끝 줄이 스스로 깎는다
+          className={`absolute bottom-[calc(100%+8px)] left-1/2 flex w-[208px] -translate-x-1/2 flex-col ${POPOVER_FLAT}`}
         >
           {props.layers.map((layer, index) => {
             const last = index === props.layers.length - 1
@@ -65,26 +70,19 @@ export function MapLayerPicker(props: { layers: MapLayerItem[] }) {
                 onClick={layer.onToggle}
                 aria-pressed={layer.on}
                 // 대상 기준점 고르기의 줄과 같은 규격이다 — 여럿을 켜고 끄는 목록은 이 앱에서 한 모양으로 선다
-                className={`flex h-[34px] items-center gap-2 px-3 text-left transition-colors hover:bg-hover ${
+                className={`flex h-[38px] items-center gap-[9px] px-3 text-left transition-colors hover:bg-hover ${
                   index === 0 ? 'rounded-t-pop' : 'border-t border-line-row'
                 } ${last ? 'rounded-b-pop' : ''} ${layer.on ? 'bg-teal-wash' : ''}`}
               >
                 <CheckMark on={layer.on} />
-                <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink-2">{layer.label}</span>
+                {layer.swatch}
+                <span className={`min-w-0 flex-1 truncate text-[12.5px] ${layer.on ? 'text-ink' : 'text-ink-3'}`}>
+                  {layer.label}
+                  {layer.note !== undefined && <span className="ml-1 text-[11px] text-ink-4">({layer.note})</span>}
+                </span>
               </button>
             )
           })}
-
-          {/* 꼬리 — 아래를 가리켜 이 말풍선이 어느 버튼에서 나왔는지 잇는다.
-              마름모의 아래 두 변만 테두리로 남기고 나머지 두 변은 끝 줄의 면에 묻힌다.
-              면을 끝 줄과 같은 순서로 쌓는다. bg-teal-wash 는 다크에서 반투명이라 그것만 칠하면 지도가 비쳐
-              마름모가 어둡게 뜨고, bg-panel-strong 만 칠하면 켜진 줄보다 옅어 이음매가 남는다 */}
-          <span
-            className="absolute -bottom-[6px] left-1/2 size-[11px] -translate-x-1/2 rotate-45 border-b border-r border-line bg-panel-strong"
-            aria-hidden
-          >
-            {props.layers.at(-1)?.on === true && <span className="block size-full bg-teal-wash" />}
-          </span>
         </div>
       )}
     </span>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   SURVEY_STATUS_DOT,
   SURVEY_STATUS_FILL,
@@ -7,7 +7,7 @@ import {
   SURVEY_STATUS_TEXT_COLOR,
 } from '@/entities/survey-record'
 import type { SurveyStatus } from '@/entities/survey-record'
-import { MAP_BAR_BTN, POPOVER_TAILED } from '@/shared/ui/classes'
+import { MAP_BAR_BTN, POPOVER_FLAT } from '@/shared/ui/classes'
 import { useDismiss } from '@/shared/lib/useDismiss'
 
 /**
@@ -33,6 +33,7 @@ const SELECTED_TEXT: Record<SurveyStatus, string> = {
  *
  * <p>표시를 내리는 자리는 말풍선 아래의 전체 해제다. 고를 것이 하나도 없는 채로 색만 켜져 있는 화면을
  * 두지 않으므로, 갈래를 모두 놓는 일과 표시를 내리는 일이 같은 뜻이 된다. 마지막 하나를 마저 끌 때도 함께 내려간다.
+ * 이때 말풍선은 접지 않는다. 다시 고르는 자리가 그 안이라 닫으면 열던 걸음을 한 번 더 밟게 된다.
  *
  * <p>갈래마다 개수를 적지 않는다. 조사 상세의 분포 막대와 내역이 같은 수를 이미 적고, 아무 조사도 고르지 않은
  * 동안에는 전체 기준점을 기준으로 세게 되어 어느 범위의 수인지가 흐려진다. 말풍선은 고르는 일만 맡는다.
@@ -51,12 +52,6 @@ export function SurveyStatusFilter(props: {
   const rootRef = useRef<HTMLSpanElement>(null)
   // 버튼도 이 안에 있어 버튼 클릭이 접기와 겹쳐 두 번 뒤집히지 않는다
   useDismiss({ enabled: open, onDismiss: () => setOpen(false), ref: rootRef })
-  // 표시가 내려가면 말풍선도 함께 접는다 — 고를 것이 없는 말풍선을 열어 둘 이유가 없다.
-  // 켜지는 쪽은 버튼이 직접 열므로 여기서 다루지 않는다(접어 둔 것을 도로 펴게 된다)
-  useEffect(() => {
-    if (!props.visible) setOpen(false)
-  }, [props.visible])
-
   const allSelected = props.selected.size === SURVEY_STATUS_ORDER.length
 
   return (
@@ -90,8 +85,8 @@ export function SurveyStatusFilter(props: {
           role="group"
           aria-label="기준점 상태 고르기"
           // 안쪽 여백을 두지 않는다 — 칸이 말풍선 변까지 닿아야 판 안의 판으로 보이지 않는다.
-          // overflow-hidden 은 걸지 않는다(꼬리가 잘린다). 모서리는 첫·끝 칸이 스스로 깎는다
-          className={`absolute bottom-[calc(100%+11px)] left-1/2 flex w-[300px] -translate-x-1/2 flex-wrap ${POPOVER_TAILED}`}
+          // 모서리는 첫·끝 칸이 스스로 깎는다
+          className={`absolute bottom-[calc(100%+8px)] left-1/2 flex w-[300px] -translate-x-1/2 flex-wrap ${POPOVER_FLAT}`}
         >
           {SURVEY_STATUS_ORDER.map((status, index) => {
             const on = props.selected.has(status)
@@ -140,17 +135,6 @@ export function SurveyStatusFilter(props: {
               {SURVEY_STATUS_ORDER.length}개 전체 선택
             </button>
           </div>
-
-          {/* 꼬리 — 아래를 가리켜 이 말풍선이 어느 버튼에서 나왔는지 잇는다.
-              마름모의 아래 두 변만 테두리로 남기고 나머지 두 변은 아래 줄의 면에 묻힌다.
-              면을 두 겹으로 칠한다. 아래 줄의 bg-soft 는 다크에서 흰빛 2% 를 덧씌우는 값이라 그 하나만으로는
-              지도가 비치고, bg-panel-strong 하나만으로는 줄보다 짙어 마름모 자국이 남는다. 줄과 같은 순서로 쌓아야 이음매가 사라진다 */}
-          <span
-            className="absolute -bottom-[6px] left-1/2 size-[11px] -translate-x-1/2 rotate-45 border-b border-r border-line bg-panel-strong"
-            aria-hidden
-          >
-            <span className="block size-full bg-soft" />
-          </span>
         </div>
       )}
     </span>

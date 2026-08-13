@@ -48,6 +48,11 @@
   --color-amber-wash: rgba(224, 160, 32, 0.1);
   --color-idle: #35494e;
 
+  /* 현재 위치 — 조사 상태 어느 색과도 겹치지 않는 한 벌. 면은 배경지도가 바뀌어도 그대로 두고,
+     테두리만 배경 밝기를 따라 뒤집어 흰 도로 위·어두운 배경 양쪽에서 윤곽이 서게 한다. */
+  --color-locate: #ffe23d;
+  --color-locate-edge: #ffffff;
+
   --color-ink: #e6eff1;
   --color-ink-2: #d7e4e7;
   --color-ink-3: #8fa8ad;
@@ -116,6 +121,8 @@
   --color-amber-wash: rgba(169, 118, 18, 0.1);
   --color-idle: #c7d3d0;
 
+  --color-locate-edge: #10161a;
+
   --color-ink: #16302c;
   --color-ink-2: #234a44;
   --color-ink-3: #4d6963;
@@ -129,7 +136,6 @@
   --elevation-1: 0 1px 3px rgba(9, 26, 24, 0.2), 0 10px 26px rgba(9, 26, 24, 0.22);
   --elevation-2: 0 2px 4px rgba(9, 26, 24, 0.22), 0 18px 44px rgba(9, 26, 24, 0.26);
   --elevation-3: 0 2px 8px rgba(9, 26, 24, 0.24), 0 28px 62px rgba(9, 26, 24, 0.32);
-  --drop-elevation-2: drop-shadow(0 2px 2px rgba(9, 26, 24, 0.22)) drop-shadow(0 9px 22px rgba(9, 26, 24, 0.26));
 }
 
 :root {
@@ -139,9 +145,6 @@
   --elevation-1: 0 12px 30px rgba(0, 0, 0, 0.45);
   --elevation-2: 0 22px 50px rgba(0, 0, 0, 0.55);
   --elevation-3: 0 26px 56px rgba(0, 0, 0, 0.62);
-  /* 꼬리가 달린 판에 쓰는 그늘. box-shadow 는 테두리 상자에만 걸려 그늘이 꼬리를 가로지르는 띠로 남는데,
-     filter 는 그려진 모양을 따라가 꼬리 끝까지 이어진다. 흐림은 filter 쪽이 두 배로 퍼져 반경을 절반으로 준다. */
-  --drop-elevation-2: drop-shadow(0 11px 25px rgba(0, 0, 0, 0.55));
 }
 .theme-light {
   color-scheme: light;
