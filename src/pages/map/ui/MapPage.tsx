@@ -698,6 +698,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               onAddPoint={addPoint}
               onSelect={setSelectedId}
               onMapReady={setMapInstance}
+              onLocationError={(message) => showToast(message, 'error')}
             />
 
             {/* 커맨드 바 — 표시 설정과 읽을거리를 지도 아래 한 줄에 모은다.

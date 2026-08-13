@@ -15,7 +15,7 @@ import Point from 'ol/geom/Point'
 import { fromLonLat, toLonLat } from 'ol/proj'
 import { defaults as defaultControls } from 'ol/control/defaults'
 import type { FeatureLike } from 'ol/Feature'
-import type { Style } from 'ol/style'
+import { Circle as CircleStyle, Fill, RegularShape, Stroke, Style } from 'ol/style'
 import type { FlatStyleLike } from 'ol/style/flat'
 import { VWORLD_KEY, DEFAULT_CENTER, DEFAULT_ZOOM, MIN_ZOOM } from '@/shared/config/map'
 import { MARKER_ATLAS_CELL, controlPointLabelStyle, controlPointStyle, markerAtlasUrl, markerSymbolIndex } from '@/entities/control-point'
@@ -86,6 +86,7 @@ interface ControlPointMapProps {
   onSelect: (id: string | null) => void
   /** 만들어진 지도 인스턴스 — 하단 상태 표시처럼 매 프레임 값이 바뀌는 UI가 직접 구독하도록 넘긴다 */
   onMapReady?: (map: Map | null) => void
+  onLocationError?: (message: string) => void
 }
 
 export function ControlPointMap(props: ControlPointMapProps) {
@@ -115,6 +116,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const showCadastralRef = useRef(props.showCadastral)
   const showDistrictRef = useRef(props.showDistrict)
   const onMapReadyRef = useRef(props.onMapReady)
+  const onLocationErrorRef = useRef(props.onLocationError)
   // 렌더 중 ref 대입은 순수하지 않음(버려지는 렌더가 미커밋 값을 남길 수 있음) → 커밋 후 effect에서 동기화.
   // OL 콜백/스타일은 커밋 뒤(비동기 상호작용·재렌더)에만 refs를 읽으므로, 이 effect를 먼저 선언해 항상 최신값을 보게 함.
   useEffect(() => {
@@ -131,6 +133,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     showCadastralRef.current = props.showCadastral
     showDistrictRef.current = props.showDistrict
     onMapReadyRef.current = props.onMapReady
+    onLocationErrorRef.current = props.onLocationError
   })
 
   // 초기화 (마운트 시 1회)
@@ -186,6 +189,36 @@ export function ControlPointMap(props: ControlPointMapProps) {
     const rawSource = new VectorSource()
     rawSourceRef.current = rawSource
 
+    // 현재 위치는 기준점과 독립된 레이어로 관리해 기준점 필터·선택·조사 상태의 영향을 받지 않게 한다.
+    const locationSource = new VectorSource()
+    const locationFeature = new Feature()
+    locationSource.addFeature(locationFeature)
+    const locationDotStyle = new Style({
+      image: new CircleStyle({
+        radius: 8,
+        fill: new Fill({ color: '#1688ff' }),
+        stroke: new Stroke({ color: '#ffffff', width: 3 }),
+      }),
+      zIndex: 101,
+    })
+    const locationDirection = new RegularShape({
+      points: 3,
+      radius: 15,
+      angle: 0,
+      fill: new Fill({ color: 'rgba(22, 136, 255, 0.72)' }),
+      stroke: new Stroke({ color: '#ffffff', width: 1.5 }),
+    })
+    const locationDirectionStyle = new Style({ image: locationDirection, zIndex: 100 })
+    const locationLayer = new VectorLayer({
+      source: locationSource,
+      style: (feature) => {
+        const heading = feature.get('heading') as number | undefined
+        if (heading === undefined) return locationDotStyle
+        locationDirection.setRotation(heading * Math.PI / 180)
+        return [locationDirectionStyle, locationDotStyle]
+      },
+    })
+
     // 점은 겹치더라도 하나씩 그대로 그린다. 이름은 가까이서 볼 때만 붙인다.
     // 소스는 전체 점을 들고 있고, 숨길 점은 스타일을 돌려주지 않아 그리기·클릭 판정에서 함께 빠진다.
     const layerStyle = (feature: FeatureLike): Style | undefined => {
@@ -221,14 +254,44 @@ export function ControlPointMap(props: ControlPointMapProps) {
       target: container,
       controls: defaultControls(), // 축척은 비율과 한 칩에 묶으려고 map-status-bar 가 직접 붙인다
       layers: canvasPointLayer !== null
-        ? [baseLayer, cadastralLayer, districtLayer, canvasPointLayer, labelLayer]
-        : [baseLayer, cadastralLayer, districtLayer, labelLayer],
+        ? [baseLayer, cadastralLayer, districtLayer, canvasPointLayer, labelLayer, locationLayer]
+        : [baseLayer, cadastralLayer, districtLayer, labelLayer, locationLayer],
       // maxZoom 20: 배경 타일 네이티브 최대(라이트 19·다크 18)를 크게 넘기면 확대 보정으로 흐려진다
       // minZoom: 부천 밖으로 한없이 물러서지 않게 막는다(shared/config/map)
       view: new View({ center: fromLonLat(DEFAULT_CENTER), zoom: DEFAULT_ZOOM, minZoom: MIN_ZOOM, maxZoom: 20 }),
     })
     mapRef.current = map
     onMapReadyRef.current?.(map)
+
+    let centeredOnLocation = false
+    let lastLocationErrorCode: number | null = null
+    const watchId = navigator.geolocation?.watchPosition(
+      ({ coords }) => {
+        const coordinate = fromLonLat([coords.longitude, coords.latitude])
+        locationFeature.setGeometry(new Point(coordinate))
+        const heading = coords.heading
+        locationFeature.set('heading', heading !== null && Number.isFinite(heading) ? heading : undefined)
+        lastLocationErrorCode = null
+        if (!centeredOnLocation) {
+          centeredOnLocation = true
+          map.getView().animate({ center: coordinate, duration: 450 })
+        }
+      },
+      (error) => {
+        if (lastLocationErrorCode === error.code) return
+        lastLocationErrorCode = error.code
+        const message = error.code === GeolocationPositionError.PERMISSION_DENIED
+          ? '위치 권한이 거부되어 현재 위치를 표시할 수 없습니다.'
+          : error.code === GeolocationPositionError.POSITION_UNAVAILABLE
+            ? '기기에서 현재 위치를 확인할 수 없습니다.'
+            : '현재 위치 확인이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.'
+        onLocationErrorRef.current?.(message)
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+    )
+    if (!navigator.geolocation) {
+      onLocationErrorRef.current?.('이 브라우저에서는 현재 위치를 사용할 수 없습니다.')
+    }
 
     if (WEBGL_SUPPORTED) {
       // 아틀라스는 이미지 로드가 비동기라, 지도를 먼저 세우고 도식 레이어를 뒤따라 얹는다(라벨 레이어 아래 자리).
@@ -308,6 +371,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
       baseSource.un('tileloadend', rerender)
       cadastralSource.un('imageloadend', rerender)
       resizeObserver.disconnect()
+      if (watchId !== undefined) navigator.geolocation.clearWatch(watchId)
       map.setTarget(undefined)
       onMapReadyRef.current?.(null)
       mapRef.current = null
