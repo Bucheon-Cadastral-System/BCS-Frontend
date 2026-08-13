@@ -494,7 +494,7 @@ export function SurveyProjectFileModal(props: {
       </p>
       {!send.started && entries.every((e) => e.discarded) && (
         <p className="rounded-chip bg-soft px-2.5 py-1.5 text-[12px] text-ink-3">
-          모두 폐기해 등록할 프로젝트가 없습니다.
+          전체 폐기로 등록할 프로젝트가 없습니다.
         </p>
       )}
       {!send.started && invalidIndex !== null && (
@@ -611,7 +611,7 @@ export function SurveyProjectFileModal(props: {
             )}
             {!send.started && (
               <button type="submit" className={MODAL_SUBMIT_BTN} disabled={!canRegister}>
-                {total > 1 ? `${pendingIndexes.length}건 추가` : '추가'}
+                {total > 1 ? `${pendingIndexes.length}건 등록` : '등록'}
               </button>
             )}
             {send.started && failedIndex >= 0 && (

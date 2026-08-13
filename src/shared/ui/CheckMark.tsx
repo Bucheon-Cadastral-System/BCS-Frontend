@@ -9,7 +9,7 @@ export function CheckMark(props: { on: boolean }) {
     <span
       aria-hidden
       className={`flex size-4 shrink-0 items-center justify-center rounded border transition-colors ${
-        props.on ? 'border-teal bg-teal text-white' : 'border-line-btn bg-transparent'
+        props.on ? 'border-teal bg-teal text-on-teal' : 'border-line-btn bg-transparent'
       }`}
     >
       {props.on && (
