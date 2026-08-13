@@ -15,13 +15,14 @@ import Point from 'ol/geom/Point'
 import { fromLonLat, toLonLat } from 'ol/proj'
 import { defaults as defaultControls } from 'ol/control/defaults'
 import type { FeatureLike } from 'ol/Feature'
-import { Circle as CircleStyle, Fill, RegularShape, Stroke, Style } from 'ol/style'
+import { Style } from 'ol/style'
 import type { FlatStyleLike } from 'ol/style/flat'
 import { VWORLD_KEY, DEFAULT_CENTER, DEFAULT_ZOOM, MIN_ZOOM } from '@/shared/config/map'
 import { MARKER_ATLAS_CELL, controlPointLabelStyle, controlPointStyle, markerAtlasUrl, markerSymbolIndex } from '@/entities/control-point'
 import type { ControlPoint, MapTheme } from '@/entities/control-point'
 import { deriveSurveyStatus } from '@/entities/survey-record'
 import type { SurveyResult } from '@/entities/survey-record'
+import { makeLocationStyle } from './locationStyle'
 
 /** 이 줌부터 점 이름을 그린다. 더 멀리서는 라벨끼리 겹쳐 읽을 수 없어 도식만 남긴다. */
 const LABEL_MIN_ZOOM = 16
@@ -30,6 +31,14 @@ const LABEL_MIN_ZOOM = 16
  * 해상도는 줌이 커질수록 작아지므로 '이 값 이하'가 곧 '이 줌 이상'이고, 같을 때(정확히 줌 16)도 포함한다.
  */
 const LABEL_MAX_RESOLUTION = 156543.03392804097 / 2 ** LABEL_MIN_ZOOM
+
+/** 한 번의 측위를 포기하는 시간(ms) — 이보다 오래 답이 없으면 실패로 보고 다시 건다 */
+const LOCATE_TIMEOUT_MS = 30_000
+/**
+ * 측위가 실패한 뒤 다시 걸기까지 기다리는 시간(ms). 연이어 실패하면 다음 칸으로 늘리고, 한 번 잡으면 처음으로 돌아간다.
+ * 마지막 칸에 이르면 그 간격으로 계속 다시 건다 — 기기가 자리를 내주기 시작하는 시점은 화면이 알 수 없다.
+ */
+const LOCATE_RETRY_MS = [3_000, 6_000, 12_000, 30_000, 60_000]
 
 /** 목록에서 점을 고를 때 맞추는 줌. 배경 타일 네이티브 최대(라이트 19·다크 18)와 같은 눈높이. */
 const FOCUS_ZOOM = 19
@@ -99,6 +108,9 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const labelLayerRef = useRef<VectorLayer<VectorSource> | null>(null)
   const cadastralRef = useRef<ImageLayer<ImageWMS> | null>(null)
   const districtRef = useRef<ImageLayer<ImageWMS> | null>(null)
+  const locationLayerRef = useRef<VectorLayer<VectorSource> | null>(null)
+  const locationFeatureRef = useRef<Feature | null>(null)
+  const locationStyleRef = useRef<ReturnType<typeof makeLocationStyle> | null>(null)
   const baseLayerRef = useRef<TileLayer<XYZ> | null>(null)
   const lastFocusNonceRef = useRef(props.focusNonce)
 
@@ -190,34 +202,17 @@ export function ControlPointMap(props: ControlPointMapProps) {
     rawSourceRef.current = rawSource
 
     // 현재 위치는 기준점과 독립된 레이어로 관리해 기준점 필터·선택·조사 상태의 영향을 받지 않게 한다.
+    // 도식은 locationStyle 이 맡는다 — 테마마다 값이 달라 스타일 함수째 ref 에 두고 갈아 끼운다.
     const locationSource = new VectorSource()
     const locationFeature = new Feature()
     locationSource.addFeature(locationFeature)
-    const locationDotStyle = new Style({
-      image: new CircleStyle({
-        radius: 8,
-        fill: new Fill({ color: '#1688ff' }),
-        stroke: new Stroke({ color: '#ffffff', width: 3 }),
-      }),
-      zIndex: 101,
-    })
-    const locationDirection = new RegularShape({
-      points: 3,
-      radius: 15,
-      angle: 0,
-      fill: new Fill({ color: 'rgba(22, 136, 255, 0.72)' }),
-      stroke: new Stroke({ color: '#ffffff', width: 1.5 }),
-    })
-    const locationDirectionStyle = new Style({ image: locationDirection, zIndex: 100 })
+    locationFeatureRef.current = locationFeature
+    locationStyleRef.current = makeLocationStyle(container)
     const locationLayer = new VectorLayer({
       source: locationSource,
-      style: (feature) => {
-        const heading = feature.get('heading') as number | undefined
-        if (heading === undefined) return locationDotStyle
-        locationDirection.setRotation(heading * Math.PI / 180)
-        return [locationDirectionStyle, locationDotStyle]
-      },
+      style: (feature) => locationStyleRef.current?.(feature),
     })
+    locationLayerRef.current = locationLayer
 
     // 점은 겹치더라도 하나씩 그대로 그린다. 이름은 가까이서 볼 때만 붙인다.
     // 소스는 전체 점을 들고 있고, 숨길 점은 스타일을 돌려주지 않아 그리기·클릭 판정에서 함께 빠진다.
@@ -263,43 +258,16 @@ export function ControlPointMap(props: ControlPointMapProps) {
     mapRef.current = map
     onMapReadyRef.current?.(map)
 
-    let centeredOnLocation = false
-    let lastLocationErrorCode: number | null = null
-    const watchId = navigator.geolocation?.watchPosition(
-      ({ coords }) => {
-        const coordinate = fromLonLat([coords.longitude, coords.latitude])
-        locationFeature.setGeometry(new Point(coordinate))
-        const heading = coords.heading
-        locationFeature.set('heading', heading !== null && Number.isFinite(heading) ? heading : undefined)
-        lastLocationErrorCode = null
-        if (!centeredOnLocation) {
-          centeredOnLocation = true
-          map.getView().animate({ center: coordinate, duration: 450 })
-        }
-      },
-      (error) => {
-        if (lastLocationErrorCode === error.code) return
-        lastLocationErrorCode = error.code
-        const message = error.code === GeolocationPositionError.PERMISSION_DENIED
-          ? '위치 권한이 거부되어 현재 위치를 표시할 수 없습니다.'
-          : error.code === GeolocationPositionError.POSITION_UNAVAILABLE
-            ? '기기에서 현재 위치를 확인할 수 없습니다.'
-            : '현재 위치 확인이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.'
-        onLocationErrorRef.current?.(message)
-      },
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
-    )
-    if (!navigator.geolocation) {
-      onLocationErrorRef.current?.('이 브라우저에서는 현재 위치를 사용할 수 없습니다.')
-    }
-
     if (WEBGL_SUPPORTED) {
       // 아틀라스는 이미지 로드가 비동기라, 지도를 먼저 세우고 도식 레이어를 뒤따라 얹는다(라벨 레이어 아래 자리).
       // 어느 단계든 실패하면 캔버스 레이어로 대신 그린다 — 점이 조용히 사라진 화면을 남기지 않는다.
+      //
+      // 자리는 법정동 경계 바로 위다. 숫자로 박아 두면 아래 겹이 하나 늘 때마다 점이 그 겹 밑으로 내려간다.
+      const pointLayerIndex = () => map.getLayers().getArray().indexOf(districtLayer) + 1
       const mountCanvasFallback = () => {
         if (mapRef.current !== map || pointLayerRef.current !== null) return
         const layer = new VectorLayer({ source: rawSource, style: layerStyle })
-        map.getLayers().insertAt(2, layer)
+        map.getLayers().insertAt(pointLayerIndex(), layer)
         pointLayerRef.current = layer
       }
       markerAtlasUrl()
@@ -319,7 +287,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
             },
           ]
           const webglLayer = new WebGLVectorLayer({ source: rawSource, style })
-          map.getLayers().insertAt(2, webglLayer)
+          map.getLayers().insertAt(pointLayerIndex(), webglLayer)
           pointLayerRef.current = webglLayer
         })
         .catch((e: unknown) => {
@@ -371,7 +339,6 @@ export function ControlPointMap(props: ControlPointMapProps) {
       baseSource.un('tileloadend', rerender)
       cadastralSource.un('imageloadend', rerender)
       resizeObserver.disconnect()
-      if (watchId !== undefined) navigator.geolocation.clearWatch(watchId)
       map.setTarget(undefined)
       onMapReadyRef.current?.(null)
       mapRef.current = null
@@ -381,6 +348,9 @@ export function ControlPointMap(props: ControlPointMapProps) {
       labelLayerRef.current = null
       cadastralRef.current = null
       districtRef.current = null
+      locationLayerRef.current = null
+      locationFeatureRef.current = null
+      locationStyleRef.current = null
       baseLayerRef.current = null
     }
   }, [])
@@ -458,6 +428,13 @@ export function ControlPointMap(props: ControlPointMapProps) {
     if (touched) rawSourceRef.current?.changed()
     pointLayerRef.current?.changed()
     labelLayerRef.current?.changed()
+    // 현재 위치 도식도 토큰 값을 박아 둔 객체라 테마가 바뀌면 새로 만든다.
+    // 테마 클래스는 이 요소의 조상에 붙으므로, 클래스가 갈린 뒤인 여기서 다시 읽어야 새 테마 값이 잡힌다
+    const container = containerRef.current
+    if (container !== null) {
+      locationStyleRef.current = makeLocationStyle(container)
+      locationLayerRef.current?.changed()
+    }
   }, [props.selectedId, props.surveyMode, props.resultById, props.theme])
 
   // 보이는 집합 변경 → hidden 속성 갱신(탭·조사 전환이 소스 재구성 없이 여기서 끝난다)
@@ -518,6 +495,126 @@ export function ControlPointMap(props: ControlPointMapProps) {
     districtRef.current?.setVisible(Boolean(VWORLD_KEY) && props.showDistrict)
   }, [props.showDistrict])
 
+  /**
+   * 현재 위치 — 화면이 서 있는 동안 늘 따라간다.
+   *
+   * <p>자리를 못 잡는다는 답(POSITION_UNAVAILABLE)은 끝이 아니라 한 번의 실패다. 애플은 이 오류를
+   * 「지금은 못 구했다」는 뜻으로 규정하고 다음 값을 기다리라고 적어 두었는데, 브라우저는 그 뒤로 감시에
+   * 값을 더 실어 주지 않는 경우가 있다. 그래서 실패하면 감시를 끊고 간격을 늘려 가며 계속 다시 건다.
+   * 안내로 갈음하지 않는다 — 다시 걸지 않으면 그 화면에서는 위치가 영영 오지 않는다.
+   *
+   * <p>정밀 측위는 위성을 받는 기기에서만 건다. 맥·PC 는 무선 신호로만 자리를 잡아, 정밀을 요구하면
+   * CoreLocation 이 kCLErrorLocationUnknown 으로 돌려주고 마는 일이 잦다. 손가락으로 짚는 기기에서만
+   * 정밀을 켜고 나머지는 대략 측위로 받는다 — 지도에서 필요한 정확도는 어차피 그 이상이 아니다.
+   *
+   * <p>알리는 자리는 둘이다. 권한 거부는 즉시 알린다(사용자가 풀지 않으면 영영 오지 않는다).
+   * 나머지는 처음부터 한 번도 못 잡은 채 재시도가 다 밀린 뒤에만 한 번 알리고, 그동안에도 다시 걸기는 멈추지 않는다.
+   * 한 번이라도 자리를 잡았으면 지도에 점이 남아 있으므로 알리지 않는다.
+   *
+   * <p>다른 탭에 다녀오거나 권한이 허용으로 바뀌면 감시를 다시 건다. 잠들었다 깨어난 감시는 값을 더 내주지
+   * 않는 브라우저가 있어, 그대로 두면 자리가 옛날 자리에 멈춘다. 거부도 여기서 풀린다 — 설정에서 허용으로
+   * 되돌린 사람이 새로고침을 해야만 위치가 돌아오는 것은 화면이 그 상태를 굳혀 둔 탓이다.
+   * 다시 걸기 전에 권한이 이미 허용인지 확인한다. 확인 없이 부르면 아직 정하지 않은 사람에게
+   * 탭을 옮길 때마다 권한 창을 띄우게 된다.
+   *
+   * <p>사유 상수는 오류 객체에서 읽는다. 전역 `GeolocationPositionError` 를 참조하면 그 이름을 내주지 않는
+   * 브라우저에서 콜백이 그 줄에서 멈춰 안내도 표시도 나오지 않는다.
+   */
+  useEffect(() => {
+    const feature = locationFeatureRef.current
+    if (feature === null) return
+    const geolocation = navigator.geolocation
+    if (!geolocation) {
+      onLocationErrorRef.current?.('이 브라우저에서는 현재 위치를 사용할 수 없습니다.')
+      return
+    }
+
+    const options: PositionOptions = {
+      enableHighAccuracy: window.matchMedia('(pointer: coarse)').matches,
+      maximumAge: 5_000,
+      timeout: LOCATE_TIMEOUT_MS,
+    }
+    // 거부는 화면을 떠난 것과 구별해 둔다 — 허용으로 바뀌면 아래 resume 이 되살린다
+    let denied = false
+    let released = false
+    let located = false
+    let told = false
+    let fails = 0
+    let permission: PermissionStatus | null = null
+    let watchId: number | undefined
+    let retryId: number | undefined
+
+    const drop = () => {
+      if (watchId === undefined) return
+      geolocation.clearWatch(watchId)
+      watchId = undefined
+    }
+    const mark = ({ coords }: GeolocationPosition) => {
+      feature.setGeometry(new Point(fromLonLat([coords.longitude, coords.latitude])))
+      const heading = coords.heading
+      feature.set('heading', heading !== null && Number.isFinite(heading) ? heading : undefined)
+      located = true
+      fails = 0
+    }
+    const fail = (error: GeolocationPositionError) => {
+      if (released) return
+      if (error.code === error.PERMISSION_DENIED) {
+        denied = true
+        drop()
+        window.clearTimeout(retryId)
+        onLocationErrorRef.current?.('위치 권한이 거부되어 현재 위치를 표시할 수 없습니다.')
+        return
+      }
+      fails += 1
+      if (!located && !told && fails >= LOCATE_RETRY_MS.length) {
+        told = true
+        onLocationErrorRef.current?.('기기가 현재 위치를 내주지 않습니다. 위치 서비스와 Wi-Fi 를 확인해 주세요.')
+      }
+      drop()
+      retryId = window.setTimeout(start, LOCATE_RETRY_MS[Math.min(fails - 1, LOCATE_RETRY_MS.length - 1)])
+    }
+    const start = () => {
+      if (released || denied || watchId !== undefined) return
+      // 캐시된 값이라도 먼저 찍는다 — 새 측위를 기다리는 동안 자리를 비워 두지 않는다
+      if (!located) {
+        geolocation.getCurrentPosition(mark, () => undefined, { enableHighAccuracy: false, maximumAge: 600_000, timeout: 10_000 })
+      }
+      watchId = geolocation.watchPosition(mark, fail, options)
+    }
+    const resume = () => {
+      if (released || document.visibilityState !== 'visible') return
+      void navigator.permissions
+        ?.query({ name: 'geolocation' })
+        .then((status) => {
+          if (released || status.state !== 'granted' || document.visibilityState !== 'visible') return
+          denied = false
+          window.clearTimeout(retryId)
+          drop()
+          start()
+        })
+        .catch(() => undefined)
+    }
+
+    start()
+    document.addEventListener('visibilitychange', resume)
+    // 권한은 이 화면 밖에서도 바뀐다 — 브라우저가 알려 주면 탭을 옮기지 않아도 그 자리에서 되살린다
+    void navigator.permissions
+      ?.query({ name: 'geolocation' })
+      .then((status) => {
+        if (released) return
+        permission = status
+        status.addEventListener('change', resume)
+      })
+      .catch(() => undefined)
+    return () => {
+      released = true
+      document.removeEventListener('visibilitychange', resume)
+      permission?.removeEventListener('change', resume)
+      window.clearTimeout(retryId)
+      drop()
+    }
+  }, [])
+
   // 선택된 점으로 이동 (부드러운 팬). 단, 목록 포커스(focusNonce 변화)로 인한 선택이면
   // 여기서 팬하지 않는다 → 아래 focusNonce 이펙트가 zoom+pan 담당(팬+줌 이중 애니메이션 충돌=버벅임 방지).
   useEffect(() => {
@@ -547,16 +644,21 @@ export function ControlPointMap(props: ControlPointMapProps) {
     })
   }, [props.focusNonce])
 
-  // 처음 자리로 되돌리기 — 고른 점은 그대로 두고 눈높이만 화면 정중앙으로 되돌린다
+  /**
+   * 위치 초기화 — 고른 점은 그대로 두고 눈높이만 옮긴다.
+   *
+   * <p>현재 위치를 잡았으면 그 자리로 간다. 현장에서 누르는 사람이 찾는 자리는 부천 한가운데가 아니라 자기 자리다.
+   * 아직 못 잡았으면 처음 보던 자리로 되돌린다.
+   */
   useEffect(() => {
     if (props.homeNonce === 0 || !mapRef.current) return
     const view = mapRef.current.getView()
-    const [cx, cy] = fromLonLat(DEFAULT_CENTER)
-    view.animate({
-      center: [cx, cy],
-      zoom: DEFAULT_ZOOM,
-      duration: 450,
-    })
+    const here = locationFeatureRef.current?.getGeometry()
+    if (here instanceof Point) {
+      view.animate({ center: here.getCoordinates(), zoom: FOCUS_ZOOM, duration: 450 })
+      return
+    }
+    view.animate({ center: fromLonLat(DEFAULT_CENTER), zoom: DEFAULT_ZOOM, duration: 450 })
   }, [props.homeNonce])
 
   return <div ref={containerRef} className={`absolute inset-0 ${props.addMode ? 'cursor-crosshair' : ''}`} />

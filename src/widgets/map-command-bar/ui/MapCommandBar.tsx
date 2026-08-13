@@ -34,7 +34,7 @@ export function MapCommandBar(props: {
    * 둘 다 지도에 무엇을 얹을지 고르는 값이라 한 묶음으로 선다.
    */
   surveyStatus?: ReactNode
-  /** 처음 보던 자리로 되돌리기 — 어디까지 옮겨야 하는지는 판이 가린 폭을 아는 지도가 정한다 */
+  /** 눈높이를 되돌리기 — 현재 위치를 잡았으면 그 자리로, 아니면 처음 보던 자리로. 어디로 갈지는 지도가 정한다 */
   onResetView: () => void
 }) {
   const dark = props.theme === 'dark'
@@ -45,8 +45,8 @@ export function MapCommandBar(props: {
       <button
         type="button"
         onClick={props.onResetView}
-        title="처음 보던 자리로 이동"
-        aria-label="처음 보던 자리로 이동"
+        title="위치 초기화"
+        aria-label="위치 초기화"
         className="flex size-6 shrink-0 items-center justify-center rounded-ctl text-ink-2 transition-colors hover:bg-hover hover:text-ink"
       >
         <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">

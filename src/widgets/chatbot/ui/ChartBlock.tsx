@@ -3,6 +3,7 @@ import Chart, { type ChartConfiguration } from 'chart.js/auto'
 import { SURVEY_STATUS_COLOR_VAR, SURVEY_STATUS_LABEL } from '@/entities/survey-record'
 import type { SurveyStatus } from '@/entities/survey-record'
 import { POPOVER } from '@/shared/ui/classes'
+import { readThemeVar } from '@/shared/lib/themeVar'
 import type { ChartSpec } from '../model/types'
 
 // 라이트·다크 양쪽에서 무난한 팔레트
@@ -33,12 +34,14 @@ const LABEL_COLOR_VAR: Record<string, string> = Object.fromEntries(
   ]),
 )
 
-/** 라벨에 정해 둔 색 — 규칙에 없는 라벨은 기존 팔레트를 순서대로 쓴다. */
-function colorOf(label: string, index: number): string {
+/**
+ * 라벨에 정해 둔 색 — 규칙에 없는 라벨은 기존 팔레트를 순서대로 쓴다.
+ * 색은 그림을 그릴 캔버스에서 읽는다. 테마 클래스가 그 위 요소에 걸려 있어 라이트 값이 함께 잡힌다.
+ */
+function colorOf(root: Element, label: string, index: number): string {
   const token = LABEL_COLOR_VAR[label.trim()]
   if (token === undefined) return PALETTE[index % PALETTE.length]
-  const value = getComputedStyle(document.documentElement).getPropertyValue(token).trim()
-  return value === '' ? PALETTE[index % PALETTE.length] : value
+  return readThemeVar(root, token, PALETTE[index % PALETTE.length])
 }
 
 // LLM이 낸 ```chart JSON을 안전하게 파싱·검증. 형식이 어긋나면 null(폴백 노출)
@@ -178,14 +181,14 @@ export function ChartBlock({ json }: { json: string }) {
       ? [{
           label: spec.datasets[0]?.label ?? '',
           data: spec.datasets[0]?.data ?? [],
-          backgroundColor: spec.labels.map((label, j) => colorOf(label, j)),
+          backgroundColor: spec.labels.map((label, j) => colorOf(canvas, label, j)),
           borderWidth: 0,
         }]
       : spec.datasets.map((d, i) => ({
           label: d.label,
           data: d.data,
-          backgroundColor: colorOf(d.label, i),
-          borderColor: colorOf(d.label, i),
+          backgroundColor: colorOf(canvas, d.label, i),
+          borderColor: colorOf(canvas, d.label, i),
           borderWidth: type === 'line' ? 2 : 0,
         }))
 
@@ -195,8 +198,7 @@ export function ChartBlock({ json }: { json: string }) {
     const labels = isPie ? spec.labels.map((label, j) => `${label} ${series[j] ?? 0}`) : spec.labels
 
     // 캔버스에 그리는 글자라 CSS 를 못 받는다 — 제목·범례에 한글이 오므로 화면 글꼴을 직접 넘긴다
-    Chart.defaults.font.family =
-      getComputedStyle(document.documentElement).getPropertyValue('--font-sans').trim() || 'system-ui, sans-serif'
+    Chart.defaults.font.family = readThemeVar(canvas, '--font-sans', 'system-ui, sans-serif')
 
     // Chart.js 타입은 차트 type별로 dataset 형태가 엄격해, 런타임에 type이 갈리는 config는 캐스팅해 넘긴다
     const config = {

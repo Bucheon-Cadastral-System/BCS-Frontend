@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import type { ReactNode } from 'react'
 import { PROGRESS_FILL } from '@/shared/ui/classes'
 import { percent } from '@/shared/lib/percent'
@@ -64,6 +65,7 @@ function parseSpec(raw: string): SurveyStatusSpec | null {
  * 사용자가 둘을 견주며 어느 쪽이 맞는지 의심하게 된다.
  */
 export function SurveyStatusBlock({ json }: { json: string }) {
+  const rootRef = useRef<HTMLDivElement>(null)
   const spec = parseSpec(json)
   if (spec === null) {
     return <pre className="my-1 overflow-x-auto rounded bg-soft p-2 text-xs text-ink-3">{json.trim()}</pre>
@@ -74,7 +76,10 @@ export function SurveyStatusBlock({ json }: { json: string }) {
   const breakdown = spec.breakdown
 
   const download = () => {
-    const canvas = drawSurveyStatusCard(spec)
+    // 색은 이 카드가 선 자리에서 읽는다 — 테마 클래스가 걸린 요소 아래여야 라이트 값이 잡힌다
+    const root = rootRef.current
+    if (root === null) return
+    const canvas = drawSurveyStatusCard(root, spec)
     if (canvas === null) return
     const a = document.createElement('a')
     a.download = `${spec.title ?? '조사 현황'}.png`
@@ -83,7 +88,7 @@ export function SurveyStatusBlock({ json }: { json: string }) {
   }
 
   return (
-    <div className="relative my-1 rounded-ctl border border-line-soft bg-soft px-3 py-2.5">
+    <div ref={rootRef} className="relative my-1 rounded-ctl border border-line-soft bg-soft px-3 py-2.5">
       <button
         type="button"
         onClick={download}
