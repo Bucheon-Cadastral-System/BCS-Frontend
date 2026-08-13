@@ -4,7 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { StatusDistributionBar, SURVEY_STATUS_DOT, SURVEY_STATUS_LABEL, SURVEY_STATUS_ORDER, deriveSurveyStatus } from '@/entities/survey-record'
 import type { SurveyResult, SurveyStatus } from '@/entities/survey-record'
 import { Skeleton, SkeletonRows } from '@/shared/ui/Skeleton'
-import { CHIP_BTN, CHIP_BTN_DANGER, ICON_BTN, ICON_BTN_DANGER, PANEL, PANEL_HEADER, ROW_ACCENT } from '@/shared/ui/classes'
+import { CHIP_BTN, CHIP_BTN_DANGER, ICON_BTN, ICON_BTN_DANGER, PANEL, PANEL_HEADER, PILL, ROW_ACCENT } from '@/shared/ui/classes'
 import { percent } from '@/shared/lib/percent'
 import { formatDate } from '@/shared/lib/date'
 import { SURVEY_ONGOING_LABEL, isProjectComplete, type SurveyProject } from '@/entities/survey-project'
@@ -305,7 +305,7 @@ function ProjectPanel(props: MapSidebarProps) {
                 <button
                   type="button"
                   onClick={() => props.onChangeActive(p.id)}
-                  className="flex w-full items-center gap-[11px] py-3 pl-[13px] pr-3.5 text-left transition-colors hover:bg-white/[0.03]"
+                  className="flex w-full items-center gap-[11px] py-3 pl-[13px] pr-3.5 text-left transition-colors hover:bg-hover"
                 >
                   <ProjectStateMark complete={isProjectComplete(p)} />
                   <span className="flex min-w-0 flex-1 flex-col">
@@ -608,17 +608,18 @@ function PointListPanel(props: MapSidebarProps) {
         {POINT_TYPES.map((t) => {
           const pts = byType.get(t) ?? []
           const open = openType === t
-          // 펼침 높이는 개수만큼만 — 남은 높이보다 크면 flex 축소로 줄어들어 안에서 굴린다(가상 스크롤 유지).
-          // 빈 문구(py-6)와 자리표시(6줄+py-1)는 실제 렌더 높이만큼 잡아야 잘리지 않는다
+          // 펼침 높이는 행 높이의 정수배다 — 남는 자리를 두면 마지막 행과 다음 드로어 사이에 틈이 생긴다.
+          // 남은 높이보다 크면 flex 축소로 줄어들어 안에서 굴린다(가상 스크롤 유지).
+          // 빈 문구(py-6)와 자리표시(6줄+py-1)만 실제 렌더 높이를 따로 잡는다
           const fitHeight =
-            pts.length > 0 ? pts.length * ROW_HEIGHT + 6 : props.pointsLoading === true ? 6 * ROW_HEIGHT + 8 : 68
+            pts.length > 0 ? pts.length * ROW_HEIGHT : props.pointsLoading === true ? 6 * ROW_HEIGHT + 8 : 68
           return (
             <Fragment key={t}>
               <button
                 type="button"
                 onClick={() => setOpenType(open ? null : t)}
                 aria-expanded={open}
-                className="flex shrink-0 items-center gap-2 border-b border-line-row px-3.5 py-3.5 text-left transition-colors hover:bg-white/[0.03]"
+                className="flex shrink-0 items-center gap-2 border-b border-line-row px-3.5 py-3.5 text-left transition-colors hover:bg-hover"
               >
                 <PointTypeIcon type={t} className="size-4 shrink-0 text-teal-text" />
                 <span className={`flex-1 text-[13px] font-semibold ${open ? 'text-ink' : 'text-ink-2'}`}>{t}</span>
@@ -637,7 +638,7 @@ function PointListPanel(props: MapSidebarProps) {
                 <PointRowList
                   points={pts}
                   onFocus={props.onFocusPoint}
-                  emptyText={props.points.length === 0 ? '기준점 없음' : '조건에 맞는 기준점 없음'}
+                  emptyText={query === '' ? '기준점 없음' : '검색 결과 없음'}
                   loading={props.pointsLoading}
                 />
               </div>
@@ -652,8 +653,8 @@ function PointListPanel(props: MapSidebarProps) {
 /**
  * 점 목록 — 가상 스크롤. 기준점이 수천 개라 전부 마운트하면 그 커밋이 프레임을 막아 패널이 늦게 뜨고 조작이 끊긴다.
  * 화면에 보이는 행(+overscan)만 그리므로 DOM 수가 목록 길이와 무관하게 일정하다.
- * 행 높이는 펼침(조사·망실 버튼) 때문에 가변이라 measureElement로 실제 높이를 잰다.
- * survey 주면 상태마크·조사/망실 토글·펼침(프로젝트 드로어), 없으면 이름·종류만(기준점 탭).
+ * 행 높이는 모두 같다 — 결과를 고르는 자리가 상세 카드로 옮겨가 펼쳐지는 행이 없다.
+ * survey 를 주면 상태마크가 함께 서고(프로젝트 드로어), 없으면 이름·종류만 선다(기준점 탭).
  */
 function PointRowList(props: {
   points: ControlPoint[]
@@ -708,7 +709,8 @@ function PointRowList(props: {
       className={`overflow-y-auto ${maxHeightClass ?? 'min-h-0 flex-1'}`}
     >
       {/* 전체 높이만큼 자리를 잡아 스크롤 막대가 실제 목록 길이를 나타내게 하고, 보이는 행만 그 안에 띄운다 */}
-      <ul className="relative w-full pb-1" style={{ height: virtualizer.getTotalSize() }}>
+      {/* 아래 여백을 두지 않는다 — 드로어는 이 높이에 딱 맞춰 열리므로 여백이 그대로 드로어 사이의 틈이 된다 */}
+      <ul className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((item) => {
           const cp = points[item.index]
           const status = deriveSurveyStatus((resultById ?? EMPTY_RESULTS).get(cp.id))
@@ -750,7 +752,7 @@ function PointRowList(props: {
         onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
         aria-hidden={!scrolled}
         tabIndex={scrolled ? 0 : -1}
-        className={`absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-pill border border-line-pill bg-pill py-1.5 pl-2.5 pr-3 text-[12px] font-medium text-ink-2 shadow-pill transition-all duration-200 hover:text-ink ${
+        className={`absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 py-1.5 pl-2.5 pr-3 text-[12px] font-medium text-ink-2 transition-all duration-200 hover:text-ink ${PILL} ${
           scrolled ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-3 opacity-0'
         }`}
       >
@@ -784,7 +786,7 @@ function PointRow(props: {
         type="button"
         onClick={props.onClick}
         aria-expanded={hasActions ? Boolean(props.expanded) : undefined}
-        className={`flex h-[34px] w-full items-center gap-2 px-3.5 text-left transition-colors hover:bg-white/[0.03] ${
+        className={`flex h-[34px] w-full items-center gap-2 px-3.5 text-left transition-colors hover:bg-hover ${
           props.expanded ? `bg-teal-wash ${ROW_ACCENT}` : ''
         }`}
       >
