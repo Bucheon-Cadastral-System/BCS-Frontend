@@ -212,6 +212,36 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     setSelectedId((cur) => (cur !== null && !points.some((p) => p.id === cur) ? null : cur))
   }, [points])
 
+  /** 고른 조사의 눈으로 보는 중인지 — 값이 있으면 그 조사의 id 다. 기준점 탭은 전체를 보는 자리라 여기서 빠진다 */
+  const projectView = activeProjectId !== null && panel?.key !== 'points' ? activeProjectId : null
+  const screenedForRef = useRef<string | null>(null)
+
+  /**
+   * 조사 상세로 들어설 때, 그 조사의 대상이 아닌 선택은 놓는다.
+   *
+   * <p>기준점 탭에서 아무 점이나 고른 채 조사를 열면 그 점은 이 조사와 상관이 없다. 그대로 두면 상세 카드가
+   * 남고 지도에도 대상 아닌 마커가 하나 함께 그려져, 이 조사가 맡은 범위가 어긋나 보인다.
+   *
+   * <p>들어설 때 한 번만 거른다. 보는 내내 걸러 두면 헤더 검색과 챗봇 안내가 조사를 열어 둔 채로 대상 밖의
+   * 점을 가리킬 수 없다. 그 둘은 판을 열지 않고 점을 지목하므로 지목한 자리가 빈 채로 남는다.
+   *
+   * <p>대상 목록이 오기 전에는 판정하지 않는다. 도착 전에는 대상이 0건이라 고른 점이 대상이어도 놓아 버린다.
+   *
+   * <p>놓을 때 지도도 처음 자리로 되돌린다. 목록에서 고른 점은 지도를 그 점까지 당겨 놓으므로,
+   * 선택만 놓으면 조사와 상관없는 자리에 아무것도 없는 화면이 남는다.
+   */
+  useEffect(() => {
+    if (projectView === null) {
+      screenedForRef.current = null // 나갔다 다시 들어오면 그때 한 번 더 거른다
+      return
+    }
+    if (targetIds === null || screenedForRef.current === projectView) return
+    screenedForRef.current = projectView
+    if (selectedId === null || targetIds.has(selectedId)) return
+    setSelectedId(null)
+    setHomeNonce((n) => n + 1)
+  }, [projectView, targetIds, selectedId])
+
   // 활성 프로젝트의 조사기록만 조회하므로 맵에 있으면 조사됨이고, 값이 그 점의 조사 결과다
   const resultById = useMemo(() => new Map(records.map((r) => [r.pointId, r.result])), [records])
   // 기타 비고는 상세 카드가 이어서 고칠 수 있어야 해서 결과와 함께 들고 있는다
