@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '@/app/store/hooks'
-import { setActiveProject, toggleTheme } from '@/app/store'
+import { clearStatusFilter, setActiveProject, toggleStatusFilter, toggleSurveyStatus, toggleTheme } from '@/app/store'
 import { AppHeader, PointIcon, ProjectIcon } from '@/widgets/app-header'
 import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
@@ -11,11 +11,11 @@ import { MapCommandBar } from '@/widgets/map-command-bar'
 import type OlMap from 'ol/Map'
 import { ChatDockLayout } from '@/widgets/chatbot'
 import type { ChatAction } from '@/widgets/chatbot'
-import { POINT_TYPES, fetchControlPointUsage, useControlPointsQuery, useDeleteControlPointMutation, useRegisterControlPointMutation, useUpdateControlPointMutation } from '@/entities/control-point'
+import { POINT_TYPES, fetchControlPointUsage, useControlPointsQuery, useDeleteControlPointMutation, useLastSurveysQuery, useRegisterControlPointMutation, useUpdateControlPointMutation } from '@/entities/control-point'
 import type { ControlPoint } from '@/entities/control-point'
 import { useCreateSurveyProjectMutation, useDeleteSurveyProjectMutation, useSurveyProjectsQuery, useSurveyTargetsQuery, useUpdateSurveyProjectMutation } from '@/entities/survey-project'
 import type { SurveyProject, SurveyProjectDraft } from '@/entities/survey-project'
-import { useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
+import { deriveSurveyStatus, useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
 import type { SurveyResult } from '@/entities/survey-record'
 import { useImportControlPoints, useImportSurveyCsv } from '@/features/import-file'
 import { ControlPointFileModal, ControlPointFormModal } from '@/widgets/add-control-point'
@@ -54,7 +54,7 @@ const EMPTY_RESULT_MAP: ReadonlyMap<string, SurveyResult> = new Map()
  */
 const PANEL_MARGIN = 16
 /** 커맨드 바의 대표 폭(축척이 보통 길이일 때) — 바의 왼쪽 끝을 붙여 둘 기준 자리다. 좁은 화면 값은 글자를 접은 폭 */
-const COMMAND_BAR_NOMINAL = 'w-[606px] max-lg:w-[518px]'
+const COMMAND_BAR_NOMINAL = 'w-[703px] max-lg:w-[554px]'
 
 const BANNER_TONE = {
   warn: 'border-amber/40 bg-amber-wash text-amber',
@@ -78,6 +78,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   const dispatch = useAppDispatch()
   const theme = useAppSelector((state) => state.ui.theme)
   const activeProjectId = useAppSelector((state) => state.ui.activeProjectId)
+  const surveyStatusVisible = useAppSelector((state) => state.ui.surveyStatusVisible)
+  const statusFilter = useAppSelector((state) => state.ui.statusFilter)
 
   const pointsQuery = useControlPointsQuery()
   const projectsQuery = useSurveyProjectsQuery()
@@ -205,22 +207,6 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     dispatch(setActiveProject(null))
   }
 
-  /**
-   * 지도에 보일 점 — 기본은 아무것도 보이지 않는다.
-   * 기준점 탭을 열면 전체(null = 전부), 조사를 고르면 그 조사의 대상만.
-   * 점 소스는 전체를 한 번만 들고 있으므로, 탭·조사 전환은 소스 재구성이 아니라 이 집합의 교체다.
-   * 고른 점은 어느 경우에도 함께 보인다 — 헤더 검색·챗봇 안내는 패널을 열지 않고 점을 지목하므로,
-   * 빼면 지목한 자리에 아무것도 나타나지 않는다.
-   */
-  const visibleIds = useMemo<ReadonlySet<string> | null>(() => {
-    if (panel?.key === 'points') return null
-    const base = activeProjectId !== null && targetIds !== null ? targetIds : EMPTY_ID_SET
-    if (selectedId === null || base.has(selectedId)) return base
-    const withSelected = new Set(base)
-    withSelected.add(selectedId)
-    return withSelected
-  }, [panel, activeProjectId, targetIds, selectedId])
-
   // 고른 점이 없어졌으면 선택을 푼다(마커 없는 상세가 남지 않게) — 보이는 집합에는 고른 점이 늘 실리므로 존재만 본다
   useEffect(() => {
     setSelectedId((cur) => (cur !== null && !points.some((p) => p.id === cur) ? null : cur))
@@ -230,8 +216,54 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   const resultById = useMemo(() => new Map(records.map((r) => [r.pointId, r.result])), [records])
   // 기타 비고는 상세 카드가 이어서 고칠 수 있어야 해서 결과와 함께 들고 있는다
   const noteById = useMemo(() => new Map(records.map((r) => [r.pointId, r.note])), [records])
-  // 기준점 탭에서는 조사 표시를 걷는다 — 선택은 유지하되 화면(마커 뱃지·카드 조사 상태)은 선택 해제와 같은 모습이어야 한다
+  // 기준점 탭에서는 조사 표시를 걷는다 — 선택은 유지하되 상세 카드의 조사 상태는 선택 해제와 같은 모습이어야 한다
   const surveyVisible = activeProjectId !== null && panel?.key !== 'points'
+
+  /**
+   * 상태를 무엇으로 셀지 — 조사를 골라 그 회차를 보는 중이면 그 회차의 결과, 그 외에는 점의 최신 상태.
+   *
+   * <p>같은 점이라도 둘은 갈린다. 이번 회차에서 아직 안 본 점도 지난 회차에서는 정상이었을 수 있다.
+   * 회차를 골라 진척을 보는 자리에서는 이번 회차의 결과여야 하고, 회차와 무관하게 지금 무엇이 망실인지
+   * 보는 자리(기준점 탭·조사 미선택)에서는 마지막으로 조사한 결과여야 한다.
+   */
+  const statusFromProject = surveyVisible
+  const lastSurveysQuery = useLastSurveysQuery(surveyStatusVisible && !statusFromProject)
+  /** 지도와 목록이 함께 보는 판정 표 — 상태 표시를 꺼 두면 null 이라 마커도 거르개도 서지 않는다 */
+  const statusById = useMemo<ReadonlyMap<string, SurveyResult> | null>(() => {
+    if (!surveyStatusVisible) return null
+    return statusFromProject ? resultById : (lastSurveysQuery.data ?? EMPTY_RESULT_MAP)
+  }, [surveyStatusVisible, statusFromProject, resultById, lastSurveysQuery.data])
+  const statusFilterSet = useMemo(() => new Set(statusFilter), [statusFilter])
+
+  /**
+   * 지도에 보일 점 — 기본은 아무것도 보이지 않는다.
+   * 기준점 탭을 열면 전체(null = 전부), 조사를 고르면 그 조사의 대상만.
+   * 점 소스는 전체를 한 번만 들고 있으므로, 탭·조사 전환은 소스 재구성이 아니라 이 집합의 교체다.
+   * 고른 점은 어느 경우에도 함께 보인다 — 헤더 검색·챗봇 안내는 패널을 열지 않고 점을 지목하므로,
+   * 빼면 지목한 자리에 아무것도 나타나지 않는다.
+   *
+   * <p>상태를 고르면 그 판정의 점만 남긴다. 사이드바 목록도 같은 표와 같은 판정으로 좁아지므로,
+   * 목록을 훑어도 지도에 없는 점은 나오지 않는다.
+   */
+  const visibleIds = useMemo<ReadonlySet<string> | null>(() => {
+    // 탭·조사가 정하는 범위 — 기준점 탭은 전체(null), 조사를 고르면 그 대상, 그 밖에는 아무것도 아니다
+    const scoped: ReadonlySet<string> | null =
+      panel?.key === 'points' ? null : activeProjectId !== null && targetIds !== null ? targetIds : EMPTY_ID_SET
+    const table = statusById
+    if (table === null || statusFilterSet.size === 0) return withSelected(scoped)
+    // 거를 때만 점을 훑는다 — 거르지 않는 동안에는 전체(null)를 그대로 넘겨 지도가 집합을 보지 않게 한다
+    const kept = points.filter(
+      (p) => (scoped === null || scoped.has(p.id)) && statusFilterSet.has(deriveSurveyStatus(table.get(p.id))),
+    )
+    return withSelected(new Set(kept.map((p) => p.id)))
+
+    function withSelected(ids: ReadonlySet<string> | null): ReadonlySet<string> | null {
+      if (ids === null || selectedId === null || ids.has(selectedId)) return ids
+      const next = new Set(ids)
+      next.add(selectedId)
+      return next
+    }
+  }, [panel, activeProjectId, targetIds, selectedId, points, statusById, statusFilterSet])
 
   // 위치 찍기 중 지도 클릭 → 좌표만 모달로 돌려주고 다시 입력 화면으로. 찍은 값은 시작값일 뿐 실제 성과가 아니다.
   function addPoint(lng: number, lat: number) {
@@ -578,6 +610,10 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
           points={points}
           targetPoints={targetPoints}
           resultById={resultById}
+          statusById={statusById}
+          statusFilter={statusFilterSet}
+          onToggleStatusFilter={(status) => dispatch(toggleStatusFilter(status))}
+          onClearStatusFilter={() => dispatch(clearStatusFilter())}
           onFocusPoint={focusPoint}
           onStartAddPoint={startAddPoint}
           onImportPoints={() => {
@@ -621,8 +657,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               addMode={picking}
               showCadastral={showCadastral}
               selectedId={selectedId}
-              surveyMode={surveyVisible}
-              resultById={surveyVisible ? resultById : EMPTY_RESULT_MAP}
+              surveyMode={statusById !== null}
+              resultById={statusById ?? EMPTY_RESULT_MAP}
               theme={theme}
               focusNonce={focusNonce}
               homeNonce={homeNonce}
@@ -647,6 +683,9 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
                     onToggleCadastral={() => setShowCadastral((v) => !v)}
                     theme={theme}
                     onToggleTheme={() => withoutTransition(() => dispatch(toggleTheme()))}
+                    showSurveyStatus={surveyStatusVisible}
+                    onToggleSurveyStatus={() => dispatch(toggleSurveyStatus())}
+                    surveyStatusBasis={statusFromProject ? (activeProject?.name ?? null) : null}
                     onResetView={() => setHomeNonce((n) => n + 1)}
                   />
                 </div>

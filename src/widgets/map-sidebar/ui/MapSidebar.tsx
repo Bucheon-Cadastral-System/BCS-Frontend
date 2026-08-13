@@ -3,6 +3,7 @@ import type { PanelKey } from '@/shared/model/panel'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { SURVEY_STATUS_DOT, SURVEY_STATUS_LABEL, SURVEY_STATUS_ORDER, deriveSurveyStatus } from '@/entities/survey-record'
 import type { SurveyResult, SurveyStatus } from '@/entities/survey-record'
+import { StatusFilterChips } from './StatusFilterChips'
 import { Skeleton, SkeletonRows } from '@/shared/ui/Skeleton'
 import { CHIP_BTN, CHIP_BTN_DANGER, ICON_BTN, ICON_BTN_DANGER, PANEL, PANEL_HEADER, PROGRESS_FILL, ROW_ACCENT } from '@/shared/ui/classes'
 import { percent } from '@/shared/lib/percent'
@@ -33,6 +34,29 @@ const DETAIL_SLIDE_MS = 200
 /** 조사 프로젝트를 안 고른 목록(기준점 탭)에서 상태 판정에 넘길 빈 맵 */
 const EMPTY_RESULTS: ReadonlyMap<string, SurveyResult> = new Map()
 
+/**
+ * 고른 상태의 점만 남긴다 — 판정 표가 없거나(상태 표시를 꺼 둔 동안) 고른 것이 없으면 그대로 둔다.
+ * 지도도 같은 표와 같은 판정으로 마커를 거르므로 목록과 지도가 어긋나지 않는다.
+ */
+function filterByStatus(
+  points: ControlPoint[],
+  statusById: ReadonlyMap<string, SurveyResult> | null,
+  selected: ReadonlySet<SurveyStatus>,
+): ControlPoint[] {
+  if (statusById === null || selected.size === 0) return points
+  return points.filter((point) => selected.has(deriveSurveyStatus(statusById.get(point.id))))
+}
+
+/** 다섯 갈래 개수 — 거르기 전 전체를 센다. 칩을 켜고 꺼도 옆의 숫자가 흔들리지 않게. */
+function countByStatus(
+  points: ControlPoint[],
+  statusById: ReadonlyMap<string, SurveyResult>,
+): Record<SurveyStatus, number> {
+  const counts: Record<SurveyStatus, number> = { done: 0, lost: 0, unavailable: 0, etc: 0, todo: 0 }
+  for (const point of points) counts[deriveSurveyStatus(statusById.get(point.id))]++
+  return counts
+}
+
 interface MapSidebarProps {
   // 조사 프로젝트
   projects: SurveyProject[]
@@ -50,6 +74,16 @@ interface MapSidebarProps {
   targetPoints: ControlPoint[]
   /** 점 id별 조사 결과. 맵에 없으면 미조사 */
   resultById: ReadonlyMap<string, SurveyResult>
+  /**
+   * 거르개가 볼 상태 판정 표 — 지도가 마커 색을 고를 때 쓰는 것과 같은 표다.
+   * 무엇을 기준으로 삼았는지(고른 회차인지 점별 최신인지)는 페이지가 정한다.
+   * 상태 표시를 꺼 두면 null 이고, 그동안에는 거르개를 세우지 않는다.
+   */
+  statusById: ReadonlyMap<string, SurveyResult> | null
+  /** 고른 상태 — 비어 있으면 거르지 않는다 */
+  statusFilter: ReadonlySet<SurveyStatus>
+  onToggleStatusFilter: (status: SurveyStatus) => void
+  onClearStatusFilter: () => void
   onFocusPoint: (cp: ControlPoint) => void
   // 서버 조회 진행 여부 — 로딩 중엔 '없습니다' 대신 자리표시를 보여준다
   projectsLoading?: boolean
@@ -345,6 +379,10 @@ function ProjectPanel(props: MapSidebarProps) {
             project={shownProject}
             targetPoints={detailData.targetPoints}
             resultById={detailData.resultById}
+            statusById={props.statusById}
+            statusFilter={props.statusFilter}
+            onToggleStatusFilter={props.onToggleStatusFilter}
+            onClearStatusFilter={props.onClearStatusFilter}
             recordsLoading={props.recordsLoading}
             targetsLoading={props.targetsLoading}
             pointsLoading={props.pointsLoading}
@@ -370,6 +408,11 @@ function ProjectDetail(props: {
   project: SurveyProject
   targetPoints: ControlPoint[]
   resultById: ReadonlyMap<string, SurveyResult>
+  /** 거르개가 볼 판정 표 — 상태 표시를 꺼 두면 null 이고, 그동안 내역은 세기만 한다 */
+  statusById: ReadonlyMap<string, SurveyResult> | null
+  statusFilter: ReadonlySet<SurveyStatus>
+  onToggleStatusFilter: (status: SurveyStatus) => void
+  onClearStatusFilter: () => void
   recordsLoading?: boolean
   targetsLoading?: boolean
   pointsLoading?: boolean
@@ -393,6 +436,8 @@ function ProjectDetail(props: {
     byStatus[deriveSurveyStatus(result)]++
   }
   byStatus.todo = Math.max(0, total - surveyed)
+  // 목록만 좁힌다 — 대상 수와 진행률은 고른 상태와 무관하게 그 조사가 맡은 전체를 가리켜야 한다
+  const listPoints = filterByStatus(props.targetPoints, props.statusById, props.statusFilter)
 
   return (
     <>
@@ -440,12 +485,24 @@ function ProjectDetail(props: {
                 style={{ width: `${pct}%` }}
               />
             </div>
-            {/* 결과별 내역 — 색은 아래 범례·지도 마커와 같은 뜻으로 쓴다 */}
-            <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-[5px] text-[11.5px] text-ink-3">
-              {SURVEY_STATUS_ORDER.map((key) => (
-                <StatusCount key={key} label={SURVEY_STATUS_LABEL[key]} count={byStatus[key]} dotClass={SURVEY_STATUS_DOT[key]} />
-              ))}
-            </div>
+            {/* 결과별 내역 — 색은 아래 범례·지도 마커와 같은 뜻으로 쓴다.
+                상태 표시를 켜면 같은 자리가 거르개가 된다. 세는 값과 고르는 값이 같아 두 벌로 두지 않는다 */}
+            {props.statusById !== null ? (
+              <div className="mt-2.5">
+                <StatusFilterChips
+                  selected={props.statusFilter}
+                  onToggle={props.onToggleStatusFilter}
+                  onClear={props.onClearStatusFilter}
+                  countByStatus={byStatus}
+                />
+              </div>
+            ) : (
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-[5px] text-[11.5px] text-ink-3">
+                {SURVEY_STATUS_ORDER.map((key) => (
+                  <StatusCount key={key} label={SURVEY_STATUS_LABEL[key]} count={byStatus[key]} dotClass={SURVEY_STATUS_DOT[key]} />
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -470,9 +527,11 @@ function ProjectDetail(props: {
       <div className="mt-3 flex min-h-0 flex-1 flex-col border-t border-line-soft pt-2">
         <p className="flex shrink-0 items-baseline gap-1.5 px-3.5 pb-1 text-[11px] font-medium tracking-[.08em] text-ink-3">
           대상 기준점 <span className="font-normal text-ink-4">{total}개</span>
+          {/* 거른 뒤의 수는 대상 수와 따로 적는다 — 대상 수를 줄여 적으면 진행률 분모와 어긋난다 */}
+          {listPoints.length !== total && <span className="font-normal text-ink-4">· 표시 {listPoints.length}개</span>}
         </p>
         <PointRowList
-          points={props.targetPoints}
+          points={listPoints}
           onFocus={props.onFocusPoint}
           survey={{
             resultById: props.resultById,
@@ -548,8 +607,18 @@ function ProjectNote(props: { note: string }) {
 function PointListPanel(props: MapSidebarProps) {
   const [q, setQ] = useState('')
   const query = q.trim()
+  const statusById = props.statusById
   // 이 탭은 전체 기준점 목록이다. 탭을 열면 지도도 전체를 보여주므로 목록과 지도가 어긋나지 않는다.
-  const source = props.points
+  // 상태를 고르면 지도와 같은 판정으로 함께 좁아진다
+  const source = useMemo(
+    () => filterByStatus(props.points, statusById, props.statusFilter),
+    [props.points, statusById, props.statusFilter],
+  )
+  // 칩 옆 숫자는 거르기 전 전체를 센다 — 고를 때마다 숫자가 바뀌면 무엇을 고를지 가늠할 수 없다
+  const counts = useMemo(
+    () => countByStatus(props.points, statusById ?? EMPTY_RESULTS),
+    [props.points, statusById],
+  )
   // 검색 결과도 메모 → 팬 리렌더 중 새 배열을 만들지 않아 PointRowList 메모가 유지됨.
   // 관리번호에 영문이 섞인다 — 대상 고르기와 같은 규칙으로 대소문자를 가리지 않는다
   const list = useMemo(() => {
@@ -591,6 +660,15 @@ function PointListPanel(props: MapSidebarProps) {
             className={PANEL_SEARCH_INPUT}
           />
         </span>
+        {/* 상태 거르개 — 여기서 고른 값이 이 목록과 지도에 함께 걸린다. 상태 표시를 켠 동안에만 선다 */}
+        {statusById !== null && (
+          <StatusFilterChips
+            selected={props.statusFilter}
+            onToggle={props.onToggleStatusFilter}
+            onClear={props.onClearStatusFilter}
+            countByStatus={counts}
+          />
+        )}
         {/* 입구에서 의도를 가른다 — 한 점 입력과 파일 등록은 다른 창이 맡는다 */}
         <div className="grid grid-cols-2 gap-2">
           <button type="button" onClick={props.onStartAddPoint} className={PANEL_ADD_BTN}>
@@ -641,7 +719,7 @@ function PointListPanel(props: MapSidebarProps) {
                 <PointRowList
                   points={pts}
                   onFocus={props.onFocusPoint}
-                  emptyText={source.length === 0 ? '기준점 없음' : '검색 결과 없음'}
+                  emptyText={props.points.length === 0 ? '기준점 없음' : '조건에 맞는 기준점 없음'}
                   loading={props.pointsLoading}
                 />
               </div>
