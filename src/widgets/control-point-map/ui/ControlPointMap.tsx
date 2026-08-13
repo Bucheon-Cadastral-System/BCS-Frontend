@@ -72,6 +72,8 @@ interface ControlPointMapProps {
   visibleIds: ReadonlySet<string> | null
   addMode: boolean
   showCadastral: boolean
+  /** 법정동 경계를 얹을지 — 지적도와 같은 VWorld WMS 의 다른 레이어다 */
+  showDistrict: boolean
   selectedId: string | null
   surveyMode: boolean
   /** 점 id별 조사 결과. 맵에 없으면 미조사 */
@@ -95,6 +97,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const pointLayerRef = useRef<Layer | null>(null)
   const labelLayerRef = useRef<VectorLayer<VectorSource> | null>(null)
   const cadastralRef = useRef<ImageLayer<ImageWMS> | null>(null)
+  const districtRef = useRef<ImageLayer<ImageWMS> | null>(null)
   const baseLayerRef = useRef<TileLayer<XYZ> | null>(null)
   const lastFocusNonceRef = useRef(props.focusNonce)
 
@@ -110,6 +113,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const pointsRef = useRef(props.points)
   const focusNonceRef = useRef(props.focusNonce)
   const showCadastralRef = useRef(props.showCadastral)
+  const showDistrictRef = useRef(props.showDistrict)
   const onMapReadyRef = useRef(props.onMapReady)
   // 렌더 중 ref 대입은 순수하지 않음(버려지는 렌더가 미커밋 값을 남길 수 있음) → 커밋 후 effect에서 동기화.
   // OL 콜백/스타일은 커밋 뒤(비동기 상호작용·재렌더)에만 refs를 읽으므로, 이 effect를 먼저 선언해 항상 최신값을 보게 함.
@@ -125,6 +129,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     pointsRef.current = props.points
     focusNonceRef.current = props.focusNonce
     showCadastralRef.current = props.showCadastral
+    showDistrictRef.current = props.showDistrict
     onMapReadyRef.current = props.onMapReady
   })
 
@@ -158,6 +163,25 @@ export function ControlPointMap(props: ControlPointMapProps) {
     // VWORLD_KEY 없으면 지적도 WMS가 KEY='' 로 매 이동마다 실패 요청 → 아예 끔
     const cadastralLayer = new ImageLayer({ visible: Boolean(VWORLD_KEY) && showCadastralRef.current, source: cadastralSource })
     cadastralRef.current = cadastralLayer
+
+    // 법정동 경계 — 지적도와 같은 WMS·같은 키다. 지번을 부여하는 단위가 법정동이라
+    // 지적공부의 토지 소재도, 기준점성과표의 소재지도 이 구역으로 적힌다(행정동은 지적 법령에 나오지 않는다).
+    //
+    // ★ 스타일은 기본값만 쓴다. SLD_BODY 로 선 색과 동 이름을 실어 보내면 VWorld 가 레이어를 통째로 비워 돌려준다.
+    const districtSource = new ImageWMS({
+      url: 'https://api.vworld.kr/req/wms',
+      ratio: 1,
+      params: {
+        KEY: VWORLD_KEY,
+        DOMAIN: window.location.hostname,
+        LAYERS: 'lt_c_ademd',
+        STYLES: 'lt_c_ademd',
+        FORMAT: 'image/png',
+        TRANSPARENT: true,
+      },
+    })
+    const districtLayer = new ImageLayer({ visible: Boolean(VWORLD_KEY) && showDistrictRef.current, source: districtSource })
+    districtRef.current = districtLayer
 
     const rawSource = new VectorSource()
     rawSourceRef.current = rawSource
@@ -197,8 +221,8 @@ export function ControlPointMap(props: ControlPointMapProps) {
       target: container,
       controls: defaultControls(), // 축척은 비율과 한 칩에 묶으려고 map-status-bar 가 직접 붙인다
       layers: canvasPointLayer !== null
-        ? [baseLayer, cadastralLayer, canvasPointLayer, labelLayer]
-        : [baseLayer, cadastralLayer, labelLayer],
+        ? [baseLayer, cadastralLayer, districtLayer, canvasPointLayer, labelLayer]
+        : [baseLayer, cadastralLayer, districtLayer, labelLayer],
       // maxZoom 20: 배경 타일 네이티브 최대(라이트 19·다크 18)를 크게 넘기면 확대 보정으로 흐려진다
       // minZoom: 부천 밖으로 한없이 물러서지 않게 막는다(shared/config/map)
       view: new View({ center: fromLonLat(DEFAULT_CENTER), zoom: DEFAULT_ZOOM, minZoom: MIN_ZOOM, maxZoom: 20 }),
@@ -292,6 +316,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
       pointLayerRef.current = null
       labelLayerRef.current = null
       cadastralRef.current = null
+      districtRef.current = null
       baseLayerRef.current = null
     }
   }, [])
@@ -420,10 +445,14 @@ export function ControlPointMap(props: ControlPointMapProps) {
     return () => reveal()
   }, [props.theme])
 
-  // 지적도 레이어 토글 (VWORLD_KEY 없으면 항상 off)
+  // 지적도·법정동 경계 레이어 토글 (VWORLD_KEY 없으면 항상 off)
   useEffect(() => {
     cadastralRef.current?.setVisible(Boolean(VWORLD_KEY) && props.showCadastral)
   }, [props.showCadastral])
+
+  useEffect(() => {
+    districtRef.current?.setVisible(Boolean(VWORLD_KEY) && props.showDistrict)
+  }, [props.showDistrict])
 
   // 선택된 점으로 이동 (부드러운 팬). 단, 목록 포커스(focusNonce 변화)로 인한 선택이면
   // 여기서 팬하지 않는다 → 아래 focusNonce 이펙트가 zoom+pan 담당(팬+줌 이중 애니메이션 충돌=버벅임 방지).

@@ -8,6 +8,7 @@ import { MapSidebar, MinimizedPanelChip } from '@/widgets/map-sidebar'
 import type { PanelKey } from '@/shared/model/panel'
 import { PointSearchBar } from '@/widgets/point-search'
 import { MapCommandBar } from '@/widgets/map-command-bar'
+import { MapLayerPicker } from '@/widgets/map-layer-picker'
 import { SurveyStatusFilter } from '@/widgets/survey-status-filter'
 import type OlMap from 'ol/Map'
 import { ChatDockLayout } from '@/widgets/chatbot'
@@ -122,6 +123,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
 
   const tmEpsg: TmEpsg = 'EPSG:5186' // 부천 = 중부원점 고정
   const [showCadastral, setShowCadastral] = useState(true)
+  // 법정동 경계는 꺼 둔 채로 시작한다 — 지적도 선 위에 또 선을 얹는 값이라 늘 켜 두면 지번 경계와 섞인다
+  const [showDistrict, setShowDistrict] = useState(false)
   const [mapInstance, setMapInstance] = useState<OlMap | null>(null) // 하단 상태 표시가 직접 구독한다
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [focusNonce, setFocusNonce] = useState(0)
@@ -685,6 +688,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               visibleIds={visibleIds}
               addMode={picking}
               showCadastral={showCadastral}
+              showDistrict={showDistrict}
               selectedId={selectedId}
               surveyMode={statusById !== null}
               resultById={statusById ?? EMPTY_RESULT_MAP}
@@ -710,8 +714,14 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
                   <MapCommandBar
                     map={mapInstance}
                     tmEpsg={tmEpsg}
-                    showCadastral={showCadastral}
-                    onToggleCadastral={() => setShowCadastral((v) => !v)}
+                    layers={
+                      <MapLayerPicker
+                        layers={[
+                          { key: 'cadastral', label: '지적도', on: showCadastral, onToggle: () => setShowCadastral((v) => !v) },
+                          { key: 'district', label: '법정동 경계', on: showDistrict, onToggle: () => setShowDistrict((v) => !v) },
+                        ]}
+                      />
+                    }
                     theme={theme}
                     onToggleTheme={() => withoutTransition(() => dispatch(toggleTheme()))}
                     surveyStatus={
