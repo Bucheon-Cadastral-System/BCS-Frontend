@@ -19,6 +19,15 @@ export const MODAL_SHELL =
 export const POPOVER =
   'rounded-pop border border-line bg-panel-strong shadow-panel'
 
+/**
+ * 꼬리가 달린 말풍선 — 그늘을 box-shadow 대신 filter 로 준다.
+ *
+ * <p>box-shadow 는 테두리 상자에만 걸린다. 꼬리는 그 상자 밖으로 나가 있으므로, 상자 아래로 깔린 그늘 띠 위에
+ * 꼬리가 얹힌 모양이 되어 덧댄 조각처럼 보인다. filter 는 그려진 모양을 따라가 꼬리 끝까지 이어진다.
+ */
+export const POPOVER_TAILED =
+  'rounded-pop border border-line bg-panel-strong [filter:var(--drop-elevation-2)]'
+
 const BTN_BASE =
   'inline-flex h-[42px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-ctl border-[1.5px] px-3.5 text-[13px] font-semibold transition-colors disabled:opacity-40'
 
@@ -104,3 +113,10 @@ export const ROW_ACCENT = 'shadow-[inset_3px_0_0_var(--color-teal)]'
 
 /** 진행률 막대의 채움 — 왼쪽에서 오른쪽으로 밝아져 나아가는 방향이 보인다 */
 export const PROGRESS_FILL = 'bg-[linear-gradient(90deg,var(--color-teal-edge),var(--color-teal-bright))]'
+
+/**
+ * 지도 아래 커맨드 바에 서는 켜고 끄는 버튼(지적도·조사 상태·배경 밝기).
+ * 좁은 화면에서는 글자를 접고 아이콘만 남긴다 — 판은 이 줄 위에서 끝나므로 판 열림은 이 판단에 넣지 않는다.
+ */
+export const MAP_BAR_BTN =
+  'flex h-6 shrink-0 items-center gap-[6px] whitespace-nowrap rounded-ctl px-2.5 text-[12px] font-medium transition-colors max-lg:gap-0 max-lg:px-1.5'
