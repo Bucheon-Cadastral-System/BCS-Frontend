@@ -18,4 +18,4 @@ store.subscribe(() => {
 
 export type RootState = ReturnType<typeof store.getState>
 export type AppDispatch = typeof store.dispatch
-export { toggleTheme, setActiveProject, toggleSurveyStatus, toggleStatusFilter, clearStatusFilter } from './uiSlice'
+export { toggleTheme, setActiveProject, showSurveyStatus, toggleStatusFilter, clearStatusFilter, selectAllStatus } from './uiSlice'
