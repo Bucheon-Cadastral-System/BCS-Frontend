@@ -1,4 +1,6 @@
 import { http } from '@/shared/api/http'
+// 조사 결과 어휘는 조사기록 엔티티가 소유한다 — 형만 들여오므로 빌드 뒤에는 두 엔티티 사이에 연결이 남지 않는다
+import type { SurveyResult } from '@/entities/survey-record'
 import type { TmEpsg } from '@/shared/lib/crs'
 import type { ControlPoint, PointType } from '../model/types'
 import { compareControlPoints } from '../model/types'
@@ -132,8 +134,6 @@ export async function deleteControlPoint(id: string): Promise<void> {
   await http.delete(`/api/control-points/${id}`)
 }
 
-/** 조사 데이터가 참조 중인지 — 삭제 확인 창을 물음/불가로 갈라 여는 근거다. */
-/** 이 점을 마지막으로 조사한 사람. 목록에 싣지 않고 점을 고른 뒤에만 읽는다. */
 /** 기준점의 최종조사 요약 — 회차와 무관하게 마지막으로 조사한 결과다. 조사한 적이 없으면 세 칸이 비어 있다. */
 export interface LastSurvey {
   /** 최종조사내용. 없으면 null */
@@ -156,6 +156,22 @@ export async function fetchLastSurvey(id: string): Promise<LastSurvey> {
   }
 }
 
+/**
+ * 점마다 최종조사 하나씩 — 조사 프로젝트를 고르지 않고 점의 최신 상태를 지도에 그릴 때 읽는다.
+ *
+ * <p>위 단건 조회와 어휘가 갈린다. 저쪽은 상세 카드가 사람에게 그대로 보여 주는 문구라 파일이 적어 온 표기까지
+ * 살리지만, 이쪽은 화면이 색으로 옮기므로 서버가 조사 결과 넷 중 하나로 맞춰 내린다.
+ *
+ * <p>조사한 적이 없는 점은 응답에 담기지 않는다. 돌려주는 표에 없는 점이 곧 미조사다.
+ */
+export async function fetchLastSurveys(): Promise<Map<string, SurveyResult>> {
+  const res = await http.get<{ content: { pointId: number; result: SurveyResult }[] }>(
+    '/api/control-points/last-surveys',
+  )
+  return new Map(res.data.content.map((row) => [String(row.pointId), row.result]))
+}
+
+/** 조사 데이터가 참조 중인지 — 삭제 확인 창을 물음/불가로 갈라 여는 근거다. */
 export async function fetchControlPointUsage(id: string): Promise<boolean> {
   const res = await http.get<{ referenced: boolean }>(`/api/control-points/${id}/usage`)
   return res.data.referenced

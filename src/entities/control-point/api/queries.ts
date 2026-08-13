@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { deleteControlPoint, fetchControlPoints, fetchLastSurvey, registerControlPoint, updateControlPoint } from './controlPointApi'
+import type { QueryClient } from '@tanstack/react-query'
+import { deleteControlPoint, fetchControlPoints, fetchLastSurvey, fetchLastSurveys, registerControlPoint, updateControlPoint } from './controlPointApi'
 
 export const CONTROL_POINTS_KEY = ['control-points'] as const
 
@@ -52,5 +53,38 @@ export function useLastSurveyQuery(pointId: string | null) {
     queryFn: () => fetchLastSurvey(pointId as string),
     enabled: pointId !== null,
     staleTime: 60_000,
+  })
+}
+
+/**
+ * 점 전체의 최종조사 캐시 키 — 단건 요약과 같은 접두 아래에 둔다.
+ *
+ * <p>어느 점이 바뀌었는지 셀 수 없어 위 접두로 통째로 비우는 자리(조사 삭제·대상 재지정·파일 임포트)가
+ * 이 표까지 함께 비우게 하려는 것이다. 점 하나만 바뀌는 자리는 아래 {@link invalidateLastSurveys} 를 쓴다.
+ * 점 id 는 숫자 문자열이라 마지막 자리가 겹치지 않는다.
+ */
+export const LAST_SURVEYS_KEY = [...LAST_SURVEY_KEY, 'all'] as const
+
+/**
+ * 그 점의 조사 기록이 바뀌었을 때 비울 최종조사 캐시 — 단건 요약과 점 전체 표가 함께 옛 값이 된다.
+ *
+ * <p>점 전체 표는 상태 표시를 켠 동안에만 살아 있으므로, 꺼 둔 사이의 무효화는 표시를 켜는 자리에서 갚는다.
+ */
+export function invalidateLastSurveys(queryClient: QueryClient, pointId: string) {
+  void queryClient.invalidateQueries({ queryKey: lastSurveyKey(pointId) })
+  void queryClient.invalidateQueries({ queryKey: LAST_SURVEYS_KEY })
+}
+
+/**
+ * 점마다 최종조사 하나씩 — 지도가 조사 프로젝트와 무관하게 점의 최신 상태를 그릴 때만 읽는다.
+ *
+ * <p>상태 표시를 끄고 있거나 고른 회차의 결과를 보는 동안에는 이 표를 쓰지 않으므로 요청도 내지 않는다.
+ */
+export function useLastSurveysQuery(enabled: boolean) {
+  return useQuery({
+    queryKey: LAST_SURVEYS_KEY,
+    queryFn: fetchLastSurveys,
+    enabled,
+    staleTime: 30_000,
   })
 }
