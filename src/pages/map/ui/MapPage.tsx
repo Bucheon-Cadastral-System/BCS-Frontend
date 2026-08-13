@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
-import { useAppDispatch, useAppSelector } from '@/app/store/hooks'
-import { clearStatusFilter, selectAllStatus, setActiveProject, showSurveyStatus, toggleStatusFilter, toggleTheme } from '@/app/store'
+import { useAppDispatch, useAppSelector } from '@/shared/store/hooks'
+import { selectTheme, toggleTheme } from '@/shared/model/theme'
 import { AppHeader, PointIcon, ProjectIcon } from '@/widgets/app-header'
 import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
@@ -15,9 +15,9 @@ import { ChatDockLayout } from '@/widgets/chatbot'
 import type { ChatAction } from '@/widgets/chatbot'
 import { POINT_TYPES, fetchControlPointUsage, useControlPointsQuery, useDeleteControlPointMutation, useLastSurveysQuery, useRegisterControlPointMutation, useUpdateControlPointMutation } from '@/entities/control-point'
 import type { ControlPoint } from '@/entities/control-point'
-import { useCreateSurveyProjectMutation, useDeleteSurveyProjectMutation, useSurveyProjectsQuery, useSurveyTargetsQuery, useUpdateSurveyProjectMutation } from '@/entities/survey-project'
+import { selectActiveProjectId, setActiveProject, useCreateSurveyProjectMutation, useDeleteSurveyProjectMutation, useSurveyProjectsQuery, useSurveyTargetsQuery, useUpdateSurveyProjectMutation } from '@/entities/survey-project'
 import type { SurveyProject, SurveyProjectDraft } from '@/entities/survey-project'
-import { deriveSurveyStatus, useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
+import { clearStatusFilter, deriveSurveyStatus, selectAllStatus, selectStatusFilter, showSurveyStatus, toggleStatusFilter, useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
 import type { SurveyResult } from '@/entities/survey-record'
 import { useImportControlPoints, useImportSurveyCsv } from '@/features/import-file'
 import { ControlPointFileModal, ControlPointFormModal } from '@/widgets/add-control-point'
@@ -108,9 +108,9 @@ function Banner(props: { tone: keyof typeof BANNER_TONE; children: React.ReactNo
 export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   const isAdmin = profile?.role === 'ADMIN'
   const dispatch = useAppDispatch()
-  const theme = useAppSelector((state) => state.ui.theme)
-  const activeProjectId = useAppSelector((state) => state.ui.activeProjectId)
-  const statusFilter = useAppSelector((state) => state.ui.statusFilter)
+  const theme = useAppSelector(selectTheme)
+  const activeProjectId = useAppSelector(selectActiveProjectId)
+  const statusFilter = useAppSelector(selectStatusFilter)
   // 고른 갈래가 곧 켜짐이다 — 하나라도 걸려 있으면 켜진 것이고, 비면 꺼진 것이다
   const surveyStatusVisible = statusFilter.length > 0
 
