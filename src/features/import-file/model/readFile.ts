@@ -3,9 +3,7 @@ import type { ImportFilePreview } from '../api/previewImportFile'
 /**
  * 파일에 반드시 있어야 하는 열 — 서버가 요구하는 목록(ImportFileMapper.BASE_COLUMNS)과 같아야 한다.
  * 하나라도 없으면 서버가 행을 읽지 않고 파일째로 거부하므로, 파일을 고르기 전에 미리 적어 둔다.
- *
- * <p>요구하는 것은 열 이름이지 칸의 값이 아니다. 순서는 상관없고, 여기 없는 열을 더 붙여도 값 그대로 보관된다.
- * 최종조사내용·최종조사일자는 선택이라 여기에 없다.
+ * 요구하는 것은 열 이름이지 칸의 값이 아니다.
  */
 export const REQUIRED_COLUMNS = [
   '기준점번호',
@@ -20,14 +18,6 @@ export const REQUIRED_COLUMNS = [
   '기존조사내용',
   '기존조사일',
 ]
-
-/** 서버가 필수 열이 없다고 돌려줄 때 쓰는 첫 문장 — 실패 사유가 이 말로 시작하면 열 문제다 */
-export const MISSING_COLUMN_PREFIX = '필수 열이 없습니다'
-
-/** 서버가 필수 열 때문에 거부한 것인지 — 실패 사유의 첫 문장으로 가른다 */
-export function isMissingColumnFailure(reason: string): boolean {
-  return reason.startsWith(MISSING_COLUMN_PREFIX)
-}
 
 /** 서버가 읽어 본 파일 한 건 — 파일 자체와 그 결과를 함께 들고 다닌다. */
 export interface ReadFile {
