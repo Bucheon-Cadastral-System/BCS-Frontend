@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { POINT_TYPES, PointTypeIcon } from '@/entities/control-point'
 import type { ControlPoint, PointType } from '@/entities/control-point'
+import { CheckMark } from '@/shared/ui/CheckMark'
 
 /** 접힌 점 줄의 높이(px) — 아래 버튼의 h-[34px] 와 같아야 스크롤 위치가 밀리지 않는다 */
 const ROW_HEIGHT = 34
@@ -172,23 +173,5 @@ function TypeChip(props: { label: string; on: boolean; onClick: () => void }) {
     >
       {props.label}
     </button>
-  )
-}
-
-/** 체크 상자 — 줄 전체가 버튼이라 상자는 상태 표시만 한다 */
-function CheckMark(props: { on: boolean }) {
-  return (
-    <span
-      aria-hidden
-      className={`flex size-4 shrink-0 items-center justify-center rounded border transition-colors ${
-        props.on ? 'border-teal bg-teal text-white' : 'border-line-btn bg-field'
-      }`}
-    >
-      {props.on && (
-        <svg viewBox="0 0 24 24" className="size-3" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="m5 13 4 4L19 7" />
-        </svg>
-      )}
-    </span>
   )
 }
