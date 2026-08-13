@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '@/app/store/hooks'
-import { clearStatusFilter, setActiveProject, toggleStatusFilter, toggleSurveyStatus, toggleTheme } from '@/app/store'
+import { clearStatusFilter, selectAllStatus, setActiveProject, showSurveyStatus, toggleStatusFilter, toggleTheme } from '@/app/store'
 import { AppHeader, PointIcon, ProjectIcon } from '@/widgets/app-header'
 import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
@@ -8,6 +8,7 @@ import { MapSidebar, MinimizedPanelChip } from '@/widgets/map-sidebar'
 import type { PanelKey } from '@/shared/model/panel'
 import { PointSearchBar } from '@/widgets/point-search'
 import { MapCommandBar } from '@/widgets/map-command-bar'
+import { SurveyStatusFilter } from '@/widgets/survey-status-filter'
 import type OlMap from 'ol/Map'
 import { ChatDockLayout } from '@/widgets/chatbot'
 import type { ChatAction } from '@/widgets/chatbot'
@@ -54,7 +55,7 @@ const EMPTY_RESULT_MAP: ReadonlyMap<string, SurveyResult> = new Map()
  */
 const PANEL_MARGIN = 16
 /** 커맨드 바의 대표 폭(축척이 보통 길이일 때) — 바의 왼쪽 끝을 붙여 둘 기준 자리다. 좁은 화면 값은 글자를 접은 폭 */
-const COMMAND_BAR_NOMINAL = 'w-[606px] max-lg:w-[518px]'
+const COMMAND_BAR_NOMINAL = 'w-[676px] max-lg:w-[592px]'
 
 const BANNER_TONE = {
   warn: 'border-amber/40 bg-amber-wash text-amber',
@@ -257,8 +258,10 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
    * 보는 자리(기준점 탭·조사 미선택)에서는 마지막으로 조사한 결과여야 한다.
    */
   const statusFromProject = surveyVisible
+  // 표시를 켠 동안에만 받아 온다 — 그리지 않을 표를 미리 받아 둘 만큼 작은 응답이 아니다.
+  // 조사한 점만 담겨 오므로 응답 크기는 조사 진척만큼이다
   const lastSurveysQuery = useLastSurveysQuery(surveyStatusVisible && !statusFromProject)
-  /** 지도와 목록이 함께 보는 판정 표 — 상태 표시를 꺼 두면 null 이라 마커도 거르개도 서지 않는다 */
+  /** 지도가 칠하고 거를 때 보는 표 — 상태 표시를 꺼 두면 null 이라 마커에 판정이 얹히지 않는다 */
   const statusById = useMemo<ReadonlyMap<string, SurveyResult> | null>(() => {
     if (!surveyStatusVisible) return null
     return statusFromProject ? resultById : (lastSurveysQuery.data ?? EMPTY_RESULT_MAP)
@@ -640,12 +643,6 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
           points={points}
           targetPoints={targetPoints}
           resultById={resultById}
-          statusById={statusById}
-          surveyStatusVisible={surveyStatusVisible}
-          onToggleSurveyStatus={() => dispatch(toggleSurveyStatus())}
-          statusFilter={statusFilterSet}
-          onToggleStatusFilter={(status) => dispatch(toggleStatusFilter(status))}
-          onClearStatusFilter={() => dispatch(clearStatusFilter())}
           onFocusPoint={focusPoint}
           onStartAddPoint={startAddPoint}
           onImportPoints={() => {
@@ -701,8 +698,10 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
 
             {/* 커맨드 바 — 표시 설정과 읽을거리를 지도 아래 한 줄에 모은다.
                 판은 이 줄 위에서 끝나므로 판이 열려도 자리를 옮기지 않는다.
-                포인터 좌표·축척은 지도 인스턴스를 직접 구독해 페이지는 리렌더되지 않는다. */}
-            <div className="pointer-events-none absolute inset-x-4 bottom-[18px] z-[15] flex justify-center">
+                포인터 좌표·축척은 지도 인스턴스를 직접 구독해 페이지는 리렌더되지 않는다.
+                바에서 위로 열리는 말풍선은 창이 좁으면 왼쪽 판과 가로로 겹친다. 판(z-20)보다 위에 두어
+                가려지지 않게 한다. 바 자신은 판이 비워 둔 아래 여백(--spacing-bar-clear) 안에 서므로 판을 덮지 않는다. */}
+            <div className="pointer-events-none absolute inset-x-4 bottom-[18px] z-[21] flex justify-center">
               {/* 축척 막대는 배율에 따라 길이가 변한다. 대표 폭만큼의 빈 자리를 가운데 두고 바를 그 왼쪽 끝에 붙여
                   바 자신은 자리 계산에서 빠지게 한다 — 왼쪽 끝은 고정되고 오른쪽만 늘고 준다.
                   폭을 재서 맞추면 한 프레임 늦게 반영돼 축척이 바뀔 때마다 바가 떤다. */}
@@ -715,6 +714,16 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
                     onToggleCadastral={() => setShowCadastral((v) => !v)}
                     theme={theme}
                     onToggleTheme={() => withoutTransition(() => dispatch(toggleTheme()))}
+                    surveyStatus={
+                      <SurveyStatusFilter
+                        visible={surveyStatusVisible}
+                        onShow={() => dispatch(showSurveyStatus())}
+                        selected={statusFilterSet}
+                        onToggle={(status) => dispatch(toggleStatusFilter(status))}
+                        onClear={() => dispatch(clearStatusFilter())}
+                        onSelectAll={() => dispatch(selectAllStatus())}
+                      />
+                    }
                     onResetView={() => setHomeNonce((n) => n + 1)}
                   />
                 </div>
