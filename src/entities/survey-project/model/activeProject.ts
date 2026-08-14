@@ -2,7 +2,7 @@ import { createSlice } from '@reduxjs/toolkit'
 import type { PayloadAction } from '@reduxjs/toolkit'
 
 /**
- * 지금 고른 조사 프로젝트 — 지도·판·상세가 모두 이 하나를 보고 무엇을 그릴지 정한다.
+ * 지금 고른 조사 프로젝트 — 지도·패널·상세가 모두 이 하나를 보고 무엇을 그릴지 정한다.
  * 프로젝트를 가리키는 값이라 그 엔티티가 들고 있고, 저장소 조립만 app 이 맡는다.
  */
 const activeProjectSlice = createSlice({

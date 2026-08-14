@@ -13,7 +13,7 @@ import type { SurveyStatus } from '../model/status'
  * <p>색은 지도 마커·목록 마크와 같은 값을 쓴다. 폭은 개수에 따라 정해지는 값이라 클래스로 적을 수 없어
  * 인라인으로 준다. 색만으로 뜻을 전하지 않도록 갈래와 개수를 이름으로도 실어 둔다.
  *
- * <p>판의 프로젝트 상세와 대화 판의 조사 현황 카드가 함께 쓴다. 같은 사실을 두 화면이 다르게 그리면
+ * <p>패널의 프로젝트 상세와 대화 패널의 조사 현황 카드가 함께 쓴다. 같은 사실을 두 화면이 다르게 그리면
  * 사용자가 둘을 견주며 어느 쪽이 맞는지 의심하게 되므로, 갈래를 아는 자리에서는 늘 이 막대를 세운다.
  */
 export function StatusDistributionBar(props: { countByStatus: Record<SurveyStatus, number> }) {

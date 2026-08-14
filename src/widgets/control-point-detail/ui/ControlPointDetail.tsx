@@ -135,7 +135,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
 
   return (
     <aside className={`panel-in w-[320px] overflow-hidden ${PANEL}`}>
-      {/* 이름과 종류를 한 줄에 나란히 — 좌측 판 머리말(제목 + 총 N개)과 같은 규격이다 */}
+      {/* 이름과 종류를 한 줄에 나란히 — 좌측 패널 머리말(제목 + 총 N개)과 같은 규격이다 */}
       <div className={`${PANEL_HEADER} ${PANEL_HEADER_RULE}`}>
         <span className="flex shrink-0 text-teal-text">
           <PointTypeIcon type={p.type} className="size-[18px]" />

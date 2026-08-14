@@ -454,7 +454,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
 
   /**
    * 테마 변경 → 배경지도 교체.
-   * 소스만 갈아 끼우면 새 타일이 도착할 때까지 지도가 빈 바탕으로 남아, 판·글자는 이미 바뀌었는데 지도만 비는 중간 화면이 보인다.
+   * 소스만 갈아 끼우면 새 타일이 도착할 때까지 지도가 빈 바탕으로 남아, 패널·글자는 이미 바뀌었는데 지도만 비는 중간 화면이 보인다.
    * 그래서 새 배경을 **옛 배경 아래**에 미리 깔아 두고(위의 불투명한 옛 타일이 가린다), 다 받은 뒤 옛 배경을 걷어 한 번에 드러낸다.
    */
   useEffect(() => {
@@ -624,7 +624,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     if (!p) return
     const view = mapRef.current.getView()
     const [cx, cy] = fromLonLat([p.lng, p.lat])
-    // 언제나 화면 정중앙 — 판·카드가 가린 폭을 빼는 보정은 두지 않는다(선택하면 카드가 늘 함께 떠 보정이 오히려 쏠림으로 보인다)
+    // 언제나 화면 정중앙 — 패널·카드가 가린 폭을 빼는 보정은 두지 않는다(선택하면 카드가 늘 함께 떠 보정이 오히려 쏠림으로 보인다)
     view.animate({ center: [cx, cy], duration: 300 })
   }, [props.selectedId])
 

@@ -7,21 +7,21 @@
 export const PILL =
   'rounded-pill border border-line-pill bg-pill shadow-pill'
 
-/** 지도 위에 떠 있는 판(좌측 목록·상세 카드·챗) */
+/** 지도 위에 떠 있는 패널(좌측 목록·상세 카드·챗) */
 export const PANEL =
   'rounded-pill border border-line bg-panel shadow-panel'
 
-/** 화면 한가운데 서는 판(창·확인 대화상자·로그인 카드) — 판보다 한 겹 위라 더 짙고 더 깊은 그늘을 쓴다 */
+/** 화면 한가운데 서는 패널(창·확인 대화상자·로그인 카드) — 패널보다 한 겹 위라 더 짙고 더 깊은 그늘을 쓴다 */
 export const MODAL_SHELL =
   'rounded-pill border border-line bg-panel-strong shadow-modal'
 
-/** 무언가를 눌러 그 아래 펼쳐지는 작은 판(사용자 메뉴·검색 결과) */
+/** 무언가를 눌러 그 아래 펼쳐지는 작은 패널(사용자 메뉴·검색 결과) */
 export const POPOVER =
   'rounded-pop border border-line bg-panel-strong shadow-panel'
 
 /**
  * 커맨드 바 위로 열리는 말풍선(레이어·기준점 상태) — 그늘을 두지 않는다.
- * 바 자체가 이미 그늘을 진 알약이라, 그 위에 한 겹 더 얹으면 지도 위에 판이 두 장 겹쳐 보인다.
+ * 바 자체가 이미 그늘을 진 알약이라, 그 위에 한 겹 더 얹으면 지도 위에 패널이 두 장 겹쳐 보인다.
  */
 export const POPOVER_FLAT =
   'rounded-pop border border-line bg-panel-strong'
@@ -54,7 +54,7 @@ export const CHIP_BTN_DANGER =
   'rounded-chip border border-danger-btn-edge bg-danger-wash text-center font-medium text-danger transition-colors hover:bg-danger-wash-strong'
 
 /**
- * 판 머리말에 서는 아이콘 버튼(접기·닫기·수정·삭제).
+ * 패널 머리말에 서는 아이콘 버튼(접기·닫기·수정·삭제).
  *
  * <p>글자 없이 뜻만 있는 자리라 평소에는 조용히 있다가 손을 올렸을 때만 색을 낸다.
  * 되돌릴 수 없는 쪽(닫기·삭제)만 붉게 물들어, 색 하나로 무거운 버튼과 가벼운 버튼이 갈린다.
@@ -69,8 +69,8 @@ export const ICON_BTN = `${ICON_BTN_BASE} hover:bg-hover hover:text-ink-2`
 export const ICON_BTN_DANGER = `${ICON_BTN_BASE} hover:bg-danger-wash hover:text-danger`
 
 /**
- * 판 머리말 — 제목이 왼쪽, 아이콘이 오른쪽. 머리말과 본문의 경계는 언제나 청록 두 겹 선이다
- * (창·좌측 판·대화 판이 모두 이 선을 쓴다).
+ * 패널 머리말 — 제목이 왼쪽, 아이콘이 오른쪽. 머리말과 본문의 경계는 언제나 청록 두 겹 선이다
+ * (창·좌측 패널·대화 패널이 모두 이 선을 쓴다).
  *
  * <p>줄 안에서는 가운데로 맞춘다. 글줄 기준선(baseline)으로 맞추면 제목만 줄 맨 위로 붙고
  * 아이콘 버튼은 가운데에 남아, 제목이 아이콘보다 위로 뜬 것처럼 보인다.
@@ -114,7 +114,7 @@ export const PROGRESS_FILL = 'bg-[linear-gradient(90deg,var(--color-teal-edge),v
 
 /**
  * 지도 아래 커맨드 바에 서는 켜고 끄는 버튼(지적도·조사 상태·배경 밝기).
- * 좁은 화면에서는 글자를 접고 아이콘만 남긴다 — 판은 이 줄 위에서 끝나므로 판 열림은 이 판단에 넣지 않는다.
+ * 좁은 화면에서는 글자를 접고 아이콘만 남긴다 — 패널은 이 줄 위에서 끝나므로 패널 열림은 이 판단에 넣지 않는다.
  */
 export const MAP_BAR_BTN =
   'flex h-6 shrink-0 items-center gap-[6px] whitespace-nowrap rounded-ctl px-2.5 text-[12px] font-medium transition-colors max-lg:gap-0 max-lg:px-1.5'

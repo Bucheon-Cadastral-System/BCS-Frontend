@@ -116,7 +116,7 @@ export function SurveyStatusBlock({ json }: { json: string }) {
         </span>
         <span className="font-semibold text-teal-text">{pct}%</span>
       </div>
-      {/* 갈래를 다 받았으면 판의 프로젝트 상세와 같은 분포 막대를 세운다. 채운 길이는 그대로 조사한 만큼이라
+      {/* 갈래를 다 받았으면 패널의 프로젝트 상세와 같은 분포 막대를 세운다. 채운 길이는 그대로 조사한 만큼이라
           진행률로 읽히면서, 그 안에서 무엇이 정상이고 무엇이 망실인지까지 한 줄로 드러난다.
           갈래가 하나라도 어긋나 오면 나눌 수 없으므로 한 색으로 찬 진행률 막대로 물러선다 */}
       {breakdown === null ? (

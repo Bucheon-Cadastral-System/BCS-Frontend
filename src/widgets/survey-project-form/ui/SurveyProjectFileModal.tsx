@@ -118,7 +118,7 @@ function StepList(props: {
   disabled: boolean
   onJump: (i: number) => void
 }) {
-  // 건이 많으면 판이 스크롤되므로, 지금 보고 있는 줄이 화면 밖에 있으면 끌어온다
+  // 건이 많으면 패널이 스크롤되므로, 지금 보고 있는 줄이 화면 밖에 있으면 끌어온다
   const currentRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     currentRef.current?.scrollIntoView({ block: 'center' })
@@ -433,7 +433,7 @@ export function SurveyProjectFileModal(props: {
   const board =
     total > 1 && !showReading ? (
       <>
-        {/* 머리말·본문의 글자 크기와 여백은 창과 똑같이 쓴다 — 나란히 선 판이라 규격이 어긋나면 바로 보인다 */}
+        {/* 머리말·본문의 글자 크기와 여백은 창과 똑같이 쓴다 — 나란히 선 패널이라 규격이 어긋나면 바로 보인다 */}
         <div className={MODAL_HEADER}>
           <h2 className="flex items-baseline gap-1.5 text-[15px] font-semibold text-ink">
             {confirming ? (

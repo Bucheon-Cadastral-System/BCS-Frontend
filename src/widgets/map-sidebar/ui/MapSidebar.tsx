@@ -65,33 +65,33 @@ interface MapSidebarProps {
   // 사용자 관리 (어드민)
   isAdmin: boolean
   onOpenUserManagement: () => void
-  /** 지금 열려 있는 판 — 헤더 탭이 정한다 */
+  /** 지금 열려 있는 패널 — 헤더 탭이 정한다 */
   open: PanelKey | null
   /** 칩으로 접힌 상태 — 닫힘 모양이 갈린다(접힘=칩 자리로 말려 올라감, 닫힘=위로 미끄러져 나감) */
   minimized: boolean
-  /** 접어 두기 — 고른 것은 그대로 두고 판만 칩으로 줄인다 */
+  /** 접어 두기 — 고른 것은 그대로 두고 패널만 칩으로 줄인다 */
   onMinimize: () => void
-  /** 닫기 — 고른 것을 놓고 판을 끈다 */
+  /** 닫기 — 고른 것을 놓고 패널을 끈다 */
   onClose: () => void
-  /** 판 너비 — 위에 선 헤더 알약과 같은 값을 쓴다 */
+  /** 패널 너비 — 위에 선 헤더 알약과 같은 값을 쓴다 */
   width: number
 }
 
 /**
- * 지도 왼쪽에 떠 있는 판. 화면을 밀지 않고 지도 위에 겹친다.
- * 어느 판을 여는지는 헤더 탭이 정하고, 여기서는 그 판의 내용만 그린다.
+ * 지도 왼쪽에 떠 있는 패널. 화면을 밀지 않고 지도 위에 겹친다.
+ * 어느 패널을 여는지는 헤더 탭이 정하고, 여기서는 그 패널의 내용만 그린다.
  */
 export function MapSidebar(props: MapSidebarProps) {
   const open = props.open
-  // 닫히는 동안에도 마지막 판을 그려둬야 미끄러져 나가는 모습이 이어진다
+  // 닫히는 동안에도 마지막 패널을 그려둬야 미끄러져 나가는 모습이 이어진다
   const [lastPanel, setLastPanel] = useState<PanelKey>('project')
   useEffect(() => {
     if (open) setLastPanel(open)
   }, [open])
 
-  // 판 본문은 '열려 있을 때만' 마운트(닫히면 슬라이드 아웃 후 지연 언마운트).
+  // 패널 본문은 '열려 있을 때만' 마운트(닫히면 슬라이드 아웃 후 지연 언마운트).
   // ★ 성능: 프로젝트가 펼쳐지면 본문에 점 수천 개(PointRow)가 그려지는데, 닫혀도 마운트돼 있으면
-  //   판과 무관한 리렌더마다 이 수천 행이 재조정돼 렉이 걸린다.
+  //   패널과 무관한 리렌더마다 이 수천 행이 재조정돼 렉이 걸린다.
   const [renderBody, setRenderBody] = useState(false)
   useEffect(() => {
     if (open) {
@@ -106,7 +106,7 @@ export function MapSidebar(props: MapSidebarProps) {
       <aside
         aria-hidden={!open}
         inert={!open}
-        // 접힘(칩)일 때는 아래 변을 칩 높이까지 끌어올려 판이 칩 자리로 말려 들어가는 모양을 만든다 —
+        // 접힘(칩)일 때는 아래 변을 칩 높이까지 끌어올려 패널이 칩 자리로 말려 들어가는 모양을 만든다 —
         // bottom 은 인라인이 클래스(bottom-bar-clear)를 이기므로 펼치면 지우기만 하면 제자리로 풀린다
         style={{
           width: props.width || undefined,
@@ -142,7 +142,7 @@ function PanelHeader(props: { title: string; count?: number; onMinimize: () => v
       <button
         type="button"
         onClick={props.onMinimize}
-        aria-label="판 접기"
+        aria-label="패널 접기"
         title="접기"
         className={ICON_BTN}
       >
@@ -151,7 +151,7 @@ function PanelHeader(props: { title: string; count?: number; onMinimize: () => v
       <button
         type="button"
         onClick={props.onClose}
-        aria-label="판 닫기"
+        aria-label="패널 닫기"
         title="닫기"
         className={ICON_BTN_DANGER}
       >
@@ -235,7 +235,7 @@ function ProjectPanel(props: MapSidebarProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* 상세에 들어가면 판의 이름도 그 겹을 따라간다 — 목록 수는 목록을 볼 때만 의미가 있어 함께 거둔다 */}
+      {/* 상세에 들어가면 패널의 이름도 그 겹을 따라간다 — 목록 수는 목록을 볼 때만 의미가 있어 함께 거둔다 */}
       <PanelHeader
         title={detailOn ? '프로젝트 정보' : '프로젝트 목록'}
         count={detailOn ? undefined : props.projects.length}
@@ -396,7 +396,7 @@ function ProjectDetail(props: {
 
   return (
     <>
-      {/* 머리줄 — 어느 조사에 들어와 있는지와 나가는 길. 판 머리말(PanelHeader)과 같은 크기로 세워 한 겹의 제목임을 말한다 */}
+      {/* 머리줄 — 어느 조사에 들어와 있는지와 나가는 길. 패널 머리말(PanelHeader)과 같은 크기로 세워 한 겹의 제목임을 말한다 */}
       <div className="flex shrink-0 items-center gap-1.5 border-t-2 border-t-teal py-2.5 pl-2 pr-3.5">
         <button
           type="button"
@@ -799,8 +799,8 @@ function PointRow(props: {
   )
 }
 
-/* ── 판 안에서 쓰는 인라인 SVG 아이콘 ── */
-/** 판 안에서 쓰는 작은 아이콘들 — 굵기·선 끝 처리를 한곳에서 맞춘다 */
+/* ── 패널 안에서 쓰는 인라인 SVG 아이콘 ── */
+/** 패널 안에서 쓰는 작은 아이콘들 — 굵기·선 끝 처리를 한곳에서 맞춘다 */
 function IconPlus() {
   return (
     <svg viewBox="0 0 24 24" className="h-full w-full" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">

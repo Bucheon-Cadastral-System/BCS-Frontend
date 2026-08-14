@@ -50,8 +50,8 @@ const EMPTY_ID_SET: ReadonlySet<string> = new Set()
 /** 조사 표시를 걷을 때 지도에 넘기는 고정 빈 맵(기준점 탭. 선택은 유지하되 뱃지는 숨긴다) */
 const EMPTY_RESULT_MAP: ReadonlyMap<string, SurveyResult> = new Map()
 /**
- * 판이 화면 가장자리에서 떨어진 거리 — 상세 카드가 대화 판 옆으로 비켜 서는 계산에 쓴다.
- * 판·헤더·커맨드 바는 이 값을 유틸리티(`left-4`·`right-4`·`inset-x-4` = 16px)로 두므로 함께 움직여야 한다.
+ * 패널이 화면 가장자리에서 떨어진 거리 — 상세 카드가 대화 패널 옆으로 비켜 서는 계산에 쓴다.
+ * 패널·헤더·커맨드 바는 이 값을 유틸리티(`left-4`·`right-4`·`inset-x-4` = 16px)로 두므로 함께 움직여야 한다.
  * 클래스 이름은 문자열이라 이 상수에서 만들 수 없어 값을 두 벌로 둔다.
  */
 const PANEL_MARGIN = 16
@@ -159,22 +159,22 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   const [mapInstance, setMapInstance] = useState<OlMap | null>(null) // 하단 상태 표시가 직접 구독한다
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [focusNonce, setFocusNonce] = useState(0)
-  /** 처음 자리로 되돌리라는 신호 — 얼마나 옮길지는 판이 가린 폭을 아는 지도가 정한다 */
+  /** 처음 자리로 되돌리라는 신호 — 얼마나 옮길지는 패널이 가린 폭을 아는 지도가 정한다 */
   const [homeNonce, setHomeNonce] = useState(0)
   /**
-   * 좌측 판 — 켜진 판이 지도에 그릴 점도 정한다.
-   * 접어 두면(minimized) 고른 것은 그대로 두고 판만 칩으로 줄인다. 끄면 고른 것도 놓는다.
+   * 좌측 패널 — 켜진 패널이 지도에 그릴 점도 정한다.
+   * 접어 두면(minimized) 고른 것은 그대로 두고 패널만 칩으로 줄인다. 끄면 고른 것도 놓는다.
    */
   const [panel, setPanel] = useState<{ key: PanelKey; minimized: boolean } | null>(null)
   const openPanel = panel !== null && !panel.minimized ? panel.key : null
-  // 헤더 알약 폭 — 그 아래 서는 활성 조사 칩과 좌측 판이 같은 너비를 쓴다
+  // 헤더 알약 폭 — 그 아래 서는 활성 조사 칩과 좌측 패널이 같은 너비를 쓴다
   const [headerWidth, setHeaderWidth] = useState(0)
-  // 헤더 우측 묶음(검색+사용자) 폭 — 그 아래 서는 대화 판이 같은 너비를 쓴다
+  // 헤더 우측 묶음(검색+사용자) 폭 — 그 아래 서는 대화 패널이 같은 너비를 쓴다
   const [utilityWidth, setUtilityWidth] = useState(0)
-  // 대화 판이 지도를 가리는 폭(닫혀 있으면 0)
+  // 대화 패널이 지도를 가리는 폭(닫혀 있으면 0)
   const [chatWidth, setChatWidth] = useState(0)
-  // 포커스는 언제나 화면 정중앙 — 판·카드가 가린 폭을 빼는 보정은 두지 않는다.
-  // 점을 고르면 상세 카드가 늘 함께 떠서, 카드 폭을 빼면 어느 판이 열려 있느냐에 따라 점이 좌우로 쏠려 보인다.
+  // 포커스는 언제나 화면 정중앙 — 패널·카드가 가린 폭을 빼는 보정은 두지 않는다.
+  // 점을 고르면 상세 카드가 늘 함께 떠서, 카드 폭을 빼면 어느 패널이 열려 있느냐에 따라 점이 좌우로 쏠려 보인다.
   // 기준점 추가 — 직접 입력(add)과 파일 등록(file)은 입구에서 갈린 다른 창이다.
   // '지도에서 위치 찍기'는 직접 입력 안의 한 단계(찍는 동안만 모달을 숨긴다)
   const [pointModal, setPointModal] = useState<'add' | 'file' | null>(null)
@@ -221,7 +221,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   const fileDrop = useFileDrop((files) => startImport(files))
 
   /**
-   * 헤더 탭 — 같은 탭을 다시 누르면 접고(칩), 접힌 탭을 누르면 다시 편다. 닫기(선택 해제)는 판의 X 가 맡는다.
+   * 헤더 탭 — 같은 탭을 다시 누르면 접고(칩), 접힌 탭을 누르면 다시 편다. 닫기(선택 해제)는 패널의 X 가 맡는다.
    * 탭을 오가도 고른 조사는 유지된다 — 기준점 탭은 전체를 보여 줄 뿐이고,
    * 대상 아닌 점의 기록은 화면(대상만 버튼 노출)과 서버(404)가 이미 막고 있어 선택을 놓을 이유가 없다.
    */
@@ -234,7 +234,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     setPanel({ key, minimized: panel?.minimized ?? false })
   }
 
-  /** 판을 끈다 — 고른 것도 함께 놓는다(조사 선택 해제) */
+  /** 패널을 끈다 — 고른 것도 함께 놓는다(조사 선택 해제) */
   function closePanel() {
     setPanel(null)
     dispatch(setActiveProject(null))
@@ -256,7 +256,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
    * 남고 지도에도 대상 아닌 마커가 하나 함께 그려져, 이 조사가 맡은 범위가 어긋나 보인다.
    *
    * <p>들어설 때 한 번만 거른다. 보는 내내 걸러 두면 헤더 검색과 챗봇 안내가 조사를 열어 둔 채로 대상 밖의
-   * 점을 가리킬 수 없다. 그 둘은 판을 열지 않고 점을 지목하므로 지목한 자리가 빈 채로 남는다.
+   * 점을 가리킬 수 없다. 그 둘은 패널을 열지 않고 점을 지목하므로 지목한 자리가 빈 채로 남는다.
    *
    * <p>대상 목록이 오기 전에는 판정하지 않는다. 도착 전에는 대상이 0건이라 고른 점이 대상이어도 놓아 버린다.
    *
@@ -311,8 +311,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
    * 고른 점은 어느 경우에도 함께 보인다 — 헤더 검색·챗봇 안내는 패널을 열지 않고 점을 지목하므로,
    * 빼면 지목한 자리에 아무것도 나타나지 않는다.
    *
-   * <p>상태를 고르면 그 판정의 점만 남긴다. 좁아지는 것은 지도뿐이고 판 목록은 건드리지 않는다 —
-   * 목록은 무엇이 있는지 세는 자리라, 거르개를 따라가면 전체를 훑을 방법이 사라진다.
+   * <p>상태를 고르면 그 판정의 점만 남긴다. 좁아지는 것은 지도뿐이고 패널 목록은 건드리지 않는다 —
+   * 목록은 무엇이 있는지 세는 자리라, 필터를 따라가면 전체를 훑을 방법이 사라진다.
    */
   const visibleIds = useMemo<ReadonlySet<string> | null>(() => {
     // 탭·조사가 정하는 범위 — 기준점 탭은 전체(null), 조사를 고르면 그 대상, 그 밖에는 아무것도 아니다
@@ -378,7 +378,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   function submitEditPoint(values: ControlPointFormValues) {
     if (editingPoint === null) return
     updatePointMutation.mutate(
-      // 창을 열 때 본 판 번호를 되보낸다 — 그사이 누가 먼저 고쳤으면 서버가 거절한다
+      // 창을 열 때 본 버전를 되보낸다 — 그사이 누가 먼저 고쳤으면 서버가 거절한다
       { ...values, id: editingPoint.id, version: editingPoint.version },
       {
         onSuccess: (outcome) => {
@@ -562,7 +562,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     deleteProjectMutation.mutate(target.id, {
       onSuccess: () => {
         setDeletingProject(null)
-        // 지운 조사를 보고 있었으면 선택을 놓는다 — 지도·판이 없는 조사를 가리키지 않게. 그 조사의 수정 창도 함께 접는다
+        // 지운 조사를 보고 있었으면 선택을 놓는다 — 지도·패널이 없는 조사를 가리키지 않게. 그 조사의 수정 창도 함께 접는다
         if (activeProjectId === target.id) dispatch(setActiveProject(null))
         if (editingProject !== null && editingProject.id === target.id) setEditingProject(null)
         showToast('프로젝트를 삭제했습니다.', 'success')
@@ -632,7 +632,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   return (
     <div className={`contents ${theme === 'dark' ? 'dark' : 'theme-light'}`}>
     {/* 화면 어디에 파일을 떨어뜨려도 그 파일이 붙은 채로 조사 추가가 열린다 */}
-    {/* min-w-app-min: 이보다 좁아지면 판끼리 겹치므로 더 줄이지 않고 잘라 낸다(가로로 밀어서 본다) */}
+    {/* min-w-app-min: 이보다 좁아지면 패널끼리 겹치므로 더 줄이지 않고 잘라 낸다(가로로 밀어서 본다) */}
     <div className="app-bg relative flex h-full min-w-app-min flex-col text-ink" {...fileDrop.dropHandlers}>
       {fileDrop.dragging && <FileDropOverlay label="조사 프로젝트 파일 등록" hint="CSV · XLSX" />}
 
@@ -640,7 +640,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
       <div className="relative min-h-0 min-w-0 flex-1">
         <AppHeader
           tabs={[
-            // 접어 둔(칩) 상태도 그 판을 보는 중이다 — 탭 표시는 펼침 여부가 아니라 어느 판이 서 있는지를 따른다
+            // 접어 둔(칩) 상태도 그 패널을 보는 중이다 — 탭 표시는 펼침 여부가 아니라 어느 패널이 서 있는지를 따른다
             { key: 'project', label: '프로젝트', icon: <ProjectIcon />, active: panel?.key === 'project', onClick: () => togglePanel('project') },
             { key: 'points', label: '기준점', icon: <PointIcon />, active: panel?.key === 'points', onClick: () => togglePanel('points') },
           ]}
@@ -734,10 +734,10 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
             />
 
             {/* 커맨드 바 — 표시 설정과 읽을거리를 지도 아래 한 줄에 모은다.
-                판은 이 줄 위에서 끝나므로 판이 열려도 자리를 옮기지 않는다.
+                패널은 이 줄 위에서 끝나므로 패널이 열려도 자리를 옮기지 않는다.
                 포인터 좌표·축척은 지도 인스턴스를 직접 구독해 페이지는 리렌더되지 않는다.
-                바에서 위로 열리는 말풍선은 창이 좁으면 왼쪽 판과 가로로 겹친다. 판(z-20)보다 위에 두어
-                가려지지 않게 한다. 바 자신은 판이 비워 둔 아래 여백(--spacing-bar-clear) 안에 서므로 판을 덮지 않는다. */}
+                바에서 위로 열리는 말풍선은 창이 좁으면 왼쪽 패널과 가로로 겹친다. 패널(z-20)보다 위에 두어
+                가려지지 않게 한다. 바 자신은 패널이 비워 둔 아래 여백(--spacing-bar-clear) 안에 서므로 패널을 덮지 않는다. */}
             <div className="pointer-events-none absolute inset-x-4 bottom-[18px] z-[21] flex justify-center">
               {/* 축척 막대는 배율에 따라 길이가 변한다. 대표 폭만큼의 빈 자리를 가운데 두고 바를 그 왼쪽 끝에 붙여
                   바 자신은 자리 계산에서 빠지게 한다 — 왼쪽 끝은 고정되고 오른쪽만 늘고 준다.
@@ -773,8 +773,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               </div>
             </div>
 
-            {/* 접어 둔 판을 대신하는 칩 — 무엇을 보고 있는지 알리고, 누르면 판이 다시 펼쳐진다.
-                판이 칩 자리로 말려 올라오는 동안 칩은 panel-in 으로 내려앉아 접히는 흐름이 이어진다 */}
+            {/* 접어 둔 패널을 대신하는 칩 — 무엇을 보고 있는지 알리고, 누르면 패널이 다시 펼쳐진다.
+                패널이 칩 자리로 말려 올라오는 동안 칩은 panel-in 으로 내려앉아 접히는 흐름이 이어진다 */}
             {panel?.minimized && (
               <div key={panel.key} className="panel-in absolute left-4 top-[76px] z-[15]" style={{ width: headerWidth || undefined }}>
                 {panel.key === 'project' ? (
@@ -808,7 +808,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               </div>
             )}
 
-            {/* 상세 카드 — 지도 위 우측. 대화 판이 열리면 그 옆으로 비켜 선다 */}
+            {/* 상세 카드 — 지도 위 우측. 대화 패널이 열리면 그 옆으로 비켜 선다 */}
             <div
               className="absolute top-[76px] z-[15]"
               style={{ right: PANEL_MARGIN + (chatWidth === 0 ? 0 : chatWidth + PANEL_MARGIN) }}

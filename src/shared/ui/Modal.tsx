@@ -20,8 +20,8 @@ export function Modal(props: {
   /** 잠시 감추기 — 지도에서 위치를 찍는 동안처럼, 입력값을 유지한 채 화면만 비켜 줄 때 */
   hidden?: boolean
   /**
-   * 창 옆에 따로 세우는 판(진행 현황 등). 창 본문에 넣으면 내용이 길어질수록 입력 칸이 아래로 밀리므로
-   * 별도의 판으로 뺀다. 좁은 화면에서는 자리가 없어 감춘다.
+   * 창 옆에 따로 세우는 패널(진행 현황 등). 창 본문에 넣으면 내용이 길어질수록 입력 칸이 아래로 밀리므로
+   * 별도의 패널로 뺀다. 좁은 화면에서는 자리가 없어 감춘다.
    */
   aside?: ReactNode
   /**
@@ -63,8 +63,8 @@ export function Modal(props: {
         }}
         {...dropHandlers}
       >
-        {/* 창과 옆판을 함께 감싼다 — 포커스 순환이 두 판을 함께 돌고, 바깥 클릭으로 닫히는 범위에서도 함께 빠진다.
-            옆판은 이 자리에 얹기만 하므로 창은 옆판이 있든 없든 화면 한가운데 그대로 선다. */}
+        {/* 창과 옆 패널을 함께 감싼다 — 포커스 순환이 두 패널을 함께 돌고, 바깥 클릭으로 닫히는 범위에서도 함께 빠진다.
+            옆 패널은 이 자리에 얹기만 하므로 창은 옆 패널이 있든 없든 화면 한가운데 그대로 선다. */}
         {/* 창 높이는 화면을 넘지 않는다 — 넘기면 가운데 정렬이 창을 위로 밀어 머리말이 화면 밖으로 잘린다.
             늘어나는 것은 본문뿐이고 머리말·버튼 줄은 언제나 제자리에 남는다. */}
         <div className="relative flex max-h-full w-full max-w-[448px] flex-col" onClick={(e) => e.stopPropagation()}>
@@ -97,9 +97,9 @@ export function Modal(props: {
         </div>
         {props.aside && (
           // 창 오른쪽 바깥에 따로 세운다. 높이는 내용만큼만 쓰고 창 높이를 넘지 않는다 —
-          // 창에 맞춰 늘이면 건이 적을 때 빈 판이 길게 남고, 창이 화면 안이므로 이 상한이면 옆판도 화면을 넘지 않는다.
-          // overflow-clip 은 잘라 내되 굴릴 수는 없다. hidden 으로 두면 이 판도 '굴릴 수 있는 상자'가 되어,
-          // 안쪽 목록이 제 자리를 찾을 때(scrollIntoView) 이 판까지 함께 굴러 머리말이 화면 밖으로 밀려난다.
+          // 창에 맞춰 늘이면 건이 적을 때 빈 패널이 길게 남고, 창이 화면 안이므로 이 상한이면 옆 패널도 화면을 넘지 않는다.
+          // overflow-clip 은 잘라 내되 굴릴 수는 없다. hidden 으로 두면 이 패널도 '굴릴 수 있는 상자'가 되어,
+          // 안쪽 목록이 제 자리를 찾을 때(scrollIntoView) 이 패널까지 함께 굴러 머리말이 화면 밖으로 밀려난다.
           <aside className={`panel-in absolute left-full top-0 ml-4 hidden max-h-full w-64 flex-col overflow-clip lg:flex ${MODAL_SHELL}`}>
             {props.aside}
           </aside>
@@ -131,10 +131,10 @@ export function ModalField(props: { label: string; required?: boolean; children:
   )
 }
 
-/** 창 머리말 — 아래 청록 선이 본문과의 경계다(좌측 판·대화 판과 같은 규칙) */
+/** 창 머리말 — 아래 청록 선이 본문과의 경계다(좌측 패널·대화 패널과 같은 규칙) */
 export const MODAL_HEADER = 'shrink-0 border-b-2 border-b-teal px-[18px] pb-[13px] pt-4'
 
-/** 창 본문의 좌우·위아래 여백을 되물려 판 끝까지 닿는 목록 — 여백 값이 바뀌면 여기만 고친다 */
+/** 창 본문의 좌우·위아래 여백을 되물려 패널 끝까지 닿는 목록 — 여백 값이 바뀌면 여기만 고친다 */
 export const MODAL_BLEED = '-mx-[18px] -mb-4 -mt-3.5 w-[calc(100%+36px)]'
 
 export {

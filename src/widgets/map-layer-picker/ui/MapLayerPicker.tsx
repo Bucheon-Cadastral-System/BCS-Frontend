@@ -57,7 +57,7 @@ export function MapLayerPicker(props: { layers: MapLayerItem[] }) {
         <div
           role="group"
           aria-label="지도 레이어 고르기"
-          // 안쪽 여백을 두지 않는다 — 줄이 말풍선 변까지 닿아야 판 안의 판으로 보이지 않는다.
+          // 안쪽 여백을 두지 않는다 — 줄이 말풍선 변까지 닿아야 패널 안의 패널로 보이지 않는다.
           // 모서리는 첫·끝 줄이 스스로 깎는다
           className={`absolute bottom-[calc(100%+8px)] left-1/2 flex w-[208px] -translate-x-1/2 flex-col ${POPOVER_FLAT}`}
         >

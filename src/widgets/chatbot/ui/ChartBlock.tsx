@@ -224,7 +224,7 @@ export function ChartBlock({ json }: { json: string }) {
     } as unknown as ChartConfiguration
 
     // 그리다 터지면 이 자리만 원문으로 물러난다. 감싸지 않으면 그리기 중의 예외가 리액트를 타고 올라가
-    // 화면 전체의 오류 경계가 받는다 — 차트 하나 때문에 대화 판과 지도가 함께 사라진다
+    // 화면 전체의 오류 경계가 받는다 — 차트 하나 때문에 대화 패널과 지도가 함께 사라진다
     let chart: Chart
     try {
       chart = new Chart(canvas, config)
