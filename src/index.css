@@ -14,6 +14,9 @@
 @theme {
   --color-panel: rgba(11, 19, 22, 0.97);
   --color-panel-strong: rgba(11, 19, 22, 0.98);
+  /* 좁은 화면의 바텀 시트 — 판과 같은 색이되 비치지 않는다. 시트 아래에는 떠 있는 내비가 깔려 있어
+     3% 만 비쳐도 알약 테두리와 글자가 시트 위로 어른거린다 */
+  --color-sheet: #0b1316;
   --color-pill: rgba(9, 18, 20, 0.96);
   --color-field: #070e10;
   --color-soft: rgba(255, 255, 255, 0.02);
@@ -52,6 +55,8 @@
      테두리만 배경 밝기를 따라 뒤집어 흰 도로 위·어두운 배경 양쪽에서 윤곽이 서게 한다. */
   --color-locate: #ffe23d;
   --color-locate-edge: #ffffff;
+  /* 점 뒤에 까는 번짐. 옅게 퍼지는 색이라 면과 따로 둔다 — 밝은 배경지도 위에서는 같은 노랑이 묻힌다 */
+  --color-locate-glow: #ffe23d;
 
   --color-ink: #e6eff1;
   --color-ink-2: #d7e4e7;
@@ -90,6 +95,7 @@
 :where(.theme-light, .theme-light *) {
   --color-panel: #fbfdfc;
   --color-panel-strong: #fbfdfc;
+  --color-sheet: #fbfdfc;
   --color-pill: rgba(251, 253, 252, 0.97);
   --color-field: #f5f9f7;
   --color-soft: #f2f7f4;
@@ -122,6 +128,7 @@
   --color-idle: #c7d3d0;
 
   --color-locate-edge: #10161a;
+  --color-locate-glow: #e08b00;
 
   --color-ink: #16302c;
   --color-ink-2: #234a44;
@@ -162,7 +169,7 @@
   background: radial-gradient(130% 100% at 40% 28%, #eff2ef, #d3dad7 74%);
 }
 
-/* 판이 나타날 때 — 위에서 살짝 내려오며 또렷해진다 */
+/* 패널이 나타날 때 — 위에서 살짝 내려오며 또렷해진다 */
 @keyframes panel-in {
   from {
     opacity: 0;
@@ -211,6 +218,15 @@ select:focus-visible,
 textarea:focus-visible {
   outline: 2px solid var(--color-teal-edge);
   outline-offset: 1px;
+}
+
+/* 판 안에 든 칸(좁은 화면 상단 판의 검색)은 그 테두리를 두르지 않는다 — 판이 이미 상자를 이루고 있어
+   포커스마다 판 안에 또 하나의 상자가 그려진다. 손으로 짚는 화면에서는 글자 깜빡임과 올라온 자판이
+   어디를 치는지 이미 알린다. 위 규칙이 레이어 밖이라 유틸리티로는 덮이지 않아 여기서 함께 정한다. */
+@media (width < 1024px) {
+  .flat-field:focus-visible {
+    outline: none;
+  }
 }
 
 /* 제출을 눌러 본 폼에서만 못 채운 칸을 붉게 물들인다 — 치기도 전에 붉어지면 잘못을 알리는 것이 아니라 잔소리가 된다.
