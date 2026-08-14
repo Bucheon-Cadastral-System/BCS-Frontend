@@ -231,21 +231,29 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
         </div>
       )}
 
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif"
-        className="sr-only"
-        onChange={(event) => void select(event.target.files?.[0])}
-      />
-      <button
-        type="button"
-        className={`${CHIP_BTN} h-9 w-full text-[12.5px]`}
-        disabled={preparing}
-        onClick={() => inputRef.current?.click()}
+      {/*
+        고르는 자리는 라벨이고 버튼이 아니다 — 아이폰 사파리는 스크립트로 부른 input.click() 을 사진 보관함으로
+        잇지 못하는 경우가 있다. 라벨은 브라우저가 직접 잇는 길이라 그 틈이 없다.
+
+        받는 형식은 image/* 하나로 둔다. 확장자(.heic 같은)를 섞어 적으면 아이폰 사진 보관함이 그 목록에 맞는
+        항목이 없다고 보아 사진을 전부 고를 수 없게 만든다. 형식 판정은 고른 뒤 파일 이름으로 우리가 한다
+      */}
+      <label
+        // 라벨은 기본이 인라인이라 높이가 먹지 않는다 — 버튼과 같은 상자로 세운다
+        className={`${CHIP_BTN} flex h-9 w-full items-center justify-center text-[12.5px] ${
+          preparing ? 'pointer-events-none opacity-60' : 'cursor-pointer'
+        }`}
       >
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="sr-only"
+          disabled={preparing}
+          onChange={(event) => void select(event.target.files?.[0])}
+        />
         {preparing ? '사진을 처리 중입니다. 잠시만 기다려 주세요.' : image === null ? '사진 등록' : '사진 교체'}
-      </button>
+      </label>
 
       {draft !== null && (
         <Modal
