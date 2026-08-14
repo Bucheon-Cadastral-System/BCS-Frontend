@@ -1,7 +1,8 @@
+import { useRef } from 'react'
 import type { ReactNode } from 'react'
 import { PROGRESS_FILL } from '@/shared/ui/classes'
 import { percent } from '@/shared/lib/percent'
-import { SURVEY_STATUS_DOT, SURVEY_STATUS_LABEL } from '@/entities/survey-record'
+import { StatusDistributionBar, SURVEY_STATUS_DOT, SURVEY_STATUS_LABEL } from '@/entities/survey-record'
 import type { SurveyStatus } from '@/entities/survey-record'
 import { DONE_STATUSES, drawSurveyStatusCard } from '../lib/drawSurveyStatusCard'
 import type { SurveyStatusSpec } from '../lib/drawSurveyStatusCard'
@@ -64,6 +65,7 @@ function parseSpec(raw: string): SurveyStatusSpec | null {
  * 사용자가 둘을 견주며 어느 쪽이 맞는지 의심하게 된다.
  */
 export function SurveyStatusBlock({ json }: { json: string }) {
+  const rootRef = useRef<HTMLDivElement>(null)
   const spec = parseSpec(json)
   if (spec === null) {
     return <pre className="my-1 overflow-x-auto rounded bg-soft p-2 text-xs text-ink-3">{json.trim()}</pre>
@@ -74,7 +76,10 @@ export function SurveyStatusBlock({ json }: { json: string }) {
   const breakdown = spec.breakdown
 
   const download = () => {
-    const canvas = drawSurveyStatusCard(spec)
+    // 색은 이 카드가 선 자리에서 읽는다 — 테마 클래스가 걸린 요소 아래여야 라이트 값이 잡힌다
+    const root = rootRef.current
+    if (root === null) return
+    const canvas = drawSurveyStatusCard(root, spec)
     if (canvas === null) return
     const a = document.createElement('a')
     a.download = `${spec.title ?? '조사 현황'}.png`
@@ -83,7 +88,7 @@ export function SurveyStatusBlock({ json }: { json: string }) {
   }
 
   return (
-    <div className="relative my-1 rounded-ctl border border-line-soft bg-soft px-3 py-2.5">
+    <div ref={rootRef} className="relative my-1 rounded-ctl border border-line-soft bg-soft px-3 py-2.5">
       <button
         type="button"
         onClick={download}
@@ -111,16 +116,23 @@ export function SurveyStatusBlock({ json }: { json: string }) {
         </span>
         <span className="font-semibold text-teal-text">{pct}%</span>
       </div>
-      <div
-        className="h-1.5 overflow-hidden rounded-full bg-track"
-        role="progressbar"
-        aria-valuenow={pct}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label={spec.title === undefined ? '조사 진행률' : `${spec.title} 조사 진행률`}
-      >
-        <div className={`h-full rounded-full ${PROGRESS_FILL}`} style={{ width: `${pct}%` }} />
-      </div>
+      {/* 갈래를 다 받았으면 패널의 프로젝트 상세와 같은 분포 막대를 세운다. 채운 길이는 그대로 조사한 만큼이라
+          진행률로 읽히면서, 그 안에서 무엇이 정상이고 무엇이 망실인지까지 한 줄로 드러난다.
+          갈래가 하나라도 어긋나 오면 나눌 수 없으므로 한 색으로 찬 진행률 막대로 물러선다 */}
+      {breakdown === null ? (
+        <div
+          className="h-1.5 overflow-hidden rounded-full bg-track"
+          role="progressbar"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={spec.title === undefined ? '조사 진행률' : `${spec.title} 조사 진행률`}
+        >
+          <div className={`h-full rounded-full ${PROGRESS_FILL}`} style={{ width: `${pct}%` }} />
+        </div>
+      ) : (
+        <StatusDistributionBar countByStatus={{ ...breakdown, todo: notSurveyed }} />
+      )}
 
       {breakdown !== null && (
         <dl className="mt-2.5 border-t border-line-soft pt-2 text-[11.5px] text-ink-3">

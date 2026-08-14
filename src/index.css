@@ -48,6 +48,11 @@
   --color-amber-wash: rgba(224, 160, 32, 0.1);
   --color-idle: #35494e;
 
+  /* 현재 위치 — 조사 상태 어느 색과도 겹치지 않는 한 벌. 면은 배경지도가 바뀌어도 그대로 두고,
+     테두리만 배경 밝기를 따라 뒤집어 흰 도로 위·어두운 배경 양쪽에서 윤곽이 서게 한다. */
+  --color-locate: #ffe23d;
+  --color-locate-edge: #ffffff;
+
   --color-ink: #e6eff1;
   --color-ink-2: #d7e4e7;
   --color-ink-3: #8fa8ad;
@@ -115,6 +120,8 @@
   --color-amber: #a97612;
   --color-amber-wash: rgba(169, 118, 18, 0.1);
   --color-idle: #c7d3d0;
+
+  --color-locate-edge: #10161a;
 
   --color-ink: #16302c;
   --color-ink-2: #234a44;

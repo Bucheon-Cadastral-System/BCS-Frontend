@@ -2,8 +2,8 @@ import { MapChip } from '@/shared/ui/MapChip'
 import { percent } from '@/shared/lib/percent'
 
 /**
- * 접어 둔 판을 대신하는 칩. 배치(지도 좌상단)는 부모가 정하고 여기선 내용만 채운다.
- * 누르면 판이 다시 펼쳐지고, 오른쪽 X 는 고른 것을 놓고 판을 끈다.
+ * 접어 둔 패널을 대신하는 칩. 배치(지도 좌상단)는 부모가 정하고 여기선 내용만 채운다.
+ * 누르면 패널이 다시 펼쳐지고, 오른쪽 X 는 고른 것을 놓고 패널을 끈다.
  */
 export function MinimizedPanelChip(props: {
   label: string
@@ -17,7 +17,7 @@ export function MinimizedPanelChip(props: {
     <MapChip
       label={props.label}
       value={props.value}
-      title={`${props.label} 판 열기`}
+      title={`${props.label} 패널 열기`}
       onClick={props.onOpen}
       leading={<span className="size-[9px] shrink-0 rounded-full bg-teal" aria-hidden />}
       trailing={props.trailing && <ChipCount {...props.trailing} />}

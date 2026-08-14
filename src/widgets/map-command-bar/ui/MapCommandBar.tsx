@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type Map from 'ol/Map'
 import type { MapTheme } from '@/entities/control-point'
 import type { TmEpsg } from '@/shared/lib/crs'
@@ -13,22 +14,27 @@ function zoomBy(map: Map | null, step: number) {
   view.animate({ zoom: zoom + step, duration: 200 })
 }
 
-// 좁은 화면에서는 글자를 접고 아이콘만 남긴다 — 판은 이 줄 위에서 끝나므로 판 열림은 이 판단에 넣지 않는다
-const CTL =
-  'flex h-6 shrink-0 items-center gap-[6px] whitespace-nowrap rounded-ctl px-2.5 text-[12px] font-medium transition-colors max-lg:gap-0 max-lg:px-1.5'
-
 /**
  * 지도 아래 커맨드 바 — 표시 설정과 읽을거리를 한 줄에 모은다.
- * 지적도·배경 밝기는 지도를 보면서 켜고 끄는 값이고, 좌표·축척은 늘 읽는 값이라 지도 위에 항상 드러내 둔다.
+ * 레이어·점 상태는 지도에 무엇을 얹을지 고르는 값이라 한 묶음으로 세우고, 배경 밝기는 화면 자체의 밝기라
+ * 한 번의 동작인 위치 초기화 옆에 아이콘으로만 둔다. 좌표·축척은 늘 읽는 값이라 지도 위에 항상 드러내 둔다.
  */
 export function MapCommandBar(props: {
   map: Map | null
   tmEpsg: TmEpsg
-  showCadastral: boolean
-  onToggleCadastral: () => void
   theme: MapTheme
   onToggleTheme: () => void
-  /** 처음 보던 자리로 되돌리기 — 어디까지 옮겨야 하는지는 판이 가린 폭을 아는 지도가 정한다 */
+  /**
+   * 레이어 버튼 자리 — 표시 설정 묶음의 첫 자리.
+   * 무엇을 세울지는 페이지가 정한다.
+   */
+  layers?: ReactNode
+  /**
+   * 기준점 상태 버튼 자리 — 레이어 다음.
+   * 둘 다 지도에 무엇을 얹을지 고르는 값이라 한 묶음으로 선다.
+   */
+  surveyStatus?: ReactNode
+  /** 눈높이를 되돌리기 — 현재 위치를 잡았으면 그 자리로, 아니면 처음 보던 자리로. 어디로 갈지는 지도가 정한다 */
   onResetView: () => void
 }) {
   const dark = props.theme === 'dark'
@@ -39,8 +45,8 @@ export function MapCommandBar(props: {
       <button
         type="button"
         onClick={props.onResetView}
-        title="처음 보던 자리로 이동"
-        aria-label="처음 보던 자리로 이동"
+        title="위치 초기화"
+        aria-label="위치 초기화"
         className="flex size-6 shrink-0 items-center justify-center rounded-ctl text-ink-2 transition-colors hover:bg-hover hover:text-ink"
       >
         <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
@@ -50,33 +56,15 @@ export function MapCommandBar(props: {
         </svg>
       </button>
 
-      <Divider />
-
-      <button
-        type="button"
-        onClick={props.onToggleCadastral}
-        aria-pressed={props.showCadastral}
-        title="지적도"
-        aria-label="지적도"
-        className={`${CTL} ${
-          props.showCadastral ? 'bg-teal-wash-strong text-teal-text' : 'text-ink-2 hover:bg-hover hover:text-ink'
-        }`}
-      >
-        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" aria-hidden="true">
-          <path d="m12 3 9 5-9 5-9-5 9-5Z" />
-          <path d="m3 13 9 5 9-5" />
-        </svg>
-        <span className="max-lg:hidden">지적도</span>
-      </button>
-
-      {/* 라벨·아이콘이 지금 배경을 그대로 나타낸다(누르면 반대로 바뀜) */}
+      {/* 아이콘이 지금 배경을 그대로 나타낸다(누르면 반대로 바뀜).
+          지적도·점 상태와 달리 무엇을 얹고 걷는 값이 아니라 화면 자체의 밝기라, 글자 없이 위치 초기화 옆에 둔다 */}
       <button
         type="button"
         onClick={props.onToggleTheme}
         aria-pressed={dark}
         title="배경 밝기"
         aria-label="배경 밝기"
-        className={`${CTL} text-ink-2 hover:text-ink`}
+        className="flex size-6 shrink-0 items-center justify-center rounded-ctl text-ink-2 transition-colors hover:bg-hover hover:text-ink"
       >
         {dark ? (
           <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -88,8 +76,12 @@ export function MapCommandBar(props: {
             <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
           </svg>
         )}
-        <span className="max-lg:hidden">{dark ? '다크' : '라이트'}</span>
       </button>
+
+      <Divider />
+
+      {props.layers}
+      {props.surveyStatus}
 
       <Divider />
 

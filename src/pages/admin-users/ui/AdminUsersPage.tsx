@@ -14,6 +14,7 @@ import type { AdminActivity, AdminActivityType, AdminMemberAction, AdminMemberSo
 import { UserAvatar } from '@/entities/user'
 import { ActivityIcon, AppHeader, UsersIcon } from '@/widgets/app-header'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
+import { Toast } from '@/shared/ui/Toast'
 import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY, FIELD, FIELD_SELECT, FIELD_SM, FIELD_SM_SELECT, ICON_BTN_DANGER, ROW_ACCENT } from '@/shared/ui/classes'
 
 interface AdminUsersPageProps {
@@ -215,8 +216,13 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
     || errorMessageOf(updateMemberMutation.error, '회원 정보를 수정하지 못했습니다. 잠시 후 다시 시도해 주세요.')
     || errorMessageOf(membersQuery.error, '관리자 정보를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.')
     || errorMessageOf(countsQuery.error, '회원 현황을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.')
-  // 상태 변경 실패는 확인 창 안에서 알린다 — 뒤쪽 배너에 띄우면 배경 딤에 가려 사용자가 이유를 볼 수 없다
-  const changeError = errorMessageOf(changeMemberMutation.error, '회원 상태를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+  /**
+   * 상태 변경 실패 토스트 — 실패한 그때의 문구를 그대로 들고 있는다.
+   *
+   * <p>조회 오류를 읽어 그리면 다시 시도해 성공하거나 창을 닫는 순간 문구가 비어, 떠 있던 토스트가 빈 알림이 된다.
+   * 회차(id)는 같은 실패가 이어질 때도 토스트를 새로 띄우기 위한 값이다.
+   */
+  const [failure, setFailure] = useState<{ id: number; message: string } | null>(null)
   const activitiesErrorMessage = errorMessageOf(activitiesQuery.error, '관리자 활동 로그를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.')
 
   /** 상세를 닫는다 — 고르던 사람과 고치던 값을 함께 놓는다 */
@@ -249,8 +255,11 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
       await changeMemberMutation.mutateAsync({ memberId: pendingChange.id, action: pendingChange.action })
       setPendingChange(null)
       setActivityCursor(undefined)
-    } catch {
-      // 실패 사유는 changeMemberMutation.error 로 확인 창 안에 그대로 보인다. 창은 열어 둔 채 다시 시도할 수 있게 둔다
+    } catch (e) {
+      // 실패는 토스트로 알린다 — 창 안에 세우면 뜰 때마다 버튼 줄이 밀린다.
+      // 창은 열어 둔 채라 그대로 다시 시도할 수 있다
+      const message = errorMessageOf(e, '회원 상태를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+      setFailure((prev) => ({ id: (prev?.id ?? 0) + 1, message }))
     }
   }
 
@@ -341,7 +350,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
       {/* 머리띠를 두지 않는다 — 바탕은 화면 전체가 하나이고 헤더는 그 위에 떠 있다.
           내용만 헤더 높이만큼 내려 시작해 알약에 가리지 않는다. */}
       <section className="absolute inset-0 flex flex-col pt-[76px]">
-        {/* 머리말 묶음 — 아래 청록 선이 본문과의 경계다(좌측 판·대화 판과 같은 규칙) */}
+        {/* 머리말 묶음 — 아래 청록 선이 본문과의 경계다(좌측 패널·대화 패널과 같은 규칙) */}
         <div className="shrink-0 border-b-2 border-b-teal">
         <header className="px-[22px] py-[15px]">
           <h1 className="min-w-0 text-[23px] font-semibold tracking-[-.02em] text-ink">
@@ -699,10 +708,13 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
           danger={pendingChange.action === 'deactivate' || pendingChange.action === 'reject'}
           busy={changeMemberMutation.isPending}
           busyLabel="처리 중…"
-          error={changeError}
           onConfirm={applyStatusChange}
           onCancel={closePendingChange}
         />
+      )}
+
+      {failure !== null && (
+        <Toast key={`change-${failure.id}`} message={failure.message} tone="error" onDismiss={() => setFailure(null)} />
       )}
     </main>
   )

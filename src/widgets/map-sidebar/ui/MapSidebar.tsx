@@ -1,10 +1,10 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { PanelKey } from '@/shared/model/panel'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { SURVEY_STATUS_DOT, SURVEY_STATUS_LABEL, SURVEY_STATUS_ORDER, deriveSurveyStatus } from '@/entities/survey-record'
+import { StatusDistributionBar, SURVEY_STATUS_DOT, SURVEY_STATUS_LABEL, SURVEY_STATUS_ORDER, deriveSurveyStatus } from '@/entities/survey-record'
 import type { SurveyResult, SurveyStatus } from '@/entities/survey-record'
 import { Skeleton, SkeletonRows } from '@/shared/ui/Skeleton'
-import { CHIP_BTN, CHIP_BTN_DANGER, ICON_BTN, ICON_BTN_DANGER, PANEL, PANEL_HEADER, PROGRESS_FILL, ROW_ACCENT } from '@/shared/ui/classes'
+import { CHIP_BTN, CHIP_BTN_DANGER, ICON_BTN, ICON_BTN_DANGER, PANEL, PANEL_HEADER, PILL, ROW_ACCENT } from '@/shared/ui/classes'
 import { percent } from '@/shared/lib/percent'
 import { formatDate } from '@/shared/lib/date'
 import { SURVEY_ONGOING_LABEL, isProjectComplete, type SurveyProject } from '@/entities/survey-project'
@@ -65,33 +65,33 @@ interface MapSidebarProps {
   // 사용자 관리 (어드민)
   isAdmin: boolean
   onOpenUserManagement: () => void
-  /** 지금 열려 있는 판 — 헤더 탭이 정한다 */
+  /** 지금 열려 있는 패널 — 헤더 탭이 정한다 */
   open: PanelKey | null
   /** 칩으로 접힌 상태 — 닫힘 모양이 갈린다(접힘=칩 자리로 말려 올라감, 닫힘=위로 미끄러져 나감) */
   minimized: boolean
-  /** 접어 두기 — 고른 것은 그대로 두고 판만 칩으로 줄인다 */
+  /** 접어 두기 — 고른 것은 그대로 두고 패널만 칩으로 줄인다 */
   onMinimize: () => void
-  /** 닫기 — 고른 것을 놓고 판을 끈다 */
+  /** 닫기 — 고른 것을 놓고 패널을 끈다 */
   onClose: () => void
-  /** 판 너비 — 위에 선 헤더 알약과 같은 값을 쓴다 */
+  /** 패널 너비 — 위에 선 헤더 알약과 같은 값을 쓴다 */
   width: number
 }
 
 /**
- * 지도 왼쪽에 떠 있는 판. 화면을 밀지 않고 지도 위에 겹친다.
- * 어느 판을 여는지는 헤더 탭이 정하고, 여기서는 그 판의 내용만 그린다.
+ * 지도 왼쪽에 떠 있는 패널. 화면을 밀지 않고 지도 위에 겹친다.
+ * 어느 패널을 여는지는 헤더 탭이 정하고, 여기서는 그 패널의 내용만 그린다.
  */
 export function MapSidebar(props: MapSidebarProps) {
   const open = props.open
-  // 닫히는 동안에도 마지막 판을 그려둬야 미끄러져 나가는 모습이 이어진다
+  // 닫히는 동안에도 마지막 패널을 그려둬야 미끄러져 나가는 모습이 이어진다
   const [lastPanel, setLastPanel] = useState<PanelKey>('project')
   useEffect(() => {
     if (open) setLastPanel(open)
   }, [open])
 
-  // 판 본문은 '열려 있을 때만' 마운트(닫히면 슬라이드 아웃 후 지연 언마운트).
+  // 패널 본문은 '열려 있을 때만' 마운트(닫히면 슬라이드 아웃 후 지연 언마운트).
   // ★ 성능: 프로젝트가 펼쳐지면 본문에 점 수천 개(PointRow)가 그려지는데, 닫혀도 마운트돼 있으면
-  //   판과 무관한 리렌더마다 이 수천 행이 재조정돼 렉이 걸린다.
+  //   패널과 무관한 리렌더마다 이 수천 행이 재조정돼 렉이 걸린다.
   const [renderBody, setRenderBody] = useState(false)
   useEffect(() => {
     if (open) {
@@ -106,7 +106,7 @@ export function MapSidebar(props: MapSidebarProps) {
       <aside
         aria-hidden={!open}
         inert={!open}
-        // 접힘(칩)일 때는 아래 변을 칩 높이까지 끌어올려 판이 칩 자리로 말려 들어가는 모양을 만든다 —
+        // 접힘(칩)일 때는 아래 변을 칩 높이까지 끌어올려 패널이 칩 자리로 말려 들어가는 모양을 만든다 —
         // bottom 은 인라인이 클래스(bottom-bar-clear)를 이기므로 펼치면 지우기만 하면 제자리로 풀린다
         style={{
           width: props.width || undefined,
@@ -142,7 +142,7 @@ function PanelHeader(props: { title: string; count?: number; onMinimize: () => v
       <button
         type="button"
         onClick={props.onMinimize}
-        aria-label="판 접기"
+        aria-label="패널 접기"
         title="접기"
         className={ICON_BTN}
       >
@@ -151,7 +151,7 @@ function PanelHeader(props: { title: string; count?: number; onMinimize: () => v
       <button
         type="button"
         onClick={props.onClose}
-        aria-label="판 닫기"
+        aria-label="패널 닫기"
         title="닫기"
         className={ICON_BTN_DANGER}
       >
@@ -235,7 +235,7 @@ function ProjectPanel(props: MapSidebarProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* 상세에 들어가면 판의 이름도 그 겹을 따라간다 — 목록 수는 목록을 볼 때만 의미가 있어 함께 거둔다 */}
+      {/* 상세에 들어가면 패널의 이름도 그 겹을 따라간다 — 목록 수는 목록을 볼 때만 의미가 있어 함께 거둔다 */}
       <PanelHeader
         title={detailOn ? '프로젝트 정보' : '프로젝트 목록'}
         count={detailOn ? undefined : props.projects.length}
@@ -305,7 +305,7 @@ function ProjectPanel(props: MapSidebarProps) {
                 <button
                   type="button"
                   onClick={() => props.onChangeActive(p.id)}
-                  className="flex w-full items-center gap-[11px] py-3 pl-[13px] pr-3.5 text-left transition-colors hover:bg-white/[0.03]"
+                  className="flex w-full items-center gap-[11px] py-3 pl-[13px] pr-3.5 text-left transition-colors hover:bg-hover"
                 >
                   <ProjectStateMark complete={isProjectComplete(p)} />
                   <span className="flex min-w-0 flex-1 flex-col">
@@ -396,7 +396,7 @@ function ProjectDetail(props: {
 
   return (
     <>
-      {/* 머리줄 — 어느 조사에 들어와 있는지와 나가는 길. 판 머리말(PanelHeader)과 같은 크기로 세워 한 겹의 제목임을 말한다 */}
+      {/* 머리줄 — 어느 조사에 들어와 있는지와 나가는 길. 패널 머리말(PanelHeader)과 같은 크기로 세워 한 겹의 제목임을 말한다 */}
       <div className="flex shrink-0 items-center gap-1.5 border-t-2 border-t-teal py-2.5 pl-2 pr-3.5">
         <button
           type="button"
@@ -434,13 +434,10 @@ function ProjectDetail(props: {
               </span>
               <span className="font-semibold text-teal-text">{pct}%</span>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-track">
-              <div
-                className={`h-full rounded-full transition-[width] duration-500 ease-out ${PROGRESS_FILL}`}
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-            {/* 결과별 내역 — 색은 아래 범례·지도 마커와 같은 뜻으로 쓴다 */}
+            {/* 채워진 길이는 그대로 조사한 만큼이라 진행률로 읽히면서, 그 안에서 무엇이 정상이고
+                무엇이 망실인지까지 한 줄로 드러난다. 미조사는 칠하지 않아 바탕이 남은 일이 된다 */}
+            <StatusDistributionBar countByStatus={byStatus} />
+            {/* 결과별 내역 — 위 막대를 갈래별 개수로 풀어 적는다. 색은 막대·지도 마커와 같은 뜻으로 쓴다 */}
             <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-[5px] text-[11.5px] text-ink-3">
               {SURVEY_STATUS_ORDER.map((key) => (
                 <StatusCount key={key} label={SURVEY_STATUS_LABEL[key]} count={byStatus[key]} dotClass={SURVEY_STATUS_DOT[key]} />
@@ -548,7 +545,6 @@ function ProjectNote(props: { note: string }) {
 function PointListPanel(props: MapSidebarProps) {
   const [q, setQ] = useState('')
   const query = q.trim()
-  // 이 탭은 전체 기준점 목록이다. 탭을 열면 지도도 전체를 보여주므로 목록과 지도가 어긋나지 않는다.
   const source = props.points
   // 검색 결과도 메모 → 팬 리렌더 중 새 배열을 만들지 않아 PointRowList 메모가 유지됨.
   // 관리번호에 영문이 섞인다 — 대상 고르기와 같은 규칙으로 대소문자를 가리지 않는다
@@ -612,17 +608,18 @@ function PointListPanel(props: MapSidebarProps) {
         {POINT_TYPES.map((t) => {
           const pts = byType.get(t) ?? []
           const open = openType === t
-          // 펼침 높이는 개수만큼만 — 남은 높이보다 크면 flex 축소로 줄어들어 안에서 굴린다(가상 스크롤 유지).
-          // 빈 문구(py-6)와 자리표시(6줄+py-1)는 실제 렌더 높이만큼 잡아야 잘리지 않는다
+          // 펼침 높이는 행 높이의 정수배다 — 남는 자리를 두면 마지막 행과 다음 드로어 사이에 틈이 생긴다.
+          // 남은 높이보다 크면 flex 축소로 줄어들어 안에서 굴린다(가상 스크롤 유지).
+          // 빈 문구(py-6)와 자리표시(6줄+py-1)만 실제 렌더 높이를 따로 잡는다
           const fitHeight =
-            pts.length > 0 ? pts.length * ROW_HEIGHT + 6 : props.pointsLoading === true ? 6 * ROW_HEIGHT + 8 : 68
+            pts.length > 0 ? pts.length * ROW_HEIGHT : props.pointsLoading === true ? 6 * ROW_HEIGHT + 8 : 68
           return (
             <Fragment key={t}>
               <button
                 type="button"
                 onClick={() => setOpenType(open ? null : t)}
                 aria-expanded={open}
-                className="flex shrink-0 items-center gap-2 border-b border-line-row px-3.5 py-3.5 text-left transition-colors hover:bg-white/[0.03]"
+                className="flex shrink-0 items-center gap-2 border-b border-line-row px-3.5 py-3.5 text-left transition-colors hover:bg-hover"
               >
                 <PointTypeIcon type={t} className="size-4 shrink-0 text-teal-text" />
                 <span className={`flex-1 text-[13px] font-semibold ${open ? 'text-ink' : 'text-ink-2'}`}>{t}</span>
@@ -641,7 +638,7 @@ function PointListPanel(props: MapSidebarProps) {
                 <PointRowList
                   points={pts}
                   onFocus={props.onFocusPoint}
-                  emptyText={source.length === 0 ? '기준점 없음' : '검색 결과 없음'}
+                  emptyText={query === '' ? '기준점 없음' : '검색 결과 없음'}
                   loading={props.pointsLoading}
                 />
               </div>
@@ -656,8 +653,8 @@ function PointListPanel(props: MapSidebarProps) {
 /**
  * 점 목록 — 가상 스크롤. 기준점이 수천 개라 전부 마운트하면 그 커밋이 프레임을 막아 패널이 늦게 뜨고 조작이 끊긴다.
  * 화면에 보이는 행(+overscan)만 그리므로 DOM 수가 목록 길이와 무관하게 일정하다.
- * 행 높이는 펼침(조사·망실 버튼) 때문에 가변이라 measureElement로 실제 높이를 잰다.
- * survey 주면 상태마크·조사/망실 토글·펼침(프로젝트 드로어), 없으면 이름·종류만(기준점 탭).
+ * 행 높이는 모두 같다 — 결과를 고르는 자리가 상세 카드로 옮겨가 펼쳐지는 행이 없다.
+ * survey 를 주면 상태마크가 함께 서고(프로젝트 드로어), 없으면 이름·종류만 선다(기준점 탭).
  */
 function PointRowList(props: {
   points: ControlPoint[]
@@ -712,7 +709,8 @@ function PointRowList(props: {
       className={`overflow-y-auto ${maxHeightClass ?? 'min-h-0 flex-1'}`}
     >
       {/* 전체 높이만큼 자리를 잡아 스크롤 막대가 실제 목록 길이를 나타내게 하고, 보이는 행만 그 안에 띄운다 */}
-      <ul className="relative w-full pb-1" style={{ height: virtualizer.getTotalSize() }}>
+      {/* 아래 여백을 두지 않는다 — 드로어는 이 높이에 딱 맞춰 열리므로 여백이 그대로 드로어 사이의 틈이 된다 */}
+      <ul className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((item) => {
           const cp = points[item.index]
           const status = deriveSurveyStatus((resultById ?? EMPTY_RESULTS).get(cp.id))
@@ -754,7 +752,7 @@ function PointRowList(props: {
         onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
         aria-hidden={!scrolled}
         tabIndex={scrolled ? 0 : -1}
-        className={`absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-pill border border-line-pill bg-pill py-1.5 pl-2.5 pr-3 text-[12px] font-medium text-ink-2 shadow-pill transition-all duration-200 hover:text-ink ${
+        className={`absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 py-1.5 pl-2.5 pr-3 text-[12px] font-medium text-ink-2 transition-all duration-200 hover:text-ink ${PILL} ${
           scrolled ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-3 opacity-0'
         }`}
       >
@@ -788,7 +786,7 @@ function PointRow(props: {
         type="button"
         onClick={props.onClick}
         aria-expanded={hasActions ? Boolean(props.expanded) : undefined}
-        className={`flex h-[34px] w-full items-center gap-2 px-3.5 text-left transition-colors hover:bg-white/[0.03] ${
+        className={`flex h-[34px] w-full items-center gap-2 px-3.5 text-left transition-colors hover:bg-hover ${
           props.expanded ? `bg-teal-wash ${ROW_ACCENT}` : ''
         }`}
       >
@@ -801,8 +799,8 @@ function PointRow(props: {
   )
 }
 
-/* ── 판 안에서 쓰는 인라인 SVG 아이콘 ── */
-/** 판 안에서 쓰는 작은 아이콘들 — 굵기·선 끝 처리를 한곳에서 맞춘다 */
+/* ── 패널 안에서 쓰는 인라인 SVG 아이콘 ── */
+/** 패널 안에서 쓰는 작은 아이콘들 — 굵기·선 끝 처리를 한곳에서 맞춘다 */
 function IconPlus() {
   return (
     <svg viewBox="0 0 24 24" className="h-full w-full" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">

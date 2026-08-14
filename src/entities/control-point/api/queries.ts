@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { deleteControlPoint, fetchControlPoints, fetchLastSurvey, registerControlPoint, updateControlPoint } from './controlPointApi'
+import { CONTROL_POINTS_KEY, LAST_SURVEYS_KEY, lastSurveyKey } from '@/shared/api/queryKeys'
+import { deleteControlPoint, fetchControlPoints, fetchLastSurvey, fetchLastSurveys, registerControlPoint, updateControlPoint } from './controlPointApi'
 
-export const CONTROL_POINTS_KEY = ['control-points'] as const
+// 키는 아래 계층이 쥔다 — 엔티티끼리 서로 수입하지 않기 위해서다. 이 엔티티의 공개 API 로는 여기서 다시 내보낸다
+export { CONTROL_POINTS_KEY, LAST_SURVEY_KEY, LAST_SURVEYS_KEY, lastSurveyKey, invalidateLastSurveys } from '@/shared/api/queryKeys'
 
 export function useControlPointsQuery() {
   return useQuery({ queryKey: CONTROL_POINTS_KEY, queryFn: fetchControlPoints })
@@ -31,20 +33,6 @@ export function useDeleteControlPointMutation() {
   })
 }
 
-/**
- * 최종조사 캐시 키의 공통 접두.
- *
- * <p>최종조사는 저장된 값이 아니라 볼 때 계산하는 값이라, 그 점의 기록이 바뀌면 답이 바뀐다.
- * 한 점만 바뀌는 자리는 아래 키로 그 점만 비우고, 어느 점이 바뀌었는지 셀 수 없는 자리
- * (조사 삭제·대상 재지정·파일 임포트)는 이 접두로 통째로 비운다.
- */
-export const LAST_SURVEY_KEY = ['control-point', 'last-survey'] as const
-
-/** 최종조사 캐시 키 — 그 점의 조사 기록이 바뀌면 서버가 이 값을 다시 계산하므로 기록 쪽에서 비운다. */
-export function lastSurveyKey(pointId: string) {
-  return [...LAST_SURVEY_KEY, pointId] as const
-}
-
 /** 최종조사 요약 — 고른 점 하나에 대해서만 읽는다. 목록은 점이 수천 개라 함께 싣지 않는다. */
 export function useLastSurveyQuery(pointId: string | null) {
   return useQuery({
@@ -52,5 +40,19 @@ export function useLastSurveyQuery(pointId: string | null) {
     queryFn: () => fetchLastSurvey(pointId as string),
     enabled: pointId !== null,
     staleTime: 60_000,
+  })
+}
+
+/**
+ * 점마다 최종조사 하나씩 — 지도가 조사 프로젝트와 무관하게 점의 최신 상태를 그릴 때만 읽는다.
+ *
+ * <p>상태 표시를 끄고 있거나 고른 회차의 결과를 보는 동안에는 이 표를 쓰지 않으므로 요청도 내지 않는다.
+ */
+export function useLastSurveysQuery(enabled: boolean) {
+  return useQuery({
+    queryKey: LAST_SURVEYS_KEY,
+    queryFn: fetchLastSurveys,
+    enabled,
+    staleTime: 30_000,
   })
 }

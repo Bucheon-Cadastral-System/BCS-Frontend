@@ -1,5 +1,24 @@
 import type { ImportFilePreview } from '../api/previewImportFile'
 
+/**
+ * 파일에 반드시 있어야 하는 열 — 서버가 요구하는 목록(ImportFileMapper.BASE_COLUMNS)과 같아야 한다.
+ * 하나라도 없으면 서버가 행을 읽지 않고 파일째로 거부하므로, 파일을 고르기 전에 미리 적어 둔다.
+ * 요구하는 것은 열 이름이지 칸의 값이 아니다.
+ */
+export const REQUIRED_COLUMNS = [
+  '기준점번호',
+  '종류',
+  '기준점명',
+  '좌표계구분',
+  'X좌표',
+  'Y좌표',
+  '토지소재지',
+  '상세주소',
+  '설치일자',
+  '기존조사내용',
+  '기존조사일',
+]
+
 /** 서버가 읽어 본 파일 한 건 — 파일 자체와 그 결과를 함께 들고 다닌다. */
 export interface ReadFile {
   file: File

@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import type { SurveyProjectDraft } from '@/entities/survey-project'
-import { ImportPreviewList, NO_FILES, ReadSummary, SEND_LABEL, SendMark, blockingReasonOf, hasRowErrors, needsReview, rowIssueLines, summaryOf, useImportPreviews, useSequentialSend } from '@/features/import-file'
+import { ImportPreviewList, NO_FILES, ReadSummary, RequiredColumnsHint, SEND_LABEL, SendMark, blockingReasonOf, hasRowErrors, needsReview, rowIssueLines, summaryOf, useImportPreviews, useSequentialSend } from '@/features/import-file'
 import type { ReadFile, SendStatus } from '@/features/import-file'
 import { today } from '@/shared/lib/date'
 import { fileBaseName } from '@/shared/lib/file'
@@ -118,7 +118,7 @@ function StepList(props: {
   disabled: boolean
   onJump: (i: number) => void
 }) {
-  // 건이 많으면 판이 스크롤되므로, 지금 보고 있는 줄이 화면 밖에 있으면 끌어온다
+  // 건이 많으면 패널이 스크롤되므로, 지금 보고 있는 줄이 화면 밖에 있으면 끌어온다
   const currentRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     currentRef.current?.scrollIntoView({ block: 'center' })
@@ -408,19 +408,22 @@ export function SurveyProjectFileModal(props: {
 
   // 화면 전체 드롭 안내와 같은 모양 — 여기에 끌어다 놓아도 되고 눌러서 골라도 된다는 뜻
   const pickerBody = (
-    <button
-      type="button"
-      onClick={openPicker}
-      className="flex w-full flex-col items-center justify-center gap-1.5 rounded-ctl border-2 border-dashed border-line-field py-10 text-ink-4 transition-colors hover:border-teal-edge hover:text-teal-text"
-    >
-      <svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M12 16V4" />
-        <path d="m7 9 5-5 5 5" />
-        <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-      </svg>
-      <span className="text-[13px] font-medium">파일을 끌어다 놓거나 눌러서 선택</span>
-      <span className="text-[11px]">CSV · XLS · XLSX</span>
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={openPicker}
+        className="flex w-full flex-col items-center justify-center gap-1.5 rounded-ctl border-2 border-dashed border-line-field py-10 text-ink-4 transition-colors hover:border-teal-edge hover:text-teal-text"
+      >
+        <svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 16V4" />
+          <path d="m7 9 5-5 5 5" />
+          <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+        </svg>
+        <span className="text-[13px] font-medium">파일을 끌어다 놓거나 눌러서 선택</span>
+        <span className="text-[11px]">CSV · XLS · XLSX</span>
+      </button>
+      <RequiredColumnsHint />
+    </>
   )
 
   // 입력 단계에서는 몇 번째를 보고 있는지가 곧 진행이고, 등록 단계에서는 손을 뗀 건수(등록·폐기)가 진행이다
@@ -430,7 +433,7 @@ export function SurveyProjectFileModal(props: {
   const board =
     total > 1 && !showReading ? (
       <>
-        {/* 머리말·본문의 글자 크기와 여백은 창과 똑같이 쓴다 — 나란히 선 판이라 규격이 어긋나면 바로 보인다 */}
+        {/* 머리말·본문의 글자 크기와 여백은 창과 똑같이 쓴다 — 나란히 선 패널이라 규격이 어긋나면 바로 보인다 */}
         <div className={MODAL_HEADER}>
           <h2 className="flex items-baseline gap-1.5 text-[15px] font-semibold text-ink">
             {confirming ? (
@@ -491,7 +494,7 @@ export function SurveyProjectFileModal(props: {
       </p>
       {!send.started && entries.every((e) => e.discarded) && (
         <p className="rounded-chip bg-soft px-2.5 py-1.5 text-[12px] text-ink-3">
-          모두 폐기해 등록할 프로젝트가 없습니다.
+          전체 폐기로 등록할 프로젝트가 없습니다.
         </p>
       )}
       {!send.started && invalidIndex !== null && (
@@ -608,7 +611,7 @@ export function SurveyProjectFileModal(props: {
             )}
             {!send.started && (
               <button type="submit" className={MODAL_SUBMIT_BTN} disabled={!canRegister}>
-                {total > 1 ? `${pendingIndexes.length}건 추가` : '추가'}
+                {total > 1 ? `${pendingIndexes.length}건 등록` : '등록'}
               </button>
             )}
             {send.started && failedIndex >= 0 && (

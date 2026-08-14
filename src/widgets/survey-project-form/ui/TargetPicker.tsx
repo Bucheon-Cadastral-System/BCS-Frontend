@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { POINT_TYPES, PointTypeIcon } from '@/entities/control-point'
 import type { ControlPoint, PointType } from '@/entities/control-point'
+import { CheckMark } from '@/shared/ui/CheckMark'
 
 /** 접힌 점 줄의 높이(px) — 아래 버튼의 h-[34px] 와 같아야 스크롤 위치가 밀리지 않는다 */
 const ROW_HEIGHT = 34
@@ -9,7 +10,7 @@ const ROW_HEIGHT = 34
 /**
  * 대상 기준점 고르기 — 전체 점에서 검색·종류로 좁혀 체크로 담는다.
  * 점이 수천이라 보이는 줄만 그린다(기준점 탭 목록과 같은 수법).
- * 담은 점 집합은 부르는 쪽이 소유한다 — 이 판은 좁혀 보여 주고 담고 빼는 일만 한다.
+ * 담은 점 집합은 부르는 쪽이 소유한다 — 이 패널은 좁혀 보여 주고 담고 빼는 일만 한다.
  */
 export function TargetPicker(props: {
   points: ControlPoint[]
@@ -172,23 +173,5 @@ function TypeChip(props: { label: string; on: boolean; onClick: () => void }) {
     >
       {props.label}
     </button>
-  )
-}
-
-/** 체크 상자 — 줄 전체가 버튼이라 상자는 상태 표시만 한다 */
-function CheckMark(props: { on: boolean }) {
-  return (
-    <span
-      aria-hidden
-      className={`flex size-4 shrink-0 items-center justify-center rounded border transition-colors ${
-        props.on ? 'border-teal bg-teal text-white' : 'border-line-btn bg-field'
-      }`}
-    >
-      {props.on && (
-        <svg viewBox="0 0 24 24" className="size-3" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="m5 13 4 4L19 7" />
-        </svg>
-      )}
-    </span>
   )
 }

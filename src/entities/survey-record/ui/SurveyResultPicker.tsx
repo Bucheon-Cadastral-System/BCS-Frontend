@@ -69,7 +69,7 @@ export function SurveyResultPicker(props: {
     if (props.disabled === true) close()
   }, [props.disabled])
 
-  // 바깥을 누르거나 Esc, 그리고 판이 움직이면 닫는다. 좌표로 세운 목록이라 스크롤을 따라가지 않는다
+  // 바깥을 누르거나 Esc, 그리고 패널이 움직이면 닫는다. 좌표로 세운 목록이라 스크롤을 따라가지 않는다
   useEffect(() => {
     if (!open) return
     const onPointerDown = (e: PointerEvent) => {

@@ -1,6 +1,7 @@
 import { SURVEY_STATUS_COLOR_VAR, SURVEY_STATUS_LABEL } from '@/entities/survey-record'
 import type { SurveyStatus } from '@/entities/survey-record'
 import { percent } from '@/shared/lib/percent'
+import { readThemeVar } from '@/shared/lib/themeVar'
 
 /** 조사 완료를 이루는 네 갈래 — 미조사는 이 아래가 아니라 조사 완료의 형제라 따로 둔다. */
 export const DONE_STATUSES: Exclude<SurveyStatus, 'todo'>[] = ['done', 'lost', 'unavailable', 'etc']
@@ -46,11 +47,6 @@ const TIER2_LABEL = PAD + 23
 const TIER3_MARK = PAD + 22
 const TIER3_LABEL = PAD + 35
 
-function readVar(name: string, fallback: string): string {
-  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  return value === '' ? fallback : value
-}
-
 /**
  * 글자 하나씩 재어 폭에 맞춰 자른다.
  * 조사 이름에는 밑줄·괄호가 섞여 들어와 낱말 단위로 자르면 한 줄이 카드를 넘어간다.
@@ -89,11 +85,11 @@ function clamp(lines: string[]): string[] {
  * 다만 제목은 길이 제한이 없어 줄 수만 미리 재고 그만큼 종이를 길게 잡는다.
  * 넉넉한 높이를 상수로 박아 두면 긴 이름이 오는 순간 진행률과 내역이 종이 밖에서 잘린다.
  */
-export function drawSurveyStatusCard(spec: SurveyStatusSpec): HTMLCanvasElement | null {
-  const font = readVar('--font-sans', 'system-ui, sans-serif')
-  const accent = readVar('--color-teal-fill', '#0e6b5c')
-  const fillFrom = readVar('--color-teal-edge', '#0e6b5c')
-  const fillTo = readVar('--color-teal-bright', '#14806d')
+export function drawSurveyStatusCard(root: Element, spec: SurveyStatusSpec): HTMLCanvasElement | null {
+  const font = readThemeVar(root, '--font-sans', 'system-ui, sans-serif')
+  const accent = readThemeVar(root, '--color-teal-fill', '#0e6b5c')
+  const fillFrom = readThemeVar(root, '--color-teal-edge', '#0e6b5c')
+  const fillTo = readThemeVar(root, '--color-teal-bright', '#14806d')
 
   const gauge = document.createElement('canvas').getContext('2d')
   if (gauge === null) return null
@@ -136,23 +132,43 @@ export function drawSurveyStatusCard(spec: SurveyStatusSpec): HTMLCanvasElement 
   y += 8
 
   const barWidth = WIDTH - PAD * 2
+  const breakdown = spec.breakdown
   ctx.fillStyle = LINE
   ctx.beginPath()
   ctx.roundRect(PAD, y, barWidth, 6, 3)
   ctx.fill()
-  if (pct > 0) {
-    const gradient = ctx.createLinearGradient(PAD, 0, PAD + barWidth, 0)
-    gradient.addColorStop(0, fillFrom)
-    gradient.addColorStop(1, fillTo)
-    ctx.fillStyle = gradient
+  if (breakdown === null) {
+    if (pct > 0) {
+      const gradient = ctx.createLinearGradient(PAD, 0, PAD + barWidth, 0)
+      gradient.addColorStop(0, fillFrom)
+      gradient.addColorStop(1, fillTo)
+      ctx.fillStyle = gradient
+      ctx.beginPath()
+      // 1%도 6px 은 그린다 — 더 좁으면 둥근 끝이 서로 겹쳐 막대가 아니라 점으로 보인다
+      ctx.roundRect(PAD, y, Math.max(6, (barWidth * pct) / 100), 6, 3)
+      ctx.fill()
+    }
+  } else if (spec.surveyed > 0) {
+    // 갈래를 다 받았으면 화면 카드와 같이 갈래별로 나눠 칠한다.
+    // 둥근 끝을 살리려고 막대 모양으로 오려 두고 그 안에 네모를 이어 붙인다.
+    // 칸의 끝자리는 누적 개수로 잡는다 — 폭을 하나씩 더해 가면 소수점이 쌓여 갈래 사이에 실금이 남는다
+    ctx.save()
     ctx.beginPath()
-    // 1%도 6px 은 그린다 — 더 좁으면 둥근 끝이 서로 겹쳐 막대가 아니라 점으로 보인다
-    ctx.roundRect(PAD, y, Math.max(6, (barWidth * pct) / 100), 6, 3)
-    ctx.fill()
+    ctx.roundRect(PAD, y, barWidth, 6, 3)
+    ctx.clip()
+    let counted = 0
+    for (const status of DONE_STATUSES) {
+      const from = PAD + (barWidth * counted) / spec.total
+      counted += breakdown[status]
+      const to = PAD + (barWidth * counted) / spec.total
+      if (to <= from) continue
+      ctx.fillStyle = readThemeVar(root, SURVEY_STATUS_COLOR_VAR[status], INK_SOFT)
+      ctx.fillRect(from, y, to - from, 6)
+    }
+    ctx.restore()
   }
   y += 6
 
-  const breakdown = spec.breakdown
   if (breakdown !== null) {
     y += 12
     ctx.strokeStyle = LINE
@@ -193,7 +209,7 @@ export function drawSurveyStatusCard(spec: SurveyStatusSpec): HTMLCanvasElement 
     const railTop = y
     for (const status of DONE_STATUSES) {
       const mid = line(TIER3_LABEL, SURVEY_STATUS_LABEL[status], breakdown[status], false)
-      ctx.fillStyle = readVar(SURVEY_STATUS_COLOR_VAR[status], INK_SOFT)
+      ctx.fillStyle = readThemeVar(root, SURVEY_STATUS_COLOR_VAR[status], INK_SOFT)
       ctx.beginPath()
       ctx.arc(TIER3_MARK + 3.5, mid, 3.5, 0, Math.PI * 2)
       ctx.fill()

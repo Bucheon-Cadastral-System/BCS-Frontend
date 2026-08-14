@@ -1,18 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { QueryClient } from '@tanstack/react-query'
-// 프로젝트·기준점 목록 키는 각 엔티티가 소유한다(반대 방향 수입과 같은 이유).
-// 서로 수입하지만 둘 다 함수 안에서만 쓰므로 초기화 순환은 없다
-import { SURVEY_PROJECTS_KEY } from '@/entities/survey-project'
-import { lastSurveyKey } from '@/entities/control-point'
+import { invalidateLastSurveys, SURVEY_PROJECTS_KEY, surveyRecordsKey } from '@/shared/api/queryKeys'
 import { deleteSurveyRecord, fetchSurveyRecords, putSurveyRecord } from './surveyRecordApi'
 import type { SurveyResult } from '../model/types'
 
-/** 조사기록 캐시 키의 공통 접두 — 프로젝트 무관 일괄 무효화(프로젝트 삭제 등)가 이 값으로 맞춘다 */
-export const SURVEY_RECORDS_KEY = ['survey-records'] as const
-
-export function surveyRecordsKey(projectId: string) {
-  return [...SURVEY_RECORDS_KEY, projectId] as const
-}
+export { SURVEY_RECORDS_KEY, surveyRecordsKey } from '@/shared/api/queryKeys'
 
 /**
  * 활성 프로젝트의 조사기록 — 프로젝트 미선택(null)이면 조회하지 않는다.
@@ -25,16 +16,6 @@ export function useSurveyRecordsQuery(projectId: string | null) {
     enabled: projectId !== null,
     staleTime: 30_000,
   })
-}
-
-/**
- * 그 점의 최종조사 요약을 다시 받게 한다.
- *
- * <p>기록을 남기거나 지우면 서버가 그 점의 최종조사 결과·조사일·조사원을 최신 기록으로 다시 계산한다.
- * 비우지 않으면 상세 카드 위쪽 세 줄이 옛 값에 머문다. 고친 점 하나만 비운다.
- */
-function invalidateLastSurvey(queryClient: QueryClient, pointId: string) {
-  void queryClient.invalidateQueries({ queryKey: lastSurveyKey(pointId) })
 }
 
 interface RecordSurveyArgs {
@@ -54,7 +35,8 @@ export function useRecordSurveyMutation() {
       void queryClient.invalidateQueries({ queryKey: surveyRecordsKey(projectId) })
       // 목록의 완료 표시가 조사 수(서버 요약)를 따르므로 프로젝트 목록도 함께 비운다
       void queryClient.invalidateQueries({ queryKey: SURVEY_PROJECTS_KEY })
-      invalidateLastSurvey(queryClient, pointId)
+      // 기록을 남기거나 지우면 서버가 그 점의 최종조사를 다시 계산한다 — 상세 카드 세 줄과 지도의 그 점 색이 함께 옛 값이 된다
+      invalidateLastSurveys(queryClient, pointId)
     },
   })
 }
@@ -72,7 +54,8 @@ export function useCancelSurveyMutation() {
       void queryClient.invalidateQueries({ queryKey: surveyRecordsKey(projectId) })
       // 취소는 완료였던 프로젝트를 진행중으로 되돌릴 수 있다 — 기록과 같이 목록도 비운다
       void queryClient.invalidateQueries({ queryKey: SURVEY_PROJECTS_KEY })
-      invalidateLastSurvey(queryClient, pointId)
+      // 기록을 남기거나 지우면 서버가 그 점의 최종조사를 다시 계산한다 — 상세 카드 세 줄과 지도의 그 점 색이 함께 옛 값이 된다
+      invalidateLastSurveys(queryClient, pointId)
     },
   })
 }

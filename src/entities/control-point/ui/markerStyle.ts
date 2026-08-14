@@ -1,12 +1,13 @@
 import type { SurveyStatus } from '@/entities/survey-record'
 import { Style, Icon, Fill, Stroke, Text } from 'ol/style'
 import type { ControlPoint, PointType } from '../model/types'
+import type { MapTheme } from '@/shared/model/theme'
 import { POINT_TYPES } from '../model/types'
 
 /** 조사상태 표현: none=프로젝트 없음, todo=미조사(흐리게), done=정상(체크), lost=망실(빨강) */
 // 조사 상태는 survey-record 가 권위 — 'none' 은 조사 화면이 아닐 때(상태 자체가 없음)를 뜻한다
 export type SurveyView = SurveyStatus | 'none'
-export type MapTheme = 'light' | 'dark'
+export type { MapTheme } from '@/shared/model/theme'
 
 interface Palette {
   paper: string // 마커 바탕/후광

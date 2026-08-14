@@ -42,12 +42,12 @@ export const SURVEY_STATUS_TONE: Record<SurveyStatus, string> = {
  *
  * <p>클래스 이름은 글자 그대로 적는다. 조각을 이어 붙여 만들면 테일윈드가 그 클래스를 훑지 못해 색이 빠진다.
  */
-const STATUS_COLOR: Record<SurveyStatus, { className: string; token: string; dot: string }> = {
-  done: { className: 'text-teal-text', token: '--color-teal-text', dot: 'bg-teal' },
-  lost: { className: 'text-danger', token: '--color-danger', dot: 'bg-danger' },
-  unavailable: { className: 'text-amber', token: '--color-amber', dot: 'bg-amber' },
-  etc: { className: 'text-ink-3', token: '--color-ink-3', dot: 'bg-ink-3' },
-  todo: { className: 'text-ink-4', token: '--color-ink-4', dot: 'border-[1.5px] border-idle' },
+const STATUS_COLOR: Record<SurveyStatus, { className: string; token: string; dot: string; fill: string }> = {
+  done: { className: 'text-teal-text', token: '--color-teal-text', dot: 'bg-teal', fill: 'bg-teal-wash-strong' },
+  lost: { className: 'text-danger', token: '--color-danger', dot: 'bg-danger', fill: 'bg-danger-wash' },
+  unavailable: { className: 'text-amber', token: '--color-amber', dot: 'bg-amber', fill: 'bg-amber-wash' },
+  etc: { className: 'text-ink-3', token: '--color-ink-3', dot: 'bg-ink-3', fill: 'bg-hover' },
+  todo: { className: 'text-ink-4', token: '--color-ink-4', dot: 'border-[1.5px] border-idle', fill: 'bg-soft' },
 }
 
 /** 글자·아이콘 색 클래스 */
@@ -59,7 +59,13 @@ export const SURVEY_STATUS_COLOR_VAR: Record<SurveyStatus, string> = pick('token
 /** 내역 줄 앞에 서는 점 색 클래스 */
 export const SURVEY_STATUS_DOT: Record<SurveyStatus, string> = pick('dot')
 
-function pick(key: 'className' | 'token' | 'dot'): Record<SurveyStatus, string> {
+/**
+ * 고른 칸을 채우는 옅은 면 — 테두리는 칸을 묶는 틀이 가지므로 여기서는 면만 정한다.
+ * 글자·밑줄은 위 색을 쓰고 이 면이 그 뒤를 받친다.
+ */
+export const SURVEY_STATUS_FILL: Record<SurveyStatus, string> = pick('fill')
+
+function pick(key: 'className' | 'token' | 'dot' | 'fill'): Record<SurveyStatus, string> {
   return Object.fromEntries(
     Object.entries(STATUS_COLOR).map(([status, color]) => [status, color[key]]),
   ) as Record<SurveyStatus, string>

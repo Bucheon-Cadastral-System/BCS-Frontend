@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { ImportPreviewList, NO_FILES, POINT_ACTION_LABEL, ReadSummary, SEND_LABEL, SendMark, hasRowErrors, needsReview, nothingToRegister, useImportPreviews, useSequentialSend } from '@/features/import-file'
+import { ImportPreviewList, NO_FILES, POINT_ACTION_LABEL, ReadSummary, RequiredColumnsHint, SEND_LABEL, SendMark, hasRowErrors, needsReview, nothingToRegister, useImportPreviews, useSequentialSend } from '@/features/import-file'
 import type { PointPreview, ReadFile } from '@/features/import-file'
 import { MODAL_CANCEL_BTN, MODAL_DANGER_BTN, MODAL_SUBMIT_BTN, Modal } from '@/shared/ui/Modal'
 import { Spinner } from '@/shared/ui/Spinner'
@@ -246,19 +246,22 @@ export function ControlPointFileModal(props: {
 
   // 화면 전체 드롭 안내와 같은 모양 — 여기에 끌어다 놓아도 되고 눌러서 골라도 된다는 뜻
   const pickerBody = (
-    <button
-      type="button"
-      onClick={openPicker}
-      className="flex w-full flex-col items-center justify-center gap-1.5 rounded-ctl border-2 border-dashed border-line-field py-10 text-ink-4 transition-colors hover:border-teal-edge hover:text-teal-text"
-    >
-      <svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M12 16V4" />
-        <path d="m7 9 5-5 5 5" />
-        <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-      </svg>
-      <span className="text-[13px] font-medium">파일을 끌어다 놓거나 눌러서 선택</span>
-      <span className="text-[11px]">CSV · XLS · XLSX</span>
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={openPicker}
+        className="flex w-full flex-col items-center justify-center gap-1.5 rounded-ctl border-2 border-dashed border-line-field py-10 text-ink-4 transition-colors hover:border-teal-edge hover:text-teal-text"
+      >
+        <svg viewBox="0 0 24 24" className="size-7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 16V4" />
+          <path d="m7 9 5-5 5 5" />
+          <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+        </svg>
+        <span className="text-[13px] font-medium">파일을 끌어다 놓거나 눌러서 선택</span>
+        <span className="text-[11px]">CSV · XLS · XLSX</span>
+      </button>
+      <RequiredColumnsHint />
+    </>
   )
 
   /**

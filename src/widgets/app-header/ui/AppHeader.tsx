@@ -9,7 +9,7 @@ import { useElementWidth } from '@/shared/lib/useElementWidth'
 import { BrandMark } from '@/shared/ui/BrandMark'
 import { PILL, POPOVER } from '@/shared/ui/classes'
 
-/** 헤더 탭 한 칸 — 화면이 무엇을 세울지 정한다(지도의 판 전환, 관리자 화면의 자리 전환) */
+/** 헤더 탭 한 칸 — 화면이 무엇을 세울지 정한다(지도의 패널 전환, 관리자 화면의 자리 전환) */
 export interface HeaderTab {
   key: string
   label: string
@@ -20,14 +20,14 @@ export interface HeaderTab {
 
 /**
  * 화면 위에 떠 있는 헤더.
- * 좌측은 브랜드와 지금 보고 있는 자리(지도 화면은 판 전환 탭, 그 밖의 화면은 화면 이름),
+ * 좌측은 브랜드와 지금 보고 있는 자리(지도 화면은 패널 전환 탭, 그 밖의 화면은 화면 이름),
  * 우측은 검색 자리와 사용자 메뉴다. 화면이 바뀌어도 같은 자리에 같은 크기로 서야 해서 모든 화면이 이 하나를 쓴다.
  * 화면을 가로지르는 띠 대신 알약 두 개로 두어 지도를 덜 가린다.
  */
 export function AppHeader(props: {
   /** 브랜드를 누르면 돌아갈 곳 — 지도 화면은 이미 그 화면이라 주지 않는다 */
   onHome?: () => void
-  /** 브랜드 옆 탭 — 지도는 판 전환, 관리자 화면은 자리 전환에 쓴다 */
+  /** 브랜드 옆 탭 — 지도는 패널 전환, 관리자 화면은 자리 전환에 쓴다 */
   tabs?: HeaderTab[]
   /** 우측 알약 왼쪽 자리 — 무엇을 검색할지는 화면이 정한다 */
   search?: ReactNode
@@ -35,9 +35,9 @@ export function AppHeader(props: {
   user: UserProfile | null
   /** 주지 않으면 사용자 메뉴에 그 항목을 두지 않는다(이미 그 화면인 경우) */
   onOpenUserManagement?: () => void
-  /** 좌측 알약의 폭 — 그 아래 서는 칩·판이 같은 너비를 쓰도록 알린다 */
+  /** 좌측 알약의 폭 — 그 아래 서는 칩·패널이 같은 너비를 쓰도록 알린다 */
   onBrandWidthChange?: (px: number) => void
-  /** 우측 묶음(검색+사용자)의 폭 — 그 아래 서는 대화 판이 같은 너비를 쓰도록 알린다 */
+  /** 우측 묶음(검색+사용자)의 폭 — 그 아래 서는 대화 패널이 같은 너비를 쓰도록 알린다 */
   onUtilityWidthChange?: (px: number) => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -149,7 +149,7 @@ export function AppHeader(props: {
               </span>
             )}
             {/* 브랜드 알약과 같은 규칙 — 윗줄은 크고 굵게, 아랫줄은 작고 흐리게.
-                폭은 고정한다. 이름·소속 길이를 따라 알약이 늘고 줄면 그 폭을 쓰는 대화 판까지 흔들리고,
+                폭은 고정한다. 이름·소속 길이를 따라 알약이 늘고 줄면 그 폭을 쓰는 대화 패널까지 흔들리고,
                 프로필을 받아오는 순간에도 자리가 튄다. 94px 는 가장 긴 소속(부동산관리팀 주무관 90.9px)이 들어가는 값. */}
             <span className="w-[94px] shrink-0 text-left leading-[1.15]">
               <span className="block truncate text-[14px] font-bold tracking-[-.02em] text-ink">{user?.name ?? '사용자'}</span>

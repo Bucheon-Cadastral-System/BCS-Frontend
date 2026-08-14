@@ -117,7 +117,7 @@ export function ChatPanel(props: ChatPanelProps) {
       </div>
 
       {/* 글래스 헤더 — 스크롤 위에 떠 있다. 코너 모드에선 좌상단 리사이즈 힌트와 이름을 띄운다 */}
-      {/* 아래 경계는 청록 — 좌측 판이 목록 위에 두는 것과 같은 뜻의 구분선이다 */}
+      {/* 아래 경계는 청록 — 좌측 패널이 목록 위에 두는 것과 같은 뜻의 구분선이다 */}
       <header className={`absolute inset-x-0 top-0 z-20 bg-pill ${PANEL_HEADER} ${PANEL_HEADER_RULE}`}>
         <strong className={`min-w-0 flex-1 select-none truncate text-[13.5px] font-semibold text-ink ${props.expanded ? '' : 'pl-4'}`}>BCS 어시스턴트</strong>
         <button type="button" onClick={props.onToggleExpand} aria-label={props.expanded ? '코너로 축소' : '우측으로 확장'} aria-pressed={props.expanded} title={props.expanded ? '코너로 축소' : '우측으로 확장'} className={ICON_BTN}>

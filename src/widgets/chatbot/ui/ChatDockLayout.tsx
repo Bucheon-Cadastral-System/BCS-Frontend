@@ -9,7 +9,7 @@ import { clearLegacyChatMessages, loadChatUi, saveChatUi } from '../model/storag
 import { useDismiss } from '@/shared/lib/useDismiss'
 import { PANEL } from '@/shared/ui/classes'
 
-/** 우측 판 기본 폭 — 헤더 우측 묶음을 아직 재지 못했을 때만 쓴다 */
+/** 우측 패널 기본 폭 — 헤더 우측 묶음을 아직 재지 못했을 때만 쓴다 */
 const DOCK_WIDTH = 420
 const FLOAT_MIN: Size = { width: 300, height: 380 }
 const FLOAT_MAX = 900
@@ -17,7 +17,7 @@ const FLOAT_MAX = 900
 const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max)
 
 /**
- * 챗봇 창 배치 호스트 — children(지도 영역)을 감싸고 창을 코너 카드 / 우측 판으로 배치한다.
+ * 챗봇 창 배치 호스트 — children(지도 영역)을 감싸고 창을 코너 카드 / 우측 패널로 배치한다.
  * 둘 다 지도 위에 떠 있는 오버레이라 지도 크기는 창을 열어도 그대로다.
  * 모드 전환 시 대화(messages)는 부모 상태라 유지되나, 패널이 다른 호스트에 다시 마운트돼 입력 초안·스크롤 위치는 초기화된다(알려진 한계).
  */
@@ -28,9 +28,9 @@ export function ChatDockLayout({
   onAction,
 }: {
   children: ReactNode
-  /** 우측 판 폭 — 헤더 우측 묶음(검색+사용자)과 같은 너비로 세운다 */
+  /** 우측 패널 폭 — 헤더 우측 묶음(검색+사용자)과 같은 너비로 세운다 */
   width?: number
-  /** 우측 판이 차지한 폭 — 지도 위 다른 요소가 이만큼 비켜 서도록 알린다(닫혀 있으면 0) */
+  /** 우측 패널이 차지한 폭 — 지도 위 다른 요소가 이만큼 비켜 서도록 알린다(닫혀 있으면 0) */
   onDockWidthChange?: (px: number) => void
   onAction?: (action: ChatAction) => void
 }) {
@@ -185,7 +185,7 @@ export function ChatDockLayout({
       {/* flex 컨테이너여야 자식(콘텐츠 flex)의 flex-1·stretch가 먹어 지도가 영역을 꽉 채운다 */}
       <main className="relative flex min-h-0 min-w-0 flex-1">{children}</main>
 
-      {/* 우측 판 — 좌측 판과 같은 규격으로 헤더 밑에서 떠오른다(지도를 밀지 않는다) */}
+      {/* 우측 패널 — 좌측 패널과 같은 규격으로 헤더 밑에서 떠오른다(지도를 밀지 않는다) */}
       {mode === 'right' && (
         <aside
           aria-hidden={!open}
@@ -231,7 +231,7 @@ export function ChatDockLayout({
       )}
 
       {/* 버블 버튼(FAB) — 우하단. 코너 카드는 이 버튼 위에 서므로 열려 있는 동안에도 남아 닫기 버튼이 된다.
-          우측 판은 이 자리를 덮으므로 그때만 비켜 준다(판 머리의 닫기 버튼이 대신한다) */}
+          우측 패널은 이 자리를 덮으므로 그때만 비켜 준다(패널 머리의 닫기 버튼이 대신한다) */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -240,7 +240,7 @@ export function ChatDockLayout({
         aria-hidden={docked}
         tabIndex={docked ? -1 : 0}
         /* 색조는 ::before 로 덧칠한다 — 바탕(bg-pill)을 갈아 끼우면 반투명 색조가 그 자리를 대신해
-           버튼이 지도 위에서 비쳐 보인다. 색조는 원래 불투명한 판 위에 얹으라고 만든 값이다 */
+           버튼이 지도 위에서 비쳐 보인다. 색조는 원래 불투명한 패널 위에 얹으라고 만든 값이다 */
         className={`absolute bottom-6 right-6 z-40 flex size-14 items-center justify-center rounded-full border-[1.5px] bg-pill shadow-pill transition-[color,border-color,transform,opacity] duration-200 before:absolute before:inset-0 before:rounded-full before:opacity-0 before:transition-opacity before:duration-200 hover:before:opacity-100 ${
           open
             ? 'border-danger-edge text-danger before:bg-danger-wash'
