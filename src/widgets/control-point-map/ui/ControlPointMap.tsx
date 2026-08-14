@@ -96,6 +96,17 @@ interface ControlPointMapProps {
   /** 만들어진 지도 인스턴스 — 하단 상태 표시처럼 매 프레임 값이 바뀌는 UI가 직접 구독하도록 넘긴다 */
   onMapReady?: (map: Map | null) => void
   onLocationError?: (message: string) => void
+  /**
+   * 기기가 향한 방위각(도, 진북 0° 시계방향). 읽을 수 없으면 null.
+   *
+   * <p>주면 현재 위치 표시의 원 밖에 화살촉이 붙어 그쪽을 가리킨다. 위성이 주는 진행 방향(coords.heading)
+   * 보다 이 값을 앞세운다 — 걸음을 멈추면 진행 방향은 사라지지만 기기가 향한 쪽은 그대로 남는다.
+   */
+  compassHeading?: number | null
+  /** 현재 위치를 화면 가운데에 붙들고 따라간다 */
+  followLocation?: boolean
+  /** 따라가기가 끊겼다 — 사용자가 지도를 직접 끌면 그 손을 이긴 채로 따라갈 수 없다 */
+  onFollowEnd?: () => void
 }
 
 export function ControlPointMap(props: ControlPointMapProps) {
@@ -129,6 +140,11 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const showDistrictRef = useRef(props.showDistrict)
   const onMapReadyRef = useRef(props.onMapReady)
   const onLocationErrorRef = useRef(props.onLocationError)
+  const compassRef = useRef(props.compassHeading ?? undefined)
+  const followRef = useRef(props.followLocation === true)
+  const onFollowEndRef = useRef(props.onFollowEnd)
+  /** 마지막으로 받은 현재 위치(지도 좌표) — 따라가기를 켠 순간 바로 그 자리로 옮기려고 들고 있는다 */
+  const lastPositionRef = useRef<[number, number] | null>(null)
   // 렌더 중 ref 대입은 순수하지 않음(버려지는 렌더가 미커밋 값을 남길 수 있음) → 커밋 후 effect에서 동기화.
   // OL 콜백/스타일은 커밋 뒤(비동기 상호작용·재렌더)에만 refs를 읽으므로, 이 effect를 먼저 선언해 항상 최신값을 보게 함.
   useEffect(() => {
@@ -146,7 +162,38 @@ export function ControlPointMap(props: ControlPointMapProps) {
     showDistrictRef.current = props.showDistrict
     onMapReadyRef.current = props.onMapReady
     onLocationErrorRef.current = props.onLocationError
+    onFollowEndRef.current = props.onFollowEnd
   })
+
+  /**
+   * 따라가기 — 켜 두는 동안 현재 위치가 늘 화면 가운데에 온다.
+   *
+   * <p>켠 순간에는 이미 받아 둔 자리로 부드럽게 옮기고, 그 뒤로는 자리가 올 때마다 가운데를 그 값으로 놓는다.
+   * 매번 애니메이션을 걸면 걸음마다 남은 애니메이션과 새 애니메이션이 겹쳐 화면이 출렁인다.
+   */
+  const following = props.followLocation === true
+  useEffect(() => {
+    followRef.current = following
+    if (!following) return
+    const map = mapRef.current
+    const position = lastPositionRef.current
+    if (map === null || position === null) return
+    map.getView().animate({ center: position, duration: 320 })
+  }, [following])
+
+  // 나침반이 도는 동안에는 자리를 다시 받지 않아도 화살촉만 돌아야 한다
+  const compassHeading = props.compassHeading ?? undefined
+  useEffect(() => {
+    compassRef.current = compassHeading
+    const feature = locationFeatureRef.current
+    if (feature === null || feature.getGeometry() === undefined) return
+    if (compassHeading === undefined) {
+      // 나침반을 껐다 — 위성이 주는 진행 방향으로 돌아간다. 그 값이 없으면 방향 없는 마름모로 선다
+      feature.set('heading', undefined)
+      return
+    }
+    feature.set('heading', compassHeading)
+  }, [compassHeading])
 
   // 초기화 (마운트 시 1회)
   useEffect(() => {
@@ -314,6 +361,12 @@ export function ControlPointMap(props: ControlPointMapProps) {
     // 감지해서 updateSize 로 뷰포트 재계산 + 재렌더.
     const resizeObserver = new ResizeObserver(() => map.updateSize())
     resizeObserver.observe(container)
+
+    // 지도를 손으로 끄는 순간 따라가기를 놓는다 — 사용자가 옮긴 자리를 다음 측위가 도로 끌어가면
+    // 화면이 손과 싸우는 것처럼 보인다. 다시 따라가려면 버튼을 한 번 더 누른다
+    map.on('pointerdrag', () => {
+      if (followRef.current) onFollowEndRef.current?.()
+    })
 
     map.on('click', (evt) => {
       if (addModeRef.current) {
@@ -550,9 +603,13 @@ export function ControlPointMap(props: ControlPointMapProps) {
       watchId = undefined
     }
     const mark = ({ coords }: GeolocationPosition) => {
-      feature.setGeometry(new Point(fromLonLat([coords.longitude, coords.latitude])))
+      const position = fromLonLat([coords.longitude, coords.latitude]) as [number, number]
+      feature.setGeometry(new Point(position))
+      lastPositionRef.current = position
+      if (followRef.current) mapRef.current?.getView().setCenter(position)
       const heading = coords.heading
-      feature.set('heading', heading !== null && Number.isFinite(heading) ? heading : undefined)
+      const moving = heading !== null && Number.isFinite(heading) ? heading : undefined
+      feature.set('heading', compassRef.current ?? moving)
       located = true
       fails = 0
     }
