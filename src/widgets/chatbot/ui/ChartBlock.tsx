@@ -4,6 +4,8 @@ import { SURVEY_STATUS_COLOR_VAR, SURVEY_STATUS_LABEL } from '@/entities/survey-
 import type { SurveyStatus } from '@/entities/survey-record'
 import { POPOVER } from '@/shared/ui/classes'
 import { readThemeVar } from '@/shared/lib/themeVar'
+import { selectTheme } from '@/shared/model/theme'
+import { useAppSelector } from '@/shared/store/hooks'
 import type { ChartSpec } from '../model/types'
 
 // 라이트·다크 양쪽에서 무난한 팔레트
@@ -153,6 +155,8 @@ export function ChartBlock({ json }: { json: string }) {
   const menuRef = useRef<HTMLDivElement>(null)
   // 저장할 때 캔버스 픽셀과 화면 px 의 배율을 알아야 한다(레티나에서 둘이 다르다)
   const chartRef = useRef<Chart | null>(null)
+  // 색은 만들 때 한 번 읽어 차트에 굳는다 — 배경 밝기가 바뀌면 다시 만들어야 그 팔레트를 따른다
+  const theme = useAppSelector(selectTheme)
 
   useEffect(() => {
     if (!menuOpen) return
@@ -237,7 +241,7 @@ export function ChartBlock({ json }: { json: string }) {
       chartRef.current = null
       chart.destroy()
     }
-  }, [spec, type, json])
+  }, [spec, type, json, theme])
 
   // 형식이 어긋나면 그릴 대상이 없다 — 무엇이 왔는지만 남긴다
   if (!spec) {

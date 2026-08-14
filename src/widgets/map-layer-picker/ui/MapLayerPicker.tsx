@@ -38,8 +38,9 @@ export function MapLayerPicker(props: { layers: MapLayerItem[] }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-pressed={anyOn}
+        // 이 버튼은 말풍선만 여닫는다 — 켜고 끄는 것은 그 안의 줄이라 눌림 상태를 알리지 않는다
         aria-expanded={open}
+        aria-haspopup="true"
         title="레이어"
         aria-label="레이어"
         className={`${MAP_BAR_BTN} ${

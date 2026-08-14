@@ -216,10 +216,13 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
     || errorMessageOf(updateMemberMutation.error, '회원 정보를 수정하지 못했습니다. 잠시 후 다시 시도해 주세요.')
     || errorMessageOf(membersQuery.error, '관리자 정보를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.')
     || errorMessageOf(countsQuery.error, '회원 현황을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.')
-  // 상태 변경 실패는 확인 창 안에서 알린다 — 뒤쪽 배너에 띄우면 배경 딤에 가려 사용자가 이유를 볼 수 없다
-  const changeError = errorMessageOf(changeMemberMutation.error, '회원 상태를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.')
-  // 같은 실패를 다시 만나도 토스트가 새로 뜨도록 회차를 센다
-  const [failureId, setFailureId] = useState(0)
+  /**
+   * 상태 변경 실패 토스트 — 실패한 그때의 문구를 그대로 들고 있는다.
+   *
+   * <p>조회 오류를 읽어 그리면 다시 시도해 성공하거나 창을 닫는 순간 문구가 비어, 떠 있던 토스트가 빈 알림이 된다.
+   * 회차(id)는 같은 실패가 이어질 때도 토스트를 새로 띄우기 위한 값이다.
+   */
+  const [failure, setFailure] = useState<{ id: number; message: string } | null>(null)
   const activitiesErrorMessage = errorMessageOf(activitiesQuery.error, '관리자 활동 로그를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.')
 
   /** 상세를 닫는다 — 고르던 사람과 고치던 값을 함께 놓는다 */
@@ -252,10 +255,11 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
       await changeMemberMutation.mutateAsync({ memberId: pendingChange.id, action: pendingChange.action })
       setPendingChange(null)
       setActivityCursor(undefined)
-    } catch {
+    } catch (e) {
       // 실패는 토스트로 알린다 — 창 안에 세우면 뜰 때마다 버튼 줄이 밀린다.
       // 창은 열어 둔 채라 그대로 다시 시도할 수 있다
-      setFailureId((n) => n + 1)
+      const message = errorMessageOf(e, '회원 상태를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+      setFailure((prev) => ({ id: (prev?.id ?? 0) + 1, message }))
     }
   }
 
@@ -709,8 +713,8 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
         />
       )}
 
-      {failureId > 0 && (
-        <Toast key={`change-${failureId}`} message={changeError} tone="error" onDismiss={() => setFailureId(0)} />
+      {failure !== null && (
+        <Toast key={`change-${failure.id}`} message={failure.message} tone="error" onDismiss={() => setFailure(null)} />
       )}
     </main>
   )
