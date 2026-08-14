@@ -1,9 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { UserAvatar } from '@/entities/user'
+import { UserAvatar, UserMenu } from '@/entities/user'
 import type { UserProfile } from '@/entities/user'
-import { logout } from '@/shared/api/auth'
 import { useDismiss } from '@/shared/lib/useDismiss'
 import { useElementWidth } from '@/shared/lib/useElementWidth'
 import { BrandMark } from '@/shared/ui/BrandMark'
@@ -43,21 +41,8 @@ export function AppHeader(props: {
   const [menuOpen, setMenuOpen] = useState(false)
   const userRef = useRef<HTMLDivElement>(null)
   useDismiss({ enabled: menuOpen, onDismiss: () => setMenuOpen(false), ref: userRef })
-  const navigate = useNavigate()
 
   const user = props.user
-  const isAdmin = user?.role === 'ADMIN'
-
-  // 서버 호출이 실패해도 이 브라우저의 인증은 이미 끊어진 상태이므로 로그인 화면으로 이동한다.
-  async function handleLogout() {
-    setMenuOpen(false)
-    try {
-      await logout()
-    } catch {
-      // 실패해도 아래에서 로그인 화면으로 이동한다.
-    }
-    navigate('/login', { replace: true })
-  }
 
   // 켜진 탭 밑을 따라 미끄러지는 면 — 탭마다 면을 따로 켜고 끄면 자리가 옮겨 간다는 것이 보이지 않는다
   const tabsRef = useRef<HTMLDivElement>(null)
@@ -86,8 +71,9 @@ export function AppHeader(props: {
   // 누를 수 있는 브랜드와 그냥 놓인 브랜드가 같은 자리에 오도록 안쪽 여백 없이 같은 배치를 쓴다
   const brand = (
     <>
-      <BrandMark />
-      <span className="leading-[1.15]">
+      <BrandMark className="size-6 shrink-0 max-lg:size-[22px]" />
+      {/* max-lg: 좁은 화면은 하단 내비가 탭을 맡아 브랜드 알약은 로고만 남긴다 */}
+      <span className="leading-[1.15] max-lg:hidden">
         <span className="block text-[14px] font-bold tracking-[-.02em] text-ink">BCS</span>
         <span className="block text-[11px] text-ink-3">부천시 지적기준점 관리 시스템</span>
       </span>
@@ -95,8 +81,17 @@ export function AppHeader(props: {
   )
 
   return (
-    <>
-      <div ref={brandRef} className={`absolute left-4 top-4 z-20 flex h-11 items-center gap-2 py-0 pl-3.5 pr-2 ${PILL}`}>
+    // 좁은 화면에서는 브랜드·검색·프로필이 판 하나에 담긴다. 넓은 화면에서는 이 상자가 사라지고(contents)
+    // 안의 둘이 지금처럼 좌우로 떨어져 각자 알약으로 선다 — 판의 면·테두리·그늘도 상자와 함께 사라진다.
+    // 자리는 전부 px 로 못박는다. 글자 크기 설정이 기본이 아닌 기기에서 판 안의 자리가 어긋나지 않게 한다
+    <div
+      className={`lg:contents max-lg:absolute max-lg:inset-x-[12px] max-lg:top-[10px] max-lg:z-[45] max-lg:flex max-lg:h-[46px] max-lg:items-center max-lg:gap-[10px] max-lg:pl-[12px] max-lg:pr-[9px] ${PILL}`}
+    >
+      <div
+        ref={brandRef}
+        // 좁은 화면에서는 판 안의 기호 하나로 줄어든다 — 제 알약(면·테두리·그늘·자리)을 모두 내려놓는다
+        className={`absolute left-4 top-4 z-20 flex h-11 items-center gap-2 py-0 pl-3.5 pr-2 max-lg:static max-lg:h-auto max-lg:border-0 max-lg:bg-transparent max-lg:p-0 max-lg:shadow-none ${PILL}`}
+      >
         {props.onHome ? (
           <button
             type="button"
@@ -112,8 +107,8 @@ export function AppHeader(props: {
 
         {props.tabs && props.tabs.length > 0 && (
           <>
-            <span className="mx-[3px] h-[22px] w-px bg-line-field" aria-hidden />
-            <div ref={tabsRef} className="relative flex items-center gap-1">
+            <span className="mx-[3px] h-[22px] w-px bg-line-field max-lg:hidden" aria-hidden />
+            <div ref={tabsRef} className="relative flex items-center gap-1 max-lg:hidden">
               {marker && (
                 <span
                   aria-hidden="true"
@@ -131,15 +126,24 @@ export function AppHeader(props: {
         )}
       </div>
 
-      <div ref={utilityRef} className="absolute right-4 top-4 z-[45] flex items-center gap-2">
-        {props.search}
+      {/* 좁은 화면에서는 이 묶음도 판 안의 한 자리로 선다 — 검색이 남은 폭을 채우고 그 오른쪽에 프로필이 붙는다.
+          기호와 검색 사이의 구분선은 판이 세운다(넓은 화면에는 없다) */}
+      <span className="h-[22px] w-px shrink-0 bg-line-field lg:hidden" aria-hidden />
+      <div
+        ref={utilityRef}
+        className="absolute right-4 top-4 z-[45] flex items-center gap-2 max-lg:static max-lg:min-w-0 max-lg:flex-1 max-lg:gap-[10px]"
+      >
+        <div className="max-lg:h-[46px] max-lg:min-w-0 max-lg:flex-1">{props.search}</div>
         <div ref={userRef} className="relative">
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
             aria-expanded={menuOpen}
-            // 오른쪽 화살표는 제 상자 안에서 이미 3px 가까이 비워 두므로 왼쪽보다 적게 준다 — 값이 아니라 보이는 여백을 맞춘다
-            className={`flex h-11 items-center gap-2 py-0 pl-[7px] pr-2 transition-colors hover:border-line-field ${PILL}`}
+            aria-label="내 정보"
+            // 오른쪽 화살표는 제 상자 안에서 이미 3px 가까이 비워 두므로 왼쪽보다 적게 준다 — 값이 아니라 보이는 여백을 맞춘다.
+            // 좁은 화면에서는 판 안의 아바타 하나로 줄어든다. 과녁은 아바타(30)보다 크게 34 로 잡고,
+            // 판이 오른쪽에 남긴 9px 까지 더해 손가락이 닿는 자리를 넓힌다
+            className={`flex h-11 items-center gap-2 py-0 pl-[7px] pr-2 transition-colors hover:border-line-field max-lg:size-[34px] max-lg:shrink-0 max-lg:justify-center max-lg:border-0 max-lg:bg-transparent max-lg:px-0 max-lg:shadow-none ${PILL}`}
           >
             {user ? (
               <UserAvatar name={user.name} className="size-[30px] text-[11.5px]" />
@@ -151,55 +155,27 @@ export function AppHeader(props: {
             {/* 브랜드 알약과 같은 규칙 — 윗줄은 크고 굵게, 아랫줄은 작고 흐리게.
                 폭은 고정한다. 이름·소속 길이를 따라 알약이 늘고 줄면 그 폭을 쓰는 대화 패널까지 흔들리고,
                 프로필을 받아오는 순간에도 자리가 튄다. 94px 는 가장 긴 소속(부동산관리팀 주무관 90.9px)이 들어가는 값. */}
-            <span className="w-[94px] shrink-0 text-left leading-[1.15]">
+            <span className="w-[94px] shrink-0 text-left leading-[1.15] max-lg:hidden">
               <span className="block truncate text-[14px] font-bold tracking-[-.02em] text-ink">{user?.name ?? '사용자'}</span>
               <span className="block truncate text-[11px] text-ink-3">
                 {user ? `${user.team} ${user.position}` : '정보를 불러오는 중…'}
               </span>
             </span>
-            <svg viewBox="0 0 24 24" className="size-[13px] shrink-0 text-ink-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg viewBox="0 0 24 24" className="size-[13px] shrink-0 text-ink-4 max-lg:hidden" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="m6 9 6 6 6-6" />
             </svg>
           </button>
 
           {menuOpen && (
-            <div className={`panel-in absolute right-0 top-[50px] z-40 w-56 overflow-hidden ${POPOVER}`}>
-              <div className="flex items-center justify-between gap-2 px-[13px] pb-[9px] pt-2.5">
-                <span className="text-[12px] text-ink-3">권한</span>
-                <span className="text-[11px] font-semibold tracking-[.1em] text-teal-text">
-                  {user?.role ?? 'USER'}
-                </span>
-              </div>
-              {isAdmin && props.onOpenUserManagement && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false)
-                    props.onOpenUserManagement?.()
-                  }}
-                  className="flex w-full items-center gap-[9px] border-t border-line-soft px-[13px] py-2.5 text-left text-[12.5px] text-ink-2 transition-colors hover:bg-hover"
-                >
-                  <UsersIcon className="size-[15px] shrink-0 text-ink-3" />
-                  사용자 관리
-                  <svg viewBox="0 0 24 24" className="ml-auto size-3.5 shrink-0 text-ink-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="m9 6 6 6-6 6" />
-                  </svg>
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={handleLogout}
-                // 다른 화면으로 들어가는 항목이 아니라 실행되는 동작이라 진입 화살표를 두지 않고 가운데에 세운다
-                className="flex w-full items-center justify-center gap-[7px] border-t border-line-soft px-[13px] py-2.5 text-[12.5px] text-danger transition-colors hover:bg-danger-wash"
-              >
-                <LogoutIcon className="size-[15px] shrink-0" />
-                로그아웃
-              </button>
+            // 좁은 화면에서는 아바타가 아니라 판 아래 8px 에 선다 — 판 안의 자리를 기준으로 띄우면
+            // 그 자리 높이(34)만큼만 내려와 판에 물린다
+            <div className={`panel-in absolute right-0 top-[50px] z-40 w-56 overflow-hidden max-lg:top-[54px] ${POPOVER}`}>
+              <UserMenu user={user} onOpenUserManagement={props.onOpenUserManagement} onDone={() => setMenuOpen(false)} />
             </div>
           )}
         </div>
       </div>
-    </>
+    </div>
   )
 }
 
@@ -265,17 +241,6 @@ export function UsersIcon({ className }: { className?: string }) {
       <circle cx="9" cy="7" r="4" />
       <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  )
-}
-
-/** 로그아웃 아이콘. 문 밖으로 나가는 화살표 모양이다 */
-function LogoutIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-      <polyline points="16 17 21 12 16 7" />
-      <line x1="21" y1="12" x2="9" y2="12" />
     </svg>
   )
 }

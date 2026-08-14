@@ -191,7 +191,8 @@ export function ChatDockLayout({
           aria-hidden={!open}
           inert={!open}
           style={{ width: dockWidth }}
-          className={`absolute bottom-bar-clear right-4 top-[76px] z-40 overflow-hidden transition-[opacity,transform] duration-200 ease-out ${PANEL} ${
+          // 좁은 화면에서는 세울 자리가 없다 — 전체 화면 시트로 세우는 것은 따로 할 일이라 그때까지 감춘다
+          className={`absolute bottom-bar-clear right-4 top-[76px] z-40 overflow-hidden transition-[opacity,transform] duration-200 ease-out max-lg:hidden ${PANEL} ${
             open ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'
           }`}
         >
@@ -206,7 +207,7 @@ export function ChatDockLayout({
         <div
           aria-hidden={!open}
           inert={!open}
-          className={`absolute bottom-[88px] right-6 z-40 origin-bottom-right overflow-hidden transition-[translate,scale,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${PANEL} ${
+          className={`absolute bottom-[88px] right-6 z-40 origin-bottom-right overflow-hidden transition-[translate,scale,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] max-lg:hidden ${PANEL} ${
             open ? 'translate-y-0 scale-100 opacity-100' : 'pointer-events-none translate-y-3 scale-90 opacity-0'
           }`}
           style={{ width: floatSize.width, height: floatSize.height }}
@@ -241,7 +242,8 @@ export function ChatDockLayout({
         tabIndex={docked ? -1 : 0}
         /* 색조는 ::before 로 덧칠한다 — 바탕(bg-pill)을 갈아 끼우면 반투명 색조가 그 자리를 대신해
            버튼이 지도 위에서 비쳐 보인다. 색조는 원래 불투명한 패널 위에 얹으라고 만든 값이다 */
-        className={`absolute bottom-6 right-6 z-40 flex size-14 items-center justify-center rounded-full border-[1.5px] bg-pill shadow-pill transition-[color,border-color,transform,opacity] duration-200 before:absolute before:inset-0 before:rounded-full before:opacity-0 before:transition-opacity before:duration-200 hover:before:opacity-100 ${
+        // 버블도 좁은 화면에서는 하단 내비와 자리를 다툰다 — 대화 자리를 세울 때까지 함께 감춘다
+        className={`absolute bottom-6 right-6 z-40 flex size-14 items-center justify-center rounded-full border-[1.5px] bg-pill shadow-pill max-lg:hidden transition-[color,border-color,transform,opacity] duration-200 before:absolute before:inset-0 before:rounded-full before:opacity-0 before:transition-opacity before:duration-200 hover:before:opacity-100 ${
           open
             ? 'border-danger-edge text-danger before:bg-danger-wash'
             : 'border-teal-btn-edge text-teal-text before:bg-teal-wash hover:border-teal-text'
