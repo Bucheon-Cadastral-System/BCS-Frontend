@@ -6,6 +6,9 @@ import ImageLayer from 'ol/layer/Image'
 import XYZ from 'ol/source/XYZ'
 import OSM from 'ol/source/OSM'
 import ImageWMS from 'ol/source/ImageWMS'
+import ImageTile from 'ol/ImageTile'
+import TileState from 'ol/TileState'
+import type Tile from 'ol/Tile'
 import VectorLayer from 'ol/layer/Vector'
 import WebGLVectorLayer from 'ol/layer/WebGLVector'
 import type Layer from 'ol/layer/Layer'
@@ -101,6 +104,99 @@ const JUMP_AFTER_ZOOMS = 3
 const MAX_TILES_LOADING = 24
 
 /**
+ * 타일 한 장을 다시 받아 보는 횟수와 그 사이의 기다림(ms, 시도마다 곱해 늘린다).
+ *
+ * <p>OL 은 실패한 타일을 다시 받지 않는다. 한 번 어긋난 타일은 캐시에 '실패'로 남아, 그 자리를 다시 지나가도
+ * 새로 요청하지 않는다 — 화면에는 윗단계 타일을 늘여 놓은 흐린 조각이 영영 남는다. 자리를 옮겼다 돌아와도
+ * 그대로인 이유가 이것이다.
+ */
+const TILE_RETRIES = 3
+const TILE_RETRY_MS = 400
+
+/**
+ * 이 시간 안에 답이 없으면 멎은 것으로 보고 끊는다(ms).
+ *
+ * <p>휴대폰 회선에서는 응답도 오류도 없이 그대로 멎는 요청이 나온다. 브라우저는 한 호스트에 연결을 여섯 개까지만
+ * 쓰므로, 멎은 요청 하나가 그 자리를 붙들면 뒤에 줄 선 타일까지 함께 굶는다. 브라우저가 스스로 포기하기까지는
+ * 30초가 넘게 걸린다 — 그 전에 우리가 끊고 다시 건다.
+ */
+const TILE_TIMEOUT_MS = 6_000
+
+/**
+ * 타일이 도착할 때 켜지는 시간(ms). 0 이면 바로 선다.
+ *
+ * <p>OL 은 타일마다 0.25초에 걸쳐 서서히 켠다. 보기에는 부드럽지만, 켜지는 동안 그 타일이 낀 화면을 계속
+ * 다시 그린다 — 한 화면에 서른 장이면 그만큼의 겹친 애니메이션이 프레임을 나눠 쓰고, 지도가 다 찬 것처럼
+ * 보이기까지도 그 시간만큼 늦다. 휴대폰에서는 늦게 뜨는 것이 부드러운 것보다 훨씬 크게 느껴진다.
+ */
+const TILE_FADE_MS = 0
+
+/**
+ * 실패한 타일을 다시 받아 오게 한다.
+ *
+ * <p>세 가지를 본다. 오류로 끝난 타일은 조금 기다렸다 다시 걸고, 답 없이 멎은 타일은 시간이 지나면 끊어
+ * 오류로 만들어 같은 길로 보내고, 세 번까지 해도 안 되면 접어 둔다. 접어 둔 것은 다음에 지도를 움직일 때
+ * 한 번 더 해 본다 — 지도가 안 나올 때 사람이 하는 일이 화면을 밀어 보는 것이라, 그 손짓에 맞춰 되살아나는 편이 낫다.
+ *
+ * @returns 접어 둔 타일을 다시 걸어 보는 함수
+ */
+function reviveTiles(source: XYZ): () => void {
+  const tries = new WeakMap<Tile, number>()
+  const timers = new WeakMap<Tile, number>()
+  /** 세 번을 다 쓴 타일 — 다음 손짓에 한 번 더 해 본다. 너무 많이 쌓아 두지는 않는다 */
+  let spent: Tile[] = []
+
+  const stopTimer = (tile: Tile) => {
+    const timer = timers.get(tile)
+    if (timer === undefined) return
+    window.clearTimeout(timer)
+    timers.delete(tile)
+  }
+  const again = (tile: Tile, wait: number) => {
+    window.setTimeout(() => {
+      // 그새 다른 길로 받아졌으면 그냥 둔다
+      if (tile.getState() === TileState.ERROR) tile.load()
+    }, wait)
+  }
+
+  source.on('tileloadstart', (event) => {
+    const tile = event.tile
+    stopTimer(tile)
+    timers.set(tile, window.setTimeout(() => {
+      timers.delete(tile)
+      if (tile.getState() !== TileState.LOADING) return
+      // 받던 것을 버린다 — 주소를 비우면 브라우저가 그 연결을 놓는다
+      const image = tile instanceof ImageTile ? tile.getImage() : null
+      if (image instanceof HTMLImageElement) image.src = ''
+      // 오류로 바꿔 두면 아래 tileloaderror 가 받아 다시 건다(이미 오류면 그쪽이 이미 잡고 있다)
+      if (tile.getState() === TileState.LOADING) tile.setState(TileState.ERROR)
+    }, TILE_TIMEOUT_MS))
+  })
+  source.on('tileloadend', (event) => stopTimer(event.tile))
+  source.on('tileloaderror', (event) => {
+    const tile = event.tile
+    stopTimer(tile)
+    const count = (tries.get(tile) ?? 0) + 1
+    tries.set(tile, count)
+    if (count > TILE_RETRIES) {
+      if (spent.length < 40) spent.push(tile)
+      return
+    }
+    again(tile, TILE_RETRY_MS * count)
+  })
+
+  return () => {
+    if (spent.length === 0) return
+    const waiting = spent
+    spent = []
+    for (const tile of waiting) {
+      tries.delete(tile)
+      if (tile.getState() === TileState.ERROR) tile.load()
+    }
+  }
+}
+
+/**
  * 테마별 배경지도 소스 (VWorld Base/midnight, 키 없으면 OSM / CARTO dark).
  * ⚠️ VWorld 배경 타일 네이티브 최대 줌: **midnight=18, Base=19** (그 위 레벨은 타일이 없어 503).
  * maxZoom 을 반드시 지정 → 그 이상 줌에선 OL 이 마지막 레벨 타일을 확대(overzoom)해 화면을 채움.
@@ -110,12 +206,12 @@ const MAX_TILES_LOADING = 24
 function makeBaseSource(theme: MapTheme): XYZ {
   if (theme === 'dark') {
     return VWORLD_KEY
-      ? new XYZ({ url: `https://api.vworld.kr/req/wmts/1.0.0/${VWORLD_KEY}/midnight/{z}/{y}/{x}.png`, maxZoom: 18 })
-      : new XYZ({ url: 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', attributions: '© OpenStreetMap, © CARTO', maxZoom: 20 })
+      ? new XYZ({ url: `https://api.vworld.kr/req/wmts/1.0.0/${VWORLD_KEY}/midnight/{z}/{y}/{x}.png`, maxZoom: 18, transition: TILE_FADE_MS })
+      : new XYZ({ url: 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', attributions: '© OpenStreetMap, © CARTO', maxZoom: 20, transition: TILE_FADE_MS })
   }
   return VWORLD_KEY
-    ? new XYZ({ url: `https://api.vworld.kr/req/wmts/1.0.0/${VWORLD_KEY}/Base/{z}/{y}/{x}.png`, maxZoom: 19 })
-    : new OSM()
+    ? new XYZ({ url: `https://api.vworld.kr/req/wmts/1.0.0/${VWORLD_KEY}/Base/{z}/{y}/{x}.png`, maxZoom: 19, transition: TILE_FADE_MS })
+    : new OSM({ transition: TILE_FADE_MS })
 }
 
 /**
@@ -463,8 +559,11 @@ export function ControlPointMap(props: ControlPointMapProps) {
     const container = containerRef.current
     if (!container) return
 
+    /** 실패·정체된 타일을 다시 걸어 보는 함수들(테마별 소스마다 하나) */
+    const sweeps: (() => void)[] = []
     const makeBaseLayer = (theme: MapTheme) => {
       const source = makeBaseSource(theme)
+      sweeps.push(reviveTiles(source))
       const layer = new TileLayer({ source, preload: BASE_PRELOAD, visible: theme === themeRef.current })
       layer.set('theme', theme)
       return layer
@@ -591,6 +690,10 @@ export function ControlPointMap(props: ControlPointMapProps) {
     let rotationAtStart = map.getView().getRotation()
     map.on('movestart', () => {
       rotationAtStart = map.getView().getRotation()
+    })
+    // 지도를 움직일 때마다, 포기해 둔 타일을 한 번씩 더 걸어 본다(reviveTiles)
+    map.on('moveend', () => {
+      for (const sweep of sweeps) sweep()
     })
     map.on('moveend', () => {
       if (headingUpRef.current) return
