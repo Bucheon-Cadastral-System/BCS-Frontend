@@ -724,9 +724,11 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
         dispatch(setActiveProject(null))
         return
       }
-      // 줄여 둔 채로 내려간 것은 그대로 둔다 — 줄임은 '이 갈래를 보는 중인데 지도를 잠깐 보겠다'는 뜻이라
-      // 탭의 켜짐과 요약 칩이 그 자리를 지켜야 한다. 끌어내리거나 바깥을 눌러 내린 것만 끈다
-      setPanel((current) => (current !== null && current.minimized ? current : null))
+      // 내려간 것은 줄여 둔 것으로 친다 — 끌어내리기도 바깥 누르기도 '지도를 잠깐 보겠다'는 뜻이지
+      // 이 갈래를 그만 보겠다는 뜻이 아니다. 탭의 켜짐과 요약 칩은 그대로 남는다.
+      // 갈래를 끄는 길은 둘뿐이다. 켜진 탭을 다시 누르거나(그때는 이미 null 이라 여기서 할 일이 없다)
+      // 머리말의 닫기(X)를 누르는 것(위에서 놓았다)
+      setPanel((current) => (current === null ? null : { key: current.key, minimized: true }))
     },
     viewportHeight,
     contentKey: openPanel,
