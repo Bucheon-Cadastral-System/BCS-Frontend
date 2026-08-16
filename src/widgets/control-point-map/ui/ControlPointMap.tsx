@@ -183,6 +183,13 @@ export function ControlPointMap(props: ControlPointMapProps) {
    * 방향은 이미 알고 있던 값이라 그 사이를 비워 둘 이유가 없다.
    */
   const courseRef = useRef<number | undefined>(undefined)
+  /**
+   * 이번 방향 맞추기에서 한 번이라도 맞췄는지.
+   *
+   * <p>처음 한 번만 부드럽게 돌리고 그 뒤로는 그대로 놓는다 — 걸음마다 애니메이션을 걸면 남은 것과 새것이
+   * 겹쳐 출렁이고, 반대로 처음까지 그냥 놓으면 켜는 순간 화면이 툭 튄다.
+   */
+  const facedUpRef = useRef(false)
   // 렌더 중 ref 대입은 순수하지 않음(버려지는 렌더가 미커밋 값을 남길 수 있음) → 커밋 후 effect에서 동기화.
   // OL 콜백/스타일은 커밋 뒤(비동기 상호작용·재렌더)에만 refs를 읽으므로, 이 effect를 먼저 선언해 항상 최신값을 보게 함.
   useEffect(() => {
@@ -212,11 +219,20 @@ export function ControlPointMap(props: ControlPointMapProps) {
    *
    * <p>이 효과는 따라가기 효과보다 먼저 선다 — 방향을 먼저 맞춰 두어야 뒤이어 걸리는 자리 애니메이션이
    * 맞춰진 방향을 그대로 물고 간다.
+   *
+   * <p>자리를 아직 잡지 못했으면 돌리지 않는다. 내가 어디에 선 줄도 모르는 화면이 방향부터 홱 도는 것은
+   * 따라가기를 켠 사람이 기다리는 그림이 아니다 — 자리와 방향은 함께 맞아야 한다.
+   * 첫 자리가 도착하면 아래 측위 처리(mark)가 그때 한 번 부드럽게 맞춘다.
    */
   const headingUp = props.headingUp === true
   useEffect(() => {
     headingUpRef.current = headingUp
-    if (!headingUp || props.followLocation === true || compassRef.current === undefined) return
+    if (!headingUp) {
+      facedUpRef.current = false
+      return
+    }
+    if (props.followLocation === true || compassRef.current === undefined || lastPositionRef.current === null) return
+    facedUpRef.current = true
     faceUp(mapRef.current, compassRef.current, true)
   }, [headingUp, props.followLocation])
 
@@ -236,6 +252,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     if (map === null || position === null) return
     const view = map.getView()
     const heading = headingUpRef.current ? compassRef.current : undefined
+    if (heading !== undefined) facedUpRef.current = true
     view.animate({
       center: position,
       ...(heading === undefined ? {} : { rotation: rotationFor(heading, view.getRotation()) }),
@@ -247,7 +264,12 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const compassHeading = props.compassHeading ?? undefined
   useEffect(() => {
     compassRef.current = compassHeading
-    if (compassHeading !== undefined && headingUpRef.current) faceUp(mapRef.current, compassHeading, false)
+    // 자리를 잡은 뒤에만 돌린다 — 아직 모르는 자리 위에서 방향만 도는 화면은 방향을 알리지 못한다
+    if (compassHeading !== undefined && headingUpRef.current && lastPositionRef.current !== null) {
+      const smooth = !facedUpRef.current
+      facedUpRef.current = true
+      faceUp(mapRef.current, compassHeading, smooth)
+    }
     const feature = locationFeatureRef.current
     if (feature === null || feature.getGeometry() === undefined) return
     if (compassHeading === undefined) {
@@ -669,7 +691,17 @@ export function ControlPointMap(props: ControlPointMapProps) {
       const position = fromLonLat([coords.longitude, coords.latitude]) as [number, number]
       feature.setGeometry(new Point(position))
       lastPositionRef.current = position
-      if (followRef.current) mapRef.current?.getView().setCenter(position)
+      const view = followRef.current ? mapRef.current?.getView() : undefined
+      if (view !== undefined) {
+        // 자리를 몰라 미뤄 두었던 방향 맞추기가 있으면 여기서 함께 맞춘다.
+        // 부드럽게 돌리지 않는다 — 측위는 처음 한 번도 여러 건이 잇달아 오고, 뒤따라오는 건이 가운데를
+        // 다시 놓으면서 돌던 애니메이션을 끊는다. 첫 자리는 가운데도 그냥 놓으므로 방향도 같이 놓는다
+        if (headingUpRef.current && !facedUpRef.current && compassRef.current !== undefined) {
+          facedUpRef.current = true
+          faceUp(mapRef.current, compassRef.current, false)
+        }
+        view.setCenter(position)
+      }
       const heading = coords.heading
       const moving = heading !== null && Number.isFinite(heading) ? heading : undefined
       // 서 있으면 위성은 방향을 주지 않는다 — 그때는 마지막으로 걷던 방향을 지우지 않고 그대로 둔다
