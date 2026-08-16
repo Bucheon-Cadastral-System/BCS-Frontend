@@ -48,10 +48,12 @@ export function ChatDockLayout({
   const pending = chatMutation.isPending
 
   const queryClient = useQueryClient()
-  // 좁은 화면에서는 창도 버블도 서지 않는다 — 열 수 없는 대화의 이력까지 받아 둘 이유가 없다.
-  // 화면을 넓히면 그때 조회가 켜지고 아래 복원이 그대로 이어진다
+  // 좁은 화면에서는 창도 버블도 서지 않는다 — 열 수 없는 대화의 이력은 받지도, 받아 둔 것을 꺼내지도 않는다.
+  // enabled 는 새로 받는 것만 막고 캐시에 남은 값은 그대로 내주므로(넓게 보다 좁힌 뒤 이 위젯이 다시 서는 길이 있다),
+  // 보지 않겠다는 뜻은 읽는 자리에도 적는다. 화면을 넓히면 그때 값이 살아나고 아래 복원이 그대로 이어진다
   const narrow = useNarrowScreen()
-  const history = useChatHistoryQuery(!narrow).data
+  const historyQuery = useChatHistoryQuery(!narrow)
+  const history = narrow ? undefined : historyQuery.data
   const restored = useRef(false)
   /** '새 대화'로 비운 뒤 — 늦게 도착한 첫 조회가 지운 대화를 되살리면 안 된다 */
   const discarded = useRef(false)
