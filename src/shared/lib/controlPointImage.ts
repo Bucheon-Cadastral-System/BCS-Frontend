@@ -67,13 +67,7 @@ export async function prepareControlPointImage(file: File, capturedAt: string): 
     if (context === null) throw new Error(UNSUPPORTED_BROWSER)
     context.drawImage(bitmap.source, 0, 0, width, height)
 
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (result) => result?.type === 'image/webp' ? resolve(result) : reject(new Error(UNSUPPORTED_BROWSER)),
-        'image/webp',
-        WEBP_QUALITY,
-      )
-    })
+    const blob = await encodeWebp(canvas, width, height)
     const baseName = file.name.replace(/\.[^.]*$/, '') || 'image'
     return {
       image: new File([blob], `${baseName}.webp`, { type: 'image/webp' }),
@@ -83,6 +77,42 @@ export async function prepareControlPointImage(file: File, capturedAt: string): 
     throw error instanceof Error ? error : new Error('사진을 변환하지 못했습니다. 다른 사진으로 다시 시도해 주세요.')
   } finally {
     bitmap.release()
+  }
+}
+
+/**
+ * 줄여 그린 캔버스를 WebP 로 굽는다.
+ *
+ * <p>캔버스가 구워 주면 그것을 쓴다. 사파리는 WebP 를 펼 줄은 알아도 구울 줄은 모르는데(iOS·macOS 모두),
+ * 모르는 형식을 요구받으면 못 한다고 알리는 대신 조용히 PNG 를 내준다. 그래서 무엇이 나왔는지 형식을
+ * 보고 갈라야 한다 — 성공 여부로는 갈리지 않는다.
+ *
+ * <p>굽지 못하는 브라우저에서는 libwebp 를 받아 우리가 굽는다. 다른 형식으로 물러설 자리가 없다.
+ * 서버는 파일 앞머리의 RIFF·WEBP 표시를 확인하고 저장 이름도 .webp 로 짓는다 — 저장은 한 형식이라는
+ * 약속이 서버 쪽에 박혀 있다.
+ *
+ * <p>인코더는 300KB 가 넘으므로 첫 화면에 싣지 않는다. 필요한 브라우저에서, 사진을 실제로 고른 뒤에만 받는다.
+ */
+async function encodeWebp(canvas: HTMLCanvasElement, width: number, height: number): Promise<Blob> {
+  const drawn = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', WEBP_QUALITY))
+  if (drawn?.type === 'image/webp') return drawn
+
+  const context = canvas.getContext('2d')
+  if (context === null) throw new Error(UNSUPPORTED_BROWSER)
+  const pixels = context.getImageData(0, 0, width, height)
+
+  let encode: (data: ImageData, options?: { quality: number }) => Promise<ArrayBuffer>
+  try {
+    encode = (await import('@jsquash/webp/encode')).default
+  } catch (error) {
+    console.error('WebP encoder load failed', error)
+    throw new Error('사진 변환기를 내려받지 못했습니다. 연결을 확인하고 다시 시도해 주세요.')
+  }
+  try {
+    return new Blob([await encode(pixels, { quality: Math.round(WEBP_QUALITY * 100) })], { type: 'image/webp' })
+  } catch (error) {
+    console.error('WebP encode failed', error)
+    throw new Error('사진을 변환하지 못했습니다. 다른 사진으로 다시 시도해 주세요.')
   }
 }
 
