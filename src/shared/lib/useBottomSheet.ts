@@ -96,8 +96,12 @@ export function useBottomSheet(props: {
   const [raised, setRaised] = useState(false)
   const [drag, setDrag] = useState(0)
 
+  // 다 내려간 뒤에 부른다 — 그사이 부르는 쪽이 다시 렌더돼도 그때의 마지막 것을 불러야 한다.
+  // 렌더 중에 대입하지 않고 커밋 뒤에 맞춘다(그리다 만 렌더가 버려져도 대입은 남는다)
   const onClosedRef = useRef(props.onClosed)
-  onClosedRef.current = props.onClosed
+  useEffect(() => {
+    onClosedRef.current = props.onClosed
+  })
   const closeTimer = useRef<number | null>(null)
   const cancelClose = useCallback(() => {
     if (closeTimer.current === null) return

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 
 /**
@@ -15,10 +15,15 @@ export function useSheetDrag(props: { onMove?: (movedY: number) => void; onSettl
   const [dragging, setDragging] = useState(false)
   const startRef = useRef(0)
   const movedRef = useRef(0)
+  // 알리는 상대는 끄는 동안에도 바뀐다(부르는 쪽이 다시 렌더된다) — 손을 뗀 순간에는 마지막 것을 불러야 한다.
+  // 렌더 중에 대입하면 그리다 만 렌더가 버려져도 고친 값이 남으므로 커밋 뒤에 맞춘다. 손잡이 이벤트는
+  // 커밋 뒤에만 들어오니 이 시점이면 늦지 않다(useEffectEvent 는 이벤트 처리기에서 부를 수 없다)
   const onSettleRef = useRef(props.onSettle)
-  onSettleRef.current = props.onSettle
   const onMoveRef = useRef(props.onMove)
-  onMoveRef.current = props.onMove
+  useEffect(() => {
+    onSettleRef.current = props.onSettle
+    onMoveRef.current = props.onMove
+  })
 
   const onPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     const target = event.currentTarget
