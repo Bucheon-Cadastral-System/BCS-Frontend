@@ -96,7 +96,7 @@ export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: C
         // 왼쪽 여백 22px = 돋보기 15 + 그 뒤 7.
         // 포커스 테두리도 세우지 않는다 — 판 안에 든 자리라 테두리를 두르면 판 안에 또 하나의 상자가 생긴다.
         // 손으로 짚는 화면에서는 글자 깜빡임과 올라온 자판이 이미 어디를 치는지 알려 준다(넓은 화면은 그대로 둔다)
-        className={`flat-field h-11 w-full pl-10 pr-3 text-[13px] text-ink outline-none transition-colors placeholder:text-ink-4 focus:border-teal-edge max-lg:h-full max-lg:border-0 max-lg:bg-transparent max-lg:pl-[22px] max-lg:pr-0 max-lg:shadow-none ${PILL}`}
+        className={`h-11 w-full pl-10 pr-3 text-[13px] text-ink outline-none transition-colors placeholder:text-ink-4 focus:border-teal-edge max-lg:h-full max-lg:border-0 max-lg:bg-transparent max-lg:pl-[22px] max-lg:pr-0 max-lg:shadow-none ${PILL}`}
       />
       <svg
         viewBox="0 0 24 24"
