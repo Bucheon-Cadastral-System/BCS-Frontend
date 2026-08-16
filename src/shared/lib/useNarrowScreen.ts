@@ -1,7 +1,12 @@
 import { useSyncExternalStore } from 'react'
 
-/** 좁은 화면(모바일 배치)의 경계 — Tailwind lg 와 같은 값이라 CSS 와 동작이 같은 지점에서 갈린다 */
-const NARROW = '(max-width: 1023.98px)'
+/**
+ * 좁은 화면(모바일 배치)의 경계 — Tailwind lg 와 같은 값이라 CSS 와 동작이 같은 지점에서 갈린다.
+ *
+ * <p>px 이 아니라 rem 으로 적는다. lg 는 64rem 이라, 글자를 키워 둔 기기에서는 그 경계가 1024px 이 아니다.
+ * 같은 지점에서 갈리지 않으면 CSS 는 좁은 배치인데 코드는 넓은 배치로 판단하는 폭이 생긴다.
+ */
+const NARROW = '(width < 64rem)'
 
 function subscribe(onChange: () => void) {
   const query = window.matchMedia(NARROW)
