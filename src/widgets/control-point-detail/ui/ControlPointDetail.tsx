@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { SheetHandle } from '@/shared/lib/useBottomSheet'
 import { TM_ORIGINS } from '@/shared/lib/crs'
 import { formatDate, formatKstDate } from '@/shared/lib/date'
@@ -35,8 +35,8 @@ interface ControlPointDetailProps {
   /** 이 점 수정·삭제. 입력과 확인은 화면 전체를 아는 쪽의 창이 받는다 */
   onEdit: (point: ControlPoint) => void
   onDelete: (point: ControlPoint) => void
-  /** 관리번호를 복사한 결과. 알림은 화면 전체를 아는 쪽이 띄운다 */
-  onCopied: (ok: boolean) => void
+  /** 관리번호 복사가 막혔다 — 됐다는 말은 버튼이 그 자리에서 하므로 실패만 올린다 */
+  onCopyFailed: () => void
   /**
    * 좁은 화면에서 아래에서 올라오는 시트로 설 때의 손잡이.
    *
@@ -55,18 +55,41 @@ function epsgLabel(epsg: string): string {
   return TM_ORIGINS.find((o) => o.epsg === epsg)?.label ?? epsg
 }
 
-/** 값을 클립보드로 복사한다. 복사 결과는 부모가 알린다. */
-function CopyButton(props: { value: string; label: string; onCopied: (ok: boolean) => void }) {
-  const { value, label, onCopied } = props
+/** 복사한 뒤 체크가 남아 있는 시간(ms) — 눈이 한 번 갔다 오기에 넉넉하되, 다음 동작을 기다리게 하지는 않는다 */
+const COPIED_MS = 1600
+
+/**
+ * 값을 클립보드로 복사한다.
+ *
+ * <p>됐다는 말은 누른 자리에서 한다 — 아이콘이 체크로 바뀌고 잠시 뒤 되돌아온다. 손이 머문 자리에서
+ * 바로 답이 오므로 화면 아래 토스트까지 띄우면 같은 말을 두 번 하는 셈이 된다. 부르는 쪽은 실패만 알린다.
+ *
+ * <p>체크는 한 획으로 그어진다. 나타났다 사라지는 것과 달리, 그어지는 동안 눈이 그 획을 따라가게 되어
+ * 무엇이 방금 일어났는지가 움직임 자체로 읽힌다.
+ */
+function CopyButton(props: { value: string; label: string; onFailed: () => void }) {
+  const { value, label, onFailed } = props
+  const [copied, setCopied] = useState(false)
+  const timer = useRef<number | null>(null)
+  // 되돌리기 전에 화면을 떠나면(다른 점을 고르거나 시트를 닫으면) 남은 시계를 거둔다
+  useEffect(() => () => {
+    if (timer.current !== null) clearTimeout(timer.current)
+  }, [])
 
   async function copy() {
     try {
       // 클립보드는 보안 컨텍스트(HTTPS·localhost)에서만 열린다
       await navigator.clipboard.writeText(value)
-      onCopied(true)
     } catch {
-      onCopied(false)
+      onFailed()
+      return
     }
+    setCopied(true)
+    if (timer.current !== null) clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => {
+      timer.current = null
+      setCopied(false)
+    }, COPIED_MS)
   }
 
   return (
@@ -74,22 +97,41 @@ function CopyButton(props: { value: string; label: string; onCopied: (ok: boolea
       type="button"
       onClick={copy}
       title={label}
-      aria-label={label}
-      className="flex size-6 shrink-0 items-center justify-center rounded-chip bg-field text-ink-3 transition-colors hover:text-teal-text"
+      aria-label={copied ? `${label} 완료` : label}
+      className={`flex size-6 shrink-0 items-center justify-center rounded-chip bg-field transition-colors ${
+        copied ? 'text-teal-text' : 'text-ink-3 hover:text-teal-text'
+      }`}
     >
-      <svg
-        viewBox="0 0 24 24"
-        className="size-[13px]"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <rect x="3" y="3" width="13" height="13" rx="2" />
-        <path d="M16 8h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-3" />
-      </svg>
+      {copied ? (
+        <svg
+          viewBox="0 0 24 24"
+          className="size-[13px]"
+          fill="none"
+          stroke="currentColor"
+          // 그어지는 획이라 굵게 세운다 — 두 겹이던 복사 아이콘 자리에 한 획만 남으므로 가늘면 비어 보인다
+          strokeWidth="2.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          {/* 꺾인 두 마디를 합쳐 21 남짓이다 — 대시는 경로보다 짧으면 안 되므로 올려 잡는다 */}
+          <path className="stroke-draw [--stroke-len:22]" d="m5 12.5 4.5 4.5L19 7" />
+        </svg>
+      ) : (
+        <svg
+          viewBox="0 0 24 24"
+          className="size-[13px]"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <rect x="3" y="3" width="13" height="13" rx="2" />
+          <path d="M16 8h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-3" />
+        </svg>
+      )}
     </button>
   )
 }
@@ -194,7 +236,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
         <div className="mb-3 flex items-center gap-[9px] rounded-chip border border-line-pill bg-field py-[7px] pl-2.5 pr-2">
           <span className="shrink-0 text-[11px] text-ink-3">관리번호</span>
           <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{p.pointNo}</span>
-          <CopyButton value={p.pointNo} label="관리번호 복사" onCopied={props.onCopied} />
+          <CopyButton value={p.pointNo} label="관리번호 복사" onFailed={props.onCopyFailed} />
         </div>
 
         <dl className="grid grid-cols-[64px_1fr] gap-x-2.5 gap-y-[7px] text-[12.5px] [&_dd]:text-ink-2 [&_dt]:text-ink-3">

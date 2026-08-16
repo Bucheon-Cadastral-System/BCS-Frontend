@@ -189,6 +189,28 @@
   }
 }
 
+/* 획이 그어질 때 — 왼쪽 끝에서 오른쪽 끝으로 한 번에 긋는다.
+   대시를 획 길이만큼 하나만 두고 그 어긋남(dashoffset)을 그 길이에서 0 으로 좁히면, 가려져 있던 대시가
+   시작점부터 밀려 나오며 그리는 모습이 된다. 길이는 그리는 쪽이 --stroke-len 으로 준다(경로 길이 이상) */
+@keyframes stroke-draw {
+  from {
+    stroke-dashoffset: var(--stroke-len);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.stroke-draw {
+  stroke-dasharray: var(--stroke-len);
+  animation: stroke-draw 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stroke-draw {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
 * {
   box-sizing: border-box;
 }

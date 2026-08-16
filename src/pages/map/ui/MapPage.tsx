@@ -932,11 +932,11 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               }`}
             >
               {theme === 'dark' ? (
-                <svg viewBox="0 0 24 24" className="size-[15px]" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <svg viewBox="0 0 24 24" className="size-[14px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M20 13.5A8 8 0 1 1 10.5 4a6.5 6.5 0 0 0 9.5 9.5Z" />
                 </svg>
               ) : (
-                <svg viewBox="0 0 24 24" className="size-[15px]" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
+                <svg viewBox="0 0 24 24" className="size-[14px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
                   <circle cx="12" cy="12" r="4" />
                   <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
                 </svg>
@@ -1015,11 +1015,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               sheet={narrow ? detailSheet.sheet : undefined}
               onEdit={startEditPoint}
               onDelete={(p) => void startDeletePoint(p)}
-              onCopied={(ok) =>
-                ok
-                  ? showToast('클립보드로 복사되었습니다.', 'success')
-                  : showToast('클립보드로 복사하지 못했습니다.', 'error')
-              }
+              // 복사가 됐다는 말은 버튼이 그 자리에서 한다(체크) — 여기서는 막혔을 때만 알린다
+              onCopyFailed={() => showToast('클립보드로 복사하지 못했습니다.', 'error')}
             />
             </div>
         </div>
@@ -1074,7 +1071,10 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
             following ? 'border-teal-btn-edge text-teal-text before:opacity-100' : 'border-line-pill text-ink-2 before:opacity-0'
           }`}
         >
-          <svg viewBox="0 0 24 24" className="relative size-[19px]" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
+          {/* 20px 다 — 테두리를 뺀 안쪽 44px 에서 남는 여백이 24px 라 좌우·위아래로 딱 12px 씩 갈린다.
+              홀수(19px)로 두면 12.5px 이 되어 반 픽셀에 놓이고, 켜짐 색조가 덧칠되며 다시 그려질 때
+              그 반 픽셀이 위아래 어느 쪽으로 붙느냐에 따라 아이콘이 한 칸씩 튀어 보인다 */}
+          <svg viewBox="0 0 24 24" className="relative size-[20px]" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
             <circle cx="12" cy="12" r="7.5" />
             <path d="M12 2v5M12 17v5M2 12h5M17 12h5" />
             <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
