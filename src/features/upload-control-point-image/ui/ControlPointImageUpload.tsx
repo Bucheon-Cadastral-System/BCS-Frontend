@@ -14,6 +14,7 @@ import {
   localDateTimeToOffset,
   prepareControlPointImage,
 } from '@/shared/lib/controlPointImage'
+import { useDialogBehavior } from '@/shared/lib/useDialogBehavior'
 import { CHIP_BTN, FIELD, FIELD_AREA } from '@/shared/ui/classes'
 import { FormActions } from '@/shared/ui/FormActions'
 import { Modal, ModalField } from '@/shared/ui/Modal'
@@ -76,6 +77,8 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
   const [draftUrl, setDraftUrl] = useState<string | null>(null)
   const [preparing, setPreparing] = useState(false)
   const [saving, setSaving] = useState(false)
+  /** 사진을 화면 가득 펼쳐 보는 중 */
+  const [viewing, setViewing] = useState(false)
 
   const image = imageQuery.data ?? null
   // 사진 정보를 못 받은 것과 사진 파일을 못 받은 것은 사용자에게 같은 일이다 — 사진이 안 보인다
@@ -225,7 +228,17 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
               사진을 불러오는 중입니다. 잠시만 기다려 주세요.
             </div>
           ) : (
-            <img src={previewUrl} alt="등록한 사진" className="h-[132px] w-full object-cover" />
+            /* 눌러서 크게 본다 — 미리보기는 132px 로 잘라 보여 주므로 사진에 무엇이 찍혔는지는 여기서 다 읽히지 않는다.
+               아래 정보·다운로드 줄은 각자 제 일이 있어 이 자리에서 뺀다 */
+            <button
+              type="button"
+              onClick={() => setViewing(true)}
+              title="사진 크게 보기"
+              aria-label="사진 크게 보기"
+              className="block w-full cursor-zoom-in"
+            >
+              <img src={previewUrl} alt="등록한 사진" className="h-[132px] w-full object-cover" />
+            </button>
           )}
           {image !== null && (
             <div className="flex items-center gap-2 border-t border-line-soft px-2.5 py-2">
@@ -272,6 +285,10 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
         />
         {preparing ? '사진을 처리 중입니다. 잠시만 기다려 주세요.' : image === null ? '사진 등록' : '사진 교체'}
       </label>
+
+      {viewing && previewUrl !== null && (
+        <ImageViewer url={previewUrl} caption={image?.originalFileName ?? null} onClose={() => setViewing(false)} />
+      )}
 
       {draft !== null && (
         <Modal
@@ -366,4 +383,54 @@ function formatCapturedAt(value: string): string {
   return new Intl.DateTimeFormat('ko-KR', {
     year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
   }).format(date)
+}
+
+/**
+ * 사진을 화면 가득 펼쳐 본다.
+ *
+ * <p>상세의 미리보기는 132px 로 잘라 보여 준다 — 어떤 사진이 붙어 있는지는 알리지만 무엇이 찍혔는지는
+ * 그 안에서 다 읽히지 않는다. 그래서 누르면 받아 둔 그 파일을 그대로, 화면에 들어가는 한 크게 띄운다.
+ *
+ * <p>배경은 어둡게 덮는다. 사진 밖의 것이 눈에 남아 있으면 잘린 자리와 화면의 경계가 섞여 보인다.
+ * 그 어두운 자리를 누르면 닫힌다 — 사진 자체는 눌러도 닫히지 않는다(확대해 보려다 닫히면 안 된다).
+ *
+ * <p>native dialog 로 연다. 최상위 겹으로 올라가 시트·창의 transform·overflow 를 타지 않고,
+ * Esc 와 포커스 되돌리기를 브라우저가 맡는다(앱의 다른 창과 같은 규칙).
+ */
+function ImageViewer(props: { url: string; caption: string | null; onClose: () => void }) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  useDialogBehavior({ dialogRef, onClose: props.onClose })
+
+  return (
+    <dialog ref={dialogRef} aria-label="사진 크게 보기" className="m-0 max-h-none max-w-none border-0 bg-transparent p-0">
+      <div className="fixed inset-0 z-50 flex flex-col bg-black/85" onClick={props.onClose}>
+        <div className="flex shrink-0 items-center justify-end p-2">
+          <button
+            type="button"
+            onClick={props.onClose}
+            aria-label="닫기"
+            title="닫기"
+            className="flex size-10 items-center justify-center rounded-full text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </div>
+        <div className="flex min-h-0 flex-1 items-center justify-center px-3 pb-3">
+          <img
+            src={props.url}
+            alt="등록한 사진"
+            onClick={(event) => event.stopPropagation()}
+            className="max-h-full max-w-full object-contain"
+          />
+        </div>
+        {props.caption !== null && (
+          <p className="shrink-0 truncate px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] text-center text-[12px] text-white/70">
+            {props.caption}
+          </p>
+        )}
+      </div>
+    </dialog>
+  )
 }
