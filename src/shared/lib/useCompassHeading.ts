@@ -24,8 +24,13 @@ interface CompassEvent extends DeviceOrientationEvent {
  * 뒤집어 쓰되, 화면을 돌려 쓰는 동안에는 그 각도만큼 되돌려야 화면 위쪽이 기준이 된다. 절대 방위가 아닌 값은
  * 버린다 — 지자기를 못 읽는 기기의 alpha 는 켠 순간을 0 으로 잡은 상대값이라 엉뚱한 쪽을 북이라고 가리킨다.
  *
- * <p>아이폰은 허가를 받아야 하고, 그 물음은 사용자가 화면을 건드린 자리에서만 띄울 수 있다. 그래서 화면을
- * 처음 누르는 순간에 한 번 묻는다. 거절해도 다시 묻지 않는다.
+ * <p>아이폰은 허가를 받아야 하고, 그 물음은 사용자의 손짓 안에서만 띄울 수 있다(transient activation).
+ * 그래서 화면을 처음 누를 때 묻는다. 다만 누름의 시작(pointerdown)이 아니라 끝(click)에서 묻는다 —
+ * 사파리는 누름이 끝나야 손짓으로 치는 경우가 있고, 그 밖에서 부르면 물음이 뜨지 않은 채 거절된다.
+ *
+ * <p>거절에는 두 가지가 있다. 사용자가 아니라고 한 것(denied)은 그대로 받아들이고 다시 묻지 않는다.
+ * 손짓 밖에서 불러 튕긴 것(예외)은 사용자의 뜻이 아니므로 다음 손짓에 다시 묻는다. 둘을 가르지 않고
+ * 한 번에 접으면, 첫 물음이 손짓으로 인정받지 못한 기기에서는 나침반이 영영 켜지지 않는다.
  */
 export function useCompassHeading(enabled: boolean): number | null {
   const [heading, setHeading] = useState<number | null>(null)
@@ -59,20 +64,32 @@ export function useCompassHeading(enabled: boolean): number | null {
     if (typeof api.requestPermission !== 'function') listen()
     else {
       const request = api.requestPermission.bind(api)
+      // 손짓 밖에서 튕긴 것이라도 끝없이 다시 묻지는 않는다 — 물음이 뜨지 않는 기기에서 누를 때마다 부르게 된다
+      let tries = 0
+      const stopAsking = () => {
+        if (ask !== undefined) window.removeEventListener('click', ask as EventListener, true)
+      }
       ask = () => {
-        window.removeEventListener('pointerdown', ask as EventListener)
+        tries += 1
         void request()
           .then((state) => {
+            stopAsking()
             if (state === 'granted') listen()
+            else console.warn('나침반: 방향 접근이 거부되어 방향 표시를 켜지 못했습니다.', state)
           })
-          .catch(() => undefined)
+          .catch((error: unknown) => {
+            // 손짓으로 인정받지 못한 호출 — 다음 손짓에 다시 묻는다
+            if (tries >= 3) stopAsking()
+            console.warn('나침반: 방향 접근을 묻지 못했습니다.', error)
+          })
       }
-      window.addEventListener('pointerdown', ask, { once: true, passive: true })
+      // 누르는 자리를 가리지 않으려고 캡처로 받는다 — 지도든 버튼이든 어디를 눌러도 한 번은 지나간다
+      window.addEventListener('click', ask, { capture: true, passive: true })
     }
 
     return () => {
       released = true
-      if (ask !== undefined) window.removeEventListener('pointerdown', ask as EventListener)
+      if (ask !== undefined) window.removeEventListener('click', ask as EventListener, true)
       window.removeEventListener('deviceorientationabsolute', read)
       window.removeEventListener('deviceorientation', read)
     }
