@@ -6,7 +6,6 @@ import ImageLayer from 'ol/layer/Image'
 import XYZ from 'ol/source/XYZ'
 import OSM from 'ol/source/OSM'
 import ImageWMS from 'ol/source/ImageWMS'
-import ImageTile from 'ol/ImageTile'
 import TileState from 'ol/TileState'
 import type Tile from 'ol/Tile'
 import VectorLayer from 'ol/layer/Vector'
@@ -109,14 +108,6 @@ const TILE_RETRIES = 3
 const TILE_RETRY_MS = 400
 
 /**
- * 이 시간 안에 답이 없으면 멎은 것으로 보고 끊는다(ms).
- *
- * <p>응답도 오류도 없이 멎는 요청은 한 호스트에 여섯 개뿐인 연결 자리를 붙들어 뒤에 줄 선 타일까지 굶긴다.
- * 브라우저가 스스로 포기하기까지는 30초가 넘는다.
- */
-const TILE_TIMEOUT_MS = 6_000
-
-/**
  * 타일이 도착할 때 켜지는 시간(ms). 0 이면 바로 선다.
  *
  * <p>OL 기본값(0.25초)은 켜지는 동안 그 타일이 낀 화면을 계속 다시 그린다 — 한 화면 서른 장이면 그만큼의
@@ -125,53 +116,31 @@ const TILE_TIMEOUT_MS = 6_000
 const TILE_FADE_MS = 0
 
 /**
- * 실패하거나 멎은 타일을 다시 받아 오게 한다.
+ * 실패한 타일을 다시 받아 오게 한다.
+ *
+ * <p>받는 중인 타일에는 손대지 않는다. OL 은 오류가 나면 그림을 1×1 빈 캔버스로 갈아 끼우는데(ImageTile),
+ * 아직 살아 있는 요청을 밖에서 끊으면 그 교체가 새로 건 요청과 엇갈려 빈 타일이 그대로 굳는다.
+ * 빈 타일은 '받아 둔 것'으로 쳐서 윗단계 타일로 덮이지도 않는다.
  *
  * @returns 시도를 다 쓴 타일을 한 번 더 걸어 보는 함수(지도를 움직일 때 부른다)
  */
 function reviveTiles(source: XYZ): () => void {
   const tries = new WeakMap<Tile, number>()
-  const timers = new WeakMap<Tile, number>()
   /** 세 번을 다 쓴 타일 — 다음 손짓에 한 번 더 해 본다. 너무 많이 쌓아 두지는 않는다 */
   let spent: Tile[] = []
 
-  const stopTimer = (tile: Tile) => {
-    const timer = timers.get(tile)
-    if (timer === undefined) return
-    window.clearTimeout(timer)
-    timers.delete(tile)
-  }
-  const again = (tile: Tile, wait: number) => {
-    window.setTimeout(() => {
-      // 그새 다른 길로 받아졌으면 그냥 둔다
-      if (tile.getState() === TileState.ERROR) tile.load()
-    }, wait)
-  }
-
-  source.on('tileloadstart', (event) => {
-    const tile = event.tile
-    stopTimer(tile)
-    timers.set(tile, window.setTimeout(() => {
-      timers.delete(tile)
-      if (tile.getState() !== TileState.LOADING) return
-      // 받던 것을 버린다 — 주소를 비우면 브라우저가 그 연결을 놓는다
-      const image = tile instanceof ImageTile ? tile.getImage() : null
-      if (image instanceof HTMLImageElement) image.src = ''
-      // 오류로 바꿔 두면 아래 tileloaderror 가 받아 다시 건다(이미 오류면 그쪽이 이미 잡고 있다)
-      if (tile.getState() === TileState.LOADING) tile.setState(TileState.ERROR)
-    }, TILE_TIMEOUT_MS))
-  })
-  source.on('tileloadend', (event) => stopTimer(event.tile))
   source.on('tileloaderror', (event) => {
     const tile = event.tile
-    stopTimer(tile)
     const count = (tries.get(tile) ?? 0) + 1
     tries.set(tile, count)
     if (count > TILE_RETRIES) {
       if (spent.length < 40) spent.push(tile)
       return
     }
-    again(tile, TILE_RETRY_MS * count)
+    window.setTimeout(() => {
+      // 그새 다른 길로 받아졌으면 그냥 둔다
+      if (tile.getState() === TileState.ERROR) tile.load()
+    }, TILE_RETRY_MS * count)
   })
 
   return () => {
