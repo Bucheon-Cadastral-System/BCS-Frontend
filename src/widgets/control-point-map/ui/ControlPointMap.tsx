@@ -145,6 +145,13 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const onFollowEndRef = useRef(props.onFollowEnd)
   /** 마지막으로 받은 현재 위치(지도 좌표) — 따라가기를 켠 순간 바로 그 자리로 옮기려고 들고 있는다 */
   const lastPositionRef = useRef<[number, number] | null>(null)
+  /**
+   * 위성이 마지막으로 준 진행 방향(도) — 나침반을 끌 때 되돌아갈 자리다.
+   *
+   * <p>나침반이 꺼지는 순간 방향을 그냥 지우면 다음 측위가 올 때까지 화살촉이 사라진다. 걷는 중이면
+   * 방향은 이미 알고 있던 값이라 그 사이를 비워 둘 이유가 없다.
+   */
+  const courseRef = useRef<number | undefined>(undefined)
   // 렌더 중 ref 대입은 순수하지 않음(버려지는 렌더가 미커밋 값을 남길 수 있음) → 커밋 후 effect에서 동기화.
   // OL 콜백/스타일은 커밋 뒤(비동기 상호작용·재렌더)에만 refs를 읽으므로, 이 effect를 먼저 선언해 항상 최신값을 보게 함.
   useEffect(() => {
@@ -188,8 +195,8 @@ export function ControlPointMap(props: ControlPointMapProps) {
     const feature = locationFeatureRef.current
     if (feature === null || feature.getGeometry() === undefined) return
     if (compassHeading === undefined) {
-      // 나침반을 껐다 — 위성이 주는 진행 방향으로 돌아간다. 그 값이 없으면 방향 없는 마름모로 선다
-      feature.set('heading', undefined)
+      // 나침반을 껐다 — 위성이 준 마지막 진행 방향으로 돌아간다. 그 값도 없으면 화살촉 없이 원만 선다
+      feature.set('heading', courseRef.current)
       return
     }
     feature.set('heading', compassHeading)
@@ -609,7 +616,9 @@ export function ControlPointMap(props: ControlPointMapProps) {
       if (followRef.current) mapRef.current?.getView().setCenter(position)
       const heading = coords.heading
       const moving = heading !== null && Number.isFinite(heading) ? heading : undefined
-      feature.set('heading', compassRef.current ?? moving)
+      // 서 있으면 위성은 방향을 주지 않는다 — 그때는 마지막으로 걷던 방향을 지우지 않고 그대로 둔다
+      if (moving !== undefined) courseRef.current = moving
+      feature.set('heading', compassRef.current ?? courseRef.current)
       located = true
       fails = 0
     }
