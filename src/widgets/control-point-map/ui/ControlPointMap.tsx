@@ -72,23 +72,13 @@ const MAX_PIXEL_RATIO = 2
 const BASE_PRELOAD = 2
 
 /**
- * 이보다 멀리 옮길 때는 날아가지 않고 곧장 앉는다(화면 폭의 배수).
+ * 고른 자리로 옮겨 가는 시간(ms).
  *
- * <p>OL 은 날아가는 동안 타일을 거의 받지 않는다 — 프레임을 지키려고 한 프레임에 두 장까지만 새로 걸고,
- * 프레임이 밀리면 아예 걸지 않는다. 그래서 먼 거리를 날아가면 다 도착한 뒤에야 받기 시작해, 그 시간만큼
- * 빈 화면이 길어진다. 지나가는 자리의 타일까지 받아 두는 것도 곧 버릴 짐이다.
- *
- * <p>가까운 거리는 그대로 날아간다. 눈이 따라갈 수 있는 거리에서는 어디서 어디로 옮겨 갔는지가 보여야 한다.
+ * <p>거리가 멀든 눈높이가 크게 달라지든 늘 이만큼 걸려 날아간다. 곧장 앉히면 배경 타일이 훨씬 빨리 차지만
+ * (OL 은 날아가는 동안 타일을 거의 받지 않는다), 같은 손짓이 상황에 따라 다르게 움직이면 어디로 갔는지를
+ * 매번 다시 가늠하게 된다.
  */
-const JUMP_AFTER_SCREENS = 3
-
-/**
- * 이보다 크게 눈높이가 달라질 때도 곧장 앉는다(줌 단계).
- *
- * <p>거리가 가까워도 단계가 멀면 사정은 같다 — 지나치는 단계마다 그 단계의 타일을 새로 걸고, 도착지 타일은
- * 다 내려앉은 뒤에야 받기 시작한다.
- */
-const JUMP_AFTER_ZOOMS = 3
+const TRAVEL_MS = 450
 
 /**
  * 한 번에 걸어 두는 타일 요청 수(OL 기본 16).
@@ -217,28 +207,9 @@ function rotationFor(headingDeg: number, current: number): number {
   return raw + Math.round((current - raw) / full) * full
 }
 
-/**
- * 고른 자리로 눈높이를 옮긴다 — 가까우면 날아가고, 멀면 곧장 앉는다.
- *
- * <p>어느 쪽이 나은지는 사람이 눈으로 따라갈 수 있는 거리인지가 가른다. 옆 골목이면 날아가는 편이
- * 어디서 어디로 옮겼는지를 알려 주고, 화면 몇 장 너머나 여섯 단계 위아래면 따라갈 수 있는 그림이 아니라
- * 그저 지도가 비어 있는 시간이 된다(JUMP_AFTER_SCREENS · JUMP_AFTER_ZOOMS).
- */
+/** 고른 자리로 눈높이를 옮긴다 — 거리와 눈높이 차이에 상관없이 늘 같은 걸음으로 날아간다 */
 function travel(map: Map, center: [number, number], zoom: number) {
-  const view = map.getView()
-  const from = view.getCenter()
-  const resolution = view.getResolution()
-  const width = map.getSize()?.[0] ?? 0
-  const span = resolution === undefined ? 0 : resolution * width
-  const currentZoom = view.getZoom()
-  const far = from === undefined || span === 0 || Math.hypot(center[0] - from[0], center[1] - from[1]) > span * JUMP_AFTER_SCREENS
-  const steep = currentZoom === undefined || Math.abs(zoom - currentZoom) > JUMP_AFTER_ZOOMS
-  if (far || steep) {
-    view.setCenter(center)
-    view.setZoom(zoom)
-    return
-  }
-  view.animate({ center, zoom, duration: 450 })
+  map.getView().animate({ center, zoom, duration: TRAVEL_MS })
 }
 
 interface ControlPointMapProps {
@@ -1064,8 +1035,6 @@ export function ControlPointMap(props: ControlPointMapProps) {
     if (props.focusNonce === 0 || !mapRef.current || !selectedId) return
     const p = pointsRef.current.find((x) => x.id === selectedId)
     if (!p) return
-    // 멀거나 눈높이가 크게 달라지면 날아가지 않고 곧장 앉는다 — 날아가는 동안에는 타일을 거의 받지 못해
-    // 도착하고 나서야 받기 시작한다(그만큼 빈 화면이 길어진다)
     travel(mapRef.current, fromLonLat([p.lng, p.lat]) as [number, number], FOCUS_ZOOM)
   }, [props.focusNonce])
 
