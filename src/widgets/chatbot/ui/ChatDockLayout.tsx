@@ -7,6 +7,7 @@ import { CHAT_MESSAGES_KEY, useChatHistoryQuery, useClearChatMutation, useSendCh
 import type { ChatAction, ChatMessage, ChatMode, Size } from '../model/types'
 import { clearLegacyChatMessages, loadChatUi, saveChatUi } from '../model/storage'
 import { useDismiss } from '@/shared/lib/useDismiss'
+import { useNarrowScreen } from '@/shared/lib/useNarrowScreen'
 import { PANEL } from '@/shared/ui/classes'
 
 /** 우측 패널 기본 폭 — 헤더 우측 묶음을 아직 재지 못했을 때만 쓴다 */
@@ -47,7 +48,10 @@ export function ChatDockLayout({
   const pending = chatMutation.isPending
 
   const queryClient = useQueryClient()
-  const history = useChatHistoryQuery().data
+  // 좁은 화면에서는 창도 버블도 서지 않는다 — 열 수 없는 대화의 이력까지 받아 둘 이유가 없다.
+  // 화면을 넓히면 그때 조회가 켜지고 아래 복원이 그대로 이어진다
+  const narrow = useNarrowScreen()
+  const history = useChatHistoryQuery(!narrow).data
   const restored = useRef(false)
   /** '새 대화'로 비운 뒤 — 늦게 도착한 첫 조회가 지운 대화를 되살리면 안 된다 */
   const discarded = useRef(false)

@@ -26,9 +26,9 @@ export async function fetchChatMessages(): Promise<ChatMessage[]> {
   return data
 }
 
-export function useChatHistoryQuery() {
+export function useChatHistoryQuery(enabled = true) {
   // 화면이 대화의 최신 상태를 들고 있으므로 다시 받아올 이유가 없다 — 복원은 첫 진입 한 번이면 된다
-  return useQuery({ queryKey: CHAT_MESSAGES_KEY, queryFn: fetchChatMessages, staleTime: Infinity })
+  return useQuery({ queryKey: CHAT_MESSAGES_KEY, queryFn: fetchChatMessages, staleTime: Infinity, enabled })
 }
 
 export async function clearChatMessages(): Promise<void> {
