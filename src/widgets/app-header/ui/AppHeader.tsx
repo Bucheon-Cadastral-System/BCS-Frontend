@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { UserAvatar, UserMenu } from '@/entities/user'
 import type { UserProfile } from '@/entities/user'
 import { useDismiss } from '@/shared/lib/useDismiss'
+import { useTabSlide } from '@/shared/lib/useTabSlide'
 import { useElementWidth } from '@/shared/lib/useElementWidth'
 import { BrandMark } from '@/shared/ui/BrandMark'
 import { PILL, POPOVER } from '@/shared/ui/classes'
@@ -45,16 +46,32 @@ export function AppHeader(props: {
   const user = props.user
 
   // 켜진 탭 밑을 따라 미끄러지는 면 — 탭마다 면을 따로 켜고 끄면 자리가 옮겨 간다는 것이 보이지 않는다
-  const tabsRef = useRef<HTMLDivElement>(null)
+  const [tabsRow, setTabsRow] = useState<HTMLDivElement | null>(null)
   const activeKey = props.tabs?.find((tab) => tab.active)?.key ?? null
+  // 끌어서 훑는 동안에는 손 아래 탭을 보여 준다. 실제로 켜지는 것은 손을 뗄 때다
+  const tabs = props.tabs
+  const sliding = useTabSlide({
+    row: tabsRow,
+    attr: 'data-tab',
+    onSelect: (key) => tabs?.find((tab) => tab.key === key)?.onClick(),
+  })
+  const shownKey = sliding?.key ?? activeKey
   const [marker, setMarker] = useState<{ left: number; width: number } | null>(null)
   useLayoutEffect(() => {
-    const el = activeKey === null ? null : tabsRef.current?.querySelector<HTMLElement>(`[data-tab="${activeKey}"]`)
-    if (!el) return // 꺼진 동안에는 마지막 자리를 그대로 두고 흐리게만 한다
+    const el = shownKey === null ? null : tabsRow?.querySelector<HTMLElement>(`[data-tab="${shownKey}"]`)
+    if (!el || tabsRow === null) return // 꺼진 동안에는 마지막 자리를 그대로 두고 흐리게만 한다
     const next = { left: el.offsetLeft, width: el.offsetWidth }
+    // 훑는 동안에는 손끝을 그대로 따라간다. 양끝은 탭 줄 안에 잡아 둔다
+    if (sliding !== null) {
+      const all = [...tabsRow.querySelectorAll<HTMLElement>('[data-tab]')]
+      const first = all[0]?.offsetLeft ?? next.left
+      const lastTab = all.at(-1)
+      const last = lastTab === undefined ? next.left + next.width : lastTab.offsetLeft + lastTab.offsetWidth
+      next.left = Math.min(Math.max(sliding.x - next.width / 2, first), last - next.width)
+    }
     // 같은 값으로 다시 넣으면 렌더가 끝없이 돈다(탭 배열은 렌더마다 새 참조)
     setMarker((current) => (current && current.left === next.left && current.width === next.width ? current : next))
-  }, [activeKey, props.tabs])
+  }, [shownKey, tabsRow, sliding, props.tabs])
 
   const brandRef = useRef<HTMLDivElement>(null)
   const utilityRef = useRef<HTMLDivElement>(null)
@@ -108,14 +125,15 @@ export function AppHeader(props: {
         {props.tabs && props.tabs.length > 0 && (
           <>
             <span className="mx-[3px] h-[22px] w-px bg-line-field max-lg:hidden" aria-hidden />
-            <div ref={tabsRef} className="relative flex items-center gap-1 max-lg:hidden">
+            <div ref={setTabsRow} className="relative flex touch-none items-center gap-1 max-lg:hidden">
               {marker && (
                 <span
                   aria-hidden="true"
                   style={{ left: marker.left, width: marker.width }}
-                  className={`absolute top-0 h-[34px] rounded-ctl bg-teal-wash-strong transition-[left,width,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                    activeKey === null ? 'opacity-0' : 'opacity-100'
-                  }`}
+                  // 훑는 동안에는 전이를 뗀다 — 손끝(포인터)과 면이 어긋나면 그 어긋남이 곧 지연으로 읽힌다
+                  className={`absolute top-0 h-[34px] rounded-ctl bg-teal-wash-strong ${
+                    sliding === null ? 'transition-[left,width,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]' : ''
+                  } ${shownKey === null ? 'opacity-0' : 'opacity-100'}`}
                 />
               )}
               {props.tabs.map(({ key, ...tab }) => (
