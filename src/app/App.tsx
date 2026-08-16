@@ -9,10 +9,11 @@ import { RegistrationPage } from '@/pages/registration'
 import { LoginPage } from '@/pages/login'
 import { InactivePage } from '@/pages/inactive'
 import { MapPage } from '@/pages/map'
+import { GuestMapPage } from '@/pages/guest-map'
 import { clearChatStorage } from '@/widgets/chatbot'
 import { WaitingPage } from '@/pages/waiting'
 import { exchangeOAuthCode, refreshAccessToken, startKakaoLogin } from '@/shared/api/auth'
-import { subscribeAuthenticationLost } from '@/shared/api/tokenStore'
+import { subscribeAuthenticationLost, subscribeAuthorizationForbidden } from '@/shared/api/tokenStore'
 import { BTN_SECONDARY, MODAL_SHELL } from '@/shared/ui/classes'
 import { ErrorBoundary } from '@/shared/ui/ErrorBoundary'
 
@@ -31,6 +32,19 @@ function AuthErrorPage({ message, onBack }: { message: string; onBack: () => voi
         <button type="button" className={`${BTN_SECONDARY} mt-6 w-full`} onClick={onBack}>
           로그인으로 돌아가기
         </button>
+      </div>
+    </main>
+  )
+}
+
+function PermissionDeniedPage({ onBack }: { onBack: () => void }) {
+  return (
+    <main className="app-bg grid h-full place-items-center px-5 text-ink">
+      <div className={`panel-in w-full max-w-[400px] px-7 py-9 text-center ${MODAL_SHELL}`}>
+        <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-danger-wash text-[20px] font-bold text-danger" aria-hidden="true">!</div>
+        <h1 className="mt-5 text-[18px] font-semibold">접근 권한이 없습니다</h1>
+        <p className="mt-3 text-[13px] leading-7 text-ink-3">현재 계정으로는 이 기능을 사용할 수 없습니다.</p>
+        <button type="button" className={`${BTN_SECONDARY} mt-6 w-full`} onClick={onBack}>이전 화면으로 돌아가기</button>
       </div>
     </main>
   )
@@ -58,17 +72,19 @@ function LoginRoute() {
   return (
     <LoginPage
       onKakaoLogin={startKakaoLogin}
+      onGuest={() => navigate('/guest')}
       failure={error === null ? null : (LOGIN_FAILURE[error] ?? '로그인을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.')}
     />
   )
 }
 
 function Protected({ auth, admin = false, children }: { auth: AuthState; admin?: boolean; children: ReactNode }) {
+  const navigate = useNavigate()
   if (auth.loading) return <LoadingPage />
   if (!auth.profile) return <Navigate to="/login" replace />
   if (auth.profile.status === 'PENDING') return <Navigate to="/signup" replace />
   if (auth.profile.status === 'INACTIVE') return <Navigate to="/login?error=inactive" replace />
-  if (admin && auth.profile.role !== 'ADMIN') return <Navigate to="/" replace />
+  if (admin && auth.profile.role !== 'ADMIN') return <PermissionDeniedPage onBack={() => navigate('/', { replace: true })} />
   return children
 }
 
@@ -132,6 +148,7 @@ function AppRoutes() {
   const location = useLocation()
   const queryClient = useQueryClient()
   const [auth, setAuth] = useState<AuthState>({ loading: true, profile: null })
+  const [forbidden, setForbidden] = useState(false)
 
   /**
    * 로그인한 계정이 바뀌면 그 계정에 딸린 것을 모두 버린다.
@@ -173,12 +190,33 @@ function AppRoutes() {
   }, [applyAuth])
 
   useEffect(() => {
+    // 게스트 경로는 공개 API만 사용한다. 새로고침 때도 토큰 갱신 요청을 보내지 않는다.
+    if (location.pathname === '/guest') {
+      applyAuth(null)
+      return
+    }
+    // 경로 이동마다 갱신하지 않는다. 앱을 처음 열어 아직 계정 상태를 모를 때만 확인한다.
+    if (accountRef.current !== undefined) return
     refreshAccessToken().then((token) => token ? reloadProfile() : (applyAuth(null), null))
-  }, [applyAuth, reloadProfile])
+  }, [applyAuth, location.pathname, reloadProfile])
 
   useEffect(() => subscribeAuthenticationLost(() => {
     applyAuth(null)
-  }), [applyAuth])
+    navigate('/guest?notice=authentication-required', { replace: true })
+  }), [applyAuth, navigate])
+
+  useEffect(() => subscribeAuthorizationForbidden(() => setForbidden(true)), [])
+
+  if (forbidden) {
+    return (
+      <PermissionDeniedPage
+        onBack={() => {
+          setForbidden(false)
+          if (location.pathname.startsWith('/admin')) navigate('/', { replace: true })
+        }}
+      />
+    )
+  }
 
   // 울타리는 라우터 안쪽·화면 바깥쪽에 둔다. 바깥에 두면 화면이 죽었을 때 주소를 옮길 길까지 함께 사라지고,
   // 로그인 상태는 이 위에 있어 화면을 옮겨도 다시 받아오지 않는다.
@@ -190,6 +228,7 @@ function AppRoutes() {
         <Route path="/signup" element={<SignupRoute />} />
         <Route path="/register" element={<Navigate to="/signup" replace />} />
         <Route path="/waiting" element={<WaitingPage onBackToLogin={() => navigate('/login')} />} />
+        <Route path="/guest" element={<GuestMapPage />} />
         <Route path="/" element={<Protected auth={auth}><MapPage profile={auth.profile} onOpenUserManagement={() => navigate('/admin/users')} /></Protected>} />
         <Route path="/admin/users" element={<Protected auth={auth} admin><AdminUsersPage profile={auth.profile} onBack={() => navigate('/')} /></Protected>} />
         <Route path="*" element={<Navigate to="/" replace />} />

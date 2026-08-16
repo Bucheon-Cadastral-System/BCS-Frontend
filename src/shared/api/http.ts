@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios'
 import { API_BASE_URL, API_TIMEOUT_MS } from './config'
-import { getAccessToken } from './tokenStore'
+import { getAccessToken, notifyAuthorizationForbidden } from './tokenStore'
 import { refreshAccessToken } from './refreshToken'
 
 /** API 기본 주소 — 기본은 동일 오리진(개발=Vite 프록시, 배포=Caddy 프록시). 별도 오리진이 필요할 때만 지정. */
@@ -45,6 +45,7 @@ const MESSAGE_BY_CODE: Record<string, string> = {
   PAGE_REQUEST_INVALID: '목록을 불러올 수 없습니다. 화면을 새로고침해 주세요.',
   CURSOR_INVALID: '목록을 이어 불러올 수 없습니다. 화면을 새로고침해 주세요.',
   AUTH_UNAUTHORIZED: '로그인이 필요합니다. 다시 로그인해 주세요.',
+  AUTHENTICATION_REQUIRED: '로그인이 필요한 기능입니다.',
   AUTH_FORBIDDEN: '이 작업을 수행할 권한이 없습니다.',
 }
 
@@ -65,6 +66,8 @@ function messageOf(problem: ProblemDetail | undefined, status: number): string {
 
 // Content-Type은 axios가 본문 타입으로 정한다(객체=JSON, FormData=multipart) — 고정하면 파일 업로드가 깨진다
 export const http = axios.create({ baseURL: API_BASE_URL, timeout: API_TIMEOUT_MS, withCredentials: true })
+/** 공개 API 전용 클라이언트 — 토큰 첨부와 401 갱신을 하지 않아 게스트 요청이 인증 흐름에 섞이지 않는다. */
+export const publicHttp = axios.create({ baseURL: API_BASE_URL, timeout: API_TIMEOUT_MS, withCredentials: false })
 
 http.interceptors.request.use((config) => {
   const token = getAccessToken()
@@ -85,6 +88,16 @@ http.interceptors.response.use(undefined, async (error: AxiosError) => {
 
 // 모든 실패를 ApiError로 정규화 — 네트워크 오류(응답 없음)는 status 0
 http.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError<ProblemDetail>) => {
+    const status = error.response?.status ?? 0
+    const problem = error.response?.data
+    if (status === 403) notifyAuthorizationForbidden()
+    throw new ApiError(problem?.code ?? 'UNKNOWN', status, messageOf(problem, status), problem?.errors ?? [])
+  },
+)
+
+publicHttp.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ProblemDetail>) => {
     const status = error.response?.status ?? 0

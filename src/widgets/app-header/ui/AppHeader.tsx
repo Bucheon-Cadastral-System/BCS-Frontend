@@ -33,6 +33,8 @@ export function AppHeader(props: {
   search?: ReactNode
   /** 지금 로그인한 사용자 — 아직 받아오지 못했으면 자리만 지킨다 */
   user: UserProfile | null
+  /** 공개 기준점만 보는 비로그인 상태 */
+  guest?: boolean
   /** 주지 않으면 사용자 메뉴에 그 항목을 두지 않는다(이미 그 화면인 경우) */
   onOpenUserManagement?: () => void
   /** 좌측 알약의 폭 — 그 아래 서는 칩·판이 같은 너비를 쓰도록 알린다 */
@@ -46,6 +48,7 @@ export function AppHeader(props: {
   const navigate = useNavigate()
 
   const user = props.user
+  const guest = props.guest === true
   const isAdmin = user?.role === 'ADMIN'
 
   // 서버 호출이 실패해도 이 브라우저의 인증은 이미 끊어진 상태이므로 로그인 화면으로 이동한다.
@@ -56,7 +59,7 @@ export function AppHeader(props: {
     } catch {
       // 실패해도 아래에서 로그인 화면으로 이동한다.
     }
-    navigate('/login', { replace: true })
+    navigate('/guest', { replace: true })
   }
 
   // 켜진 탭 밑을 따라 미끄러지는 면 — 탭마다 면을 따로 켜고 끄면 자리가 옮겨 간다는 것이 보이지 않는다
@@ -89,7 +92,7 @@ export function AppHeader(props: {
       <BrandMark />
       <span className="leading-[1.15]">
         <span className="block text-[14px] font-bold tracking-[-.02em] text-ink">BCS</span>
-        <span className="block text-[11px] text-ink-3">부천시 지적기준점 관리 시스템</span>
+        <span className="block text-[11px] text-ink-3 max-sm:hidden">부천시 지적기준점 관리 시스템</span>
       </span>
     </>
   )
@@ -131,7 +134,7 @@ export function AppHeader(props: {
         )}
       </div>
 
-      <div ref={utilityRef} className="absolute right-4 top-4 z-[45] flex items-center gap-2">
+      <div ref={utilityRef} className="absolute right-4 top-4 z-[45] flex items-center gap-2 max-sm:right-3">
         {props.search}
         <div ref={userRef} className="relative">
           <button
@@ -144,17 +147,17 @@ export function AppHeader(props: {
             {user ? (
               <UserAvatar name={user.name} className="size-[30px] text-[11.5px]" />
             ) : (
-              <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-soft text-[11.5px] text-ink-3" aria-hidden="true">
-                ·
+              <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-soft text-[11.5px] font-semibold text-teal-text" aria-hidden="true">
+                {guest ? 'G' : '·'}
               </span>
             )}
             {/* 브랜드 알약과 같은 규칙 — 윗줄은 크고 굵게, 아랫줄은 작고 흐리게.
                 폭은 고정한다. 이름·소속 길이를 따라 알약이 늘고 줄면 그 폭을 쓰는 대화 판까지 흔들리고,
                 프로필을 받아오는 순간에도 자리가 튄다. 94px 는 가장 긴 소속(부동산관리팀 주무관 90.9px)이 들어가는 값. */}
             <span className="w-[94px] shrink-0 text-left leading-[1.15]">
-              <span className="block truncate text-[14px] font-bold tracking-[-.02em] text-ink">{user?.name ?? '사용자'}</span>
+              <span className="block truncate text-[14px] font-bold tracking-[-.02em] text-ink">{user?.name ?? (guest ? '게스트' : '사용자')}</span>
               <span className="block truncate text-[11px] text-ink-3">
-                {user ? `${user.team} ${user.position}` : '정보를 불러오는 중…'}
+                {user ? `${user.team} ${user.position}` : guest ? '공개 정보만 보기' : '정보를 불러오는 중…'}
               </span>
             </span>
             <svg viewBox="0 0 24 24" className="size-[13px] shrink-0 text-ink-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -167,7 +170,7 @@ export function AppHeader(props: {
               <div className="flex items-center justify-between gap-2 px-[13px] pb-[9px] pt-2.5">
                 <span className="text-[12px] text-ink-3">권한</span>
                 <span className="text-[11px] font-semibold tracking-[.1em] text-teal-text">
-                  {user?.role ?? 'USER'}
+                  {guest ? 'GUEST' : (user?.role ?? 'USER')}
                 </span>
               </div>
               {isAdmin && props.onOpenUserManagement && (
@@ -186,15 +189,25 @@ export function AppHeader(props: {
                   </svg>
                 </button>
               )}
-              <button
-                type="button"
-                onClick={handleLogout}
-                // 다른 화면으로 들어가는 항목이 아니라 실행되는 동작이라 진입 화살표를 두지 않고 가운데에 세운다
-                className="flex w-full items-center justify-center gap-[7px] border-t border-line-soft px-[13px] py-2.5 text-[12.5px] text-danger transition-colors hover:bg-danger-wash"
-              >
-                <LogoutIcon className="size-[15px] shrink-0" />
-                로그아웃
-              </button>
+              {guest ? (
+                <button
+                  type="button"
+                  onClick={() => navigate('/login')}
+                  className="flex w-full items-center justify-center gap-[7px] border-t border-line-soft px-[13px] py-2.5 text-[12.5px] font-semibold text-teal-text transition-colors hover:bg-teal-wash"
+                >
+                  로그인하기
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  // 다른 화면으로 들어가는 항목이 아니라 실행되는 동작이라 진입 화살표를 두지 않고 가운데에 세운다
+                  className="flex w-full items-center justify-center gap-[7px] border-t border-line-soft px-[13px] py-2.5 text-[12.5px] text-danger transition-colors hover:bg-danger-wash"
+                >
+                  <LogoutIcon className="size-[15px] shrink-0" />
+                  로그아웃
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -279,4 +292,3 @@ function LogoutIcon({ className }: { className?: string }) {
     </svg>
   )
 }
-

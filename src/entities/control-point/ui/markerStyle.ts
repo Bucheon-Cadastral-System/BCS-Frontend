@@ -1,6 +1,6 @@
 import type { SurveyStatus } from '@/entities/survey-record'
 import { Style, Icon, Fill, Stroke, Text } from 'ol/style'
-import type { ControlPoint, PointType } from '../model/types'
+import type { MappableControlPoint, PointType } from '../model/types'
 import { POINT_TYPES } from '../model/types'
 
 /** 조사상태 표현: none=프로젝트 없음, todo=미조사(흐리게), done=정상(체크), lost=망실(빨강) */
@@ -220,7 +220,7 @@ function markerIcon(key: string, type: PointType, selected: boolean, variant: Ma
 
 /** 도식만 그리는 스타일 — 같은 조합의 점들이 완전히 같은 스타일이라 하나를 공유한다. */
 export function controlPointStyle(
-  cp: ControlPoint,
+  cp: MappableControlPoint,
   selected: boolean,
   survey: SurveyView = 'none',
   theme: MapTheme = 'light',
@@ -242,7 +242,7 @@ export function controlPointStyle(
  * declutter 레이어는 이동·줌 중 캔버스 재사용(fast path)을 못 타 매 프레임 전체를 다시 그리므로,
  * 수천 점을 든 도식 레이어에 걸면 지도 조작 내내 프레임을 깎는다. 라벨 색은 조사 상태와 무관해 테마+이름이 키의 전부다.
  */
-export function controlPointLabelStyle(cp: ControlPoint, theme: MapTheme = 'light'): Style {
+export function controlPointLabelStyle(cp: MappableControlPoint, theme: MapTheme = 'light'): Style {
   const key = `${theme}|${cp.name}`
   const cached = labelOnlyCache.get(key)
   if (cached) {

@@ -19,7 +19,7 @@ import { Circle as CircleStyle, Fill, RegularShape, Stroke, Style } from 'ol/sty
 import type { FlatStyleLike } from 'ol/style/flat'
 import { VWORLD_KEY, DEFAULT_CENTER, DEFAULT_ZOOM, MIN_ZOOM } from '@/shared/config/map'
 import { MARKER_ATLAS_CELL, controlPointLabelStyle, controlPointStyle, markerAtlasUrl, markerSymbolIndex } from '@/entities/control-point'
-import type { ControlPoint, MapTheme } from '@/entities/control-point'
+import type { MappableControlPoint, MapTheme } from '@/entities/control-point'
 import { deriveSurveyStatus } from '@/entities/survey-record'
 import type { SurveyResult } from '@/entities/survey-record'
 
@@ -67,7 +67,7 @@ const WEBGL_SUPPORTED = (() => {
 
 interface ControlPointMapProps {
   /** 전체 기준점 — 소스는 이 목록을 한 번만 들고, 갱신 때는 바뀐 점만 손본다 */
-  points: ControlPoint[]
+  points: MappableControlPoint[]
   /** 보일 점 id — null 이면 전부. 탭·조사 전환은 소스 재구성이 아니라 이 집합의 교체다 */
   visibleIds: ReadonlySet<string> | null
   addMode: boolean
@@ -198,7 +198,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     // 점은 겹치더라도 하나씩 그대로 그린다. 이름은 가까이서 볼 때만 붙인다.
     // 소스는 전체 점을 들고 있고, 숨길 점은 스타일을 돌려주지 않아 그리기·클릭 판정에서 함께 빠진다.
     const layerStyle = (feature: FeatureLike): Style | undefined => {
-      const cp = feature.get('cp') as ControlPoint
+      const cp = feature.get('cp') as MappableControlPoint
       const visible = visibleIdsRef.current
       if (visible !== null && !visible.has(cp.id)) return undefined
       const survey = surveyModeRef.current
@@ -210,7 +210,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     // 라벨은 가까이서만, 보이는 점에만 붙인다
     const labelStyle = (feature: FeatureLike, resolution: number): Style | undefined => {
       if (resolution > LABEL_MAX_RESOLUTION) return undefined
-      const cp = feature.get('cp') as ControlPoint
+      const cp = feature.get('cp') as MappableControlPoint
       const visible = visibleIdsRef.current
       if (visible !== null && !visible.has(cp.id)) return undefined
       return controlPointLabelStyle(cp, themeRef.current)
@@ -332,7 +332,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
       // 점이 겹친 자리에서는 OL 이 위에 그려진 것 하나만 준다 — 겹친 나머지는 기준점 목록에서 찾는다
       let handled = false
       map.forEachFeatureAtPixel(evt.pixel, (f) => {
-        const cp = f.get('cp') as ControlPoint | undefined
+        const cp = f.get('cp') as MappableControlPoint | undefined
         if (!cp) return false
         onSelectRef.current(cp.id)
         handled = true
@@ -361,7 +361,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
   }, [])
 
   /** 이 점의 아틀라스 칸 — WebGL 레이어는 피처 속성이 곧 스타일 입력이다(캔버스 폴백은 스타일 함수가 refs 를 읽는다). */
-  const symOf = (cp: ControlPoint): number =>
+  const symOf = (cp: MappableControlPoint): number =>
     markerSymbolIndex(
       cp.type,
       cp.id === selectedIdRef.current,
@@ -424,7 +424,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
   useEffect(() => {
     let touched = false
     for (const feature of featureByIdRef.current.values()) {
-      const next = symOf(feature.get('cp') as ControlPoint)
+      const next = symOf(feature.get('cp') as MappableControlPoint)
       if (feature.get('sym') !== next) {
         feature.set('sym', next, true)
         touched = true
