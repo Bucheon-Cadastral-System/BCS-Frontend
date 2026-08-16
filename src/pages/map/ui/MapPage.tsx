@@ -171,6 +171,13 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   const [showDistrict, setShowDistrict] = useState(false)
   const [mapInstance, setMapInstance] = useState<OlMap | null>(null) // 하단 상태 표시가 직접 구독한다
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  /**
+   * 상세를 닫을 때 되살릴 목록 시트 — 목록에서 골라 들어왔을 때만 값이 있다.
+   *
+   * <p>좁은 화면에서 목록과 상세는 겹쳐 서지 않고 갈아탄다. 갈아타고 왔으면 되돌아갈 자리가 있어야 하고,
+   * 지도에서 곧장 고른 점은 되돌아갈 자리가 없다 — 그때 목록이 올라오면 열지 않은 것이 열린다.
+   */
+  const restorePanel = useRef<PanelKey | null>(null)
   const [focusNonce, setFocusNonce] = useState(0)
   /** 처음 자리로 되돌리라는 신호 — 얼마나 옮길지는 패널이 가린 폭을 아는 지도가 정한다 */
   const [homeNonce, setHomeNonce] = useState(0)
@@ -686,7 +693,9 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     setPendingFiles(null)
   }
 
-  function focusPoint(cp: ControlPoint) {
+  function focusPoint(cp: ControlPoint, from: 'list' | 'map' = 'map') {
+    // 목록이 실제로 서 있을 때 그 목록에서 고른 것만 되돌아갈 자리로 친다
+    restorePanel.current = from === 'list' && narrow && panel !== null && !panel.minimized ? panel.key : null
     setSelectedId(cp.id)
     setFocusNonce((n) => n + 1)
   }
@@ -736,7 +745,12 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   })
   const detailSheet = useBottomSheet({
     open: narrow && selected !== null,
-    onClosed: () => setSelectedId(null),
+    onClosed: () => {
+      setSelectedId(null)
+      const key = restorePanel.current
+      restorePanel.current = null
+      if (key !== null) setPanel({ key, minimized: false })
+    },
     viewportHeight,
     contentKey: selectedId,
     // 시안의 접힘 높이 — 조사 회차 밖의 점처럼 담을 것이 적어도 이보다 낮게 서지 않는다
@@ -794,7 +808,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
           points={points}
           targetPoints={targetPoints}
           resultById={resultById}
-          onFocusPoint={focusPoint}
+          onFocusPoint={(cp) => focusPoint(cp, 'list')}
           // 목록의 강조는 상세 카드·지도 마커와 같은 값을 따른다 — 목록이 제 강조를 따로 들면
           // 상세를 닫아도 줄이 강조된 채 남고, 줄을 눌러 놓아도 상세가 그대로 선다
           selectedPointId={selectedId}
@@ -861,7 +875,10 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               focusNonce={focusNonce}
               homeNonce={homeNonce}
               onAddPoint={addPoint}
-              onSelect={setSelectedId}
+              onSelect={(id) => {
+                restorePanel.current = null
+                setSelectedId(id)
+              }}
               onMapReady={setMapInstance}
               onLocationError={(message) => showToast(message, 'error')}
               compassHeading={compassHeading}
