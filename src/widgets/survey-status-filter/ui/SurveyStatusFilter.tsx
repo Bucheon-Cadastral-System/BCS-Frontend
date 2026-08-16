@@ -37,6 +37,9 @@ const SELECTED_TEXT: Record<SurveyStatus, string> = {
  *
  * <p>갈래마다 개수를 적지 않는다. 조사 상세의 분포 막대와 내역이 같은 수를 이미 적고, 아무 조사도 고르지 않은
  * 동안에는 전체 기준점을 기준으로 세게 되어 어느 범위의 수인지가 흐려진다. 말풍선은 고르는 일만 맡는다.
+ *
+ * <p>좁은 화면에서는 커맨드 바가 서지 않아 아래 독 안에 선다(variant='dock'). 그때는 손가락으로 짚는
+ * 자리라 바의 24px 버튼 대신 38px 정사각을 쓰고, 독이 이미 면과 테두리를 두르고 있으므로 제 것은 두지 않는다.
  */
 export function SurveyStatusFilter(props: {
   /** 켜져 있는지 — 켜면 지도 마커에 판정이 얹힌다 */
@@ -47,12 +50,14 @@ export function SurveyStatusFilter(props: {
   onToggle: (status: SurveyStatus) => void
   onClear: () => void
   onSelectAll: () => void
+  variant?: 'bar' | 'dock'
 }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLSpanElement>(null)
   // 버튼도 이 안에 있어 버튼 클릭이 접기와 겹쳐 두 번 뒤집히지 않는다
   useDismiss({ enabled: open, onDismiss: () => setOpen(false), ref: rootRef })
   const allSelected = props.selected.size === SURVEY_STATUS_ORDER.length
+  const dock = props.variant === 'dock'
 
   return (
     <span ref={rootRef} className="relative shrink-0">
@@ -69,15 +74,21 @@ export function SurveyStatusFilter(props: {
         aria-expanded={open}
         title="기준점 상태"
         aria-label="기준점 상태"
-        className={`${MAP_BAR_BTN} ${
-          props.visible ? 'bg-teal-wash-strong font-semibold text-teal-text' : 'text-ink-2 hover:bg-hover hover:text-ink'
-        }`}
+        className={
+          dock
+            ? `flex size-[38px] shrink-0 items-center justify-center rounded-ctl transition-colors ${
+                props.visible ? 'bg-teal-wash-strong text-teal-text' : 'text-ink-3 hover:text-ink-2'
+              }`
+            : `${MAP_BAR_BTN} ${
+                props.visible ? 'bg-teal-wash-strong font-semibold text-teal-text' : 'text-ink-2 hover:bg-hover hover:text-ink'
+              }`
+        }
       >
         <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="8.5" />
           <path d="m8.5 12 2.5 2.5 4.5-5" />
         </svg>
-        <span className="max-lg:hidden">상태</span>
+        {!dock && <span className="max-lg:hidden">상태</span>}
       </button>
 
       {open && (
@@ -86,7 +97,10 @@ export function SurveyStatusFilter(props: {
           aria-label="기준점 상태 고르기"
           // 안쪽 여백을 두지 않는다 — 칸이 말풍선 변까지 닿아야 패널 안의 패널로 보이지 않는다.
           // 모서리는 첫·끝 칸이 스스로 깎는다
-          className={`absolute bottom-[calc(100%+8px)] left-1/2 flex w-[300px] -translate-x-1/2 flex-wrap ${POPOVER_FLAT}`}
+          // 독 안의 버튼은 오른쪽 변 가까이 서므로 오른쪽 변에 맞춘다 — 가운데로 열면 화면 밖으로 넘친다
+          className={`absolute bottom-[calc(100%+8px)] flex w-[300px] flex-wrap ${
+            dock ? 'right-0' : 'left-1/2 -translate-x-1/2'
+          } ${POPOVER_FLAT}`}
         >
           {SURVEY_STATUS_ORDER.map((status, index) => {
             const on = props.selected.has(status)

@@ -33,6 +33,7 @@ import { Toast } from '@/shared/ui/Toast'
 import { FileDropOverlay } from '@/shared/ui/FileDropOverlay'
 import { useFileDrop } from '@/shared/lib/useFileDrop'
 import { useNarrowScreen } from '@/shared/lib/useNarrowScreen'
+import { useLockedDocument } from '@/shared/lib/useLockedDocument'
 import { useViewportHeight } from '@/shared/lib/useViewportHeight'
 import { LIST_SHEET_RATIO, useBottomSheet } from '@/shared/lib/useBottomSheet'
 import { useCompassHeading } from '@/shared/lib/useCompassHeading'
@@ -161,6 +162,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
 
   const narrow = useNarrowScreen()
   const viewportHeight = useViewportHeight()
+  // 이 화면의 모든 자리는 화면에 붙어 서 있다 — 문서가 튕겨 밀리면 그 자리가 통째로 따라 올라간다
+  useLockedDocument(narrow)
   const tmEpsg: TmEpsg = 'EPSG:5186' // 부천 = 중부원점 고정
   const [showCadastral, setShowCadastral] = useState(true)
   // 법정동 경계는 꺼 둔 채로 시작한다 — 지적도 선 위에 또 선을 얹는 값이라 늘 켜 두면 지번 경계와 섞인다
@@ -916,6 +919,29 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               </div>
             )}
 
+            {/* 배경 밝기 — 지도에 무엇을 얹는 값이 아니라 화면 자체의 값이라 아래 독에 두지 않고 로고 아래에 작게 둔다.
+                요약 판이 서면 그만큼(38 + 8) 내려앉아 그 아래에 선다 */}
+            <button
+              type="button"
+              onClick={() => withoutTransition(() => dispatch(toggleTheme()))}
+              aria-pressed={theme === 'dark'}
+              title="배경 밝기"
+              aria-label="배경 밝기"
+              className={`absolute left-[12px] z-[30] flex size-[30px] items-center justify-center rounded-full border border-line-pill bg-pill text-ink-2 shadow-pill transition-[top] duration-200 lg:hidden ${
+                viewing === null ? 'top-[64px]' : 'top-[110px]'
+              }`}
+            >
+              {theme === 'dark' ? (
+                <svg viewBox="0 0 24 24" className="size-[15px]" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M20 13.5A8 8 0 1 1 10.5 4a6.5 6.5 0 0 0 9.5 9.5Z" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" className="size-[15px]" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+                </svg>
+              )}
+            </button>
 
             {/* 접어 둔 패널을 대신하는 칩 — 무엇을 보고 있는지 알리고, 누르면 패널이 다시 펼쳐진다.
                 패널이 칩 자리로 말려 올라오는 동안 칩은 panel-in 으로 내려앉아 접히는 흐름이 이어진다 */}
@@ -1006,8 +1032,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
             { key: 'project', label: '프로젝트', icon: <ProjectIcon />, active: viewing === 'project', onClick: () => toggleSheet('project') },
             { key: 'points', label: '기준점', icon: <PointIcon />, active: viewing === 'points', onClick: () => toggleSheet('points') },
           ]}
-          // 지도를 만지는 자리 — 커맨드 바를 세우지 못하는 좁은 화면에서 지도에 무엇을 얹을지와 따라가기만 남긴다.
-          // 축척·좌표는 읽을 자리가 없어 넓은 화면에만 두고, 배경 밝기는 기기 설정을 따르는 값이라 커맨드 바에 둔다
+          // 지도에 무엇을 얹을지 고르는 두 자리다 — 커맨드 바를 세우지 못하는 좁은 화면에서 여기로 내려온다.
+          // 축척·좌표는 읽을 자리가 없어 넓은 화면에만 두고, 따라가기는 한 번 켜 두는 값이라 독 밖에 따로 선다
           controls={(
             <>
               <MapLayerPicker
@@ -1017,28 +1043,43 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
                   { key: 'district', label: '법정동 경계', on: showDistrict, onToggle: () => setShowDistrict((v) => !v), swatch: DISTRICT_SWATCH },
                 ]}
               />
-              {/* 따라가기 — 켜 두는 동안 현재 위치가 화면 가운데에 붙는다.
-                  넓은 화면의 같은 자리는 '위치 초기화'(처음 보던 자리로)다. 손에 들고 걷는 화면에서는
-                  돌아갈 자리가 처음 자리가 아니라 지금 내가 선 자리다 */}
-              <button
-                type="button"
-                onClick={() => setFollowing((v) => !v)}
-                title="현재 위치 따라가기"
-                aria-label="현재 위치 따라가기"
-                aria-pressed={following}
-                className={`flex size-[38px] shrink-0 items-center justify-center rounded-ctl transition-colors ${
-                  following ? 'bg-teal-wash-strong text-teal-text' : 'text-ink-3 hover:text-ink-2'
-                }`}
-              >
-                <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="7.5" />
-                  <path d="M12 2v5M12 17v5M2 12h5M17 12h5" />
-                  <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
-                </svg>
-              </button>
+              <SurveyStatusFilter
+                variant="dock"
+                visible={surveyStatusVisible}
+                onShow={() => dispatch(showSurveyStatus())}
+                selected={statusFilterSet}
+                onToggle={(status) => dispatch(toggleStatusFilter(status))}
+                onClear={() => dispatch(clearStatusFilter())}
+                onSelectAll={() => dispatch(selectAllStatus())}
+              />
             </>
           )}
         />
+
+        {/* 따라가기 — 켜 두는 동안 현재 위치가 화면 가운데에 붙는다. 넓은 화면의 같은 자리는 '위치 초기화'
+            (처음 보던 자리로)다. 손에 들고 걷는 화면에서는 돌아갈 자리가 처음 자리가 아니라 지금 내가 선 자리다.
+
+            독 안에 두지 않는다. 독의 나머지는 눌러서 무언가를 여는 자리인데 이것만 켜 두는 값이고, 걸으면서
+            엄지로 자주 누르는 자리라 손이 가장 먼저 닿는 오른쪽 아래에 크게 세운다.
+            켜짐은 면을 갈아 끼우지 않고 색조를 덧칠해 알린다 — 알약 바탕을 갈면 지도가 비쳐 보인다(챗 버블과 같은 규격) */}
+        <button
+          type="button"
+          onClick={() => setFollowing((v) => !v)}
+          title="현재 위치 따라가기"
+          aria-label="현재 위치 따라가기"
+          aria-pressed={following}
+          // 독보다 한 겹 아래에 둔다 — 독에서 위로 펴는 말풍선이 이 자리를 지나가므로, 같은 겹에 두면
+          // 말풍선의 아래 모서리를 이 원이 덮는다
+          className={`fixed bottom-[calc(env(safe-area-inset-bottom,0px)+80px)] right-[12px] z-[29] flex size-[46px] items-center justify-center rounded-full border bg-pill shadow-pill transition-colors before:absolute before:inset-0 before:rounded-full before:bg-teal-wash before:transition-opacity ${
+            following ? 'border-teal-btn-edge text-teal-text before:opacity-100' : 'border-line-pill text-ink-2 before:opacity-0'
+          }`}
+        >
+          <svg viewBox="0 0 24 24" className="relative size-[19px]" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="7.5" />
+            <path d="M12 2v5M12 17v5M2 12h5M17 12h5" />
+            <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+          </svg>
+        </button>
         </div>
       </div>
       </ChatDockLayout>
