@@ -792,6 +792,10 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
           targetPoints={targetPoints}
           resultById={resultById}
           onFocusPoint={focusPoint}
+          // 목록의 강조는 상세 카드·지도 마커와 같은 값을 따른다 — 목록이 제 강조를 따로 들면
+          // 상세를 닫아도 줄이 강조된 채 남고, 줄을 눌러 놓아도 상세가 그대로 선다
+          selectedPointId={selectedId}
+          onDeselectPoint={() => setSelectedId(null)}
           onStartAddPoint={startAddPoint}
           onImportPoints={() => {
             // 위치 찍기 중에도 이 버튼이 살아 있다 — 찍기 안내·좌표 수신이 파일 창과 겹치지 않게 흐름을 접는다

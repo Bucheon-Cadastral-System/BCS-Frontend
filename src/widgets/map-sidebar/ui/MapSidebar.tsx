@@ -53,6 +53,15 @@ interface MapSidebarProps {
   /** 점 id별 조사 결과. 맵에 없으면 미조사 */
   resultById: ReadonlyMap<string, SurveyResult>
   onFocusPoint: (cp: ControlPoint) => void
+  /**
+   * 지금 고른 점 — 그 줄에 강조가 선다.
+   *
+   * <p>여기서 따로 들고 있지 않는다. 고름은 지도의 마커·상세 카드와 함께 걸리는 화면 전체의 값이라,
+   * 목록이 제 것을 하나 더 두면 상세를 닫아도 줄이 강조된 채 남거나 그 반대가 된다.
+   */
+  selectedPointId: string | null
+  /** 강조된 줄을 다시 눌렀다 — 고름을 놓는다(상세도 함께 닫힌다) */
+  onDeselectPoint: () => void
   // 서버 조회 진행 여부 — 로딩 중엔 '없습니다' 대신 자리표시를 보여준다
   projectsLoading?: boolean
   pointsLoading?: boolean
@@ -260,10 +269,6 @@ function ProjectPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHandl
   const detailData =
     active !== null ? { targetPoints: props.targetPoints, resultById: props.resultById } : heldDetail
 
-  // 대상 목록에서 조사 토글 버튼을 펼친 점 (보는 조사가 바뀌면 초기화)
-  const [expandedPointId, setExpandedPointId] = useState<string | null>(null)
-  useEffect(() => setExpandedPointId(null), [activeProjectId])
-
   function handleNew() {
     props.onCreate()
   }
@@ -384,8 +389,8 @@ function ProjectPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHandl
             recordsLoading={props.recordsLoading}
             targetsLoading={props.targetsLoading}
             pointsLoading={props.pointsLoading}
-            expandedPointId={expandedPointId}
-            onExpandPoint={setExpandedPointId}
+            selectedPointId={props.selectedPointId}
+            onDeselectPoint={props.onDeselectPoint}
             onBack={() => props.onChangeActive(null)}
             onFocusPoint={props.onFocusPoint}
             onEdit={props.onEditProject}
@@ -409,8 +414,8 @@ function ProjectDetail(props: {
   recordsLoading?: boolean
   targetsLoading?: boolean
   pointsLoading?: boolean
-  expandedPointId: string | null
-  onExpandPoint: (id: string | null) => void
+  selectedPointId: string | null
+  onDeselectPoint: () => void
   onBack: () => void
   onFocusPoint: (cp: ControlPoint) => void
   onEdit: (project: SurveyProject) => void
@@ -507,11 +512,9 @@ function ProjectDetail(props: {
         <PointRowList
           points={props.targetPoints}
           onFocus={props.onFocusPoint}
-          survey={{
-            resultById: props.resultById,
-            expandedPointId: props.expandedPointId,
-            onExpand: props.onExpandPoint,
-          }}
+          selectedId={props.selectedPointId}
+          onDeselect={props.onDeselectPoint}
+          survey={{ resultById: props.resultById }}
           loading={props.pointsLoading === true || props.targetsLoading === true}
         />
       </div>
@@ -682,6 +685,8 @@ function PointListPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHan
                 <PointRowList
                   points={pts}
                   onFocus={props.onFocusPoint}
+                  selectedId={props.selectedPointId}
+                  onDeselect={props.onDeselectPoint}
                   emptyText={query === '' ? '기준점 없음' : '검색 결과 없음'}
                   loading={props.pointsLoading}
                 />
@@ -703,23 +708,24 @@ function PointListPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHan
 function PointRowList(props: {
   points: ControlPoint[]
   onFocus: (cp: ControlPoint) => void
-  survey?: {
-    resultById: ReadonlyMap<string, SurveyResult>
-    expandedPointId: string | null
-    onExpand: (id: string | null) => void
-  }
+  /** 지금 고른 점 — 그 줄에 강조가 선다 */
+  selectedId: string | null
+  /** 강조된 줄을 다시 눌렀다 */
+  onDeselect: () => void
+  survey?: { resultById: ReadonlyMap<string, SurveyResult> }
   emptyText?: string
   /** 서버에서 목록을 받아오는 중 — 빈 목록 문구 대신 자리표시를 보여준다 */
   loading?: boolean
   /** 스크롤 영역 높이 제한(프로젝트 드로어처럼 다른 내용과 같이 놓일 때) */
   maxHeightClass?: string
 }) {
-  const { points, survey, emptyText, loading, maxHeightClass } = props
+  const { points, survey, selectedId, emptyText, loading, maxHeightClass } = props
   // 높이 제한이 없으면 남은 공간을 채운다(기준점 탭), 있으면 그만큼만 차지한다(프로젝트 드로어)
   const fills = !maxHeightClass
-  const cbRef = useRef({ onFocus: props.onFocus, survey })
+  // 줄마다 새 함수를 만들지 않으려고 콜백은 ref 로 들고, 누른 순간의 최신 값을 읽는다
+  const cbRef = useRef({ onFocus: props.onFocus, onDeselect: props.onDeselect, selectedId })
   useEffect(() => {
-    cbRef.current = { onFocus: props.onFocus, survey }
+    cbRef.current = { onFocus: props.onFocus, onDeselect: props.onDeselect, selectedId }
   })
 
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -734,7 +740,6 @@ function PointRowList(props: {
   })
 
   const resultById = survey?.resultById
-  const expandedPointId = survey?.expandedPointId ?? null
   const hasSurvey = Boolean(survey)
 
   if (points.length === 0) {
@@ -769,16 +774,12 @@ function PointRowList(props: {
               <PointRow
                 cp={cp}
                 status={hasSurvey ? status : undefined}
-                expanded={expandedPointId === cp.id}
+                selected={selectedId === cp.id}
                 onClick={() => {
                   const cur = cbRef.current
-                  if (cur.survey) {
-                    const willExpand = expandedPointId !== cp.id
-                    cur.survey.onExpand(willExpand ? cp.id : null)
-                    if (willExpand) cur.onFocus(cp)
-                  } else {
-                    cur.onFocus(cp)
-                  }
+                  // 같은 줄을 다시 누르면 놓는다 — 강조를 끄는 것과 고름을 놓는 것은 한 가지 일이다
+                  if (cur.selectedId === cp.id) cur.onDeselect()
+                  else cur.onFocus(cp)
                 }}
               />
             </li>
@@ -818,10 +819,9 @@ function PointRow(props: {
   cp: ControlPoint
   status?: SurveyStatus
   onClick: () => void
-  expanded?: boolean
+  /** 지금 고른 점의 줄 — 지도의 마커와 오른쪽 상세가 가리키는 그 점이다 */
+  selected?: boolean
 }) {
-  // 조사 화면일 때만 줄이 펼쳐진다(펼침은 지도 포커스와 강조를 위한 것이다)
-  const hasActions = props.status !== undefined
   // 바깥 <li>는 가상 스크롤 래퍼가 그린다(위치·높이 측정 대상).
   // 행 높이는 고정이고 ROW_HEIGHT 와 같은 값이어야 한다 — 어긋나면 굴리는 동안 위치가 밀린다.
   return (
@@ -829,9 +829,9 @@ function PointRow(props: {
       <button
         type="button"
         onClick={props.onClick}
-        aria-expanded={hasActions ? Boolean(props.expanded) : undefined}
+        aria-current={props.selected === true ? 'true' : undefined}
         className={`flex h-[34px] w-full items-center gap-2 px-3.5 text-left transition-colors hover:bg-hover ${
-          props.expanded ? `bg-teal-wash ${ROW_ACCENT}` : ''
+          props.selected === true ? `bg-teal-wash ${ROW_ACCENT}` : ''
         }`}
       >
         {props.status && <StatusMark status={props.status} />}
