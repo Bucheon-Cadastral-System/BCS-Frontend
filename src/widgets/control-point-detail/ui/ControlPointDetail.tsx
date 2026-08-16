@@ -3,6 +3,7 @@ import type { SheetHandle } from '@/shared/lib/useBottomSheet'
 import { TM_ORIGINS } from '@/shared/lib/crs'
 import { formatDate, formatKstDate } from '@/shared/lib/date'
 import { FIELD_AREA, ICON_BTN, ICON_BTN_DANGER, PANEL, PANEL_HEADER, PANEL_HEADER_RULE } from '@/shared/ui/classes'
+import { Skeleton } from '@/shared/ui/Skeleton'
 import { FormActions } from '@/shared/ui/FormActions'
 import type { ControlPoint } from '@/entities/control-point'
 import { PointTypeIcon, useLastSurveyQuery } from '@/entities/control-point'
@@ -142,7 +143,10 @@ function CopyButton(props: { value: string; label: string; onCopied: (ok: boolea
 export function ControlPointDetail(props: ControlPointDetailProps) {
   const p = props.point
   // 최종조사 요약은 점을 고른 뒤에만 필요해서 목록과 따로 읽는다
-  const lastSurvey = useLastSurveyQuery(p?.id ?? null).data
+  const lastSurveyQuery = useLastSurveyQuery(p?.id ?? null)
+  const lastSurvey = lastSurveyQuery.data
+  // 아직 받지 못한 값을 '정보 없음'으로 세우면 없는 것으로 읽힌다. 자리만 잡아 두고 도착하면 채운다
+  const surveyPending = lastSurveyQuery.isPending && p !== null
 
   // 골랐지만 아직 서버 응답이 돌아오지 않은 값. 머리말 칩과 고르기 칩이 함께 이 값을 따른다
   const [pending, setPending] = useState<SurveyResult | 'NONE' | null>(null)
@@ -261,7 +265,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
           {/* 회차와 무관한 최근 조사 요약. 아래 프로젝트 구역의 조사원과 달리 마지막으로 조사한 사람이다 */}
           {/* 값이 없어도 줄을 세운다. 줄이 사라지면 값이 없는 것인지 항목 자체가 없는 것인지 알 수 없다 */}
           <dt>최종조사</dt>
-          <dd>{noneOr(lastSurvey?.result)}</dd>
+          <dd>{surveyPending ? <Skeleton className="h-3 w-14" /> : noneOr(lastSurvey?.result)}</dd>
           {/* 기타는 무엇이었는지 비고가 있어야 뜻이 통한다. 다른 갈래는 결과가 곧 뜻이라 줄을 세우지 않는다 */}
           {lastSurvey?.result === SURVEY_STATUS_LABEL.etc && (
             <>
@@ -270,9 +274,15 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
             </>
           )}
           <dt>최종조사일</dt>
-          <dd>{noneOr(lastSurvey?.surveyedOn === null || lastSurvey?.surveyedOn === undefined ? null : formatDate(lastSurvey.surveyedOn))}</dd>
+          <dd>
+            {surveyPending ? (
+              <Skeleton className="h-3 w-20" />
+            ) : (
+              noneOr(lastSurvey?.surveyedOn === null || lastSurvey?.surveyedOn === undefined ? null : formatDate(lastSurvey.surveyedOn))
+            )}
+          </dd>
           <dt>최종조사원</dt>
-          <dd>{noneOr(lastSurvey?.surveyorName)}</dd>
+          <dd>{surveyPending ? <Skeleton className="h-3 w-16" /> : noneOr(lastSurvey?.surveyorName)}</dd>
         </dl>
       </div>
 

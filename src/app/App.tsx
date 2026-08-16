@@ -15,11 +15,19 @@ import { exchangeOAuthCode, refreshAccessToken, startKakaoLogin } from '@/shared
 import { subscribeAuthenticationLost } from '@/shared/api/tokenStore'
 import { BTN_SECONDARY, MODAL_SHELL } from '@/shared/ui/classes'
 import { ErrorBoundary } from '@/shared/ui/ErrorBoundary'
+import { Spinner } from '@/shared/ui/Spinner'
 
 type AuthState = { loading: boolean; profile: UserProfile | null }
 
 function LoadingPage() {
-  return <main className="app-bg grid h-full place-items-center text-[13px] font-semibold text-ink-3">로그인 상태를 확인하는 중…</main>
+  return (
+    <main className="app-bg grid h-full place-items-center">
+      <div className="flex items-center gap-2 text-[13px] font-semibold text-ink-3">
+        <Spinner className="size-4" />
+        로그인 상태를 확인하는 중
+      </div>
+    </main>
+  )
 }
 
 /** 로그인 길목에서 막혔을 때 — 이 화면들은 다른 화면과 같은 껍데기를 쓴다 */

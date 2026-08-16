@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useDialogBehavior } from '@/shared/lib/useDialogBehavior'
 import { useFileDrop } from '@/shared/lib/useFileDrop'
 import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY, MODAL_SHELL } from './classes'
+import { Spinner } from './Spinner'
 
 /**
  * 실행 전 한 번 묻는 확인 대화상자. Esc·배경클릭=취소.
@@ -64,7 +65,8 @@ export function ConfirmDialog(props: {
               className={`${danger ? BTN_SM_DANGER : BTN_SM_PRIMARY} flex-1 ${props.confirmDisabled ? 'disabled:cursor-not-allowed' : 'disabled:cursor-wait'}`}
               onClick={props.onConfirm}
             >
-              {busy ? (props.busyLabel ?? '처리 중…') : (props.confirmLabel ?? '예')}
+              {busy && <Spinner className="size-3.5" current />}
+              {busy ? (props.busyLabel ?? '처리 중') : (props.confirmLabel ?? '예')}
             </button>
           </div>
         </div>

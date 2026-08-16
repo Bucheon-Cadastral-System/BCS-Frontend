@@ -117,7 +117,7 @@ export function SurveyProjectEditModal(props: {
         <FormActions
           submitType="submit"
           submitLabel="저장"
-          busyLabel="저장 중…"
+          busyLabel="저장 중"
           busy={props.submitting}
           onCancel={props.onCancel}
           notice={<FormNotice message={form.notice} />}
@@ -143,7 +143,7 @@ export function SurveyProjectEditModal(props: {
           confirmLabel="저장"
           danger={confirming.changes.removedRecorded > 0}
           busy={props.submitting}
-          busyLabel="저장 중…"
+          busyLabel="저장 중"
           onConfirm={() => props.onSubmit(confirming.draft, confirming.targetPointIds)}
           onCancel={() => setConfirming(null)}
         />

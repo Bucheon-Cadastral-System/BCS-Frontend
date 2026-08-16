@@ -2,6 +2,7 @@ import { useId, useState, type FormEvent } from 'react'
 import { DISTRICTS, POSITIONS, TEAMS } from '@/entities/user'
 import type { District, Position, Team } from '@/entities/user'
 import { BrandLockup } from '@/shared/ui/BrandLockup'
+import { Spinner } from '@/shared/ui/Spinner'
 import { FormNotice } from '@/shared/ui/FormNotice'
 import { useFormNotice } from '@/shared/lib/useFormNotice'
 import { BTN_DANGER, BTN_PRIMARY, FIELD, FIELD_READONLY, FIELD_SELECT, MODAL_SHELL } from '@/shared/ui/classes'
@@ -181,7 +182,14 @@ export function RegistrationPage({ onCancel, onSubmit }: RegistrationPageProps) 
               disabled={submitting}
               className={`${BTN_PRIMARY} px-7 disabled:cursor-wait`}
             >
-              {submitting ? '신청 중…' : '가입 신청하기'}
+              {submitting ? (
+                <span className="flex items-center justify-center gap-1.5">
+                  <Spinner className="size-3.5" current />
+                  신청 중
+                </span>
+              ) : (
+                '가입 신청하기'
+              )}
             </button>
           </div>
         </form>

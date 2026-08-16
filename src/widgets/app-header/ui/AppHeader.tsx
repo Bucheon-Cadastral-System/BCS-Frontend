@@ -6,6 +6,7 @@ import { useDismiss } from '@/shared/lib/useDismiss'
 import { useTabSlide } from '@/shared/lib/useTabSlide'
 import { useElementWidth } from '@/shared/lib/useElementWidth'
 import { BrandMark } from '@/shared/ui/BrandMark'
+import { Skeleton } from '@/shared/ui/Skeleton'
 import { PILL, POPOVER } from '@/shared/ui/classes'
 
 /** 헤더 탭 한 칸 — 화면이 무엇을 세울지 정한다(지도의 패널 전환, 관리자 화면의 자리 전환) */
@@ -163,21 +164,22 @@ export function AppHeader(props: {
             // 판이 오른쪽에 남긴 9px 까지 더해 손가락이 닿는 자리를 넓힌다
             className={`flex h-11 items-center gap-2 py-0 pl-[7px] pr-2 transition-colors hover:border-line-field max-lg:size-[34px] max-lg:shrink-0 max-lg:justify-center max-lg:border-0 max-lg:bg-transparent max-lg:px-0 max-lg:shadow-none ${PILL}`}
           >
-            {user ? (
-              <UserAvatar name={user.name} className="size-[30px] text-[11.5px]" />
-            ) : (
-              <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-soft text-[11.5px] text-ink-3" aria-hidden="true">
-                ·
-              </span>
-            )}
+            {user ? <UserAvatar name={user.name} className="size-[30px] text-[11.5px]" /> : <Skeleton className="size-[30px] shrink-0 rounded-full" />}
             {/* 브랜드 알약과 같은 규칙 — 윗줄은 크고 굵게, 아랫줄은 작고 흐리게.
                 폭은 고정한다. 이름·소속 길이를 따라 알약이 늘고 줄면 그 폭을 쓰는 대화 패널까지 흔들리고,
                 프로필을 받아오는 순간에도 자리가 튄다. 94px 는 가장 긴 소속(부동산관리팀 주무관 90.9px)이 들어가는 값. */}
             <span className="w-[94px] shrink-0 text-left leading-[1.15] max-lg:hidden">
-              <span className="block truncate text-[14px] font-bold tracking-[-.02em] text-ink">{user?.name ?? '사용자'}</span>
-              <span className="block truncate text-[11px] text-ink-3">
-                {user ? `${user.team} ${user.position}` : '정보를 불러오는 중…'}
-              </span>
+              {user ? (
+                <>
+                  <span className="block truncate text-[14px] font-bold tracking-[-.02em] text-ink">{user.name}</span>
+                  <span className="block truncate text-[11px] text-ink-3">{`${user.team} ${user.position}`}</span>
+                </>
+              ) : (
+                <span className="flex flex-col gap-1 py-[3px]">
+                  <Skeleton className="h-3 w-12" />
+                  <Skeleton className="h-2.5 w-[74px]" />
+                </span>
+              )}
             </span>
             <svg viewBox="0 0 24 24" className="size-[13px] shrink-0 text-ink-4 max-lg:hidden" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="m6 9 6 6 6-6" />

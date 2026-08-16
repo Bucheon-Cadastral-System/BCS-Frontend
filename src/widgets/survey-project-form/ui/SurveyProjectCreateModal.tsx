@@ -68,7 +68,7 @@ export function SurveyProjectCreateModal(props: {
         <FormActions
           submitType="submit"
           submitLabel={selected.size > 0 ? `대상 ${selected.size}점으로 등록` : '등록'}
-          busyLabel="등록 중…"
+          busyLabel="등록 중"
           busy={props.submitting}
           onCancel={props.onCancel}
           notice={<FormNotice message={form.notice} />}

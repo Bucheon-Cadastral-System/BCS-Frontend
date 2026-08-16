@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY } from './classes'
+import { Spinner } from './Spinner'
 
 /**
  * 입력을 확정하거나 버리는 두 버튼 한 줄.
@@ -53,7 +54,14 @@ export function FormActions(props: {
       disabled={busy || props.submitDisabled === true}
       className={`${BTN_SM_PRIMARY} ${props.fill === true ? 'flex-1' : ''} ${props.submitDisabled === true ? 'disabled:cursor-not-allowed' : 'disabled:cursor-wait'}`}
     >
-      {busy ? (props.busyLabel ?? `${props.submitLabel} 중…`) : props.submitLabel}
+      {busy ? (
+        <span className="flex items-center gap-1.5">
+          <Spinner className="size-3.5" current />
+          {props.busyLabel ?? `${props.submitLabel} 중`}
+        </span>
+      ) : (
+        props.submitLabel
+      )}
     </button>
   )
 

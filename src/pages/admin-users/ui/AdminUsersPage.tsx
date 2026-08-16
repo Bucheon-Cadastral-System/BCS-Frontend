@@ -14,6 +14,8 @@ import type { AdminActivity, AdminActivityType, AdminMemberAction, AdminMemberSo
 import { UserAvatar } from '@/entities/user'
 import { ActivityIcon, AppHeader, UsersIcon } from '@/widgets/app-header'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
+import { SkeletonRows } from '@/shared/ui/Skeleton'
+import { Spinner } from '@/shared/ui/Spinner'
 import { Toast } from '@/shared/ui/Toast'
 import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY, FIELD, FIELD_SELECT, FIELD_SM, FIELD_SM_SELECT, ICON_BTN_DANGER, ROW_ACCENT } from '@/shared/ui/classes'
 
@@ -143,6 +145,16 @@ function normalizeMemberDraft(member: ManagedUser): ManagedUser {
 function errorMessageOf(error: unknown, fallback: string): string {
   if (!error) return ''
   return error instanceof Error ? error.message : fallback
+}
+
+/** 버튼 안에서 도는 표시 — 글자 자리를 지키며 앞에 스피너를 세운다 */
+function BusyLabel({ label }: { label: string }) {
+  return (
+    <span className="flex items-center justify-center gap-1.5">
+      <Spinner className="size-3.5" current />
+      {label}
+    </span>
+  )
 }
 
 export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
@@ -432,7 +444,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                   })}
                 </div>
 
-                {membersQuery.isPending && <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-3">사용자 정보를 불러오는 중…</p>}
+                {membersQuery.isPending && <SkeletonRows rows={8} className="px-[14px] py-2" />}
                 {!membersQuery.isPending && users.length === 0 && (
                   <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-3">조건에 맞는 사용자 없음</p>
                 )}
@@ -549,7 +561,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                           취소
                         </button>
                         <button type="button" disabled={updateMemberMutation.isPending} className={BTN_SM_PRIMARY} onClick={saveEditing}>
-                          {updateMemberMutation.isPending ? '저장 중…' : '변경사항 저장'}
+                          {updateMemberMutation.isPending ? <BusyLabel label="저장 중" /> : '변경사항 저장'}
                         </button>
                       </>
                     ) : (
@@ -643,9 +655,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
               })}
             </div>
 
-            {activitiesQuery.isFetching && activities.length === 0 && (
-              <p className="px-[22px] py-10 text-center text-[12.5px] text-ink-3">관리자 활동 로그를 불러오는 중…</p>
-            )}
+            {activitiesQuery.isFetching && activities.length === 0 && <SkeletonRows rows={6} className="px-[14px] py-2" />}
             {!activitiesQuery.isFetching && activitiesErrorMessage && activities.length === 0 && (
               <div className="px-[22px] py-10 text-center">
                 <p className="text-[12.5px] text-danger">{activitiesErrorMessage}</p>
@@ -680,7 +690,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                   className={`${BTN_SM_SECONDARY} mt-2.5`}
                   onClick={() => void activitiesQuery.refetch()}
                 >
-                  {activitiesQuery.isFetching ? '불러오는 중…' : '다시 시도'}
+                  {activitiesQuery.isFetching ? <BusyLabel label="불러오는 중" /> : '다시 시도'}
                 </button>
               </div>
             )}
@@ -692,7 +702,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                   className={`${BTN_SM_SECONDARY} h-10 w-full`}
                   onClick={() => setActivityCursor(activitiesQuery.data?.nextCursor ?? undefined)}
                 >
-                  {activitiesQuery.isFetching ? '불러오는 중…' : '활동 더 보기'}
+                  {activitiesQuery.isFetching ? <BusyLabel label="불러오는 중" /> : '활동 더 보기'}
                 </button>
               </div>
             )}
@@ -707,7 +717,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
           cancelLabel="취소"
           danger={pendingChange.action === 'deactivate' || pendingChange.action === 'reject'}
           busy={changeMemberMutation.isPending}
-          busyLabel="처리 중…"
+          busyLabel="처리 중"
           onConfirm={applyStatusChange}
           onCancel={closePendingChange}
         />
