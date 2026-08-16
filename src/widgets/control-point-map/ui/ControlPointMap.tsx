@@ -170,14 +170,6 @@ function travel(map: Map, center: [number, number], zoom: number) {
   view.animate({ center, zoom, duration: 450 })
 }
 
-function faceUp(map: Map | null, headingDeg: number, animate: boolean) {
-  const view = map?.getView()
-  if (view === undefined) return
-  const target = rotationFor(headingDeg, view.getRotation())
-  if (animate) view.animate({ rotation: target, duration: 320 })
-  else view.setRotation(target)
-}
-
 interface ControlPointMapProps {
   /** 전체 기준점 — 소스는 이 목록을 한 번만 들고, 갱신 때는 바뀐 점만 손본다 */
   points: ControlPoint[]
@@ -278,6 +270,25 @@ export function ControlPointMap(props: ControlPointMapProps) {
    * 겹쳐 출렁이고, 반대로 처음까지 그냥 놓으면 켜는 순간 화면이 툭 튄다.
    */
   const facedUpRef = useRef(false)
+  /**
+   * 아직 한 번도 맞추지 못한 방향 맞추기가 남아 있다.
+   *
+   * <p>따라가기를 켜면 두 박자로 움직인다 — 먼저 내 자리로 옮기고, 앉은 뒤에 방향을 맞춘다. 자리와 방향이
+   * 한꺼번에 움직이면 화면이 어디로 갔는지 읽히기 전에 이미 돌아 있어, 켠 사람에게는 '방향부터 돈다'로 보인다.
+   *
+   * <p>켤 때 자리도 방향도 모를 수 있어 이 빚은 여러 자리에서 갚는다 — 옮기기가 끝날 때, 첫 측위가 올 때,
+   * 나침반의 첫 값이 올 때. 갚은 쪽이 이 표시를 내린다.
+   */
+  const pendingFaceUpRef = useRef(false)
+  /**
+   * 자리로 옮겨 가는 중이다.
+   *
+   * <p>그동안에는 나침반이 새 값을 줘도 돌리지 않는다. 옮기는 중에 끼어들면 자리 애니메이션과 회전이 겹쳐
+   * 서로의 값을 덮어쓰고(OL 은 애니메이션 갈래마다 제 값을 매 프레임 적어 넣는다), 무엇보다 두 박자가 무너진다.
+   */
+  const movingRef = useRef(false)
+  /** 방향 맞추기 애니메이션이 도는 중 — 측위가 끼어들어 끊기면 남은 각을 그 자리에서 맺으려고 본다 */
+  const aligningRef = useRef(false)
   // 렌더 중 ref 대입은 순수하지 않음(버려지는 렌더가 미커밋 값을 남길 수 있음) → 커밋 후 effect에서 동기화.
   // OL 콜백/스타일은 커밋 뒤(비동기 상호작용·재렌더)에만 refs를 읽으므로, 이 effect를 먼저 선언해 항상 최신값을 보게 함.
   useEffect(() => {
@@ -299,52 +310,73 @@ export function ControlPointMap(props: ControlPointMapProps) {
   })
 
   /**
+   * 미뤄 둔 방향 맞추기를 지금 한다 — 자리에 앉은 자리에서만 부른다.
+   *
+   * <p>방향을 아직 못 읽었으면 표시(pendingFaceUpRef)를 그대로 둔 채 물러난다. 나침반의 첫 값이 도착하는
+   * 쪽이든 옮기기가 끝나는 쪽이든, 둘 다 갖춰지는 순간에 다시 불린다.
+   */
+  function alignUp(smooth: boolean) {
+    const heading = compassRef.current
+    if (heading === undefined) return
+    pendingFaceUpRef.current = false
+    facedUpRef.current = true
+    const view = mapRef.current?.getView()
+    if (view === undefined) return
+    if (!smooth) {
+      view.setRotation(rotationFor(heading, view.getRotation()))
+      return
+    }
+    aligningRef.current = true
+    // 끝나든 끊기든 표시는 내린다 — 끊긴 자리는 끊은 쪽(측위)이 그 자리에서 맺는다
+    view.animate({ rotation: rotationFor(heading, view.getRotation()), duration: 320 }, () => {
+      aligningRef.current = false
+    })
+  }
+
+  /**
    * 바라보는 쪽을 화면 위로 세운다.
    *
-   * <p>따라가기와 함께 켜졌으면 여기서는 돌리지 않는다 — 아래 따라가기가 가운데 맞추기와 한 번에 돌린다.
-   * OL 의 애니메이션은 여러 갈래가 나란히 돌면서 매 프레임 자기 값을 적어 넣는다. 자리만 옮기는 애니메이션도
-   * 걸 때의 회전값을 함께 물고 가므로, 회전을 따로 걸면 그 값에 덮여 돌다 만 채 되돌아간다.
+   * <p>따라가기와 함께 켜졌으면 여기서는 돌리지 않는다 — 아래 따라가기가 자리부터 옮긴 뒤에 돌린다.
    *
-   * <p>이 효과는 따라가기 효과보다 먼저 선다 — 방향을 먼저 맞춰 두어야 뒤이어 걸리는 자리 애니메이션이
-   * 맞춰진 방향을 그대로 물고 간다.
-   *
-   * <p>자리를 아직 잡지 못했으면 돌리지 않는다. 내가 어디에 선 줄도 모르는 화면이 방향부터 홱 도는 것은
-   * 따라가기를 켠 사람이 기다리는 그림이 아니다 — 자리와 방향은 함께 맞아야 한다.
-   * 첫 자리가 도착하면 아래 측위 처리(mark)가 그때 한 번 부드럽게 맞춘다.
+   * <p>이 효과는 따라가기 효과보다 먼저 선다 — headingUpRef 를 세워 두어야 뒤이어 서는 따라가기가
+   * 방향 맞추기를 함께 예약한다.
    */
   const headingUp = props.headingUp === true
   useEffect(() => {
     headingUpRef.current = headingUp
     if (!headingUp) {
       facedUpRef.current = false
+      pendingFaceUpRef.current = false
+      movingRef.current = false
       return
     }
-    if (props.followLocation === true || compassRef.current === undefined || lastPositionRef.current === null) return
-    facedUpRef.current = true
-    faceUp(mapRef.current, compassRef.current, true)
+    if (props.followLocation === true || lastPositionRef.current === null) return
+    alignUp(true)
   }, [headingUp, props.followLocation])
 
   /**
    * 따라가기 — 켜 두는 동안 현재 위치가 늘 화면 가운데에 온다.
    *
-   * <p>켠 순간에는 이미 받아 둔 자리로 부드럽게 옮기고(방향 맞추기가 켜져 있으면 그 방향까지 한 번에),
-   * 그 뒤로는 자리가 올 때마다 가운데를 그 값으로 놓는다. 매번 애니메이션을 걸면 걸음마다 남은 애니메이션과
-   * 새 애니메이션이 겹쳐 화면이 출렁인다.
+   * <p>켠 순간에는 이미 받아 둔 자리로 부드럽게 옮기고, **다 옮긴 뒤에** 방향을 맞춘다(두 박자).
+   * 한 번에 돌리면 화면이 어디로 옮겨 갔는지 읽히기 전에 이미 돌아 있어, 켠 사람 눈에는 방향부터 도는 것으로 보인다.
+   * 그 뒤로는 자리가 올 때마다 가운데를 그 값으로 놓는다 — 매번 애니메이션을 걸면 걸음마다 남은 것과 새것이 겹쳐 출렁인다.
+   *
+   * <p>아직 자리를 모르면 예약만 걸어 둔다. 첫 측위가 도착하는 쪽(mark)이 자리를 놓고 나서 이어 돌린다.
    */
   const following = props.followLocation === true
   useEffect(() => {
     followRef.current = following
     if (!following) return
+    if (headingUpRef.current) pendingFaceUpRef.current = true
     const map = mapRef.current
     const position = lastPositionRef.current
     if (map === null || position === null) return
-    const view = map.getView()
-    const heading = headingUpRef.current ? compassRef.current : undefined
-    if (heading !== undefined) facedUpRef.current = true
-    view.animate({
-      center: position,
-      ...(heading === undefined ? {} : { rotation: rotationFor(heading, view.getRotation()) }),
-      duration: 320,
+    movingRef.current = true
+    map.getView().animate({ center: position, duration: 320 }, (done) => {
+      movingRef.current = false
+      // 끊겼으면(측위가 가운데를 다시 놓았다) 그쪽이 이어받는다 — 빚은 그대로 남겨 둔다.
+      // 다 앉았는데 방향을 아직 못 읽었으면 alignUp 이 그냥 물러나고, 나침반의 첫 값이 그 빚을 갚는다
+      if (done && pendingFaceUpRef.current && headingUpRef.current) alignUp(true)
     })
   }, [following])
 
@@ -352,11 +384,16 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const compassHeading = props.compassHeading ?? undefined
   useEffect(() => {
     compassRef.current = compassHeading
-    // 자리를 잡은 뒤에만 돌린다 — 아직 모르는 자리 위에서 방향만 도는 화면은 방향을 알리지 못한다
-    if (compassHeading !== undefined && headingUpRef.current && lastPositionRef.current !== null) {
-      const smooth = !facedUpRef.current
-      facedUpRef.current = true
-      faceUp(mapRef.current, compassHeading, smooth)
+    // 자리를 잡은 뒤에만, 그리고 자리로 옮기는 중이 아닐 때만 돌린다 — 아직 모르는 자리 위에서 방향만 도는
+    // 화면은 방향을 알리지 못하고, 옮기는 중에 끼어들면 자리 애니메이션과 회전이 서로의 값을 덮어쓴다.
+    // 옮기는 중이라면 그쪽이 다 앉은 뒤에 이 값(compassRef)으로 돌린다
+    if (
+      compassHeading !== undefined
+      && headingUpRef.current
+      && !movingRef.current
+      && lastPositionRef.current !== null
+    ) {
+      alignUp(!facedUpRef.current)
     }
     const feature = locationFeatureRef.current
     if (feature === null || feature.getGeometry() === undefined) return
@@ -822,16 +859,15 @@ export function ControlPointMap(props: ControlPointMapProps) {
       const position = fromLonLat([coords.longitude, coords.latitude]) as [number, number]
       feature.setGeometry(new Point(position))
       lastPositionRef.current = position
-      const view = followRef.current ? mapRef.current?.getView() : undefined
+      // 방향을 맞추는 0.3초 동안 오는 측위는 가운데를 건드리지 않는다 — 가운데를 놓는 순간 돌던 회전이
+      // 끊겨(OL 은 setCenter 에서 애니메이션을 취소한다) 어중간한 각도에 멈춘다. 그 사이 달라지는 자리는
+      // 걸어야 한두 걸음이고, 뒤이어 오는 측위가 곧 놓는다
+      const view = followRef.current && !aligningRef.current ? mapRef.current?.getView() : undefined
       if (view !== undefined) {
-        // 자리를 몰라 미뤄 두었던 방향 맞추기가 있으면 여기서 함께 맞춘다.
-        // 부드럽게 돌리지 않는다 — 측위는 처음 한 번도 여러 건이 잇달아 오고, 뒤따라오는 건이 가운데를
-        // 다시 놓으면서 돌던 애니메이션을 끊는다. 첫 자리는 가운데도 그냥 놓으므로 방향도 같이 놓는다
-        if (headingUpRef.current && !facedUpRef.current && compassRef.current !== undefined) {
-          facedUpRef.current = true
-          faceUp(mapRef.current, compassRef.current, false)
-        }
         view.setCenter(position)
+        // 자리에 앉았다 — 미뤄 둔 방향 맞추기가 있으면 이제 돈다. 자리가 먼저, 방향이 나중이다.
+        // (이 setCenter 가 켤 때의 옮기기를 끊었어도 마찬가지다. 끊겼다는 것은 이미 자리에 왔다는 뜻이다)
+        if (pendingFaceUpRef.current && headingUpRef.current) alignUp(true)
       }
       const heading = coords.heading
       const moving = heading !== null && Number.isFinite(heading) ? heading : undefined
