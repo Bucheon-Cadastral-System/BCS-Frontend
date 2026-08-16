@@ -119,6 +119,26 @@ function makeBaseSource(theme: MapTheme): XYZ {
 }
 
 /**
+ * 방향 맞추기가 목표 각도를 따라잡는 데 걸리는 시간 상수(ms).
+ *
+ * <p>센서 값을 받을 때마다 그 각도로 딱 놓으면, 화면은 값이 온 그 순간에만 움직이고 그 사이에는 멈춰 있다.
+ * 나침반은 띄엄띄엄 오는데(떨림을 걸러 내느라 더 그렇다) 화면은 매 프레임 그려지니, 눈에는 툭툭 끊기는 회전이 된다.
+ *
+ * <p>그래서 값이 오면 목표만 갈아 끼우고, 화면은 매 프레임 그 목표 쪽으로 남은 각의 일부씩 좁힌다.
+ * 좁히는 양을 지난 프레임과의 시간차로 재기 때문에 프레임이 밀려도 뒤처지지 않는다 — 따라붙지 못하고
+ * 남는 각(정상 상태의 지연)은 대략 '도는 속도 × 이 시간'이다. 90ms 면 초당 30° 로 도는 손짓에서 3° 가 채 안 된다.
+ */
+const GLIDE_MS = 90
+
+/**
+ * 이보다 작은 어긋남은 맞춘 것으로 친다(라디안, 약 0.17°).
+ *
+ * <p>지자기 센서는 가만히 든 손에서도 1° 안팎을 떤다. 그 떨림까지 좇으면 서 있기만 해도 지도가 쉬지 않고
+ * 다시 그려진다 — 배터리도 프레임도 거기서 샌다.
+ */
+const GLIDE_DONE = 0.003
+
+/**
  * 도식은 WebGL 로 그린다 — 캔버스 벡터는 팬·줌 중 재실행(수천 drawImage×실행기 오버헤드)이 구조적 비용이라
  * 점이 떠 있는 동안 프레임을 상시 깎는다. WebGL 을 못 여는 환경(구형·가상 데스크톱)만 캔버스 경로로 그린다.
  */
@@ -287,8 +307,9 @@ export function ControlPointMap(props: ControlPointMapProps) {
    * 서로의 값을 덮어쓰고(OL 은 애니메이션 갈래마다 제 값을 매 프레임 적어 넣는다), 무엇보다 두 박자가 무너진다.
    */
   const movingRef = useRef(false)
-  /** 방향 맞추기 애니메이션이 도는 중 — 측위가 끼어들어 끊기면 남은 각을 그 자리에서 맺으려고 본다 */
-  const aligningRef = useRef(false)
+  /** 따라가는 중인 목표 각도(라디안)와 그 프레임 걸이 — 나침반이 새 값을 주면 목표만 갈아 끼운다 */
+  const targetRotationRef = useRef(0)
+  const glideRef = useRef<number | undefined>(undefined)
   // 렌더 중 ref 대입은 순수하지 않음(버려지는 렌더가 미커밋 값을 남길 수 있음) → 커밋 후 effect에서 동기화.
   // OL 콜백/스타일은 커밋 뒤(비동기 상호작용·재렌더)에만 refs를 읽으므로, 이 effect를 먼저 선언해 항상 최신값을 보게 함.
   useEffect(() => {
@@ -309,29 +330,57 @@ export function ControlPointMap(props: ControlPointMapProps) {
     onFollowEndRef.current = props.onFollowEnd
   })
 
+  /** 따라붙기를 멈춘다 — 지금 각도에 그대로 선다 */
+  function stopGlide() {
+    if (glideRef.current === undefined) return
+    cancelAnimationFrame(glideRef.current)
+    glideRef.current = undefined
+  }
+
   /**
-   * 미뤄 둔 방향 맞추기를 지금 한다 — 자리에 앉은 자리에서만 부른다.
+   * 바라보는 쪽으로 지도를 돌린다 — 목표를 놓고 매 프레임 그쪽으로 좁혀 간다.
    *
    * <p>방향을 아직 못 읽었으면 표시(pendingFaceUpRef)를 그대로 둔 채 물러난다. 나침반의 첫 값이 도착하는
    * 쪽이든 옮기기가 끝나는 쪽이든, 둘 다 갖춰지는 순간에 다시 불린다.
+   *
+   * <p>OL 의 애니메이션(view.animate)을 쓰지 않는다. 그것은 가운데를 놓기만 해도(setCenter) 취소되어서,
+   * 따라가기가 걸음마다 자리를 놓는 이 화면에서는 돌다 만 각도에 자꾸 멈춘다. 프레임마다 직접 놓으면
+   * 자리와 방향이 서로를 끊지 않는다.
    */
-  function alignUp(smooth: boolean) {
+  function alignUp() {
     const heading = compassRef.current
     if (heading === undefined) return
-    pendingFaceUpRef.current = false
-    facedUpRef.current = true
     const view = mapRef.current?.getView()
     if (view === undefined) return
-    if (!smooth) {
-      view.setRotation(rotationFor(heading, view.getRotation()))
-      return
+    pendingFaceUpRef.current = false
+    facedUpRef.current = true
+    targetRotationRef.current = rotationFor(heading, view.getRotation())
+    if (glideRef.current !== undefined) return // 이미 따라붙는 중이다 — 목표만 갈아 끼웠다
+    let last: number | undefined
+    const step = (now: number) => {
+      const current = mapRef.current?.getView()
+      if (current === undefined) {
+        glideRef.current = undefined
+        return
+      }
+      // 지난 프레임과의 시간차로 좁힌다 — 프레임이 밀린 만큼 더 크게 좁혀야 뒤처지지 않는다.
+      // 첫 프레임은 시간차를 알 수 없어 한 프레임(16ms)으로 친다
+      const elapsed = last === undefined ? 16 : Math.min(now - last, 200)
+      last = now
+      const gap = targetRotationRef.current - current.getRotation()
+      if (Math.abs(gap) < GLIDE_DONE) {
+        current.setRotation(targetRotationRef.current)
+        glideRef.current = undefined
+        return
+      }
+      current.setRotation(current.getRotation() + gap * (1 - Math.exp(-elapsed / GLIDE_MS)))
+      glideRef.current = requestAnimationFrame(step)
     }
-    aligningRef.current = true
-    // 끝나든 끊기든 표시는 내린다 — 끊긴 자리는 끊은 쪽(측위)이 그 자리에서 맺는다
-    view.animate({ rotation: rotationFor(heading, view.getRotation()), duration: 320 }, () => {
-      aligningRef.current = false
-    })
+    glideRef.current = requestAnimationFrame(step)
   }
+
+  // 화면을 떠날 때 걸어 둔 프레임을 거둔다
+  useEffect(() => stopGlide, [])
 
   /**
    * 바라보는 쪽을 화면 위로 세운다.
@@ -348,10 +397,12 @@ export function ControlPointMap(props: ControlPointMapProps) {
       facedUpRef.current = false
       pendingFaceUpRef.current = false
       movingRef.current = false
+      // 끄면 돌던 것을 그 자리에 세운다 — 마지막 목표까지 마저 돌고 멈추면 끈 뒤에 도는 화면이 된다
+      stopGlide()
       return
     }
     if (props.followLocation === true || lastPositionRef.current === null) return
-    alignUp(true)
+    alignUp()
   }, [headingUp, props.followLocation])
 
   /**
@@ -372,11 +423,13 @@ export function ControlPointMap(props: ControlPointMapProps) {
     const position = lastPositionRef.current
     if (map === null || position === null) return
     movingRef.current = true
+    // 옮기는 동안에는 돌리지 않는다 — 프레임마다 각도를 놓는 따라붙기가 자리 애니메이션을 취소한다
+    stopGlide()
     map.getView().animate({ center: position, duration: 320 }, (done) => {
       movingRef.current = false
       // 끊겼으면(측위가 가운데를 다시 놓았다) 그쪽이 이어받는다 — 빚은 그대로 남겨 둔다.
       // 다 앉았는데 방향을 아직 못 읽었으면 alignUp 이 그냥 물러나고, 나침반의 첫 값이 그 빚을 갚는다
-      if (done && pendingFaceUpRef.current && headingUpRef.current) alignUp(true)
+      if (done && pendingFaceUpRef.current && headingUpRef.current) alignUp()
     })
   }, [following])
 
@@ -393,7 +446,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
       && !movingRef.current
       && lastPositionRef.current !== null
     ) {
-      alignUp(!facedUpRef.current)
+      alignUp()
     }
     const feature = locationFeatureRef.current
     if (feature === null || feature.getGeometry() === undefined) return
@@ -859,15 +912,12 @@ export function ControlPointMap(props: ControlPointMapProps) {
       const position = fromLonLat([coords.longitude, coords.latitude]) as [number, number]
       feature.setGeometry(new Point(position))
       lastPositionRef.current = position
-      // 방향을 맞추는 0.3초 동안 오는 측위는 가운데를 건드리지 않는다 — 가운데를 놓는 순간 돌던 회전이
-      // 끊겨(OL 은 setCenter 에서 애니메이션을 취소한다) 어중간한 각도에 멈춘다. 그 사이 달라지는 자리는
-      // 걸어야 한두 걸음이고, 뒤이어 오는 측위가 곧 놓는다
-      const view = followRef.current && !aligningRef.current ? mapRef.current?.getView() : undefined
+      const view = followRef.current ? mapRef.current?.getView() : undefined
       if (view !== undefined) {
         view.setCenter(position)
         // 자리에 앉았다 — 미뤄 둔 방향 맞추기가 있으면 이제 돈다. 자리가 먼저, 방향이 나중이다.
         // (이 setCenter 가 켤 때의 옮기기를 끊었어도 마찬가지다. 끊겼다는 것은 이미 자리에 왔다는 뜻이다)
-        if (pendingFaceUpRef.current && headingUpRef.current) alignUp(true)
+        if (pendingFaceUpRef.current && headingUpRef.current) alignUp()
       }
       const heading = coords.heading
       const moving = heading !== null && Number.isFinite(heading) ? heading : undefined
