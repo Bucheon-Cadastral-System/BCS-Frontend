@@ -21,7 +21,7 @@ import { POINT_TYPES, fetchControlPointUsage, useControlPointsQuery, useDeleteCo
 import type { ControlPoint } from '@/entities/control-point'
 import { selectActiveProjectId, setActiveProject, useCreateSurveyProjectMutation, useDeleteSurveyProjectMutation, useSurveyProjectsQuery, useSurveyTargetsQuery, useUpdateSurveyProjectMutation } from '@/entities/survey-project'
 import type { SurveyProject, SurveyProjectDraft } from '@/entities/survey-project'
-import { clearStatusFilter, deriveSurveyStatus, selectAllStatus, selectStatusFilter, showSurveyStatus, toggleStatusFilter, useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
+import { clearStatusFilter, deriveSurveyStatus, selectAllStatus, selectStatusFilter, toggleStatusFilter, useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
 import type { SurveyResult } from '@/entities/survey-record'
 import { useImportControlPoints, useImportSurveyCsv } from '@/features/import-file'
 import { ControlPointFileModal, ControlPointFormModal } from '@/widgets/add-control-point'
@@ -747,7 +747,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
 
   return (
-    <div className={`contents ${theme === 'dark' ? 'dark' : 'theme-light'}`}>
+    <div className="contents">
     {/* 화면 어디에 파일을 떨어뜨려도 그 파일이 붙은 채로 조사 추가가 열린다 */}
     {/* min-w-app-min: 넓은 화면의 배치는 이보다 좁아지면 패널끼리 겹치므로 더 줄이지 않고 잘라 낸다(가로로 밀어서 본다).
         좁은 화면은 배치가 아예 달라 그 최소 폭을 풀어야 한다 — 남겨 두면 390px 화면에 1240px 짜리 화면이 담겨
@@ -899,7 +899,6 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
                     surveyStatus={
                       <SurveyStatusFilter
                         visible={surveyStatusVisible}
-                        onShow={() => dispatch(showSurveyStatus())}
                         selected={statusFilterSet}
                         onToggle={(status) => dispatch(toggleStatusFilter(status))}
                         onClear={() => dispatch(clearStatusFilter())}
@@ -1066,7 +1065,6 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               <SurveyStatusFilter
                 variant="dock"
                 visible={surveyStatusVisible}
-                onShow={() => dispatch(showSurveyStatus())}
                 selected={statusFilterSet}
                 onToggle={(status) => dispatch(toggleStatusFilter(status))}
                 onClear={() => dispatch(clearStatusFilter())}

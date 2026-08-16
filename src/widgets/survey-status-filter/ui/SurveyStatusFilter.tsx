@@ -26,10 +26,9 @@ const SELECTED_TEXT: Record<SurveyStatus, string> = {
  * <p>패널 안에 두지 않는다. 켠 값은 지도와 두 패널에 함께 걸리는 화면 전역의 값이라, 패널마다 세우면
  * 어느 패널을 여느냐에 따라 조작할 수 있고 없고가 갈린다.
  *
- * <p>버튼은 꺼져 있을 때 한 번, 켜져 있을 때 또 한 번이 서로 다른 일을 한다. 꺼져 있으면 표시를 켜면서
- * 말풍선을 함께 열고, 켜져 있으면 말풍선만 접거나 편다. 접는 것과 끄는 것은 다른 일이다. 색을 입힌 지도를
- * 넓게 보려고 접는 일이 잦은데, 접을 때마다 색까지 걷히면 매번 다시 켜야 한다.
- * 바깥을 눌렀을 때와 Esc 를 눌렀을 때도 같은 뜻으로 접기만 한다.
+ * <p>버튼은 말풍선을 접었다 폈다 할 뿐, 고른 갈래에는 손대지 않는다. 여는 손짓이 값까지 바꾸면
+ * 전체를 해제해 둔 사람이 열어 볼 때마다 다섯 갈래가 도로 켜진다. 무엇을 볼지는 말풍선 안에서만 정한다.
+ * 바깥을 눌렀을 때와 Esc 를 눌렀을 때도 접기만 한다.
  *
  * <p>표시를 내리는 자리는 말풍선 아래의 전체 해제다. 고를 것이 하나도 없는 채로 색만 켜져 있는 화면을
  * 두지 않으므로, 갈래를 모두 놓는 일과 표시를 내리는 일이 같은 뜻이 된다. 마지막 하나를 마저 끌 때도 함께 내려간다.
@@ -42,10 +41,8 @@ const SELECTED_TEXT: Record<SurveyStatus, string> = {
  * 자리라 바의 24px 버튼 대신 38px 정사각을 쓰고, 독이 이미 면과 테두리를 두르고 있으므로 제 것은 두지 않는다.
  */
 export function SurveyStatusFilter(props: {
-  /** 켜져 있는지 — 켜면 지도 마커에 판정이 얹힌다 */
+  /** 켜져 있는지 — 고른 갈래가 하나라도 있으면 지도 마커에 판정이 얹힌다 */
   visible: boolean
-  /** 표시를 켠다(이미 켜져 있으면 아무 일도 하지 않는다) — 끄기는 onClear 가 맡는다 */
-  onShow: () => void
   selected: ReadonlySet<SurveyStatus>
   onToggle: (status: SurveyStatus) => void
   onClear: () => void
@@ -63,13 +60,7 @@ export function SurveyStatusFilter(props: {
     <span ref={rootRef} className="relative shrink-0">
       <button
         type="button"
-        onClick={() => {
-          if (props.visible) setOpen((v) => !v)
-          else {
-            props.onShow()
-            setOpen(true)
-          }
-        }}
+        onClick={() => setOpen((v) => !v)}
         aria-pressed={props.visible}
         aria-expanded={open}
         title="기준점 상태"

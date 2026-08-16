@@ -18,19 +18,6 @@ const statusFilterSlice = createSlice({
   name: 'statusFilter',
   initialState: [] as SurveyStatus[],
   reducers: {
-    /**
-     * 표시를 켠다 — 비어 있으면 다섯 갈래를 모두 채운다. 이미 고른 갈래가 있으면 아무 일도 하지 않는다.
-     *
-     * <p>모두 채우는 것은 색은 입었는데 지도에 아무것도 남지 않는 화면을 만들지 않기 위해서다.
-     * 놓아둔 갈래가 있으면 그대로 살린다. 잠시 걷었다가 다시 켜는 자리에서 고르던 것이 사라지면 매번 다시 골라야 한다.
-     *
-     * <p>끄기는 여기에 두지 않는다. 켠 뒤 버튼을 다시 누르는 동작은 말풍선을 접는 일이고,
-     * 표시를 내리는 일은 갈래를 모두 놓는 것(`clearStatusFilter`·마지막 하나 해제)으로 갈음한다.
-     * 색을 입힌 지도를 넓게 보려고 접는 일이 잦은데, 접을 때마다 색까지 사라지면 다시 켜야 한다.
-     */
-    showSurveyStatus(state) {
-      return state.length === 0 ? [...SURVEY_STATUS_ORDER] : state
-    },
     toggleStatusFilter(state, action: PayloadAction<SurveyStatus>) {
       const status = action.payload
       return state.includes(status) ? state.filter((s) => s !== status) : [...state, status]
@@ -48,5 +35,5 @@ const statusFilterSlice = createSlice({
 /** 상태의 생김새는 선택자가 정한다 — 뿌리 상태 타입을 소비처가 알 필요가 없다 */
 export const selectStatusFilter = (state: { statusFilter: SurveyStatus[] }) => state.statusFilter
 
-export const { showSurveyStatus, toggleStatusFilter, clearStatusFilter, selectAllStatus } = statusFilterSlice.actions
+export const { toggleStatusFilter, clearStatusFilter, selectAllStatus } = statusFilterSlice.actions
 export const statusFilterReducer = statusFilterSlice.reducer
