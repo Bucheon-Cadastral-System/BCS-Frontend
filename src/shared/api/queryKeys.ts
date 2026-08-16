@@ -26,6 +26,14 @@ export function lastSurveyKey(pointId: string) {
 /** 점 전체의 최종조사 표 키 */
 export const LAST_SURVEYS_KEY = [...LAST_SURVEY_KEY, 'all'] as const
 
+/**
+ * 여럿이 함께 고치는 목록이 낡았다고 보는 시간(ms) — 창으로 돌아올 때 이보다 오래된 것만 다시 받는다.
+ *
+ * <p>점 하나를 열 때 읽는 상세값은 이 값을 쓰지 않는다. 그쪽은 사람이 그 점을 보겠다고 누른 순간이라
+ * 언제나 다시 받고, 그 값이 목록과 어긋나면 목록도 그때 다시 받는다.
+ */
+export const LIST_STALE_MS = 2 * 60_000
+
 export const SURVEY_PROJECTS_KEY = ['survey-projects'] as const
 export const SURVEY_TARGETS_KEY = ['survey-targets'] as const
 

@@ -82,3 +82,18 @@ const STATUS_BY_RESULT: Record<SurveyResult, SurveyStatus> = {
 export function deriveSurveyStatus(result: SurveyResult | undefined): SurveyStatus {
   return result === undefined ? 'todo' : STATUS_BY_RESULT[result]
 }
+
+const STATUS_BY_LABEL = new Map<string, SurveyStatus>(
+  Object.entries(SURVEY_STATUS_LABEL).map(([status, label]) => [label, status as SurveyStatus]),
+)
+
+/**
+ * 사람이 읽는 판정 문구를 갈래로 되돌린다 — 단건 최종조사 조회만 갈래가 아니라 문구를 내려주기 때문이다.
+ *
+ * <p>그 문구에는 파일이 적어 온 표기가 그대로 실려 올 수 있어 넷 중 어디에도 안 맞을 수 있다.
+ * 그때 null 을 주는 것이 이 함수의 요점이다. 모르는 문구를 아무 갈래로 밀어 넣으면 목록과 견줄 때 헛짚는다.
+ */
+export function surveyStatusFromLabel(label: string | null): SurveyStatus | null {
+  if (label === null) return null
+  return STATUS_BY_LABEL.get(label) ?? null
+}

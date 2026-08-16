@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChatAction, ChatMessage } from '../model/types'
-import { CloseIcon, CollapseIcon, ExpandIcon, NewChatIcon, SendIcon, SparkleIcon } from './icons'
+import { CloseIcon, CollapseIcon, ExpandIcon, SendIcon, SparkleIcon } from './icons'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { MessageContent } from './MessageContent'
 import { QuickActions } from './QuickActions'
 import { FIELD_AREA, ICON_BTN, ICON_BTN_DANGER, PANEL_HEADER, PANEL_HEADER_RULE } from '@/shared/ui/classes'
+import { RefreshIcon } from '@/shared/ui/RefreshIcon'
 
 // 대화 시작 전부터 맨 위에 두는 웰컴 안내(어시스턴트 말풍선). 메시지 배열 밖이라 저장·전송되지 않는다.
 const WELCOME_MESSAGE = ['안녕하세요! BCS 어시스턴트입니다.', '무엇을 도와드릴까요?'].join('\n')
@@ -132,7 +133,7 @@ export function ChatPanel(props: ChatPanelProps) {
           title="새 대화 (대화 기록 비우기)"
           className={ICON_BTN}
         >
-          <NewChatIcon className="size-full" />
+          <RefreshIcon className="size-full" />
         </button>
         <button type="button" onClick={props.onClose} aria-label="닫기" title="닫기" className={ICON_BTN_DANGER}>
           <CloseIcon className="size-full" />

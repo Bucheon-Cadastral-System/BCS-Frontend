@@ -1,5 +1,5 @@
 export type { SurveyRecord, SurveyResult } from './model/types'
-export { deriveSurveyStatus, SURVEY_STATUS_LABEL, SURVEY_STATUS_COLOR_VAR, SURVEY_STATUS_DOT, SURVEY_STATUS_FILL, SURVEY_STATUS_ORDER, SURVEY_STATUS_TEXT_COLOR, SURVEY_STATUS_TONE } from './model/status'
+export { deriveSurveyStatus, surveyStatusFromLabel, SURVEY_STATUS_LABEL, SURVEY_STATUS_COLOR_VAR, SURVEY_STATUS_DOT, SURVEY_STATUS_FILL, SURVEY_STATUS_ORDER, SURVEY_STATUS_TEXT_COLOR, SURVEY_STATUS_TONE } from './model/status'
 export { SurveyResultPicker } from './ui/SurveyResultPicker'
 export { StatusDistributionBar } from './ui/StatusDistributionBar'
 export type { SurveyStatus } from './model/status'

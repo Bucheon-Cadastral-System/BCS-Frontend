@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { CSSProperties } from 'react'
 import { useAppDispatch, useAppSelector } from '@/shared/store/hooks'
 import { selectTheme, toggleTheme } from '@/shared/model/theme'
@@ -6,6 +7,7 @@ import { AppHeader, PointIcon, ProjectIcon } from '@/widgets/app-header'
 import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
 import { MapSidebar, MinimizedPanelChip } from '@/widgets/map-sidebar'
+import type { RefreshScope } from '@/widgets/map-sidebar'
 import type { PanelKey } from '@/shared/model/panel'
 import { PointSearchBar } from '@/widgets/point-search'
 import { MapCommandBar } from '@/widgets/map-command-bar'
@@ -17,11 +19,11 @@ import { SurveyStatusFilter } from '@/widgets/survey-status-filter'
 import type OlMap from 'ol/Map'
 import { ChatDockLayout } from '@/widgets/chatbot'
 import type { ChatAction } from '@/widgets/chatbot'
-import { POINT_TYPES, fetchControlPointUsage, useControlPointsQuery, useDeleteControlPointMutation, useLastSurveysQuery, useRegisterControlPointMutation, useUpdateControlPointMutation } from '@/entities/control-point'
+import { POINT_TYPES, fetchControlPointUsage, useControlPointsQuery, useDeleteControlPointMutation, useLastSurveyQuery, useLastSurveysQuery, useRegisterControlPointMutation, useUpdateControlPointMutation } from '@/entities/control-point'
 import type { ControlPoint } from '@/entities/control-point'
 import { selectActiveProjectId, setActiveProject, useCreateSurveyProjectMutation, useDeleteSurveyProjectMutation, useSurveyProjectsQuery, useSurveyTargetsQuery, useUpdateSurveyProjectMutation } from '@/entities/survey-project'
 import type { SurveyProject, SurveyProjectDraft } from '@/entities/survey-project'
-import { clearStatusFilter, deriveSurveyStatus, selectAllStatus, selectStatusFilter, toggleStatusFilter, useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
+import { clearStatusFilter, deriveSurveyStatus, selectAllStatus, selectStatusFilter, surveyStatusFromLabel, toggleStatusFilter, useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
 import type { SurveyResult } from '@/entities/survey-record'
 import { useImportControlPoints, useImportSurveyCsv } from '@/features/import-file'
 import { ControlPointFileModal, ControlPointFormModal } from '@/widgets/add-control-point'
@@ -44,6 +46,8 @@ import { josa } from '@/shared/lib/josa'
 import { wgs84ToTm } from '@/shared/lib/crs'
 import type { TmEpsg } from '@/shared/lib/crs'
 import { VWORLD_KEY } from '@/shared/config/map'
+import { CONTROL_POINTS_KEY, LAST_SURVEYS_KEY, SURVEY_PROJECTS_KEY, SURVEY_TARGETS_KEY, surveyRecordsKey } from '@/shared/api/queryKeys'
+import { Spinner } from '@/shared/ui/Spinner'
 import type { UserProfile } from '@/entities/user'
 
 interface MapPageProps {
@@ -103,7 +107,20 @@ const BANNER_TONE = {
   muted: 'border-line bg-panel text-ink-3',
 } as const
 
+/** 새로고침을 마쳤을 때의 알림 — 무엇을 받았는지 자리마다 말한다 */
+const REFRESH_DONE = {
+  project: '프로젝트 목록을 다시 불러왔습니다.',
+  'project-detail': '프로젝트 정보를 다시 불러왔습니다.',
+  points: '기준점 목록을 다시 불러왔습니다.',
+} as const
+
 /** 지도 위에 잠깐 뜨는 알림 띠 — 지도를 밀지 않도록 떠 있는 알약으로 둔다 */
+/** 그 조사일이 이 회차 기간 안인지 — 끝나지 않은 회차는 시작일부터 뒤가 모두 그 안이다. 날짜 문자열은 사전순이 곧 시간순이다 */
+function withinProject(project: SurveyProject | null, surveyedOn: string | null) {
+  if (project === null || surveyedOn === null) return false
+  return surveyedOn >= project.startedOn && (project.endedOn === null || surveyedOn <= project.endedOn)
+}
+
 function Banner(props: { tone: keyof typeof BANNER_TONE; children: React.ReactNode }) {
   return (
     <p
@@ -123,6 +140,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   // 고른 갈래가 곧 켜짐이다 — 하나라도 걸려 있으면 켜진 것이고, 비면 꺼진 것이다
   const surveyStatusVisible = statusFilter.length > 0
 
+  const queryClient = useQueryClient()
   const pointsQuery = useControlPointsQuery()
   const projectsQuery = useSurveyProjectsQuery()
   const recordsQuery = useSurveyRecordsQuery(activeProjectId)
@@ -146,6 +164,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     [points],
   )
   const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data])
+  const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
   const records = useMemo(() => recordsQuery.data ?? [], [recordsQuery.data])
 
   // 고른 조사의 대상 점 — 진행률 분모와 프로젝트 패널 목록이 이걸 따른다.
@@ -344,6 +363,32 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   }, [projectView, targetIds, selectedId])
 
   /**
+   * 손으로 당기는 새로고침 — 패널이 실제로 쓰는 것만 다시 받는다.
+   *
+   * <p>자동 갱신은 언제 오는지 사람이 알 수 없다. 남이 무언가 올렸을 법한 순간에 직접 당길 자리가 하나 있으면
+   * 그 불확실함이 사라진다. 받는 동안에는 잠가 둔다 — 겹쳐 누르면 같은 요청이 두 번 나가고, 눌렸는지도 알기 어렵다.
+   */
+  const [refreshing, setRefreshing] = useState<RefreshScope | null>(null)
+  async function refresh(scope: RefreshScope) {
+    if (refreshing !== null) return
+    setRefreshing(scope)
+    const keys =
+      scope === 'points'
+        ? [CONTROL_POINTS_KEY, LAST_SURVEYS_KEY]
+        : scope === 'project'
+          ? [SURVEY_PROJECTS_KEY]
+          : [SURVEY_PROJECTS_KEY, SURVEY_TARGETS_KEY, ...(activeProjectId === null ? [] : [surveyRecordsKey(activeProjectId)])]
+    try {
+      await Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })))
+      const failed = keys.some((queryKey) => queryClient.getQueryState(queryKey)?.status === 'error')
+      if (failed) showToast('다시 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.', 'error')
+      else showToast(REFRESH_DONE[scope], 'success')
+    } finally {
+      setRefreshing(null)
+    }
+  }
+
+  /**
    * 좁은 화면에서 점을 고르면 목록 시트를 내린다.
    *
    * <p>상세 시트는 마커를 누르거나 목록에서 골라 올라온다. 그때 목록 시트가 남아 있으면 시트 두 장이
@@ -388,6 +433,42 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     return lastSurveysQuery.data ?? null
   }, [surveyStatusVisible, statusFromProject, recordsQuery.data, resultById, lastSurveysQuery.data])
   const statusFilterSet = useMemo(() => new Set(statusFilter), [statusFilter])
+
+  /**
+   * 목록이 뒤처졌다는 신호 — 방금 받아 온 그 점의 최종조사가 목록이 들고 있는 판정과 다르다.
+   *
+   * <p>점을 열면 최종조사는 언제나 다시 받으므로 이쪽이 참이다. 둘이 갈리면 목록 쪽이 낡은 것이라 다시 받는다.
+   *
+   * <p>회차를 보는 중에는 조건이 하나 더 붙는다. 목록이 그리는 값은 그 회차의 기록이고 최종조사는 회차와
+   * 무관한 최신이라, 지난 회차에 망실로 남은 점이 이번 회차에서 조사불가인 것은 어긋남이 아니라 사실이다.
+   * 그래서 최종조사일이 이 회차 기간 안일 때만 견준다.
+   *
+   * <p>같은 값을 두고는 한 번만 묻는다. 다시 받아도 그대로면 그것은 캐시가 아니라 서버의 상태이고,
+   * 응답마다 다시 물으면 목록을 끝없이 다시 받는다.
+   */
+  const detailSurvey = useLastSurveyQuery(selectedId)
+  const probedRef = useRef<string | null>(null)
+  useEffect(() => {
+    const detail = detailSurvey.data
+    if (selectedId === null || detail === undefined) return
+    const seen = surveyStatusFromLabel(detail.result)
+    if (seen === null) return // 파일이 적어 온 표기 — 갈래로 읽을 수 없으면 견줄 수도 없다
+    // 견줄 상대는 목록이 지금 그리는 값이다. 무엇을 그리는지는 statusById 가 고르는 규칙(statusFromProject)을 따른다
+    if (statusFromProject && !withinProject(activeProject, detail.surveyedOn)) return
+    const listed = statusFromProject
+      ? recordsQuery.data === undefined ? null : deriveSurveyStatus(resultById.get(selectedId))
+      : lastSurveysQuery.data === undefined ? null : deriveSurveyStatus(lastSurveysQuery.data.get(selectedId))
+    if (listed === null || listed === seen) return
+    const stamp = `${statusFromProject ? activeProjectId : '최신'}:${selectedId}:${seen}`
+    if (probedRef.current === stamp) return
+    probedRef.current = stamp
+    if (statusFromProject) {
+      void queryClient.invalidateQueries({ queryKey: surveyRecordsKey(activeProjectId as string) })
+      void queryClient.invalidateQueries({ queryKey: SURVEY_PROJECTS_KEY })
+    } else {
+      void queryClient.invalidateQueries({ queryKey: LAST_SURVEYS_KEY })
+    }
+  }, [selectedId, activeProjectId, activeProject, statusFromProject, detailSurvey.data, recordsQuery.data, resultById, lastSurveysQuery.data, queryClient])
 
   /**
    * 지도에 보일 점 — 기본은 아무것도 보이지 않는다.
@@ -758,7 +839,6 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   })
   // 조사 기록은 그 조사의 대상 점에만 남길 수 있다. 대상이 아니면 조사 상태와 기록 버튼을 내주지 않는다.
   const selectedIsTarget = selected !== null && targetIds !== null && targetIds.has(selected.id)
-  const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
 
   return (
     <div className="contents">
@@ -819,6 +899,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
             closePointFlow()
             setPointModal('file')
           }}
+          onRefresh={(scope) => void refresh(scope)}
+          refreshing={refreshing}
           projectsLoading={projectsQuery.isPending}
           pointsLoading={pointsQuery.isPending}
           recordsLoading={activeProjectId !== null && recordsQuery.isPending}
@@ -849,7 +931,14 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               VWorld 배경지도 설정이 없어 OSM 배경지도로 표시합니다. 지적도와 법정동 경계는 표시되지 않습니다.
             </Banner>
           )}
-          {pointsQuery.isPending && <Banner tone="muted">기준점을 불러오는 중…</Banner>}
+          {pointsQuery.isPending && (
+            <Banner tone="muted">
+              <span className="flex items-center gap-1.5">
+                <Spinner className="size-3" current />
+                기준점을 불러오는 중
+              </span>
+            </Banner>
+          )}
           {pointsQuery.isError && <Banner tone="danger">기준점을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.</Banner>}
           {/* 대상을 못 읽으면 전체를 대신 그리지 않는다 — 대상이 아닌 점에 조사·망실을 기록할 수 있게 되기 때문 */}
           {targetsQuery.isError && (
@@ -1191,7 +1280,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
           cancelLabel={pointDeleteBlocked ? '닫기' : undefined}
           danger
           busy={deletePointMutation.isPending}
-          busyLabel="삭제 중…"
+          busyLabel="삭제 중"
           confirmDisabled={pointDeleteBlocked}
           onConfirm={confirmDeletePoint}
           onCancel={() => setDeletingPoint(null)}
@@ -1246,7 +1335,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
           confirmLabel="삭제"
           danger
           busy={deleteProjectMutation.isPending}
-          busyLabel="삭제 중…"
+          busyLabel="삭제 중"
           onConfirm={confirmDeleteProject}
           onCancel={() => setDeletingProject(null)}
         />

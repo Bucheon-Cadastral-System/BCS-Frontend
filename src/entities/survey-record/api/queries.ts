@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { invalidateLastSurveys, SURVEY_PROJECTS_KEY, surveyRecordsKey } from '@/shared/api/queryKeys'
+import { invalidateLastSurveys, LIST_STALE_MS, SURVEY_PROJECTS_KEY, surveyRecordsKey } from '@/shared/api/queryKeys'
 import { deleteSurveyRecord, fetchSurveyRecords, putSurveyRecord } from './surveyRecordApi'
 import type { SurveyResult } from '../model/types'
 
@@ -14,7 +14,7 @@ export function useSurveyRecordsQuery(projectId: string | null) {
     queryKey: surveyRecordsKey(projectId as string),
     queryFn: () => fetchSurveyRecords(projectId as string),
     enabled: projectId !== null,
-    staleTime: 30_000,
+    staleTime: LIST_STALE_MS,
   })
 }
 

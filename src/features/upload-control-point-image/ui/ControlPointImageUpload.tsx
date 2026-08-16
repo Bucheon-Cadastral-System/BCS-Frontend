@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import {
   downloadControlPointImage,
-  fetchControlPointImageFile,
+  useControlPointImageFileQuery,
   useControlPointImageQuery,
   useUploadControlPointImageMutation,
 } from '@/entities/control-point-image'
@@ -15,6 +15,8 @@ import {
   prepareControlPointImage,
 } from '@/shared/lib/controlPointImage'
 import { useDialogBehavior } from '@/shared/lib/useDialogBehavior'
+import { Skeleton } from '@/shared/ui/Skeleton'
+import { Spinner } from '@/shared/ui/Spinner'
 import { CHIP_BTN, FIELD, FIELD_AREA } from '@/shared/ui/classes'
 import { FormActions } from '@/shared/ui/FormActions'
 import { Modal, ModalField } from '@/shared/ui/Modal'
@@ -70,8 +72,6 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
   const mutation = useUploadControlPointImageMutation()
   const imageQuery = useControlPointImageQuery(props.projectId, props.pointId)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [previewFailed, setPreviewFailed] = useState(false)
-  const [reloadKey, setReloadKey] = useState(0)
   const [downloading, setDownloading] = useState(false)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [draftUrl, setDraftUrl] = useState<string | null>(null)
@@ -81,33 +81,21 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
   const [viewing, setViewing] = useState(false)
 
   const image = imageQuery.data ?? null
+  const fileQuery = useControlPointImageFileQuery(image?.id ?? null)
   // 사진 정보를 못 받은 것과 사진 파일을 못 받은 것은 사용자에게 같은 일이다 — 사진이 안 보인다
-  const loadFailed = imageQuery.isError || previewFailed
+  const loadFailed = imageQuery.isError || fileQuery.isError
 
+  // 캐시에 든 것은 Blob 이고, 그리기용 주소는 여기서 만들고 거둔다
+  const blob = fileQuery.data ?? null
   useEffect(() => {
-    if (image === null) {
+    if (blob === null) {
       setPreviewUrl(null)
-      setPreviewFailed(false)
       return
     }
-    let active = true
-    let objectUrl: string | null = null
-    setPreviewUrl(null)
-    setPreviewFailed(false)
-    void fetchControlPointImageFile(image.id)
-      .then((blob) => {
-        if (!active) return
-        objectUrl = URL.createObjectURL(blob)
-        setPreviewUrl(objectUrl)
-      })
-      .catch(() => {
-        if (active) setPreviewFailed(true)
-      })
-    return () => {
-      active = false
-      if (objectUrl !== null) URL.revokeObjectURL(objectUrl)
-    }
-  }, [image, reloadKey])
+    const url = URL.createObjectURL(blob)
+    setPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [blob])
 
   // 알림은 카드 밖으로 내보낸다. 늘 최신 onError 를 부르되 그 함수가 바뀌었다는 이유만으로 효과가
   // 다시 돌지는 않아야 한다 — 부모가 다시 그려질 때마다 같은 실패가 또 뜬다
@@ -137,9 +125,8 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
   }, [draftImage])
 
   function reload() {
-    setPreviewFailed(false)
-    setReloadKey((count) => count + 1)
     void imageQuery.refetch()
+    void fileQuery.refetch()
   }
 
   async function select(file: File | undefined) {
@@ -224,9 +211,7 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
               </button>
             </div>
           ) : previewUrl === null ? (
-            <div className={`${PREVIEW_BOX} break-keep px-4 text-center text-[11px] leading-[1.6] text-ink-3`}>
-              사진을 불러오는 중입니다. 잠시만 기다려 주세요.
-            </div>
+            <Skeleton className="h-[132px] w-full rounded-none" />
           ) : (
             /* 눌러서 크게 본다 — 미리보기는 132px 로 잘라 보여 주므로 사진에 무엇이 찍혔는지는 여기서 다 읽히지 않는다.
                아래 정보·다운로드 줄은 각자 제 일이 있어 이 자리에서 뺀다 */
@@ -249,10 +234,11 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
               <button
                 type="button"
                 disabled={downloading}
-                className="shrink-0 text-[11px] font-medium text-teal-text disabled:opacity-50"
+                className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-teal-text disabled:opacity-50"
                 onClick={() => void download()}
               >
-                {downloading ? '받는 중…' : '다운로드'}
+                {downloading && <Spinner className="size-3" current />}
+                {downloading ? '다운로드 중' : '다운로드'}
               </button>
             </div>
           )}
@@ -271,7 +257,7 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
         // 라벨은 기본이 인라인이라 높이가 먹지 않는다 — 버튼과 같은 상자로 세운다.
         // 포커스 링도 라벨이 대신 두른다 — 실제로 포커스를 받는 칸은 눈에서 감춰 두어(sr-only) 제 링을
         // 그려도 보이지 않는다. 키보드로 다니는 사람에게는 이 링이 지금 어디에 서 있는지를 알리는 유일한 표시다
-        className={`${CHIP_BTN} flex h-9 w-full items-center justify-center text-[12.5px] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-teal-edge ${
+        className={`${CHIP_BTN} flex h-9 w-full items-center justify-center gap-1.5 text-[12.5px] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-teal-edge ${
           preparing ? 'pointer-events-none opacity-60' : 'cursor-pointer'
         }`}
       >
@@ -283,7 +269,8 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
           disabled={preparing}
           onChange={(event) => void select(event.target.files?.[0])}
         />
-        {preparing ? '사진을 처리 중입니다. 잠시만 기다려 주세요.' : image === null ? '사진 등록' : '사진 교체'}
+        {preparing && <Spinner className="size-3.5" current />}
+        {preparing ? '처리 중' : image === null ? '사진 등록' : '사진 교체'}
       </label>
 
       {viewing && previewUrl !== null && (
@@ -300,7 +287,7 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
             <FormActions
               submitType="submit"
               submitLabel="등록"
-              busyLabel="등록 중…"
+              busyLabel="등록 중"
               busy={saving}
               submitDisabled={draft.capturedAt === null && draft.localDateTime === ''}
               onCancel={() => setDraft(null)}

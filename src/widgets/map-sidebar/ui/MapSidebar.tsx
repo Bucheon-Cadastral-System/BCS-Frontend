@@ -4,7 +4,9 @@ import type { PanelKey } from '@/shared/model/panel'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { StatusDistributionBar, SURVEY_STATUS_DOT, SURVEY_STATUS_LABEL, SURVEY_STATUS_ORDER, deriveSurveyStatus } from '@/entities/survey-record'
 import type { SurveyResult, SurveyStatus } from '@/entities/survey-record'
+import { RefreshIcon } from '@/shared/ui/RefreshIcon'
 import { Skeleton, SkeletonRows } from '@/shared/ui/Skeleton'
+import { Spinner } from '@/shared/ui/Spinner'
 import { CHIP_BTN, CHIP_BTN_DANGER, ICON_BTN, ICON_BTN_DANGER, PANEL, PANEL_HEADER, PILL, ROW_ACCENT } from '@/shared/ui/classes'
 import { percent } from '@/shared/lib/percent'
 import { formatDate } from '@/shared/lib/date'
@@ -68,6 +70,10 @@ interface MapSidebarProps {
   recordsLoading?: boolean
   /** 고른 조사의 대상 목록을 받아오는 중 — 도착 전엔 대상이 0건이라 진행률·목록을 자리표시로 둔다 */
   targetsLoading?: boolean
+  /** 이 패널이 쓰는 것을 다시 받는다 — 어느 겹을 보고 있는지는 패널이 안다 */
+  onRefresh: (scope: RefreshScope) => void
+  /** 지금 받고 있는 자리 — 그 자리의 버튼만 잠긴다 */
+  refreshing: RefreshScope | null
   // 도구
   /** 기준점 한 점 추가 시작 — 입력은 페이지의 모달이 받는다 */
   onStartAddPoint: () => void
@@ -94,6 +100,9 @@ interface MapSidebarProps {
    */
   sheet?: SheetHandle
 }
+
+/** 새로고침이 가리키는 자리 — 프로젝트 목록·프로젝트 정보·기준점 목록 */
+export type RefreshScope = 'project' | 'project-detail' | 'points'
 
 /** 손잡이·머리말에 붙는 시트 끌기 핸들러 */
 type SheetDragHandleProps = SheetHandle['handleProps'] | undefined
@@ -174,6 +183,8 @@ export function MapSidebar(props: MapSidebarProps) {
 function PanelHeader(props: {
   title: string
   count?: number
+  onRefresh?: () => void
+  refreshing?: boolean
   onMinimize: () => void
   onClose: () => void
   dragHandleProps: SheetDragHandleProps
@@ -189,6 +200,9 @@ function PanelHeader(props: {
           </span>
         )}
       </h2>
+      {props.onRefresh !== undefined && (
+        <RefreshButton onRefresh={props.onRefresh} refreshing={props.refreshing === true} />
+      )}
       <button type="button" onClick={props.onMinimize} aria-label="패널 접기" title="접기" className={ICON_BTN}>
         <IconMinimize />
       </button>
@@ -279,6 +293,8 @@ function ProjectPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHandl
       <PanelHeader
         title={detailOn ? '프로젝트 정보' : '프로젝트 목록'}
         count={detailOn ? undefined : props.projects.length}
+        onRefresh={() => props.onRefresh(detailOn ? 'project-detail' : 'project')}
+        refreshing={props.refreshing === (detailOn ? 'project-detail' : 'project')}
         onMinimize={props.onMinimize}
         onClose={props.onClose}
         dragHandleProps={props.dragHandleProps}
@@ -616,6 +632,8 @@ function PointListPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHan
       <PanelHeader
         title="기준점"
         count={source.length}
+        onRefresh={() => props.onRefresh('points')}
+        refreshing={props.refreshing === 'points'}
         onMinimize={props.onMinimize}
         onClose={props.onClose}
         dragHandleProps={props.dragHandleProps}
@@ -874,6 +892,26 @@ function IconSearch() {
 }
 
 /** 접기 — 창을 줄여 칩으로 보내는 뜻의 밑줄 */
+/**
+ * 다시 불러오기 — 받는 동안에는 잠그고 그 자리에서 돈다.
+ *
+ * <p>잠그지 않고 무시하면 눌린 것인지 알 수 없다. 아이콘이 도는 동안 누를 수 없는 것이 곧 진행 표시다.
+ */
+function RefreshButton(props: { onRefresh: () => void; refreshing: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={props.onRefresh}
+      disabled={props.refreshing}
+      aria-label="새로고침"
+      title="새로고침"
+      className={`${ICON_BTN} disabled:cursor-wait`}
+    >
+      {props.refreshing ? <Spinner className="size-full" current /> : <RefreshIcon className="size-full" />}
+    </button>
+  )
+}
+
 function IconMinimize() {
   return (
     <svg viewBox="0 0 24 24" className="size-full" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">

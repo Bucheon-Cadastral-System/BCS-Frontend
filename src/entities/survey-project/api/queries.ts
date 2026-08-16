@@ -5,8 +5,13 @@ import { createSurveyProjectApi, deleteSurveyProjectApi, fetchSurveyProjects, fe
 
 export { SURVEY_PROJECTS_KEY, SURVEY_TARGETS_KEY } from '@/shared/api/queryKeys'
 
+/**
+ * 조사 목록 — 다른 사람이 만든 회차는 상세를 열어 볼 길이 없어 창 복귀 재조회가 유일한 자동 계기다.
+ *
+ * <p>그래서 기준점 목록보다는 짧게 잡는다. 회차 수십 개짜리 응답이라 그만큼 자주 받아도 무겁지 않다.
+ */
 export function useSurveyProjectsQuery() {
-  return useQuery({ queryKey: SURVEY_PROJECTS_KEY, queryFn: fetchSurveyProjects })
+  return useQuery({ queryKey: SURVEY_PROJECTS_KEY, queryFn: fetchSurveyProjects, staleTime: 10 * 60_000 })
 }
 
 
