@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { SheetHandle } from '@/shared/lib/useBottomSheet'
 import { TM_ORIGINS } from '@/shared/lib/crs'
 import { formatDate, formatKstDate } from '@/shared/lib/date'
 import { FIELD_AREA, ICON_BTN, ICON_BTN_DANGER, PANEL, PANEL_HEADER, PANEL_HEADER_RULE } from '@/shared/ui/classes'
@@ -36,6 +37,13 @@ interface ControlPointDetailProps {
   onDelete: (point: ControlPoint) => void
   /** 관리번호를 복사한 결과. 알림은 화면 전체를 아는 쪽이 띄운다 */
   onCopied: (ok: boolean) => void
+  /**
+   * 좁은 화면에서 아래에서 올라오는 시트로 설 때의 손잡이.
+   *
+   * <p>주면 머리말 위에 손잡이가 서고 끌 수 있게 된다. 얼마나 올라와 서고 언제 닫히는지는
+   * 화면 전체를 아는 쪽(useBottomSheet)이 정하므로, 여기서는 잡는 자리와 재는 자리만 내어 준다.
+   */
+  sheet?: SheetHandle
 }
 
 /** 값이 없으면 정보 없음으로 세운다. 줄을 감추면 항목이 없는 것과 구분되지 않는다. */
@@ -134,7 +142,18 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
 
 
   return (
-    <aside className={`panel-in w-[320px] overflow-hidden ${PANEL}`}>
+    // 좁은 화면에서는 폭을 화면이 정하고 아래 변이 화면에 붙으므로 그쪽 모서리를 깎지 않는다.
+    // 나타나는 모습도 좁은 화면에서는 시트가 올라오는 것으로 대신한다(panel-in 은 위에서 내려오는 모양이라 거꾸로다)
+    <aside
+      ref={props.sheet?.rootRef}
+      className={`panel-in w-[320px] overflow-hidden max-lg:flex max-lg:h-full max-lg:w-auto max-lg:flex-col max-lg:rounded-b-none max-lg:bg-sheet max-lg:[animation:none] ${PANEL}`}
+    >
+      {/* 손잡이 — 잡는 자리는 줄 전체다. 그어 둔 막대만 잡게 하면 4px 짜리 과녁을 손가락으로 맞혀야 한다 */}
+      {props.sheet && (
+        <div {...props.sheet.handleProps} className="flex shrink-0 justify-center py-[9px] lg:hidden" aria-hidden>
+          <span className="h-1 w-[38px] rounded-chip bg-line-btn" />
+        </div>
+      )}
       {/* 이름과 종류를 한 줄에 나란히 — 좌측 패널 머리말(제목 + 총 N개)과 같은 규격이다 */}
       <div className={`${PANEL_HEADER} ${PANEL_HEADER_RULE}`}>
         <span className="flex shrink-0 text-teal-text">
@@ -165,6 +184,11 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
         </button>
       </div>
 
+      {/* 좁은 화면에서 넘치는 자리는 여기 하나뿐이다 — 성과와 조사 상태가 한 흐름으로 이어져야
+          시트를 끌어 올린 만큼 아래쪽 조사 상태까지 따라 올라온다. 둘을 따로 흐르게 하면 늘어난
+          높이를 위쪽이 다 먹고 조사 상태는 시트 바닥에 눌린 채로 남는다.
+          손잡이와 머리말은 이 바깥이라 내용을 굴려도 자리를 지킨다 */}
+      <div ref={props.sheet?.scrollRef} className="max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-y-auto max-lg:overscroll-contain">
       <div className="px-3.5 pb-[13px] pt-3">
         {/* 이름은 표시용이고 점을 가리키는 값은 관리번호라 좌표보다 먼저 둔다 */}
         <div className="mb-3 flex items-center gap-[9px] rounded-chip border border-line-pill bg-field py-[7px] pl-2.5 pr-2">
@@ -293,6 +317,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
           )}
         </div>
       )}
+      </div>
     </aside>
   )
 }

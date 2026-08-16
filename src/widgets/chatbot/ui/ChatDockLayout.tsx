@@ -7,6 +7,7 @@ import { CHAT_MESSAGES_KEY, useChatHistoryQuery, useClearChatMutation, useSendCh
 import type { ChatAction, ChatMessage, ChatMode, Size } from '../model/types'
 import { clearLegacyChatMessages, loadChatUi, saveChatUi } from '../model/storage'
 import { useDismiss } from '@/shared/lib/useDismiss'
+import { useNarrowScreen } from '@/shared/lib/useNarrowScreen'
 import { PANEL } from '@/shared/ui/classes'
 
 /** 우측 패널 기본 폭 — 헤더 우측 묶음을 아직 재지 못했을 때만 쓴다 */
@@ -47,7 +48,12 @@ export function ChatDockLayout({
   const pending = chatMutation.isPending
 
   const queryClient = useQueryClient()
-  const history = useChatHistoryQuery().data
+  // 좁은 화면에서는 창도 버블도 서지 않는다 — 열 수 없는 대화의 이력은 받지도, 받아 둔 것을 꺼내지도 않는다.
+  // enabled 는 새로 받는 것만 막고 캐시에 남은 값은 그대로 내주므로(넓게 보다 좁힌 뒤 이 위젯이 다시 서는 길이 있다),
+  // 보지 않겠다는 뜻은 읽는 자리에도 적는다. 화면을 넓히면 그때 값이 살아나고 아래 복원이 그대로 이어진다
+  const narrow = useNarrowScreen()
+  const historyQuery = useChatHistoryQuery(!narrow)
+  const history = narrow ? undefined : historyQuery.data
   const restored = useRef(false)
   /** '새 대화'로 비운 뒤 — 늦게 도착한 첫 조회가 지운 대화를 되살리면 안 된다 */
   const discarded = useRef(false)
@@ -191,7 +197,8 @@ export function ChatDockLayout({
           aria-hidden={!open}
           inert={!open}
           style={{ width: dockWidth }}
-          className={`absolute bottom-bar-clear right-4 top-[76px] z-40 overflow-hidden transition-[opacity,transform] duration-200 ease-out ${PANEL} ${
+          // 좁은 화면에서는 세울 자리가 없다 — 전체 화면 시트로 세우는 것은 따로 할 일이라 그때까지 감춘다
+          className={`absolute bottom-bar-clear right-4 top-[76px] z-40 overflow-hidden transition-[opacity,transform] duration-200 ease-out max-lg:hidden ${PANEL} ${
             open ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'
           }`}
         >
@@ -206,7 +213,7 @@ export function ChatDockLayout({
         <div
           aria-hidden={!open}
           inert={!open}
-          className={`absolute bottom-[88px] right-6 z-40 origin-bottom-right overflow-hidden transition-[translate,scale,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${PANEL} ${
+          className={`absolute bottom-[88px] right-6 z-40 origin-bottom-right overflow-hidden transition-[translate,scale,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] max-lg:hidden ${PANEL} ${
             open ? 'translate-y-0 scale-100 opacity-100' : 'pointer-events-none translate-y-3 scale-90 opacity-0'
           }`}
           style={{ width: floatSize.width, height: floatSize.height }}
@@ -241,7 +248,8 @@ export function ChatDockLayout({
         tabIndex={docked ? -1 : 0}
         /* 색조는 ::before 로 덧칠한다 — 바탕(bg-pill)을 갈아 끼우면 반투명 색조가 그 자리를 대신해
            버튼이 지도 위에서 비쳐 보인다. 색조는 원래 불투명한 패널 위에 얹으라고 만든 값이다 */
-        className={`absolute bottom-6 right-6 z-40 flex size-14 items-center justify-center rounded-full border-[1.5px] bg-pill shadow-pill transition-[color,border-color,transform,opacity] duration-200 before:absolute before:inset-0 before:rounded-full before:opacity-0 before:transition-opacity before:duration-200 hover:before:opacity-100 ${
+        // 버블도 좁은 화면에서는 하단 내비와 자리를 다툰다 — 대화 자리를 세울 때까지 함께 감춘다
+        className={`absolute bottom-6 right-6 z-40 flex size-14 items-center justify-center rounded-full border-[1.5px] bg-pill shadow-pill max-lg:hidden transition-[color,border-color,transform,opacity] duration-200 before:absolute before:inset-0 before:rounded-full before:opacity-0 before:transition-opacity before:duration-200 hover:before:opacity-100 ${
           open
             ? 'border-danger-edge text-danger before:bg-danger-wash'
             : 'border-teal-btn-edge text-teal-text before:bg-teal-wash hover:border-teal-text'

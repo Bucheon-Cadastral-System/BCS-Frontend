@@ -24,14 +24,18 @@ export interface MapLayerItem {
  *
  * <p>버튼은 켜고 끄지 않는다. 누르면 말풍선만 여닫고, 무엇을 얹을지는 안에서 겹마다 고른다.
  * 하나라도 켜져 있으면 버튼에 색이 남아, 접어 둔 동안에도 무언가 얹혀 있음이 보인다.
+ *
+ * <p>좁은 화면에서는 커맨드 바가 서지 않아 아래 독 안에 선다(variant='dock'). 그때는 손가락으로 짚는
+ * 자리라 바의 24px 버튼 대신 38px 정사각을 쓰고, 독이 이미 면과 테두리를 두르고 있으므로 제 것은 두지 않는다.
  */
-export function MapLayerPicker(props: { layers: MapLayerItem[] }) {
+export function MapLayerPicker(props: { layers: MapLayerItem[]; variant?: 'bar' | 'dock' }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLSpanElement>(null)
   // 버튼도 이 안에 있어 버튼 클릭이 접기와 겹쳐 두 번 뒤집히지 않는다
   useDismiss({ enabled: open, onDismiss: () => setOpen(false), ref: rootRef })
 
   const anyOn = props.layers.some((layer) => layer.on)
+  const dock = props.variant === 'dock'
 
   return (
     <span ref={rootRef} className="relative shrink-0">
@@ -43,15 +47,21 @@ export function MapLayerPicker(props: { layers: MapLayerItem[] }) {
         aria-haspopup="true"
         title="레이어"
         aria-label="레이어"
-        className={`${MAP_BAR_BTN} ${
-          anyOn ? 'bg-teal-wash-strong font-semibold text-teal-text' : 'text-ink-2 hover:bg-hover hover:text-ink'
-        }`}
+        className={
+          dock
+            ? // 아래 독 안의 한 자리다 — 제 테두리·그늘을 두지 않는다. 켜짐은 독 안의 다른 자리와 같은 옅은 면이고,
+              // 그 밑에 독의 면이 깔려 있어 지도가 비치지 않는다
+              `flex size-[38px] shrink-0 items-center justify-center rounded-ctl transition-colors ${
+                anyOn ? 'bg-teal-wash-strong text-teal-text' : 'text-ink-3 hover:text-ink-2'
+              }`
+            : `${MAP_BAR_BTN} ${anyOn ? 'bg-teal-wash-strong font-semibold text-teal-text' : 'text-ink-2 hover:bg-hover hover:text-ink'}`
+        }
       >
         <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" aria-hidden="true">
           <path d="m12 3 9 5-9 5-9-5 9-5Z" />
           <path d="m3 13 9 5 9-5" />
         </svg>
-        <span className="max-lg:hidden">레이어</span>
+        {!dock && <span className="max-lg:hidden">레이어</span>}
       </button>
 
       {open && (
@@ -60,7 +70,11 @@ export function MapLayerPicker(props: { layers: MapLayerItem[] }) {
           aria-label="지도 레이어 고르기"
           // 안쪽 여백을 두지 않는다 — 줄이 말풍선 변까지 닿아야 패널 안의 패널로 보이지 않는다.
           // 모서리는 첫·끝 줄이 스스로 깎는다
-          className={`absolute bottom-[calc(100%+8px)] left-1/2 flex w-[208px] -translate-x-1/2 flex-col ${POPOVER_FLAT}`}
+          // 독도 커맨드 바도 화면 아래쪽에 서므로 위로 편다. 독 안의 버튼은 오른쪽 변 가까이 서므로
+          // 오른쪽 변에 맞춘다 — 왼쪽으로 열면 화면 밖으로 넘친다
+          className={`absolute bottom-[calc(100%+8px)] flex w-[208px] flex-col ${
+            dock ? 'right-0' : 'left-1/2 -translate-x-1/2'
+          } ${POPOVER_FLAT}`}
         >
           {props.layers.map((layer, index) => {
             const last = index === props.layers.length - 1

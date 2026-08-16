@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import type { PanelKey } from '@/shared/model/panel'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { StatusDistributionBar, SURVEY_STATUS_DOT, SURVEY_STATUS_LABEL, SURVEY_STATUS_ORDER, deriveSurveyStatus } from '@/entities/survey-record'
@@ -7,6 +8,7 @@ import { Skeleton, SkeletonRows } from '@/shared/ui/Skeleton'
 import { CHIP_BTN, CHIP_BTN_DANGER, ICON_BTN, ICON_BTN_DANGER, PANEL, PANEL_HEADER, PILL, ROW_ACCENT } from '@/shared/ui/classes'
 import { percent } from '@/shared/lib/percent'
 import { formatDate } from '@/shared/lib/date'
+import type { SheetHandle } from '@/shared/lib/useBottomSheet'
 import { SURVEY_ONGOING_LABEL, isProjectComplete, type SurveyProject } from '@/entities/survey-project'
 import type { ControlPoint, PointType } from '@/entities/control-point'
 import { POINT_TYPES, PointTypeIcon, StatusMark } from '@/entities/control-point'
@@ -75,7 +77,17 @@ interface MapSidebarProps {
   onClose: () => void
   /** 패널 너비 — 위에 선 헤더 알약과 같은 값을 쓴다 */
   width: number
+  /**
+   * 좁은 화면에서 아래에서 올라오는 시트로 설 때의 손잡이.
+   *
+   * <p>얼마나 올라와 서고 언제 닫히는지는 화면 전체를 아는 쪽(useBottomSheet)이 정한다.
+   * 여기서는 잡는 자리와 내용 높이를 재는 자리만 내어 준다.
+   */
+  sheet?: SheetHandle
 }
+
+/** 손잡이·머리말에 붙는 시트 끌기 핸들러 */
+type SheetDragHandleProps = SheetHandle['handleProps'] | undefined
 
 /**
  * 지도 왼쪽에 떠 있는 패널. 화면을 밀지 않고 지도 위에 겹친다.
@@ -104,34 +116,63 @@ export function MapSidebar(props: MapSidebarProps) {
 
   return (
       <aside
+        ref={props.sheet?.rootRef}
         aria-hidden={!open}
         inert={!open}
         // 접힘(칩)일 때는 아래 변을 칩 높이까지 끌어올려 패널이 칩 자리로 말려 들어가는 모양을 만든다 —
         // bottom 은 인라인이 클래스(bottom-bar-clear)를 이기므로 펼치면 지우기만 하면 제자리로 풀린다
+        // 폭·시트 높이는 CSS 변수로만 흘려보낸다 — lg:/max-lg: 중 어느 쪽이 실제로 읽어 쓰는지는 className 이 가른다.
+        // 그래서 데스크톱 폭(--sidebar-width)이 좁은 화면에 그대로 새지 않는다
         style={{
-          width: props.width || undefined,
-          bottom: !open && props.minimized ? 'calc(100% - 120px)' : undefined,
-        }}
-        className={`absolute bottom-bar-clear left-4 top-[76px] z-20 flex flex-col overflow-hidden text-ink transition-[opacity,transform,bottom] duration-200 ease-out ${PANEL} ${
+          '--sidebar-width': props.width ? `${props.width}px` : undefined,
+          // 넓은 화면에서만 쓰는 말림이다. 좁은 화면의 시트는 아래 변이 화면에 붙은 채 높이로만 오르내리므로,
+          // 이 값이 새어 들어가면 시트가 화면 위쪽으로 튄다
+          bottom: props.sheet === undefined && !open && props.minimized ? 'calc(100% - 120px)' : undefined,
+          ...props.sheet?.style,
+        } as CSSProperties}
+        // 그림자는 위로 진다 — 값(0 -22px 50px rgba(0,0,0,.55))은 디자인이 확정한 임의값이라 토큰화하지 않는다.
+        // 좁은 화면에서는 아래 변을 화면에 붙인 채 높이만 오르내린다(높이는 sheet.className 이 그린다)
+        className={`absolute bottom-bar-clear left-4 top-[76px] z-20 flex flex-col overflow-hidden text-ink transition-[opacity,transform,bottom] duration-200 ease-out ${PANEL} lg:w-[var(--sidebar-width)] max-lg:inset-x-0 max-lg:bottom-0 max-lg:top-auto max-lg:z-[46] max-lg:w-auto max-lg:rounded-b-none max-lg:bg-sheet max-lg:shadow-[0_-22px_50px_rgba(0,0,0,.55)] ${
+          props.sheet?.className ?? ''
+        } ${
           open
             ? 'translate-y-0 opacity-100'
-            : `pointer-events-none opacity-0 ${props.minimized ? '' : '-translate-y-2'}`
+            // 좁은 화면에서는 흐려지지 않는다 — 높이가 0 이 되며 그대로 내려가는 것이 닫히는 모습이고,
+            // 흐려짐까지 겹치면 다 내려가기 전에 사라진다
+            : `pointer-events-none opacity-0 max-lg:opacity-100 ${props.minimized ? '' : 'lg:-translate-y-2'}`
         }`}
       >
+        {/* 시트 손잡이 — 좁은 화면 전용. 잡는 자리는 줄 전체이고, 그어 둔 막대는 그 자리를 눈으로만 알린다 */}
+        {props.sheet && (
+          <div
+            aria-hidden
+            className="flex shrink-0 justify-center py-[9px] lg:hidden"
+            {...props.sheet.handleProps}
+          >
+            <span className="h-1 w-[38px] rounded-chip bg-line-field" />
+          </div>
+        )}
         {renderBody &&
           (lastPanel === 'project' ? (
-            <ProjectPanel {...props} />
+            <ProjectPanel {...props} dragHandleProps={props.sheet?.handleProps} />
           ) : (
-            <PointListPanel {...props} />
+            <PointListPanel {...props} dragHandleProps={props.sheet?.handleProps} />
           ))}
       </aside>
   )
 }
 
-function PanelHeader(props: { title: string; count?: number; onMinimize: () => void; onClose: () => void }) {
+function PanelHeader(props: {
+  title: string
+  count?: number
+  onMinimize: () => void
+  onClose: () => void
+  dragHandleProps: SheetDragHandleProps
+}) {
   return (
     <header className={PANEL_HEADER}>
-      <h2 className="flex min-w-0 flex-1 items-baseline gap-[7px]">
+      {/* 제목 영역에만 끌기를 건다 — header 전체에 걸면 포인터 캡처가 옆 버튼의 클릭까지 가로챈다 */}
+      <h2 className="flex min-w-0 flex-1 items-baseline gap-[7px]" {...props.dragHandleProps}>
         <span className="text-[13.5px] font-semibold text-ink">{props.title}</span>
         {props.count !== undefined && (
           <span className="text-[11px] text-ink-3">
@@ -139,13 +180,7 @@ function PanelHeader(props: { title: string; count?: number; onMinimize: () => v
           </span>
         )}
       </h2>
-      <button
-        type="button"
-        onClick={props.onMinimize}
-        aria-label="패널 접기"
-        title="접기"
-        className={ICON_BTN}
-      >
+      <button type="button" onClick={props.onMinimize} aria-label="패널 접기" title="접기" className={ICON_BTN}>
         <IconMinimize />
       </button>
       <button
@@ -165,7 +200,7 @@ function PanelHeader(props: { title: string; count?: number; onMinimize: () => v
  * 프로젝트 목록. 행을 펼치는 것이 곧 그 조사를 고르는 것이다.
  * 펼쳐 놓은 조사와 지도에 반영되는 조사가 항상 같으므로, 드로어 안의 진행률·점별 기록이 늘 지금 보는 조사의 것이다.
  */
-function ProjectPanel(props: MapSidebarProps) {
+function ProjectPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHandleProps }) {
   const [q, setQ] = useState('')
   const query = q.trim()
   // 조사명은 그때그때 붙이는 값이라 비고에 남긴 말로 찾는 경우도 있어 함께 훑는다
@@ -241,6 +276,7 @@ function ProjectPanel(props: MapSidebarProps) {
         count={detailOn ? undefined : props.projects.length}
         onMinimize={props.onMinimize}
         onClose={props.onClose}
+        dragHandleProps={props.dragHandleProps}
       />
 
       {/* 목록과 상세는 같은 자리를 쓰는 두 겹이다 — 드로어(목록 스크롤 안의 또 다른 스크롤)는 휠을 가로채 접었다 */}
@@ -281,7 +317,7 @@ function ProjectPanel(props: MapSidebarProps) {
         </div>
       </div>
 
-      <ul className="min-h-0 flex-1 overflow-y-auto border-t-2 border-t-teal">
+      <ul ref={props.sheet?.scrollRef} className="min-h-0 flex-1 overflow-y-auto border-t-2 border-t-teal">
         {list.length === 0 &&
           (props.projectsLoading ? (
             <li>
@@ -489,12 +525,13 @@ function monthLabel(month: string): string {
   return `${y}년 ${Number(m)}월`
 }
 
-/** 목록 행의 조사 상태 — 완료는 청록 체크, 진행중은 회색 점 셋. */
+/** 목록 행의 진행 상태 — 완료는 청록 체크, 진행 중은 회색 점 셋. */
 function ProjectStateMark(props: { complete: boolean }) {
   return (
     <span
       aria-hidden
-      title={props.complete ? '조사 완료' : '조사 진행중'}
+      // 프로젝트 행에 붙는 표식이라 무엇이 완료·진행 중인지는 행이 이미 말한다
+      title={props.complete ? '완료' : SURVEY_ONGOING_LABEL}
       className={`flex size-[17px] shrink-0 items-center justify-center rounded-full border-2 ${
         props.complete ? 'border-teal text-teal' : 'border-idle text-ink-4'
       }`}
@@ -542,7 +579,7 @@ function ProjectNote(props: { note: string }) {
 }
 
 /** 기준점 목록: 종류별 드로어 안에 도식 아이콘 + 이름 (조사여부 표시 안 함), 클릭 시 포커스 */
-function PointListPanel(props: MapSidebarProps) {
+function PointListPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHandleProps }) {
   const [q, setQ] = useState('')
   const query = q.trim()
   const source = props.points
@@ -573,7 +610,13 @@ function PointListPanel(props: MapSidebarProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PanelHeader title="기준점" count={source.length} onMinimize={props.onMinimize} onClose={props.onClose} />
+      <PanelHeader
+        title="기준점"
+        count={source.length}
+        onMinimize={props.onMinimize}
+        onClose={props.onClose}
+        dragHandleProps={props.dragHandleProps}
+      />
 
       <div className="flex shrink-0 flex-col gap-[9px] px-3 pb-3">
         <span className="relative block">
@@ -604,7 +647,8 @@ function PointListPanel(props: MapSidebarProps) {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col border-t-2 border-t-teal">
+      {/* 굴림은 종류 드로어마다 따로 일어나지만, 시트가 얼마나 올라와야 하는지는 이 묶음의 높이가 정한다 */}
+      <div ref={props.sheet?.scrollRef} className="flex min-h-0 flex-1 flex-col border-t-2 border-t-teal">
         {POINT_TYPES.map((t) => {
           const pts = byType.get(t) ?? []
           const open = openType === t

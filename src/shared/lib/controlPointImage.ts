@@ -55,7 +55,7 @@ export async function extractCapturedAt(file: File): Promise<string | null> {
 export async function prepareControlPointImage(file: File, capturedAt: string): Promise<PreparedControlPointImage> {
   assertSupportedImage(file)
   const decoded = isHeic(file) ? await decodeHeic(file) : file
-  const bitmap = await createImageBitmap(decoded, { imageOrientation: 'from-image' })
+  const bitmap = await decodeImage(decoded)
   try {
     const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height))
     const width = Math.max(1, Math.round(bitmap.width * scale))
@@ -65,7 +65,7 @@ export async function prepareControlPointImage(file: File, capturedAt: string): 
     canvas.height = height
     const context = canvas.getContext('2d')
     if (context === null) throw new Error(UNSUPPORTED_BROWSER)
-    context.drawImage(bitmap, 0, 0, width, height)
+    context.drawImage(bitmap.source, 0, 0, width, height)
 
     const blob = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
@@ -82,7 +82,53 @@ export async function prepareControlPointImage(file: File, capturedAt: string): 
   } catch (error) {
     throw error instanceof Error ? error : new Error('사진을 변환하지 못했습니다. 다른 사진으로 다시 시도해 주세요.')
   } finally {
-    bitmap.close()
+    bitmap.release()
+  }
+}
+
+/** 캔버스에 그릴 수 있게 편 그림과 그 크기 */
+interface DecodedImage {
+  source: CanvasImageSource
+  width: number
+  height: number
+  release: () => void
+}
+
+/**
+ * 그림을 편다 — 세 갈래를 차례로 시도한다.
+ *
+ * <p>`createImageBitmap` 에 방향 옵션까지 주는 것이 가장 정확하지만, 옵션 사전을 모르는 사파리는 그 자리에서
+ * 예외를 던진다. 그래서 옵션 없이 한 번 더, 그래도 안 되면 `<img>` 로 편다. 마지막 갈래에서도 요즘 브라우저는
+ * EXIF 방향을 스스로 반영하므로 세워 찍은 사진이 눕지 않는다.
+ */
+async function decodeImage(blob: Blob): Promise<DecodedImage> {
+  if (typeof createImageBitmap === 'function') {
+    for (const options of [{ imageOrientation: 'from-image' } as const, undefined]) {
+      try {
+        const bitmap = options === undefined ? await createImageBitmap(blob) : await createImageBitmap(blob, options)
+        return { source: bitmap, width: bitmap.width, height: bitmap.height, release: () => bitmap.close() }
+      } catch {
+        // 다음 갈래로
+      }
+    }
+  }
+  const url = URL.createObjectURL(blob)
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const element = new Image()
+      element.onload = () => resolve(element)
+      element.onerror = () => reject(new Error(UNSUPPORTED_BROWSER))
+      element.src = url
+    })
+    return {
+      source: image,
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+      release: () => URL.revokeObjectURL(url),
+    }
+  } catch (error) {
+    URL.revokeObjectURL(url)
+    throw error
   }
 }
 
@@ -115,9 +161,17 @@ async function decodeHeic(file: File): Promise<Blob> {
   }
 }
 
+/**
+ * 받을 수 있는 사진인지 — 이름의 확장자나 파일 형식 둘 중 하나만 맞으면 받는다.
+ *
+ * <p>확장자만 보면 안 된다. 아이폰 사진 보관함이 내주는 파일은 이름이 `image` 처럼 확장자 없이 오기도 한다.
+ * 형식만 보아도 안 된다. 파일 탐색기에서 고른 파일은 형식이 빈 문자열로 오는 경우가 있다.
+ */
 function assertSupportedImage(file: File) {
   const extension = file.name.split('.').pop()?.toLowerCase() ?? ''
-  if (!SUPPORTED_EXTENSIONS.has(extension)) {
+  const byName = SUPPORTED_EXTENSIONS.has(extension)
+  const byType = /^image\/(jpe?g|png|webp|hei[cf])(-sequence)?$/i.test(file.type)
+  if (!byName && !byType) {
     throw new Error(`${SUPPORTED_LABEL} 사진만 등록할 수 있습니다.`)
   }
 }

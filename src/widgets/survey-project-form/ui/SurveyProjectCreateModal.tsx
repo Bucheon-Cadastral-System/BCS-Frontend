@@ -47,7 +47,7 @@ export function SurveyProjectCreateModal(props: {
     }
     if (isPeriodReversed(draft)) {
       // 사유는 날짜 칸 아래에 이미 적혀 있다 — 여기서는 제출이 막혔음을 알린다
-      form.fail('조사 기간을 확인해 주세요.')
+      form.fail('프로젝트 기간을 확인해 주세요.')
       return
     }
     if (selected.size === 0) {

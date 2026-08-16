@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useAppDispatch, useAppSelector } from '@/shared/store/hooks'
 import { selectTheme, toggleTheme } from '@/shared/model/theme'
 import { AppHeader, PointIcon, ProjectIcon } from '@/widgets/app-header'
@@ -9,6 +10,8 @@ import type { PanelKey } from '@/shared/model/panel'
 import { PointSearchBar } from '@/widgets/point-search'
 import { MapCommandBar } from '@/widgets/map-command-bar'
 import { MapLayerPicker } from '@/widgets/map-layer-picker'
+import { MobileBottomNav } from '@/widgets/mobile-bottom-nav'
+import { MobileSummaryChip } from '@/widgets/mobile-summary-chip'
 import { SurveyStatusFilter } from '@/widgets/survey-status-filter'
 import type OlMap from 'ol/Map'
 import { ChatDockLayout } from '@/widgets/chatbot'
@@ -29,6 +32,10 @@ import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { Toast } from '@/shared/ui/Toast'
 import { FileDropOverlay } from '@/shared/ui/FileDropOverlay'
 import { useFileDrop } from '@/shared/lib/useFileDrop'
+import { useNarrowScreen } from '@/shared/lib/useNarrowScreen'
+import { useViewportHeight } from '@/shared/lib/useViewportHeight'
+import { LIST_SHEET_RATIO, useBottomSheet } from '@/shared/lib/useBottomSheet'
+import { useCompassHeading } from '@/shared/lib/useCompassHeading'
 import type { ToastTone } from '@/shared/ui/Toast'
 import { withoutTransition } from '@/shared/lib/instantChange'
 import { josa } from '@/shared/lib/josa'
@@ -152,6 +159,8 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     return points.filter((p) => targetIds.has(p.id))
   }, [activeProjectId, points, targetIds])
 
+  const narrow = useNarrowScreen()
+  const viewportHeight = useViewportHeight()
   const tmEpsg: TmEpsg = 'EPSG:5186' // 부천 = 중부원점 고정
   const [showCadastral, setShowCadastral] = useState(true)
   // 법정동 경계는 꺼 둔 채로 시작한다 — 지적도 선 위에 또 선을 얹는 값이라 늘 켜 두면 지번 경계와 섞인다
@@ -162,12 +171,32 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   /** 처음 자리로 되돌리라는 신호 — 얼마나 옮길지는 패널이 가린 폭을 아는 지도가 정한다 */
   const [homeNonce, setHomeNonce] = useState(0)
   /**
+   * 기기가 향한 쪽 — 좁은 화면에서만 읽는다.
+   *
+   * <p>현재 위치 표시가 이 값을 따라 화살촉으로 서서 그쪽을 가리킨다. 켜고 끄는 자리는 두지 않는다.
+   * 넓은 화면(책상 위 모니터)은 방향을 내주는 기기가 아니라 아예 읽지 않는다.
+   */
+  const compassHeading = useCompassHeading(narrow)
+  /** 현재 위치 따라가기 — 좁은 화면 전용. 지도를 손으로 끌면 그 자리에서 풀린다 */
+  const [following, setFollowing] = useState(false)
+  /**
    * 좌측 패널 — 켜진 패널이 지도에 그릴 점도 정한다.
    * 접어 두면(minimized) 고른 것은 그대로 두고 패널만 칩으로 줄인다. 끄면 고른 것도 놓는다.
    */
   const [panel, setPanel] = useState<{ key: PanelKey; minimized: boolean } | null>(null)
+  /** 지금 펴져 있는 패널 — 자리를 차지하는 것은 이것뿐이다(줄여 두면 없는 것으로 친다) */
   const openPanel = panel !== null && !panel.minimized ? panel.key : null
-  // 헤더 알약 폭 — 그 아래 서는 활성 조사 칩과 좌측 패널이 같은 너비를 쓴다
+  /**
+   * 지금 보고 있는 갈래 — 패널이 서 있는지와 다르다.
+   *
+   * <p>패널을 내려도 고른 프로젝트가 남아 있으면 지도는 그 회차의 판정을 계속 칠하므로 여전히 프로젝트를
+   * 보는 중이다. 반대로 기준점 탭은 고른 것이 없어 내리면 그것으로 끝난다.
+   *
+   * <p>탭의 켜짐, 헤더 밑 요약 칩, 지도의 판정 표시가 모두 이 하나를 따른다. 셋이 각자 조건을 세우면
+   * '칩은 프로젝트를 가리키는데 탭은 꺼져 있는' 어긋난 화면이 나온다.
+   */
+  const viewing: PanelKey | null = panel?.key ?? (activeProjectId === null ? null : 'project')
+  // 헤더 알약 폭 — 그 아래 서는 프로젝트 칩과 좌측 패널이 같은 너비를 쓴다
   const [headerWidth, setHeaderWidth] = useState(0)
   // 헤더 우측 묶음(검색+사용자) 폭 — 그 아래 서는 대화 패널이 같은 너비를 쓴다
   const [utilityWidth, setUtilityWidth] = useState(0)
@@ -234,11 +263,41 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     setPanel({ key, minimized: panel?.minimized ?? false })
   }
 
+  /**
+   * 좁은 화면의 시트 여닫기 — 켜진 탭을 다시 누르면 내려가 지도만 남는다.
+   *
+   * <p>넓은 화면의 접기(칩)와 다르다. 좁은 화면에는 칩을 세울 자리가 없고, 시트를 아래로 끌어 내리는
+   * 동작과 같은 결과여야 한다. 고른 조사는 그대로 두므로 조사 칩은 남는다.
+   */
+  function toggleSheet(key: PanelKey) {
+    // 시트가 화면을 거의 덮으므로 목록과 상세가 함께 설 수 없다 — 목록을 올리면 상세는 내려간다
+    setSelectedId(null)
+    setPanel((current) => {
+      // 같은 탭 — 줄여 둔 것은 다시 펴고, 펴져 있는 것은 내린다.
+      // 넓은 화면의 탭이 접기/펴기만 오가는 것과 갈리는 대목이다. 좁은 화면은 시트 아래가 곧 지도라 내려갈 자리가 있다
+      if (current?.key === key) return current.minimized ? { key, minimized: false } : null
+      // 다른 탭 — 줄여 둔 채로 옮긴다. 줄여 두었다는 것은 지도를 보겠다는 뜻이라 탭을 옮겼다고 마음대로 펴지 않는다
+      return { key, minimized: current?.minimized ?? false }
+    })
+  }
+
   /** 패널을 끈다 — 고른 것도 함께 놓는다(조사 선택 해제) */
   function closePanel() {
     setPanel(null)
     dispatch(setActiveProject(null))
   }
+
+  /**
+   * 좁은 화면에서 이번에 내려가는 시트가 '닫기'인지 — 닫기면 다 내려간 뒤 고른 조사도 놓는다.
+   *
+   * <p>내리는 길이 셋이다. 손으로 끌어내리기·시트 바깥 누르기는 지도를 보려고 잠깐 치우는 것이라 고른 것을
+   * 그대로 두고, 머리말의 닫기(X)만 넓은 화면처럼 고른 것까지 놓는다.
+   */
+  const releaseOnSheetClose = useRef(false)
+  // 다시 열렸으면 지난번 닫기 뜻은 지운다 — 닫는 도중에 되살린 시트를 나중에 끌어내렸을 때 엉뚱하게 조사가 풀린다
+  useEffect(() => {
+    if (openPanel !== null) releaseOnSheetClose.current = false
+  }, [openPanel])
 
   // 고른 점이 없어졌으면 선택을 푼다(마커 없는 상세가 남지 않게) — 보이는 집합에는 고른 점이 늘 실리므로 존재만 본다
   useEffect(() => {
@@ -246,7 +305,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   }, [points])
 
   /** 고른 조사의 눈으로 보는 중인지 — 값이 있으면 그 조사의 id 다. 기준점 탭은 전체를 보는 자리라 여기서 빠진다 */
-  const projectView = activeProjectId !== null && panel?.key !== 'points' ? activeProjectId : null
+  const projectView = activeProjectId !== null && viewing !== 'points' ? activeProjectId : null
   const screenedForRef = useRef<string | null>(null)
 
   /**
@@ -273,12 +332,22 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     setSelectedId(null)
   }, [projectView, targetIds, selectedId])
 
+  /**
+   * 좁은 화면에서 점을 고르면 목록 시트를 내린다.
+   *
+   * <p>상세 시트는 마커를 누르거나 목록에서 골라 올라온다. 그때 목록 시트가 남아 있으면 시트 두 장이
+   * 겹쳐 서고, 아래 시트는 손이 닿지 않는 채로 화면만 가린다.
+   */
+  useEffect(() => {
+    if (narrow && selectedId !== null) setPanel(null)
+  }, [narrow, selectedId])
+
   // 활성 프로젝트의 조사기록만 조회하므로 맵에 있으면 조사됨이고, 값이 그 점의 조사 결과다
   const resultById = useMemo(() => new Map(records.map((r) => [r.pointId, r.result])), [records])
   // 기타 비고는 상세 카드가 이어서 고칠 수 있어야 해서 결과와 함께 들고 있는다
   const noteById = useMemo(() => new Map(records.map((r) => [r.pointId, r.note])), [records])
   // 기준점 탭에서는 조사 표시를 걷는다 — 선택은 유지하되 상세 카드의 조사 상태는 선택 해제와 같은 모습이어야 한다
-  const surveyVisible = activeProjectId !== null && panel?.key !== 'points'
+  const surveyVisible = activeProjectId !== null && viewing !== 'points'
 
   /**
    * 상태를 무엇으로 셀지 — 조사를 골라 그 회차를 보는 중이면 그 회차의 결과, 그 외에는 점의 최신 상태.
@@ -315,9 +384,9 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
    * 목록은 무엇이 있는지 세는 자리라, 필터를 따라가면 전체를 훑을 방법이 사라진다.
    */
   const visibleIds = useMemo<ReadonlySet<string> | null>(() => {
-    // 탭·조사가 정하는 범위 — 기준점 탭은 전체(null), 조사를 고르면 그 대상, 그 밖에는 아무것도 아니다
+    // 보는 갈래가 정하는 범위 — 기준점은 전체(null), 프로젝트는 그 대상, 그 밖에는 아무것도 아니다
     const scoped: ReadonlySet<string> | null =
-      panel?.key === 'points' ? null : activeProjectId !== null && targetIds !== null ? targetIds : EMPTY_ID_SET
+      viewing === 'points' ? null : activeProjectId !== null && targetIds !== null ? targetIds : EMPTY_ID_SET
     const table = statusById
     if (table === null || statusFilterSet.size === 0) return withSelected(scoped)
     // 거를 때만 점을 훑는다 — 거르지 않는 동안에는 전체(null)를 그대로 넘겨 지도가 집합을 보지 않게 한다
@@ -332,7 +401,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
       next.add(selectedId)
       return next
     }
-  }, [panel, activeProjectId, targetIds, selectedId, points, statusById, statusFilterSet])
+  }, [viewing, activeProjectId, targetIds, selectedId, points, statusById, statusFilterSet])
 
   // 위치 찍기 중 지도 클릭 → 좌표만 모달로 돌려주고 다시 입력 화면으로. 찍은 값은 시작값일 뿐 실제 성과가 아니다.
   function addPoint(lng: number, lat: number) {
@@ -625,6 +694,38 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   }
 
   const selected = points.find((p) => p.id === selectedId) ?? null
+
+  /**
+   * 좁은 화면의 두 시트 — 목록(프로젝트·기준점)과 점 상세.
+   *
+   * <p>둘 다 안에 든 것이 다 보이는 높이까지 저절로 올라가고, 위로 끌면 화면을 다 덮는다. 내려서 닫거나
+   * 시트 바깥을 누르면 지도만 남는다. 서 있는 동안에는 아래 내비를 시트가 덮는다 — 시트를 내리는 것이
+   * 곧 내비로 돌아오는 길이라, 시트 위에 내비를 또 띄우면 같은 자리에 두 겹이 선다.
+   *
+   * <p>넓은 화면은 이 값을 읽지 않는다. 목록은 왼쪽에, 상세는 오른쪽에 카드로 선다.
+   */
+  const panelSheet = useBottomSheet({
+    open: narrow && openPanel !== null,
+    // 다 내려간 뒤에 끈다. 닫기(X)로 내린 것이면 고른 조사도 함께 놓는다 —
+    // 내려가는 동안 미리 놓으면 상세 겹이 목록으로 되돌아가는 모습이 시트가 내려가는 위로 겹친다
+    onClosed: () => {
+      setPanel(null)
+      if (!releaseOnSheetClose.current) return
+      releaseOnSheetClose.current = false
+      dispatch(setActiveProject(null))
+    },
+    viewportHeight,
+    contentKey: openPanel,
+    ratio: LIST_SHEET_RATIO,
+  })
+  const detailSheet = useBottomSheet({
+    open: narrow && selected !== null,
+    onClosed: () => setSelectedId(null),
+    viewportHeight,
+    contentKey: selectedId,
+    // 시안의 접힘 높이 — 조사 회차 밖의 점처럼 담을 것이 적어도 이보다 낮게 서지 않는다
+    minHeight: 352,
+  })
   // 조사 기록은 그 조사의 대상 점에만 남길 수 있다. 대상이 아니면 조사 상태와 기록 버튼을 내주지 않는다.
   const selectedIsTarget = selected !== null && targetIds !== null && targetIds.has(selected.id)
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
@@ -632,9 +733,11 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
   return (
     <div className={`contents ${theme === 'dark' ? 'dark' : 'theme-light'}`}>
     {/* 화면 어디에 파일을 떨어뜨려도 그 파일이 붙은 채로 조사 추가가 열린다 */}
-    {/* min-w-app-min: 이보다 좁아지면 패널끼리 겹치므로 더 줄이지 않고 잘라 낸다(가로로 밀어서 본다) */}
-    <div className="app-bg relative flex h-full min-w-app-min flex-col text-ink" {...fileDrop.dropHandlers}>
-      {fileDrop.dragging && <FileDropOverlay label="조사 프로젝트 파일 등록" hint="CSV · XLSX" />}
+    {/* min-w-app-min: 넓은 화면의 배치는 이보다 좁아지면 패널끼리 겹치므로 더 줄이지 않고 잘라 낸다(가로로 밀어서 본다).
+        좁은 화면은 배치가 아예 달라 그 최소 폭을 풀어야 한다 — 남겨 두면 390px 화면에 1240px 짜리 화면이 담겨
+        모든 자리가 화면 밖으로 밀린다 */}
+    <div className="app-bg relative flex h-full min-w-app-min flex-col text-ink max-lg:min-w-0" {...fileDrop.dropHandlers}>
+      {fileDrop.dragging && <FileDropOverlay label="프로젝트 파일 등록" hint="CSV · XLSX" />}
 
       <ChatDockLayout width={utilityWidth} onDockWidthChange={setChatWidth} onAction={handleChatAction}>
       <div className="relative min-h-0 min-w-0 flex-1">
@@ -691,12 +794,22 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
           open={openPanel}
           minimized={panel?.minimized === true}
           onMinimize={() => panel && setPanel({ key: panel.key, minimized: true })}
-          onClose={closePanel}
+          // 좁은 화면에서도 닫기는 넓은 화면과 같은 뜻이다 — 고른 조사까지 놓아, 헤더 밑 요약 칩도 함께 걷힌다.
+          // 다만 그 자리에서 사라지지 않고 시트가 다 내려간 뒤에 놓는다
+          onClose={() => {
+            if (!narrow) {
+              closePanel()
+              return
+            }
+            releaseOnSheetClose.current = true
+            panelSheet.requestClose()
+          }}
           width={headerWidth}
+          sheet={narrow ? panelSheet.sheet : undefined}
         />
 
         {/* 알림 띠 — 지도를 밀지 않고 헤더 아래에 겹쳐 둔다 */}
-        <div className="pointer-events-none absolute inset-x-0 top-[76px] z-10 flex flex-col items-center gap-1.5 px-4">
+        <div className="pointer-events-none absolute inset-x-0 top-[76px] z-10 flex flex-col items-center gap-1.5 px-4 max-lg:top-[110px] max-lg:px-3">
           {!VWORLD_KEY && (
             <Banner tone="warn">
               VWorld 배경지도 설정이 없어 OSM 배경지도로 표시합니다. 지적도와 법정동 경계는 표시되지 않습니다.
@@ -731,6 +844,9 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               onSelect={setSelectedId}
               onMapReady={setMapInstance}
               onLocationError={(message) => showToast(message, 'error')}
+              compassHeading={compassHeading}
+              followLocation={narrow && following}
+              onFollowEnd={() => setFollowing(false)}
             />
 
             {/* 커맨드 바 — 표시 설정과 읽을거리를 지도 아래 한 줄에 모은다.
@@ -738,7 +854,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
                 포인터 좌표·축척은 지도 인스턴스를 직접 구독해 페이지는 리렌더되지 않는다.
                 바에서 위로 열리는 말풍선은 창이 좁으면 왼쪽 패널과 가로로 겹친다. 패널(z-20)보다 위에 두어
                 가려지지 않게 한다. 바 자신은 패널이 비워 둔 아래 여백(--spacing-bar-clear) 안에 서므로 패널을 덮지 않는다. */}
-            <div className="pointer-events-none absolute inset-x-4 bottom-[18px] z-[21] flex justify-center">
+            <div className="pointer-events-none absolute inset-x-4 bottom-[18px] z-[21] flex justify-center max-lg:hidden">
               {/* 축척 막대는 배율에 따라 길이가 변한다. 대표 폭만큼의 빈 자리를 가운데 두고 바를 그 왼쪽 끝에 붙여
                   바 자신은 자리 계산에서 빠지게 한다 — 왼쪽 끝은 고정되고 오른쪽만 늘고 준다.
                   폭을 재서 맞추면 한 프레임 늦게 반영돼 축척이 바뀔 때마다 바가 떤다. */}
@@ -773,10 +889,38 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               </div>
             </div>
 
+            {/* 요약 칩 — 좁은 화면에서는 헤더에 이름을 세울 자리가 없어 지도 위에 띄워 둔다.
+                넓은 화면에서 접힌 패널을 대신하는 칩과 같은 자리다. 시트를 내리거나 줄여도 남아, 지금 무엇을
+                깔고 보는지 알린다. 누르면 그 시트가 다시 올라온다.
+                자리는 상단 판(10px + 46px) 아래 8px 이다.
+
+                기준점 탭을 보는 동안에는 기준점 칩이 그 자리를 쓴다 — 그 탭에서는 조사 판정을 지도에서
+                걷으므로(surveyVisible), 진행률을 그대로 두면 지도에 없는 값을 칩만 계속 말하게 된다 */}
+            {viewing !== null && (
+              <div className="absolute inset-x-[12px] top-[64px] z-[30] lg:hidden">
+                {viewing === 'points' ? (
+                  <MobileSummaryChip
+                    label="기준점"
+                    value="지도에 표시 중"
+                    trailing={{ count: points.length }}
+                    onOpen={() => setPanel({ key: 'points', minimized: false })}
+                  />
+                ) : (
+                  <MobileSummaryChip
+                    label="프로젝트"
+                    value={activeProject?.name ?? '선택 중인 프로젝트 없음'}
+                    trailing={activeProject === null ? undefined : { surveyed: resultById.size, total: targetPoints.length }}
+                    onOpen={() => setPanel({ key: 'project', minimized: false })}
+                  />
+                )}
+              </div>
+            )}
+
+
             {/* 접어 둔 패널을 대신하는 칩 — 무엇을 보고 있는지 알리고, 누르면 패널이 다시 펼쳐진다.
                 패널이 칩 자리로 말려 올라오는 동안 칩은 panel-in 으로 내려앉아 접히는 흐름이 이어진다 */}
             {panel?.minimized && (
-              <div key={panel.key} className="panel-in absolute left-4 top-[76px] z-[15]" style={{ width: headerWidth || undefined }}>
+              <div key={panel.key} className="panel-in absolute left-4 top-[76px] z-[15] max-lg:hidden" style={{ width: headerWidth || undefined }}>
                 {panel.key === 'project' ? (
                   <MinimizedPanelChip
                     label="프로젝트"
@@ -808,10 +952,17 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               </div>
             )}
 
-            {/* 상세 카드 — 지도 위 우측. 대화 패널이 열리면 그 옆으로 비켜 선다 */}
+            {/* 상세 카드 — 넓은 화면은 지도 위 우측(대화 패널이 열리면 그 옆으로 비켜 선다),
+                좁은 화면은 아래에서 올라오는 시트다(높이는 detailSheet 가 정한다).
+                오른쪽 자리는 변수로 넘겨 넓은 화면에서만 읽는다 — 인라인 값으로 두면 좁은 화면의 자리까지 덮는다 */}
             <div
-              className="absolute top-[76px] z-[15]"
-              style={{ right: PANEL_MARGIN + (chatWidth === 0 ? 0 : chatWidth + PANEL_MARGIN) }}
+              // 좁은 화면의 시트는 상단 줄(z-45)보다 위에 선다 — 화면을 다 덮었을 때 시트의 윗머리가
+              // 검색 칸에 가려지면 손잡이를 잡으려다 검색 칸을 누르게 된다. 창(z-50)보다는 아래다
+              className={`absolute z-[15] lg:top-[76px] lg:right-[var(--detail-right)] max-lg:inset-x-0 max-lg:bottom-0 max-lg:top-auto max-lg:z-[46] max-lg:overflow-hidden ${detailSheet.sheet.className}`}
+              style={{
+                '--detail-right': `${PANEL_MARGIN + (chatWidth === 0 ? 0 : chatWidth + PANEL_MARGIN)}px`,
+                ...detailSheet.sheet.style,
+              } as CSSProperties}
             >
             <ControlPointDetail
               point={selected}
@@ -833,7 +984,9 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               onImageFailed={(message) => showToast(message, 'error')}
               onRecordSurvey={handleRecordSurvey}
               onCancelSurvey={handleCancelSurvey}
-              onClose={() => setSelectedId(null)}
+              // 좁은 화면에서는 닫기도 시트를 내리는 것으로 한다 — 그 자리에서 사라지면 어디로 갔는지 알 수 없다
+              onClose={() => (narrow ? detailSheet.requestClose() : setSelectedId(null))}
+              sheet={narrow ? detailSheet.sheet : undefined}
               onEdit={startEditPoint}
               onDelete={(p) => void startDeletePoint(p)}
               onCopied={(ok) =>
@@ -843,6 +996,49 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               }
             />
             </div>
+        </div>
+
+        {/* 좁은 화면의 자리 이동 — 넓은 화면의 헤더 탭·사용자 알약이 여기로 내려온다 */}
+        <div className="lg:hidden">
+        <MobileBottomNav
+          tabs={[
+            // 시트를 줄이거나 내려도 보는 중인 갈래는 그대로다 — 켜짐은 요약 칩과 같은 값을 따른다
+            { key: 'project', label: '프로젝트', icon: <ProjectIcon />, active: viewing === 'project', onClick: () => toggleSheet('project') },
+            { key: 'points', label: '기준점', icon: <PointIcon />, active: viewing === 'points', onClick: () => toggleSheet('points') },
+          ]}
+          // 지도를 만지는 자리 — 커맨드 바를 세우지 못하는 좁은 화면에서 지도에 무엇을 얹을지와 따라가기만 남긴다.
+          // 축척·좌표는 읽을 자리가 없어 넓은 화면에만 두고, 배경 밝기는 기기 설정을 따르는 값이라 커맨드 바에 둔다
+          controls={(
+            <>
+              <MapLayerPicker
+                variant="dock"
+                layers={[
+                  { key: 'cadastral', label: '지적도', note: `~1:${CADASTRAL_MIN_SCALE.toLocaleString('ko-KR')}`, on: showCadastral, onToggle: () => setShowCadastral((v) => !v), swatch: CADASTRAL_SWATCH },
+                  { key: 'district', label: '법정동 경계', on: showDistrict, onToggle: () => setShowDistrict((v) => !v), swatch: DISTRICT_SWATCH },
+                ]}
+              />
+              {/* 따라가기 — 켜 두는 동안 현재 위치가 화면 가운데에 붙는다.
+                  넓은 화면의 같은 자리는 '위치 초기화'(처음 보던 자리로)다. 손에 들고 걷는 화면에서는
+                  돌아갈 자리가 처음 자리가 아니라 지금 내가 선 자리다 */}
+              <button
+                type="button"
+                onClick={() => setFollowing((v) => !v)}
+                title="현재 위치 따라가기"
+                aria-label="현재 위치 따라가기"
+                aria-pressed={following}
+                className={`flex size-[38px] shrink-0 items-center justify-center rounded-ctl transition-colors ${
+                  following ? 'bg-teal-wash-strong text-teal-text' : 'text-ink-3 hover:text-ink-2'
+                }`}
+              >
+                <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="7.5" />
+                  <path d="M12 2v5M12 17v5M2 12h5M17 12h5" />
+                  <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+                </svg>
+              </button>
+            </>
+          )}
+        />
         </div>
       </div>
       </ChatDockLayout>
