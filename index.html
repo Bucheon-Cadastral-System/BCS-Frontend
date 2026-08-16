@@ -7,7 +7,17 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon-180.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#d3dad7" />
     <title>BCS · 부천시 지적기준점 관리 시스템</title>
+    <script>
+      // 첫 그림보다 먼저 밝기를 적는다 — 스크립트가 실행된 뒤에 적으면 반대 색이 한 번 번쩍인다.
+      // 저장 키와 기본값(라이트)은 shared/model/theme 와 같아야 한다
+      try {
+        var saved = localStorage.getItem('bcs.theme')
+        document.documentElement.classList.add(saved === 'dark' ? 'dark' : 'theme-light')
+        if (saved === 'dark') document.querySelector('meta[name="theme-color"]').content = '#04090b'
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

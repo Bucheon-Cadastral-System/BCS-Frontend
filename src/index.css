@@ -440,10 +440,14 @@ body {
   overflow-y: hidden;
 }
 
-/* 화면이 그려지기 전에 보이는 바탕 — 밝은 색을 두면 앱이 뜨는 순간 흰 화면이 한 번 번쩍인다 */
+/* 앱이 덮어 그리지 않는 자리의 바탕 — 화면이 그려지기 전과, 아이폰에서 화면을 늘렸을 때 드러나는 여백.
+   밝기 클래스는 index.html 이 첫 그림 전에 <html> 에 적어 두므로 여기서 갈라 써도 번쩍이지 않는다 */
 body {
   font-family: var(--font-sans);
   color: var(--color-ink);
+  background: #d3dad7;
+}
+.dark body {
   background: #04090b;
 }
 
