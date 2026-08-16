@@ -9,6 +9,12 @@
   display: none;
 }
 
+/* 방향 되돌리기는 우리 나침반(widgets/map-compass)이 맡는다 — 지도 우상단에 뜨는 기본 버튼은 감춘다.
+   그 자리는 헤더의 검색·사용자 알약이 이미 쓰고 있어 겹친다 */
+.ol-rotate {
+  display: none;
+}
+
 /* 축척 막대는 커맨드 바의 축척 칸에 target 으로 심는다.
    OL 이 지도 구석에 절대 배치하는 기본 모양을 지워 그 자리에 흐름대로 놓이게 한다 */
 .bcs-scale-host .ol-scale-line {

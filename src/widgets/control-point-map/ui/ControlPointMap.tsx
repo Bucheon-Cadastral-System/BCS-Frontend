@@ -74,6 +74,29 @@ const WEBGL_SUPPORTED = (() => {
   }
 })()
 
+/**
+ * 바라보는 쪽이 화면 위로 오도록 지도를 돌린다.
+ *
+ * <p>방위각은 북을 0 으로 시계방향으로 세고, 지도 회전은 그 반대다 — 동쪽(90°)을 보고 있으면 북쪽이 화면
+ * 왼쪽으로 가야 하므로 지도를 반시계로 90° 돌린다.
+ *
+ * <p>한 바퀴를 넘어갈 때(359°→1°) 값이 껑충 뛰지 않게, 지금 각도에서 가장 가까운 같은 방향의 값을 고른다.
+ * 그러지 않으면 되돌리기 애니메이션이 먼 길로 한 바퀴를 돌고, 회전값이 2π 근처에 머물러 '북쪽인데 틀어져 있다'가 된다.
+ */
+function rotationFor(headingDeg: number, current: number): number {
+  const full = Math.PI * 2
+  const raw = -(headingDeg * Math.PI) / 180
+  return raw + Math.round((current - raw) / full) * full
+}
+
+function faceUp(map: Map | null, headingDeg: number, animate: boolean) {
+  const view = map?.getView()
+  if (view === undefined) return
+  const target = rotationFor(headingDeg, view.getRotation())
+  if (animate) view.animate({ rotation: target, duration: 320 })
+  else view.setRotation(target)
+}
+
 interface ControlPointMapProps {
   /** 전체 기준점 — 소스는 이 목록을 한 번만 들고, 갱신 때는 바뀐 점만 손본다 */
   points: ControlPoint[]
@@ -105,6 +128,13 @@ interface ControlPointMapProps {
   compassHeading?: number | null
   /** 현재 위치를 화면 가운데에 붙들고 따라간다 */
   followLocation?: boolean
+  /**
+   * 바라보는 쪽을 화면 위로 — 방위각(compassHeading)만큼 지도를 돌려 준다.
+   *
+   * <p>따라가기와 함께 켠다. 걸으면서 보는 화면에서는 '북쪽이 위'보다 '내가 보는 쪽이 위'가 읽기 쉽다 —
+   * 눈앞의 길과 화면의 길이 같은 방향으로 놓이기 때문이다.
+   */
+  headingUp?: boolean
   /** 따라가기가 끊겼다 — 사용자가 지도를 직접 끌면 그 손을 이긴 채로 따라갈 수 없다 */
   onFollowEnd?: () => void
 }
@@ -142,6 +172,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const onLocationErrorRef = useRef(props.onLocationError)
   const compassRef = useRef(props.compassHeading ?? undefined)
   const followRef = useRef(props.followLocation === true)
+  const headingUpRef = useRef(props.headingUp === true)
   const onFollowEndRef = useRef(props.onFollowEnd)
   /** 마지막으로 받은 현재 위치(지도 좌표) — 따라가기를 켠 순간 바로 그 자리로 옮기려고 들고 있는다 */
   const lastPositionRef = useRef<[number, number] | null>(null)
@@ -173,10 +204,28 @@ export function ControlPointMap(props: ControlPointMapProps) {
   })
 
   /**
+   * 바라보는 쪽을 화면 위로 세운다.
+   *
+   * <p>따라가기와 함께 켜졌으면 여기서는 돌리지 않는다 — 아래 따라가기가 가운데 맞추기와 한 번에 돌린다.
+   * OL 의 애니메이션은 여러 갈래가 나란히 돌면서 매 프레임 자기 값을 적어 넣는다. 자리만 옮기는 애니메이션도
+   * 걸 때의 회전값을 함께 물고 가므로, 회전을 따로 걸면 그 값에 덮여 돌다 만 채 되돌아간다.
+   *
+   * <p>이 효과는 따라가기 효과보다 먼저 선다 — 방향을 먼저 맞춰 두어야 뒤이어 걸리는 자리 애니메이션이
+   * 맞춰진 방향을 그대로 물고 간다.
+   */
+  const headingUp = props.headingUp === true
+  useEffect(() => {
+    headingUpRef.current = headingUp
+    if (!headingUp || props.followLocation === true || compassRef.current === undefined) return
+    faceUp(mapRef.current, compassRef.current, true)
+  }, [headingUp, props.followLocation])
+
+  /**
    * 따라가기 — 켜 두는 동안 현재 위치가 늘 화면 가운데에 온다.
    *
-   * <p>켠 순간에는 이미 받아 둔 자리로 부드럽게 옮기고, 그 뒤로는 자리가 올 때마다 가운데를 그 값으로 놓는다.
-   * 매번 애니메이션을 걸면 걸음마다 남은 애니메이션과 새 애니메이션이 겹쳐 화면이 출렁인다.
+   * <p>켠 순간에는 이미 받아 둔 자리로 부드럽게 옮기고(방향 맞추기가 켜져 있으면 그 방향까지 한 번에),
+   * 그 뒤로는 자리가 올 때마다 가운데를 그 값으로 놓는다. 매번 애니메이션을 걸면 걸음마다 남은 애니메이션과
+   * 새 애니메이션이 겹쳐 화면이 출렁인다.
    */
   const following = props.followLocation === true
   useEffect(() => {
@@ -185,13 +234,20 @@ export function ControlPointMap(props: ControlPointMapProps) {
     const map = mapRef.current
     const position = lastPositionRef.current
     if (map === null || position === null) return
-    map.getView().animate({ center: position, duration: 320 })
+    const view = map.getView()
+    const heading = headingUpRef.current ? compassRef.current : undefined
+    view.animate({
+      center: position,
+      ...(heading === undefined ? {} : { rotation: rotationFor(heading, view.getRotation()) }),
+      duration: 320,
+    })
   }, [following])
 
   // 나침반이 도는 동안에는 자리를 다시 받지 않아도 화살촉만 돌아야 한다
   const compassHeading = props.compassHeading ?? undefined
   useEffect(() => {
     compassRef.current = compassHeading
+    if (compassHeading !== undefined && headingUpRef.current) faceUp(mapRef.current, compassHeading, false)
     const feature = locationFeatureRef.current
     if (feature === null || feature.getGeometry() === undefined) return
     if (compassHeading === undefined) {

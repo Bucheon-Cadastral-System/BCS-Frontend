@@ -10,6 +10,7 @@ import type { PanelKey } from '@/shared/model/panel'
 import { PointSearchBar } from '@/widgets/point-search'
 import { MapCommandBar } from '@/widgets/map-command-bar'
 import { MapLayerPicker } from '@/widgets/map-layer-picker'
+import { MapCompass } from '@/widgets/map-compass'
 import { MobileBottomNav } from '@/widgets/mobile-bottom-nav'
 import { MobileSummaryChip } from '@/widgets/mobile-summary-chip'
 import { SurveyStatusFilter } from '@/widgets/survey-status-filter'
@@ -863,6 +864,9 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               onLocationError={(message) => showToast(message, 'error')}
               compassHeading={compassHeading}
               followLocation={narrow && following}
+              // 따라가는 동안에는 바라보는 쪽이 화면 위로 온다 — 손에 들고 걷는 화면에서는 눈앞의 길과
+              // 화면의 길이 같은 방향으로 놓여야 어디로 가는지가 그대로 읽힌다
+              headingUp={narrow && following}
               onFollowEnd={() => setFollowing(false)}
             />
 
@@ -1098,6 +1102,17 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
           </svg>
         </button>
         </div>
+
+        {/* 나침반 — 지도가 북쪽에서 틀어진 동안에만 선다. 누르면 되돌아간다.
+            좁은 화면에서는 따라가기 위에, 넓은 화면에서는 대화 버블 위에 같은 규격의 원으로 세운다 —
+            둘 다 지도 오른쪽 아래의 둥근 자리라, 방향을 되돌리는 일도 그 줄에 얹힌다.
+            좁은 화면의 독(lg:hidden) 바깥에 두어야 넓은 화면에서도 함께 선다 */}
+        <MapCompass
+          map={mapInstance}
+          // 방향 맞추기가 켜져 있는 동안에는 되돌릴 수 없다 — 눌러도 곧바로 다시 돌아간다
+          paused={narrow && following}
+          className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+136px)] right-[12px] z-[29] lg:absolute lg:bottom-[90px] lg:right-[29px]"
+        />
       </div>
       </ChatDockLayout>
 
