@@ -54,6 +54,8 @@ export function useSheetDrag(props: { onMove?: (movedY: number) => void; onSettl
     dragging,
     /** 손잡이에 그대로 펼쳐 넣는다 — 브라우저의 기본 스크롤과 겹치지 않게 touch-action 도 함께 건다 */
     handleProps: {
+      // 시트가 내용을 잡아 내리는 손짓을 따로 받으므로, 손잡이에서 시작한 손짓은 그쪽이 비켜설 수 있게 표시해 둔다
+      'data-sheet-handle': '',
       onPointerDown,
       onPointerMove,
       onPointerUp: finish,

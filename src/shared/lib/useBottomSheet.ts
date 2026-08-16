@@ -28,6 +28,12 @@ const MIN_HEIGHT = 240
 export const LIST_SHEET_RATIO = 0.855
 /** 다음 자리로 넘어가는 거리(px). 이보다 짧게 끌면 제자리로 돌아간다 */
 const SNAP = 64
+/**
+ * 내용을 잡아 내릴 때 굴림 대신 시트가 따라오기 시작하는 거리(px).
+ *
+ * <p>0 으로 두면 세로로 조금만 흔들려도 시트가 따라와, 가로로 밀거나 그냥 누르려던 손짓까지 끌기가 된다.
+ */
+const PULL_START = 6
 /** 오르내리는 시간(ms). 아래 SHEET_SLIDE 의 duration 과 같아야 다 내려가기 전에 사라지지 않는다 */
 const SLIDE_MS = 240
 /** 오르내림에 거는 전이 — 끄는 동안에는 손끝을 그대로 따라야 하므로 뗀다 */
@@ -151,9 +157,9 @@ export function useBottomSheet(props: {
 
   useEffect(() => cancelClose, [cancelClose])
 
-  const dragState = useSheetDrag({
-    onMove: setDrag,
-    onSettle: (movedY) => {
+  /** 손을 뗀 자리에서 어디에 설지 — 손잡이로 끌든 내용을 잡아 내리든 같은 규칙을 쓴다 */
+  const settleAt = useCallback(
+    (movedY: number) => {
       setDrag(0)
       if (movedY < -SNAP) {
         setStop('full')
@@ -165,11 +171,92 @@ export function useBottomSheet(props: {
         else requestClose()
       }
     },
+    [stop, requestClose],
+  )
+  const settleRef = useRef(settleAt)
+  useEffect(() => {
+    settleRef.current = settleAt
   })
+
+  const dragState = useSheetDrag({ onMove: setDrag, onSettle: settleAt })
+
+  /**
+   * 내용을 잡아 내려서 닫기 — 굴림이 맨 위에 있을 때 아래로 끌면 손잡이를 잡은 것과 같이 움직인다.
+   *
+   * <p>손잡이는 좁고 시트는 넓다. 다 읽고 나서 치우려는 손은 방금 읽던 자리에 있지 손잡이에 있지 않다.
+   *
+   * <p>굴릴 것이 남아 있으면 굴림이 먼저다 — 만지는 자리에서 위로 올라가며 굴림 상자를 찾고, 그것이 맨 위에
+   * 있을 때만 시트를 끄는 것으로 본다. 손잡이에서 시작한 손짓은 그쪽이 맡으므로 여기서 비켜선다.
+   *
+   * <p>브라우저의 굴림을 막아야 하므로(preventDefault) 리액트가 붙이는 수동 리스너 대신 직접 붙인다.
+   */
+  const [pulling, setPulling] = useState(false)
+  useEffect(() => {
+    const root = rootEl
+    if (root === null || !props.open) return
+    let startY = 0
+    let moved = 0
+    let armed = false
+    let pullingNow = false
+
+    /** 만진 자리에서 시트를 끌어도 되는지 — 굴릴 것이 남아 있으면 그쪽이 먼저다 */
+    const canPull = (target: EventTarget | null) => {
+      let node = target instanceof Element ? target : null
+      while (node !== null && node !== root) {
+        if (node.hasAttribute('data-sheet-handle')) return false
+        const overflow = getComputedStyle(node).overflowY
+        if ((overflow === 'auto' || overflow === 'scroll') && node.scrollHeight > node.clientHeight) {
+          return node.scrollTop <= 0
+        }
+        node = node.parentElement
+      }
+      return true // 굴릴 것이 없는 내용 — 어디를 잡아도 시트가 따라온다
+    }
+
+    const onStart = (event: TouchEvent) => {
+      armed = event.touches.length === 1 && canPull(event.target)
+      startY = event.touches[0]?.clientY ?? 0
+      moved = 0
+    }
+    const onMove = (event: TouchEvent) => {
+      if (!armed || event.touches.length !== 1) return
+      moved = event.touches[0].clientY - startY
+      if (!pullingNow) {
+        // 위로 먼저 그었으면 굴림에 맡기고 이번 손짓에서는 손을 뗀다
+        if (moved < 0) {
+          armed = false
+          return
+        }
+        if (moved < PULL_START) return
+        pullingNow = true
+        setPulling(true)
+      }
+      event.preventDefault() // 굴림 대신 시트가 따라온다
+      setDrag(moved)
+    }
+    const onEnd = () => {
+      armed = false
+      if (!pullingNow) return
+      pullingNow = false
+      setPulling(false)
+      settleRef.current(moved)
+    }
+
+    root.addEventListener('touchstart', onStart, { passive: true })
+    root.addEventListener('touchmove', onMove, { passive: false })
+    root.addEventListener('touchend', onEnd)
+    root.addEventListener('touchcancel', onEnd)
+    return () => {
+      root.removeEventListener('touchstart', onStart)
+      root.removeEventListener('touchmove', onMove)
+      root.removeEventListener('touchend', onEnd)
+      root.removeEventListener('touchcancel', onEnd)
+    }
+  }, [rootEl, props.open])
 
   // 아직 한 번도 재지 못했다면 이번 프레임은 내용 높이대로 세워 잰다. 그 프레임은 눈에서 감춘다
   const measuring = props.ratio === undefined && props.open && !raised && natural === null && scrollEl !== null
-  const dragging = dragState.dragging
+  const dragging = dragState.dragging || pulling
 
   useLayoutEffect(() => {
     if (props.ratio !== undefined || !props.open || rootEl === null || scrollEl === null) return
