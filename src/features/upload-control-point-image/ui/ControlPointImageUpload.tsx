@@ -239,8 +239,10 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
         항목이 없다고 보아 사진을 전부 고를 수 없게 만든다. 형식 판정은 고른 뒤 파일 이름으로 우리가 한다
       */}
       <label
-        // 라벨은 기본이 인라인이라 높이가 먹지 않는다 — 버튼과 같은 상자로 세운다
-        className={`${CHIP_BTN} flex h-9 w-full items-center justify-center text-[12.5px] ${
+        // 라벨은 기본이 인라인이라 높이가 먹지 않는다 — 버튼과 같은 상자로 세운다.
+        // 포커스 링도 라벨이 대신 두른다 — 실제로 포커스를 받는 칸은 눈에서 감춰 두어(sr-only) 제 링을
+        // 그려도 보이지 않는다. 키보드로 다니는 사람에게는 이 링이 지금 어디에 서 있는지를 알리는 유일한 표시다
+        className={`${CHIP_BTN} flex h-9 w-full items-center justify-center text-[12.5px] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-teal-edge ${
           preparing ? 'pointer-events-none opacity-60' : 'cursor-pointer'
         }`}
       >
