@@ -61,6 +61,46 @@ const SNAP_TO_NORTH = (5 * Math.PI) / 180
 const MAX_PIXEL_RATIO = 2
 
 /**
+ * 배경지도가 함께 받아 두는 저해상도(윗단계) 타일의 단계 수.
+ *
+ * <p>먼 곳으로 한 번에 옮기면 그 자리의 타일은 하나도 받아 둔 것이 없어, 다 도착할 때까지 지도가 빈 채로
+ * 남는다(측정: 줌 19 로 이동에 타일 58장). 윗단계 타일은 한 장이 넓은 자리를 덮어 두세 장이면 화면이 차므로,
+ * 먼저 도착한 그것으로 흐릿하게나마 지도를 세워 두고 제 단계 타일이 오는 대로 또렷해진다.
+ */
+const BASE_PRELOAD = 2
+
+/**
+ * 이보다 멀리 옮길 때는 날아가지 않고 곧장 앉는다(화면 폭의 배수).
+ *
+ * <p>OL 은 날아가는 동안 타일을 거의 받지 않는다 — 프레임을 지키려고 한 프레임에 두 장까지만 새로 걸고,
+ * 프레임이 밀리면 아예 걸지 않는다. 그래서 먼 거리를 날아가면 다 도착한 뒤에야 받기 시작해, 그 시간만큼
+ * 빈 화면이 길어진다. 지나가는 자리의 타일까지 받아 두는 것도 곧 버릴 짐이다.
+ *
+ * <p>가까운 거리는 그대로 날아간다. 눈이 따라갈 수 있는 거리에서는 어디서 어디로 옮겨 갔는지가 보여야 한다.
+ */
+const JUMP_AFTER_SCREENS = 3
+
+/**
+ * 이보다 크게 눈높이가 달라질 때도 곧장 앉는다(줌 단계).
+ *
+ * <p>거리가 가까워도 단계가 멀면 사정은 같다. 날아가는 동안 지나치는 단계마다 그 단계의 타일을 새로 걸고,
+ * 정작 도착지 타일은 다 내려앉은 뒤에야 받기 시작한다.
+ *
+ * <p>측정(타일 지연 300ms, 화면 배율 3): 제자리에서 13→19 로 날아가면 배경 타일 54장을 받고 도착까지
+ * 1.8초가 걸린다. 같은 자리에 곧장 앉으면 7장에 0.4초다. 목록에서 점 하나를 고르는 흔한 손짓이 이 길이다.
+ */
+const JUMP_AFTER_ZOOMS = 3
+
+/**
+ * 한 번에 걸어 두는 타일 요청 수(OL 기본 16).
+ *
+ * <p>먼 곳으로 옮기면 화면 한 장에 서른 장 안팎이 필요하다. 요청을 적게 걸어 두면 왕복 시간이 그대로
+ * 줄줄이 더해진다. HTTP/2 면 한 연결에 여러 요청이 함께 실리고, 아니어도 브라우저가 여섯으로 묶으므로
+ * 이 값을 올린다고 그 이상 몰리지는 않는다.
+ */
+const MAX_TILES_LOADING = 24
+
+/**
  * 테마별 배경지도 소스 (VWorld Base/midnight, 키 없으면 OSM / CARTO dark).
  * ⚠️ VWorld 배경 타일 네이티브 최대 줌: **midnight=18, Base=19** (그 위 레벨은 타일이 없어 503).
  * maxZoom 을 반드시 지정 → 그 이상 줌에선 OL 이 마지막 레벨 타일을 확대(overzoom)해 화면을 채움.
@@ -104,6 +144,30 @@ function rotationFor(headingDeg: number, current: number): number {
   const full = Math.PI * 2
   const raw = -(headingDeg * Math.PI) / 180
   return raw + Math.round((current - raw) / full) * full
+}
+
+/**
+ * 고른 자리로 눈높이를 옮긴다 — 가까우면 날아가고, 멀면 곧장 앉는다.
+ *
+ * <p>어느 쪽이 나은지는 사람이 눈으로 따라갈 수 있는 거리인지가 가른다. 옆 골목이면 날아가는 편이
+ * 어디서 어디로 옮겼는지를 알려 주고, 화면 몇 장 너머나 여섯 단계 위아래면 따라갈 수 있는 그림이 아니라
+ * 그저 지도가 비어 있는 시간이 된다(JUMP_AFTER_SCREENS · JUMP_AFTER_ZOOMS).
+ */
+function travel(map: Map, center: [number, number], zoom: number) {
+  const view = map.getView()
+  const from = view.getCenter()
+  const resolution = view.getResolution()
+  const width = map.getSize()?.[0] ?? 0
+  const span = resolution === undefined ? 0 : resolution * width
+  const currentZoom = view.getZoom()
+  const far = from === undefined || span === 0 || Math.hypot(center[0] - from[0], center[1] - from[1]) > span * JUMP_AFTER_SCREENS
+  const steep = currentZoom === undefined || Math.abs(zoom - currentZoom) > JUMP_AFTER_ZOOMS
+  if (far || steep) {
+    view.setCenter(center)
+    view.setZoom(zoom)
+    return
+  }
+  view.animate({ center, zoom, duration: 450 })
 }
 
 function faceUp(map: Map | null, headingDeg: number, animate: boolean) {
@@ -169,7 +233,14 @@ export function ControlPointMap(props: ControlPointMapProps) {
   const locationLayerRef = useRef<VectorLayer<VectorSource> | null>(null)
   const locationFeatureRef = useRef<Feature | null>(null)
   const locationStyleRef = useRef<ReturnType<typeof makeLocationStyle> | null>(null)
-  const baseLayerRef = useRef<TileLayer<XYZ> | null>(null)
+  /**
+   * 테마별 배경지도 두 벌.
+   *
+   * <p>바꿀 때마다 새로 만들면 받아 둔 타일까지 함께 버려져, 되돌아올 때 화면 한 장을 통째로 다시 받는다
+   * (측정: 다크→라이트→다크에 12장씩 두 번). 둘을 만들어 두고 보이고 감추기만 하면 되돌아오는 길은 공짜다.
+   * 감춰 둔 배경은 그리지도, 받지도 않는다.
+   */
+  const baseLayersRef = useRef<Record<MapTheme, TileLayer<XYZ>> | null>(null)
   const lastFocusNonceRef = useRef(props.focusNonce)
 
   // 지도는 1회만 생성 → 최신 props/콜백을 ref 로 유지
@@ -302,11 +373,17 @@ export function ControlPointMap(props: ControlPointMapProps) {
     const container = containerRef.current
     if (!container) return
 
-    const baseSource = makeBaseSource(themeRef.current)
-    const baseLayer = new TileLayer({ source: baseSource })
-    // 어느 테마의 배경인지 레이어에 적어 둔다 — 아래 교체 이펙트가 이미 그 테마면 아무것도 하지 않게
-    baseLayer.set('theme', themeRef.current)
-    baseLayerRef.current = baseLayer
+    const makeBaseLayer = (theme: MapTheme) => {
+      const source = makeBaseSource(theme)
+      const layer = new TileLayer({ source, preload: BASE_PRELOAD, visible: theme === themeRef.current })
+      layer.set('theme', theme)
+      return layer
+    }
+    const baseLayers: Record<MapTheme, TileLayer<XYZ>> = { dark: makeBaseLayer('dark'), light: makeBaseLayer('light') }
+    baseLayersRef.current = baseLayers
+    // 지금 쓰는 배경이 아래, 감춰 둔 배경이 그 위 — 바꿀 때 새 배경을 옛 배경 아래로 내려 깐다
+    const baseLayer = baseLayers[themeRef.current]
+    const spareLayer = baseLayers[themeRef.current === 'dark' ? 'light' : 'dark']
 
     // 지적도 ImageWMS(뷰당 1 요청) — TileWMS(~20 요청)는 실패 시 연결 풀을 막아 배경 타일까지 굶김.
     // ★ DOMAIN 은 반드시 **순수 호스트**(window.location.hostname). origin(예: `http://localhost:5173` — 프로토콜+포트
@@ -397,10 +474,11 @@ export function ControlPointMap(props: ControlPointMapProps) {
     const map = new Map({
       target: container,
       pixelRatio: Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO),
+      maxTilesLoading: MAX_TILES_LOADING,
       controls: defaultControls(), // 축척은 비율과 한 칩에 묶으려고 map-status-bar 가 직접 붙인다
       layers: canvasPointLayer !== null
-        ? [baseLayer, cadastralLayer, districtLayer, canvasPointLayer, labelLayer, locationLayer]
-        : [baseLayer, cadastralLayer, districtLayer, labelLayer, locationLayer],
+        ? [baseLayer, spareLayer, cadastralLayer, districtLayer, canvasPointLayer, labelLayer, locationLayer]
+        : [baseLayer, spareLayer, cadastralLayer, districtLayer, labelLayer, locationLayer],
       // maxZoom 20: 배경 타일 네이티브 최대(라이트 19·다크 18)를 크게 넘기면 확대 보정으로 흐려진다
       // minZoom: 부천 밖으로 한없이 물러서지 않게 막는다(shared/config/map)
       // constrainRotation: 북쪽 스냅은 아래에서 직접 건다 — 기본값(true)은 회전값을 놓을 때마다 걸려
@@ -483,7 +561,8 @@ export function ControlPointMap(props: ControlPointMapProps) {
         map.render()
       })
     }
-    baseSource.on('tileloadend', rerender)
+    // 배경은 두 벌이라 둘 다에 건다 — 감춰 둔 쪽은 타일을 받지 않으므로 값이 오지도 않는다
+    for (const layer of Object.values(baseLayers)) layer.getSource()?.on('tileloadend', rerender)
     cadastralSource.on('imageloadend', rerender)
 
 
@@ -519,7 +598,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
     return () => {
       // 예약해 둔 프레임·리스너를 걷는다 — 남기면 떠난 지도에 마지막 타일이 렌더를 건다
       if (renderFrame !== 0) cancelAnimationFrame(renderFrame)
-      baseSource.un('tileloadend', rerender)
+      for (const layer of Object.values(baseLayers)) layer.getSource()?.un('tileloadend', rerender)
       cadastralSource.un('imageloadend', rerender)
       resizeObserver.disconnect()
       map.setTarget(undefined)
@@ -534,7 +613,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
       locationLayerRef.current = null
       locationFeatureRef.current = null
       locationStyleRef.current = null
-      baseLayerRef.current = null
+      baseLayersRef.current = null
     }
   }, [])
 
@@ -637,20 +716,27 @@ export function ControlPointMap(props: ControlPointMapProps) {
 
   /**
    * 테마 변경 → 배경지도 교체.
-   * 소스만 갈아 끼우면 새 타일이 도착할 때까지 지도가 빈 바탕으로 남아, 패널·글자는 이미 바뀌었는데 지도만 비는 중간 화면이 보인다.
-   * 그래서 새 배경을 **옛 배경 아래**에 미리 깔아 두고(위의 불투명한 옛 타일이 가린다), 다 받은 뒤 옛 배경을 걷어 한 번에 드러낸다.
+   *
+   * <p>보이는 배경을 그냥 바꾸면 새 타일이 도착할 때까지 지도가 빈 바탕으로 남아, 패널·글자는 이미 바뀌었는데
+   * 지도만 비는 중간 화면이 보인다. 그래서 새 배경을 **옛 배경 아래**에 깔아 두고(위의 불투명한 옛 타일이 가린다),
+   * 다 받은 뒤 옛 배경을 감춰 한 번에 드러낸다.
+   *
+   * <p>두 배경은 처음에 함께 만들어 두고 보이고 감추기만 한다 — 새로 만들면 받아 둔 타일이 함께 버려져
+   * 되돌아올 때 화면 한 장을 통째로 다시 받는다.
    */
   useEffect(() => {
     const map = mapRef.current
-    const previous = baseLayerRef.current
-    if (!map || !previous || previous.get('theme') === props.theme) return
+    const layers = baseLayersRef.current
+    if (!map || layers === null) return
+    const next = layers[props.theme]
+    const previous = layers[props.theme === 'dark' ? 'light' : 'dark']
+    if (next.getVisible() && !previous.getVisible()) return
 
-    const source = makeBaseSource(props.theme)
-    source.on('tileloadend', () => map.render())
-    const next = new TileLayer({ source })
-    next.set('theme', props.theme)
-    map.getLayers().insertAt(Math.max(map.getLayers().getArray().indexOf(previous), 0), next)
-    baseLayerRef.current = next
+    // 새 배경을 맨 아래로 내려 옛 배경이 그 위를 덮게 한다
+    const collection = map.getLayers()
+    collection.remove(next)
+    collection.insertAt(0, next)
+    next.setVisible(true)
 
     let settled = false
     const reveal = () => {
@@ -658,7 +744,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
       settled = true
       window.clearTimeout(timer)
       map.un('rendercomplete', reveal)
-      map.removeLayer(previous)
+      previous.setVisible(false)
       map.render()
     }
     // 한 프레임을 다 그린 시점에 걷는다. 타일을 몇 번에 나눠 받아도 그 사이에 걷히지 않는다.
@@ -834,13 +920,9 @@ export function ControlPointMap(props: ControlPointMapProps) {
     if (props.focusNonce === 0 || !mapRef.current || !selectedId) return
     const p = pointsRef.current.find((x) => x.id === selectedId)
     if (!p) return
-    const view = mapRef.current.getView()
-    const [cx, cy] = fromLonLat([p.lng, p.lat])
-    view.animate({
-      center: [cx, cy],
-      zoom: FOCUS_ZOOM,
-      duration: 450,
-    })
+    // 멀거나 눈높이가 크게 달라지면 날아가지 않고 곧장 앉는다 — 날아가는 동안에는 타일을 거의 받지 못해
+    // 도착하고 나서야 받기 시작한다(그만큼 빈 화면이 길어진다)
+    travel(mapRef.current, fromLonLat([p.lng, p.lat]) as [number, number], FOCUS_ZOOM)
   }, [props.focusNonce])
 
   /**
@@ -851,13 +933,12 @@ export function ControlPointMap(props: ControlPointMapProps) {
    */
   useEffect(() => {
     if (props.homeNonce === 0 || !mapRef.current) return
-    const view = mapRef.current.getView()
     const here = locationFeatureRef.current?.getGeometry()
     if (here instanceof Point) {
-      view.animate({ center: here.getCoordinates(), zoom: FOCUS_ZOOM, duration: 450 })
+      travel(mapRef.current, here.getCoordinates() as [number, number], FOCUS_ZOOM)
       return
     }
-    view.animate({ center: fromLonLat(DEFAULT_CENTER), zoom: DEFAULT_ZOOM, duration: 450 })
+    travel(mapRef.current, fromLonLat(DEFAULT_CENTER) as [number, number], DEFAULT_ZOOM)
   }, [props.homeNonce])
 
   return <div ref={containerRef} className={`absolute inset-0 ${props.addMode ? 'cursor-crosshair' : ''}`} />
