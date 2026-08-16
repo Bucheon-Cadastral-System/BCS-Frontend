@@ -21,7 +21,12 @@ export function useDismiss(options: {
       if (e.key === 'Escape') dismiss()
     }
     const onPointerDown = (e: PointerEvent) => {
-      if (!ref?.current?.contains(e.target as Node)) dismiss()
+      const target = e.target as Node
+      if (ref?.current?.contains(target)) return
+      // 다른 자리에 그려 둔 떠 있는 층은 바깥이 아니다 — 잘리지 않으려고 body 로 내보낸 드롭다운이
+      // 그것을 띄운 시트의 바깥으로 읽혀, 고르는 순간 시트가 닫히는 일이 생긴다
+      if (target instanceof Element && target.closest('[data-popover]') !== null) return
+      dismiss()
     }
     window.addEventListener('keydown', onKey)
     if (ref) window.addEventListener('pointerdown', onPointerDown)

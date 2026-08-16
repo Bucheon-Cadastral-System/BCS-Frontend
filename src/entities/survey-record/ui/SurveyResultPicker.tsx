@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { POPOVER } from '@/shared/ui/classes'
 import type { SurveyResult } from '../model/types'
@@ -6,6 +6,11 @@ import { SURVEY_STATUS_LABEL, SURVEY_STATUS_TONE, deriveSurveyStatus } from '../
 
 /** 목록에 세우는 갈래. 미조사를 고르면 기록을 지운다. */
 const CHOICES: (SurveyResult | 'NONE')[] = ['INTACT', 'LOST', 'UNAVAILABLE', 'ETC', 'NONE']
+
+/** 칩과 목록 사이(px) */
+const GAP = 4
+/** 화면 가장자리에 붙이지 않고 남기는 여백(px) */
+const EDGE = 8
 
 /**
  * 조사 결과 고르기.
@@ -31,7 +36,10 @@ export function SurveyResultPicker(props: {
   /** 미조사는 'NONE' 으로 온다 */
   onSelect: (choice: SurveyResult | 'NONE') => void
 }) {
-  const [box, setBox] = useState<{ top: number; left: number; width: number } | null>(null)
+  /** 칩의 화면 좌표 — 목록을 어디에 세울지는 이것과 목록 높이로 정한다 */
+  const [box, setBox] = useState<{ top: number; bottom: number; left: number; width: number } | null>(null)
+  /** 재서 정한 자리. 첫 프레임은 칩 아래로 두고, 그리기 전에 이 값으로 고친다 */
+  const [place, setPlace] = useState<{ top: number; maxHeight: number } | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   /**
@@ -61,8 +69,32 @@ export function SurveyResultPicker(props: {
     const rect = triggerRef.current?.getBoundingClientRect()
     if (rect === undefined) return
     container.current = triggerRef.current?.closest('dialog') ?? document.body
-    setBox({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+    setPlace(null)
+    setBox({ top: rect.top, bottom: rect.bottom, left: rect.left, width: rect.width })
   }
+
+  /**
+   * 아래가 좁으면 칩 위로 뒤집는다.
+   *
+   * <p>칩이 화면 아래쪽에 있으면 그 아래로 펼친 목록이 화면 밖으로 나간다. 화면 좌표로 세운 목록이라
+   * 굴려서 따라갈 수도 없어, 아래 갈래는 누를 방법이 없어진다(시트가 짧게 설 때 늘 그렇다).
+   */
+  useLayoutEffect(() => {
+    const list = listRef.current
+    if (box === null || list === null) return
+    const height = list.offsetHeight
+    // 실제로 보이는 구간으로 잰다 — 아이폰 사파리의 window.innerHeight 는 아래 도구막대에 가린 만큼까지
+    // 포함해서, 그 값으로 재면 다 들어간다고 보고 목록을 막대 뒤에 세운다
+    const view = window.visualViewport
+    const seenTop = view?.offsetTop ?? 0
+    const seenBottom = seenTop + (view?.height ?? window.innerHeight)
+    const below = seenBottom - box.bottom - GAP - EDGE
+    const above = box.top - seenTop - GAP - EDGE
+    const flip = height > below && above > below
+    const room = Math.max(120, flip ? above : below)
+    const top = flip ? Math.max(seenTop + EDGE, box.top - GAP - Math.min(height, room)) : box.bottom + GAP
+    setPlace((current) => (current !== null && current.top === top && current.maxHeight === room ? current : { top, maxHeight: room }))
+  }, [box])
 
   // 잠기면 펼쳐 둔 목록도 접는다 — 열어 둔 채로 잠그면 누를 수 없는 목록이 남는다
   useEffect(() => {
@@ -130,8 +162,16 @@ export function SurveyResultPicker(props: {
         createPortal(
           <div
             ref={listRef}
-            style={{ position: 'fixed', top: box.top, left: box.left, width: box.width }}
-            className={`z-[60] overflow-hidden ${POPOVER}`}
+            // 띄운 쪽(시트)의 바깥 클릭 판정에서 이 층을 빼기 위한 표시
+            data-popover=""
+            style={{
+              position: 'fixed',
+              top: place?.top ?? box.bottom + GAP,
+              left: box.left,
+              width: box.width,
+              maxHeight: place?.maxHeight,
+            }}
+            className={`z-[60] overflow-y-auto overscroll-contain ${POPOVER}`}
           >
             {(props.allowNone === false ? CHOICES.filter((c) => c !== 'NONE') : CHOICES).map((choice) => {
                 const optionStatus = choice === 'NONE' ? 'todo' : deriveSurveyStatus(choice)
