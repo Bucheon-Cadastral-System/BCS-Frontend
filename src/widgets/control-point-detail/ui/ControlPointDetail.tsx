@@ -35,8 +35,8 @@ interface ControlPointDetailProps {
   /** 이 점 수정·삭제. 입력과 확인은 화면 전체를 아는 쪽의 창이 받는다 */
   onEdit: (point: ControlPoint) => void
   onDelete: (point: ControlPoint) => void
-  /** 관리번호 복사가 막혔다 — 됐다는 말은 버튼이 그 자리에서 하므로 실패만 올린다 */
-  onCopyFailed: () => void
+  /** 관리번호를 복사한 결과. 알림은 화면 전체를 아는 쪽이 띄운다 */
+  onCopied: (ok: boolean) => void
   /**
    * 좁은 화면에서 아래에서 올라오는 시트로 설 때의 손잡이.
    *
@@ -61,14 +61,14 @@ const COPIED_MS = 1600
 /**
  * 값을 클립보드로 복사한다.
  *
- * <p>됐다는 말은 누른 자리에서 한다 — 아이콘이 체크로 바뀌고 잠시 뒤 되돌아온다. 손이 머문 자리에서
- * 바로 답이 오므로 화면 아래 토스트까지 띄우면 같은 말을 두 번 하는 셈이 된다. 부르는 쪽은 실패만 알린다.
+ * <p>됐다는 말을 누른 자리에서도 한다 — 아이콘이 체크로 바뀌고 잠시 뒤 되돌아온다. 화면 아래 알림은
+ * 부르는 쪽이 그대로 띄운다. 손이 머문 자리와 화면 아래, 둘 중 어디를 보고 있어도 결과가 눈에 든다.
  *
  * <p>체크는 한 획으로 그어진다. 나타났다 사라지는 것과 달리, 그어지는 동안 눈이 그 획을 따라가게 되어
  * 무엇이 방금 일어났는지가 움직임 자체로 읽힌다.
  */
-function CopyButton(props: { value: string; label: string; onFailed: () => void }) {
-  const { value, label, onFailed } = props
+function CopyButton(props: { value: string; label: string; onCopied: (ok: boolean) => void }) {
+  const { value, label, onCopied } = props
   const [copied, setCopied] = useState(false)
   const timer = useRef<number | null>(null)
   // 되돌리기 전에 화면을 떠나면(다른 점을 고르거나 시트를 닫으면) 남은 시계를 거둔다
@@ -81,9 +81,10 @@ function CopyButton(props: { value: string; label: string; onFailed: () => void 
       // 클립보드는 보안 컨텍스트(HTTPS·localhost)에서만 열린다
       await navigator.clipboard.writeText(value)
     } catch {
-      onFailed()
+      onCopied(false)
       return
     }
+    onCopied(true)
     setCopied(true)
     if (timer.current !== null) clearTimeout(timer.current)
     timer.current = window.setTimeout(() => {
@@ -236,7 +237,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
         <div className="mb-3 flex items-center gap-[9px] rounded-chip border border-line-pill bg-field py-[7px] pl-2.5 pr-2">
           <span className="shrink-0 text-[11px] text-ink-3">관리번호</span>
           <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{p.pointNo}</span>
-          <CopyButton value={p.pointNo} label="관리번호 복사" onFailed={props.onCopyFailed} />
+          <CopyButton value={p.pointNo} label="관리번호 복사" onCopied={props.onCopied} />
         </div>
 
         <dl className="grid grid-cols-[64px_1fr] gap-x-2.5 gap-y-[7px] text-[12.5px] [&_dd]:text-ink-2 [&_dt]:text-ink-3">

@@ -340,9 +340,14 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
    *
    * <p>상세 시트는 마커를 누르거나 목록에서 골라 올라온다. 그때 목록 시트가 남아 있으면 시트 두 장이
    * 겹쳐 서고, 아래 시트는 손이 닿지 않는 채로 화면만 가린다.
+   *
+   * <p>내리기만 하고 끄지는 않는다. 끄면 보고 있던 갈래(viewing)가 프로젝트로 되돌아간다 — 프로젝트를
+   * 고른 채 기준점 탭에서 점을 골랐을 때, 탭이 프로젝트로 튀고 그 점이 회차의 대상이 아니면 방금 고른
+   * 선택까지 함께 풀린다(아래 '대상 아닌 선택은 놓는다'가 그때 걸린다).
    */
   useEffect(() => {
-    if (narrow && selectedId !== null) setPanel(null)
+    if (!narrow || selectedId === null) return
+    setPanel((current) => (current === null || current.minimized ? current : { key: current.key, minimized: true }))
   }, [narrow, selectedId])
 
   // 활성 프로젝트의 조사기록만 조회하므로 맵에 있으면 조사됨이고, 값이 그 점의 조사 결과다
@@ -712,10 +717,15 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     // 다 내려간 뒤에 끈다. 닫기(X)로 내린 것이면 고른 조사도 함께 놓는다 —
     // 내려가는 동안 미리 놓으면 상세 겹이 목록으로 되돌아가는 모습이 시트가 내려가는 위로 겹친다
     onClosed: () => {
-      setPanel(null)
-      if (!releaseOnSheetClose.current) return
-      releaseOnSheetClose.current = false
-      dispatch(setActiveProject(null))
+      if (releaseOnSheetClose.current) {
+        releaseOnSheetClose.current = false
+        setPanel(null)
+        dispatch(setActiveProject(null))
+        return
+      }
+      // 줄여 둔 채로 내려간 것은 그대로 둔다 — 줄임은 '이 갈래를 보는 중인데 지도를 잠깐 보겠다'는 뜻이라
+      // 탭의 켜짐과 요약 칩이 그 자리를 지켜야 한다. 끌어내리거나 바깥을 눌러 내린 것만 끈다
+      setPanel((current) => (current !== null && current.minimized ? current : null))
     },
     viewportHeight,
     contentKey: openPanel,
@@ -1015,8 +1025,11 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               sheet={narrow ? detailSheet.sheet : undefined}
               onEdit={startEditPoint}
               onDelete={(p) => void startDeletePoint(p)}
-              // 복사가 됐다는 말은 버튼이 그 자리에서 한다(체크) — 여기서는 막혔을 때만 알린다
-              onCopyFailed={() => showToast('클립보드로 복사하지 못했습니다.', 'error')}
+              onCopied={(ok) =>
+                ok
+                  ? showToast('클립보드로 복사되었습니다.', 'success')
+                  : showToast('클립보드로 복사하지 못했습니다.', 'error')
+              }
             />
             </div>
         </div>
