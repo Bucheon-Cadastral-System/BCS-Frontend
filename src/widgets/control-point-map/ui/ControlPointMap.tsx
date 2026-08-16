@@ -44,6 +44,23 @@ const LOCATE_RETRY_MS = [3_000, 6_000, 12_000, 30_000, 60_000]
 const FOCUS_ZOOM = 19
 
 /**
+ * 두 손가락으로 튼 뒤 이만큼 안쪽이면 북쪽에 붙인다(라디안, 5°).
+ *
+ * <p>OL 이 주는 기본 스냅을 끄고 직접 건다. 기본 스냅은 회전값을 놓을 때마다 걸려, 방향 맞추기로 도는
+ * 동안 북쪽 언저리에서 화면이 잠깐 붙들렸다가 튀어나간다. 붙이는 것은 사람이 직접 튼 손짓에만 필요하다.
+ */
+const SNAP_TO_NORTH = (5 * Math.PI) / 180
+
+/**
+ * 지도를 그리는 픽셀 배율의 상한.
+ *
+ * <p>회전은 매 프레임 지도 전체를 다시 그린다 — 그 값은 화면 픽셀 수에 정비례한다(측정: 배율 1 → 14fps,
+ * 2 → 7, 3 → 5. 점을 다 빼도 같았다). 요즘 휴대폰은 배율이 3이라 CSS 픽셀의 아홉 배를 매 프레임 다시 그리는데,
+ * 2 로 묶으면 그리는 픽셀이 절반 이하가 된다. 선과 글자가 아주 조금 부드러워지는 대신 도는 화면이 붙는다.
+ */
+const MAX_PIXEL_RATIO = 2
+
+/**
  * 테마별 배경지도 소스 (VWorld Base/midnight, 키 없으면 OSM / CARTO dark).
  * ⚠️ VWorld 배경 타일 네이티브 최대 줌: **midnight=18, Base=19** (그 위 레벨은 타일이 없어 503).
  * maxZoom 을 반드시 지정 → 그 이상 줌에선 OL 이 마지막 레벨 타일을 확대(overzoom)해 화면을 채움.
@@ -379,16 +396,44 @@ export function ControlPointMap(props: ControlPointMapProps) {
 
     const map = new Map({
       target: container,
+      pixelRatio: Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO),
       controls: defaultControls(), // 축척은 비율과 한 칩에 묶으려고 map-status-bar 가 직접 붙인다
       layers: canvasPointLayer !== null
         ? [baseLayer, cadastralLayer, districtLayer, canvasPointLayer, labelLayer, locationLayer]
         : [baseLayer, cadastralLayer, districtLayer, labelLayer, locationLayer],
       // maxZoom 20: 배경 타일 네이티브 최대(라이트 19·다크 18)를 크게 넘기면 확대 보정으로 흐려진다
       // minZoom: 부천 밖으로 한없이 물러서지 않게 막는다(shared/config/map)
-      view: new View({ center: fromLonLat(DEFAULT_CENTER), zoom: DEFAULT_ZOOM, minZoom: MIN_ZOOM, maxZoom: 20 }),
+      // constrainRotation: 북쪽 스냅은 아래에서 직접 건다 — 기본값(true)은 회전값을 놓을 때마다 걸려
+      // 방향 맞추기가 북쪽 언저리를 지날 때 화면을 붙들었다 놓는다
+      view: new View({ center: fromLonLat(DEFAULT_CENTER), zoom: DEFAULT_ZOOM, minZoom: MIN_ZOOM, maxZoom: 20, constrainRotation: false }),
     })
     mapRef.current = map
     onMapReadyRef.current?.(map)
+
+    /*
+     * 북쪽 붙이기 — 사람이 직접 튼 손짓에만 건다.
+     *
+     * 두 손가락으로 조금 튼 뒤 놓으면 북쪽으로 정확히 맞춰 주는 편이 낫다. 손으로 5° 안쪽을 맞출 수는 없고,
+     * 어중간하게 틀어진 지도는 읽는 내내 눈이 기운다. 반대로 방향 맞추기로 도는 동안에는 걸면 안 된다 —
+     * 북쪽을 지날 때마다 화면이 잠깐 붙들렸다가 튀어나간다.
+     *
+     * 이번 움직임에 회전이 있었을 때만 본다. 그냥 밀거나 확대한 움직임까지 보면, 사용자가 일부러 조금
+     * 틀어 둔 지도가 미는 것만으로 북쪽에 붙어 버린다.
+     */
+    let rotationAtStart = map.getView().getRotation()
+    map.on('movestart', () => {
+      rotationAtStart = map.getView().getRotation()
+    })
+    map.on('moveend', () => {
+      if (headingUpRef.current) return
+      const view = map.getView()
+      const rotation = view.getRotation()
+      if (rotation === rotationAtStart) return
+      const full = Math.PI * 2
+      const north = Math.round(rotation / full) * full
+      if (rotation === north || Math.abs(rotation - north) > SNAP_TO_NORTH) return
+      view.animate({ rotation: north, duration: 160 })
+    })
 
     if (WEBGL_SUPPORTED) {
       // 아틀라스는 이미지 로드가 비동기라, 지도를 먼저 세우고 도식 레이어를 뒤따라 얹는다(라벨 레이어 아래 자리).
