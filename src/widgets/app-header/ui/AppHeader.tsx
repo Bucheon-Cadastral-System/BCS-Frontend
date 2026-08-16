@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { UserAvatar, UserMenu } from '@/entities/user'
+import { useNavigate } from 'react-router-dom'
+import { UserAvatar } from '@/entities/user'
 import type { UserProfile } from '@/entities/user'
+import { logout } from '@/shared/api/auth'
 import { useDismiss } from '@/shared/lib/useDismiss'
 import { useTabSlide } from '@/shared/lib/useTabSlide'
 import { useElementWidth } from '@/shared/lib/useElementWidth'
@@ -32,6 +34,8 @@ export function AppHeader(props: {
   search?: ReactNode
   /** 지금 로그인한 사용자 — 아직 받아오지 못했으면 자리만 지킨다 */
   user: UserProfile | null
+  /** 공개 기준점만 보는 비로그인 상태 */
+  guest?: boolean
   /** 주지 않으면 사용자 메뉴에 그 항목을 두지 않는다(이미 그 화면인 경우) */
   onOpenUserManagement?: () => void
   /** 좌측 알약의 폭 — 그 아래 서는 칩·패널이 같은 너비를 쓰도록 알린다 */
@@ -42,8 +46,22 @@ export function AppHeader(props: {
   const [menuOpen, setMenuOpen] = useState(false)
   const userRef = useRef<HTMLDivElement>(null)
   useDismiss({ enabled: menuOpen, onDismiss: () => setMenuOpen(false), ref: userRef })
+  const navigate = useNavigate()
 
   const user = props.user
+  const guest = props.guest === true
+  const isAdmin = user?.role === 'ADMIN'
+
+  // 서버 호출이 실패해도 이 브라우저의 인증은 이미 끊어진 상태이므로 로그인 화면으로 이동한다.
+  async function handleLogout() {
+    setMenuOpen(false)
+    try {
+      await logout()
+    } catch {
+      // 실패해도 아래에서 로그인 화면으로 이동한다.
+    }
+    navigate('/guest', { replace: true })
+  }
 
   // 켜진 탭 밑을 따라 미끄러지는 면 — 탭마다 면을 따로 켜고 끄면 자리가 옮겨 간다는 것이 보이지 않는다
   const [tabsRow, setTabsRow] = useState<HTMLDivElement | null>(null)
@@ -92,7 +110,7 @@ export function AppHeader(props: {
       {/* max-lg: 좁은 화면은 하단 내비가 탭을 맡아 브랜드 알약은 로고만 남긴다 */}
       <span className="leading-[1.15] max-lg:hidden">
         <span className="block text-[14px] font-bold tracking-[-.02em] text-ink">BCS</span>
-        <span className="block text-[11px] text-ink-3">부천시 지적기준점 관리 시스템</span>
+        <span className="block text-[11px] text-ink-3 max-sm:hidden">부천시 지적기준점 관리 시스템</span>
       </span>
     </>
   )
@@ -166,17 +184,17 @@ export function AppHeader(props: {
             {user ? (
               <UserAvatar name={user.name} className="size-[30px] text-[11.5px]" />
             ) : (
-              <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-soft text-[11.5px] text-ink-3" aria-hidden="true">
-                ·
+              <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-soft text-[11.5px] font-semibold text-teal-text" aria-hidden="true">
+                {guest ? 'G' : '·'}
               </span>
             )}
             {/* 브랜드 알약과 같은 규칙 — 윗줄은 크고 굵게, 아랫줄은 작고 흐리게.
                 폭은 고정한다. 이름·소속 길이를 따라 알약이 늘고 줄면 그 폭을 쓰는 대화 패널까지 흔들리고,
                 프로필을 받아오는 순간에도 자리가 튄다. 94px 는 가장 긴 소속(부동산관리팀 주무관 90.9px)이 들어가는 값. */}
             <span className="w-[94px] shrink-0 text-left leading-[1.15] max-lg:hidden">
-              <span className="block truncate text-[14px] font-bold tracking-[-.02em] text-ink">{user?.name ?? '사용자'}</span>
+              <span className="block truncate text-[14px] font-bold tracking-[-.02em] text-ink">{user?.name ?? (guest ? '게스트' : '사용자')}</span>
               <span className="block truncate text-[11px] text-ink-3">
-                {user ? `${user.team} ${user.position}` : '정보를 불러오는 중…'}
+                {user ? `${user.team} ${user.position}` : guest ? '공개 정보만 보기' : '정보를 불러오는 중…'}
               </span>
             </span>
             <svg viewBox="0 0 24 24" className="size-[13px] shrink-0 text-ink-4 max-lg:hidden" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -188,7 +206,47 @@ export function AppHeader(props: {
             // 좁은 화면에서는 아바타가 아니라 판 아래 8px 에 선다 — 판 안의 자리를 기준으로 띄우면
             // 그 자리 높이(34)만큼만 내려와 판에 물린다
             <div className={`panel-in absolute right-0 top-[50px] z-40 w-56 overflow-hidden max-lg:top-[54px] ${POPOVER}`}>
-              <UserMenu user={user} onOpenUserManagement={props.onOpenUserManagement} onDone={() => setMenuOpen(false)} />
+              <div className="flex items-center justify-between gap-2 px-[13px] pb-[9px] pt-2.5">
+                <span className="text-[12px] text-ink-3">권한</span>
+                <span className="text-[11px] font-semibold tracking-[.1em] text-teal-text">
+                  {guest ? 'GUEST' : (user?.role ?? 'USER')}
+                </span>
+              </div>
+              {isAdmin && props.onOpenUserManagement && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    props.onOpenUserManagement?.()
+                  }}
+                  className="flex w-full items-center gap-[9px] border-t border-line-soft px-[13px] py-2.5 text-left text-[12.5px] text-ink-2 transition-colors hover:bg-hover"
+                >
+                  <UsersIcon className="size-[15px] shrink-0 text-ink-3" />
+                  사용자 관리
+                  <svg viewBox="0 0 24 24" className="ml-auto size-3.5 shrink-0 text-ink-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="m9 6 6 6-6 6" />
+                  </svg>
+                </button>
+              )}
+              {guest ? (
+                <button
+                  type="button"
+                  onClick={() => navigate('/login')}
+                  className="flex w-full items-center justify-center gap-[7px] border-t border-line-soft px-[13px] py-2.5 text-[12.5px] font-semibold text-teal-text transition-colors hover:bg-teal-wash"
+                >
+                  로그인하기
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  // 다른 화면으로 들어가는 항목이 아니라 실행되는 동작이라 진입 화살표를 두지 않고 가운데에 세운다
+                  className="flex w-full items-center justify-center gap-[7px] border-t border-line-soft px-[13px] py-2.5 text-[12.5px] text-danger transition-colors hover:bg-danger-wash"
+                >
+                  <LogoutIcon className="size-[15px] shrink-0" />
+                  로그아웃
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -263,3 +321,13 @@ export function UsersIcon({ className }: { className?: string }) {
   )
 }
 
+/** 로그아웃 아이콘. 문 밖으로 나가는 화살표 모양이다 */
+function LogoutIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  )
+}

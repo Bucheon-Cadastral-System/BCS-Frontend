@@ -3,11 +3,12 @@ import { MODAL_SHELL } from '@/shared/ui/classes'
 
 interface LoginPageProps {
   onKakaoLogin: () => void
+  onGuest: () => void
   /** 앞선 로그인 시도가 왜 끊겼는지 — 처음 들어온 화면이면 null */
   failure?: string | null
 }
 
-export function LoginPage({ onKakaoLogin, failure = null }: LoginPageProps) {
+export function LoginPage({ onKakaoLogin, onGuest, failure = null }: LoginPageProps) {
   return (
     <main className="app-bg flex h-full flex-col overflow-y-auto px-5 py-12 text-ink">
       <section
@@ -41,10 +42,17 @@ export function LoginPage({ onKakaoLogin, failure = null }: LoginPageProps) {
             </span>
             카카오로 로그인
           </button>
+          <button
+            type="button"
+            className="h-[46px] w-full rounded-ctl border border-line-field bg-field text-[13px] font-semibold text-ink-2 transition-colors hover:border-teal-edge hover:bg-hover hover:text-teal-text"
+            onClick={onGuest}
+          >
+            게스트로 둘러보기
+          </button>
         </div>
 
         <p className="mt-7 text-[11px] leading-6 text-ink-3">
-          승인된 사용자만 서비스를 이용할 수 있습니다.
+          게스트는 공개 기준점의 위치와 소재지만 확인할 수 있습니다.
           <br />
           최초 로그인 시 회원가입 신청 화면으로 이동합니다.
         </p>

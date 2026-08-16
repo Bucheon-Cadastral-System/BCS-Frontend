@@ -1,4 +1,4 @@
-export type { ControlPoint, PointType } from './model/types'
+export type { ControlPoint, MappableControlPoint, PointType } from './model/types'
 export { POINT_TYPES, compareControlPoints } from './model/types'
 export { controlPointStyle, controlPointLabelStyle, markerAtlasUrl, markerSymbolIndex, MARKER_ATLAS_CELL } from './ui/markerStyle'
 export { PointTypeIcon } from './ui/PointTypeIcon'
