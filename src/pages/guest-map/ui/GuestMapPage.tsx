@@ -7,7 +7,7 @@ import { toggleTheme } from '@/app/store'
 import { PointTypeIcon } from '@/entities/control-point'
 import type { MappableControlPoint } from '@/entities/control-point'
 import type { SurveyResult } from '@/entities/survey-record'
-import { AppHeader } from '@/widgets/app-header'
+import { AppHeader, PointIcon } from '@/widgets/app-header'
 import { ControlPointMap } from '@/widgets/control-point-map'
 import { PointSearchBar } from '@/widgets/point-search'
 import { MapCommandBar } from '@/widgets/map-command-bar'
@@ -18,6 +18,7 @@ import { useGuestControlPointQuery, useGuestControlPointsQuery } from '../api/qu
 import type { GuestControlPoint, GuestPointType } from '../model/guestControlPoint'
 
 const EMPTY_RESULTS: ReadonlyMap<string, SurveyResult> = new Map()
+const EMPTY_POINT_IDS: ReadonlySet<string> = new Set()
 const TYPE_ORDER: GuestPointType[] = ['지적삼각점', '지적삼각보조점', '지적도근점']
 const nameCollator = new Intl.Collator('ko', { numeric: true, sensitivity: 'base' })
 const ROW_HEIGHT = 54
@@ -38,6 +39,7 @@ export function GuestMapPage() {
   const [focusNonce, setFocusNonce] = useState(0)
   const [homeNonce, setHomeNonce] = useState(0)
   const [showCadastral, setShowCadastral] = useState(true)
+  const [pointsVisible, setPointsVisible] = useState(true)
   const [map, setMap] = useState<OlMap | null>(null)
   const notice = new URLSearchParams(location.search).get('notice')
 
@@ -46,8 +48,14 @@ export function GuestMapPage() {
   }, [points, selectedId])
 
   function focusPoint(point: MappableControlPoint) {
+    setPointsVisible(true)
     setSelectedId(point.id)
     setFocusNonce((value) => value + 1)
+  }
+
+  function hidePoints() {
+    setSelectedId(null)
+    setPointsVisible(false)
   }
 
   return (
@@ -55,6 +63,15 @@ export function GuestMapPage() {
       <AppHeader
         user={null}
         guest
+        tabs={[
+          {
+            key: 'points',
+            label: '기준점',
+            icon: <PointIcon />,
+            active: pointsVisible,
+            onClick: () => pointsVisible ? hidePoints() : setPointsVisible(true),
+          },
+        ]}
         search={(
           <PointSearchBar
             points={points}
@@ -67,7 +84,7 @@ export function GuestMapPage() {
       <div className="absolute inset-0">
         <ControlPointMap
           points={points}
-          visibleIds={null}
+          visibleIds={pointsVisible ? null : EMPTY_POINT_IDS}
           addMode={false}
           showCadastral={showCadastral}
           selectedId={selectedId}
@@ -82,7 +99,9 @@ export function GuestMapPage() {
         />
       </div>
 
-      <GuestPointPanel points={points} loading={pointsQuery.isPending} onFocus={focusPoint} />
+      {pointsVisible && (
+        <GuestPointPanel points={points} loading={pointsQuery.isPending} onFocus={focusPoint} onClose={hidePoints} />
+      )}
 
       <div className="pointer-events-none absolute inset-x-3 top-[76px] z-[30] flex flex-col items-center gap-1.5 max-sm:top-[128px]">
         {notice === 'authentication-required' && (
@@ -137,6 +156,7 @@ function GuestPointPanel(props: {
   points: GuestControlPoint[]
   loading: boolean
   onFocus: (point: GuestControlPoint) => void
+  onClose: () => void
 }) {
   const [query, setQuery] = useState('')
   const keyword = query.trim().toLowerCase()
@@ -161,6 +181,17 @@ function GuestPointPanel(props: {
           <span className="text-[11px] text-ink-3">총 {props.points.length}개</span>
         </h2>
         <span className="rounded-chip bg-teal-wash px-2 py-1 text-[10.5px] font-semibold text-teal-text">GUEST</span>
+        <button
+          type="button"
+          onClick={props.onClose}
+          aria-label="기준점 끄기"
+          title="기준점 끄기"
+          className="flex size-7 shrink-0 items-center justify-center rounded-chip text-ink-3 transition-colors hover:bg-danger-wash hover:text-danger"
+        >
+          <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
       </header>
       <div className="shrink-0 p-3">
         <input
