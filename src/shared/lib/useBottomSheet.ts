@@ -14,8 +14,6 @@ export type SheetStop = 'content' | 'full'
 
 /** 화면을 다 덮었을 때 위에 남기는 틈(px) — 시트의 둥근 어깨가 보일 만큼만 남긴다 */
 const FULL_GAP = 10
-/** 내용이 화면보다 길어 '다 보이는 높이'를 잡을 수 없을 때 대신 쓰는 화면 비율 */
-const FALLBACK_RATIO = 0.6
 /** 이보다 낮게는 세우지 않는다 — 손잡이와 머리말만 남은 시트는 읽을 것이 없다 */
 const MIN_HEIGHT = 240
 /**
@@ -26,6 +24,14 @@ const MIN_HEIGHT = 240
  * (시안 390×844, 안전 영역 46/24 → 판이 서는 자리 116px, 남는 682px = 0.855).
  */
 export const LIST_SHEET_RATIO = 0.855
+/**
+ * 재서 세울 때의 상한(화면 대비) — 목록 시트가 서는 높이와 같다.
+ *
+ * <p>상한이 없으면 한 줄 차이로 여는 높이가 갈린다. 화면에 겨우 다 들어가는 카드는 화면 끝까지 서고,
+ * 한 줄 넘치는 카드는 '다 보이는 높이'를 잡을 수 없어 훨씬 낮은 자리에 선다 — 거의 같은 두 카드가
+ * 다른 높이로 열린다. 넘치든 아니든 이 높이를 넘지 않게 두면 그 층이 사라진다.
+ */
+const CONTENT_MAX_RATIO = LIST_SHEET_RATIO
 /** 다음 자리로 넘어가는 거리(px). 이보다 짧게 끌면 제자리로 돌아간다 */
 const SNAP = 64
 /**
@@ -288,13 +294,14 @@ export function useBottomSheet(props: {
 
   const fullHeight = Math.max(MIN_HEIGHT, props.viewportHeight - FULL_GAP)
   const floor = Math.max(MIN_HEIGHT, props.minHeight ?? 0)
-  // 비율로 못박았으면 그 높이, 아니면 잰 높이. 잰 높이가 화면을 넘으면 화면의 일정 몫만 차지한다
+  const cap = Math.min(fullHeight, Math.round(props.viewportHeight * CONTENT_MAX_RATIO))
+  // 비율로 못박았으면 그 높이, 아니면 잰 높이를 상한까지만
   const contentHeight =
     props.ratio !== undefined
       ? Math.min(fullHeight, Math.round(props.viewportHeight * props.ratio))
-      : natural !== null && natural <= fullHeight
-        ? Math.min(fullHeight, Math.max(natural, floor))
-        : Math.min(fullHeight, Math.round(props.viewportHeight * FALLBACK_RATIO))
+      : natural === null
+        ? cap
+        : Math.min(cap, Math.max(natural, floor))
   const target = stop === 'full' ? fullHeight : contentHeight
   const height = raised ? Math.min(Math.max(target - drag, 0), fullHeight) : 0
 
