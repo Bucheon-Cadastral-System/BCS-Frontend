@@ -41,20 +41,32 @@ export function MobileBottomNav(props: {
     const row = rowRef.current
     const el = activeKey === null ? null : row?.querySelector<HTMLElement>(`[data-slot="${activeKey}"]`)
     if (!row || !el) return // 꺼진 동안에는 마지막 자리를 그대로 두고 흐리게만 한다
-    // 화면 좌표로 재서 내비 상자를 기준으로 환산한다
-    const bounds = el.getBoundingClientRect()
-    const base = row.getBoundingClientRect()
-    const next = { left: bounds.left - base.left, width: bounds.width }
-    // 같은 값으로 다시 넣으면 렌더가 끝없이 돈다(탭 배열은 렌더마다 새 참조)
-    setMarker((current) => (current && current.left === next.left && current.width === next.width ? current : next))
-  }, [activeKey, props.tabs])
+    const place = () => {
+      // 화면 좌표로 재서 내비 상자를 기준으로 환산한다
+      const bounds = el.getBoundingClientRect()
+      const base = row.getBoundingClientRect()
+      const next = { left: bounds.left - base.left, width: bounds.width }
+      // 같은 값으로 다시 넣으면 렌더가 끝없이 돈다
+      setMarker((current) => (current && current.left === next.left && current.width === next.width ? current : next))
+    }
+    place()
+    // 자리가 달라지는 것은 켜진 탭이 옮겨 갈 때(위 deps)와 상자가 늘고 줄 때(화면 돌리기)뿐이다.
+    // 탭 배열을 deps 에 두면 그 배열이 렌더마다 새 참조라 부모가 그려질 때마다 두 번씩 재게 되고,
+    // 재는 일은 그리다 만 배치를 강제로 끝내는 일이라 지도 위에서 값이 싸지 않다
+    const observer = new ResizeObserver(place)
+    observer.observe(row)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [activeKey])
 
   return (
     <div
       ref={rowRef}
       // 상단 판과 같은 좌우 여백(12px)에 서고 아래로 24px 띄운다.
-      // 두께도 상단 판과 같은 46px 다 — 화면 위아래에 같은 굵기의 띠가 하나씩 서면 지도가 그만큼 넓어 보인다
-      className={`fixed inset-x-[12px] bottom-6 z-30 flex h-[46px] items-center gap-1 px-1 ${PILL}`}
+      // 두께도 상단 판과 같은 46px 다 — 화면 위아래에 같은 굵기의 띠가 하나씩 서면 지도가 그만큼 넓어 보인다.
+      // 24px 은 화면 아래 변이 아니라 안전 영역 위에서 잰다. 지금 문서는 안전 영역 안에 그려져 그 값이 0 이지만,
+      // 홈 표시줄 아래까지 덮고 그리게 되면(viewport-fit=cover) 이 값이 그만큼 커져 독이 표시줄을 비켜선다
+      className={`fixed inset-x-[12px] bottom-[calc(env(safe-area-inset-bottom,0px)+24px)] z-30 flex h-[46px] items-center gap-1 px-1 ${PILL}`}
     >
       {marker && (
         <span
