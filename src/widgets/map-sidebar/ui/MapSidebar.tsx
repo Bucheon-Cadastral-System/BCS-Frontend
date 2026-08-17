@@ -653,11 +653,7 @@ function PointListPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHan
             className={PANEL_SEARCH_INPUT}
           />
         </span>
-        {props.readOnly ? (
-          <p className="flex h-10 items-center justify-center rounded-ctl border border-teal-edge/50 bg-teal-wash px-3 text-center text-[11.5px] font-medium text-teal-text">
-            공개 기준점 · 읽기 전용
-          </p>
-        ) : (
+        {!props.readOnly && (
           /* 입구에서 의도를 가른다 — 한 점 입력과 파일 등록은 다른 창이 맡는다 */
           <div className="grid grid-cols-2 gap-2">
             <button type="button" onClick={props.onStartAddPoint} className={PANEL_ADD_BTN}>
