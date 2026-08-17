@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import type OlMap from 'ol/Map'
@@ -36,6 +36,8 @@ const EMPTY_RESULTS: ReadonlyMap<string, SurveyResult> = new Map()
 const EMPTY_PROJECTS: SurveyProject[] = []
 const EMPTY_IDS: ReadonlySet<string> = new Set()
 const PANEL_MARGIN = 16
+
+const carriesFile = (event: DragEvent<HTMLElement>) => event.dataTransfer.types.includes('Files')
 
 const CADASTRAL_SWATCH = (
   <svg viewBox="0 0 20 14" className="h-[14px] w-5 shrink-0" fill="none" stroke="var(--color-teal-btn-edge)" strokeWidth="1" aria-hidden="true">
@@ -92,6 +94,7 @@ export function GuestMapPage() {
   const [showDistrict, setShowDistrict] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [blockingFileDrop, setBlockingFileDrop] = useState(false)
   const notice = new URLSearchParams(location.search).get('notice')
 
   useEffect(() => {
@@ -108,6 +111,28 @@ export function GuestMapPage() {
   function closePoints() {
     setSelectedId(null)
     setPanel(null)
+  }
+
+  function blockFileDrag(event: DragEvent<HTMLDivElement>) {
+    if (!carriesFile(event)) return
+    event.preventDefault()
+    event.stopPropagation()
+    event.dataTransfer.dropEffect = 'none'
+    setBlockingFileDrop(true)
+  }
+
+  function leaveFileDrag(event: DragEvent<HTMLDivElement>) {
+    if (!carriesFile(event)) return
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setBlockingFileDrop(false)
+  }
+
+  function rejectFileDrop(event: DragEvent<HTMLDivElement>) {
+    if (!carriesFile(event)) return
+    event.preventDefault()
+    event.stopPropagation()
+    event.dataTransfer.dropEffect = 'none'
+    setBlockingFileDrop(false)
+    setToast('게스트 모드에서는 파일을 업로드할 수 없습니다.')
   }
 
   async function refreshPoints() {
@@ -148,7 +173,14 @@ export function GuestMapPage() {
   ]
 
   return (
-    <div className="app-bg relative flex h-full min-w-app-min flex-col text-ink max-lg:min-w-0">
+    <div
+      className="app-bg relative flex h-full min-w-app-min flex-col text-ink max-lg:min-w-0"
+      onDragEnter={blockFileDrag}
+      onDragOver={blockFileDrag}
+      onDragLeave={leaveFileDrag}
+      onDrop={rejectFileDrop}
+    >
+      {blockingFileDrop && <GuestFileDropBlock />}
       <div className="relative min-h-0 min-w-0 flex-1">
         <AppHeader
           guest
@@ -339,6 +371,22 @@ function GuestBanner(props: { children: React.ReactNode; tone?: 'warn' | 'danger
       ? 'border-amber/40 bg-amber-wash text-amber'
       : 'border-line bg-panel text-ink-3'
   return <p className={`pointer-events-auto rounded-pop border px-4 py-2 text-[12px] shadow-pill ${tone}`}>{props.children}</p>
+}
+
+function GuestFileDropBlock() {
+  return (
+    <div
+      role="alert"
+      className="pointer-events-none fixed inset-0 z-[60] flex flex-col items-center justify-center gap-3 border-2 border-dashed border-danger bg-black/70 px-6 text-center backdrop-blur-md"
+    >
+      <svg viewBox="0 0 24 24" className="size-12 text-danger" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <path d="m6.5 6.5 11 11" />
+      </svg>
+      <span className="text-[15px] font-semibold text-white drop-shadow">게스트 모드에서는 파일을 업로드할 수 없습니다</span>
+      <span className="text-[12px] text-white/70">파일 등록은 로그인 후 이용해 주세요</span>
+    </div>
+  )
 }
 
 function MoonIcon() {
