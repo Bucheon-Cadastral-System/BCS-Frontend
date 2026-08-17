@@ -10,12 +10,15 @@ import type { UserProfile } from '../model/user'
  */
 export function UserMenu(props: {
   user: UserProfile | null
+  /** 공개 기준점만 보는 비로그인 상태 */
+  guest?: boolean
   /** 사용자 관리로 들어가는 길 — 관리자에게만 보인다 */
   onOpenUserManagement?: () => void
   /** 항목을 고른 뒤 부르는 쪽이 메뉴를 접도록 알린다 */
   onDone?: () => void
 }) {
   const navigate = useNavigate()
+  const guest = props.guest === true
   const isAdmin = props.user?.role === 'ADMIN'
 
   // 서버 호출이 실패해도 이 브라우저의 인증은 이미 끊어진 상태이므로 로그인 화면으로 이동한다.
@@ -26,14 +29,14 @@ export function UserMenu(props: {
     } catch {
       // 실패해도 아래에서 로그인 화면으로 이동한다.
     }
-    navigate('/login', { replace: true })
+    navigate('/guest', { replace: true })
   }
 
   return (
     <>
       <div className="flex items-center justify-between gap-2 px-[13px] pb-[9px] pt-2.5">
         <span className="text-[12px] text-ink-3">권한</span>
-        <span className="text-[11px] font-semibold tracking-[.1em] text-teal-text">{props.user?.role ?? 'USER'}</span>
+        <span className="text-[11px] font-semibold tracking-[.1em] text-teal-text">{guest ? 'GUEST' : (props.user?.role ?? 'USER')}</span>
       </div>
       {isAdmin && props.onOpenUserManagement && (
         <button
@@ -51,15 +54,28 @@ export function UserMenu(props: {
           </svg>
         </button>
       )}
-      <button
-        type="button"
-        onClick={handleLogout}
-        // 다른 화면으로 들어가는 항목이 아니라 실행되는 동작이라 진입 화살표를 두지 않고 가운데에 세운다
-        className="flex w-full items-center justify-center gap-[7px] border-t border-line-soft px-[13px] py-2.5 text-[12.5px] text-danger transition-colors hover:bg-danger-wash"
-      >
-        <LogoutIcon className="size-[15px] shrink-0" />
-        로그아웃
-      </button>
+      {guest ? (
+        <button
+          type="button"
+          onClick={() => {
+            props.onDone?.()
+            navigate('/login')
+          }}
+          className="flex w-full items-center justify-center gap-[7px] border-t border-line-soft px-[13px] py-2.5 text-[12.5px] font-semibold text-teal-text transition-colors hover:bg-teal-wash"
+        >
+          로그인하기
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={handleLogout}
+          // 다른 화면으로 들어가는 항목이 아니라 실행되는 동작이라 진입 화살표를 두지 않고 가운데에 세운다
+          className="flex w-full items-center justify-center gap-[7px] border-t border-line-soft px-[13px] py-2.5 text-[12.5px] text-danger transition-colors hover:bg-danger-wash"
+        >
+          <LogoutIcon className="size-[15px] shrink-0" />
+          로그아웃
+        </button>
+      )}
     </>
   )
 }

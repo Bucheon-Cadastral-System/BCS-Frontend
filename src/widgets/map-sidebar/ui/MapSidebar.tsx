@@ -79,6 +79,8 @@ interface MapSidebarProps {
   onStartAddPoint: () => void
   /** 기준점 파일 등록 시작 — 파일 고르기부터 페이지의 모달이 받는다 */
   onImportPoints: () => void
+  /** 게스트처럼 조회만 가능한 화면 — 등록 입구를 내리지 않는다 */
+  readOnly?: boolean
   // 사용자 관리 (어드민)
   isAdmin: boolean
   onOpenUserManagement: () => void
@@ -651,21 +653,27 @@ function PointListPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHan
             className={PANEL_SEARCH_INPUT}
           />
         </span>
-        {/* 입구에서 의도를 가른다 — 한 점 입력과 파일 등록은 다른 창이 맡는다 */}
-        <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={props.onStartAddPoint} className={PANEL_ADD_BTN}>
-            <span className="mr-1.5 flex size-4 items-center justify-center text-teal-text">
-              <IconPlus />
-            </span>
-            직접 추가
-          </button>
-          <button type="button" onClick={props.onImportPoints} className={PANEL_ADD_BTN}>
-            <span className="mr-1.5 flex size-4 items-center justify-center text-teal-text">
-              <IconUpload />
-            </span>
-            파일 업로드
-          </button>
-        </div>
+        {props.readOnly ? (
+          <p className="flex h-10 items-center justify-center rounded-ctl border border-teal-edge/50 bg-teal-wash px-3 text-center text-[11.5px] font-medium text-teal-text">
+            공개 기준점 · 읽기 전용
+          </p>
+        ) : (
+          /* 입구에서 의도를 가른다 — 한 점 입력과 파일 등록은 다른 창이 맡는다 */
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={props.onStartAddPoint} className={PANEL_ADD_BTN}>
+              <span className="mr-1.5 flex size-4 items-center justify-center text-teal-text">
+                <IconPlus />
+              </span>
+              직접 추가
+            </button>
+            <button type="button" onClick={props.onImportPoints} className={PANEL_ADD_BTN}>
+              <span className="mr-1.5 flex size-4 items-center justify-center text-teal-text">
+                <IconUpload />
+              </span>
+              파일 업로드
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 굴림은 종류 드로어마다 따로 일어나지만, 시트가 얼마나 올라와야 하는지는 이 묶음의 높이가 정한다 */}

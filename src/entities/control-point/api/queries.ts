@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CONTROL_POINTS_KEY, LAST_SURVEYS_KEY, LIST_STALE_MS, lastSurveyKey } from '@/shared/api/queryKeys'
 import { deleteControlPoint, fetchControlPoints, fetchLastSurvey, fetchLastSurveys, registerControlPoint, updateControlPoint } from './controlPointApi'
+import { fetchPublicControlPoint, fetchPublicControlPoints } from './publicControlPointApi'
 
 // 키는 아래 계층이 쥔다 — 엔티티끼리 서로 수입하지 않기 위해서다. 이 엔티티의 공개 API 로는 여기서 다시 내보낸다
 export { CONTROL_POINTS_KEY, LAST_SURVEY_KEY, LAST_SURVEYS_KEY, lastSurveyKey, invalidateLastSurveys } from '@/shared/api/queryKeys'
@@ -12,6 +13,25 @@ export { CONTROL_POINTS_KEY, LAST_SURVEY_KEY, LAST_SURVEYS_KEY, lastSurveyKey, i
  */
 export function useControlPointsQuery() {
   return useQuery({ queryKey: CONTROL_POINTS_KEY, queryFn: fetchControlPoints, staleTime: 60 * 60_000 })
+}
+
+export const PUBLIC_CONTROL_POINTS_KEY = ['public-control-points'] as const
+
+export function usePublicControlPointsQuery() {
+  return useQuery({
+    queryKey: PUBLIC_CONTROL_POINTS_KEY,
+    queryFn: fetchPublicControlPoints,
+    staleTime: 60 * 60_000,
+  })
+}
+
+export function usePublicControlPointQuery(pointNo: string | null) {
+  return useQuery({
+    queryKey: [...PUBLIC_CONTROL_POINTS_KEY, pointNo],
+    queryFn: () => fetchPublicControlPoint(pointNo as string),
+    enabled: pointNo !== null,
+    staleTime: 60_000,
+  })
 }
 
 export function useRegisterControlPointMutation() {

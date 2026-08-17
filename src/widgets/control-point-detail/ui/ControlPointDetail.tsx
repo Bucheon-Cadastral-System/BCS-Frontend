@@ -5,14 +5,16 @@ import { formatDate, formatKstDate } from '@/shared/lib/date'
 import { FIELD_AREA, ICON_BTN, ICON_BTN_DANGER, PANEL, PANEL_HEADER, PANEL_HEADER_RULE } from '@/shared/ui/classes'
 import { Skeleton } from '@/shared/ui/Skeleton'
 import { FormActions } from '@/shared/ui/FormActions'
-import type { ControlPoint } from '@/entities/control-point'
+import type { ControlPoint, PublicControlPoint } from '@/entities/control-point'
 import { PointTypeIcon, useLastSurveyQuery } from '@/entities/control-point'
 import { SURVEY_STATUS_LABEL, SURVEY_STATUS_TONE, SurveyResultPicker, deriveSurveyStatus } from '@/entities/survey-record'
 import type { SurveyResult } from '@/entities/survey-record'
 import { ControlPointImageUpload } from '@/features/upload-control-point-image'
 
 interface ControlPointDetailProps {
-  point: ControlPoint | null
+  point: ControlPoint | PublicControlPoint | null
+  /** 공개 필드만 표시하는 게스트 상세 */
+  guest?: boolean
   activeProjectName: string | null
   /** 사진은 회차에 매달리므로 어느 회차인지 알아야 한다. 조사 대상이 아니면 null */
   activeProjectId: string | null
@@ -141,9 +143,11 @@ function CopyButton(props: { value: string; label: string; onCopied: (ok: boolea
 
 /** 고른 기준점의 성과와 조사 상태. 지도 위 우측에 떠 있는 카드다. */
 export function ControlPointDetail(props: ControlPointDetailProps) {
-  const p = props.point
+  // 회원 화면의 기존 계약은 그대로 두고, 게스트일 때만 공개 모델을 같은 껍데기에 넣는다.
+  const p = props.point as ControlPoint | null
+  const publicPoint = props.point as PublicControlPoint | null
   // 최종조사 요약은 점을 고른 뒤에만 필요해서 목록과 따로 읽는다
-  const lastSurveyQuery = useLastSurveyQuery(p?.id ?? null)
+  const lastSurveyQuery = useLastSurveyQuery(props.guest ? null : (p?.id ?? null))
   const lastSurvey = lastSurveyQuery.data
   // 아직 받지 못한 값을 '정보 없음'으로 세우면 없는 것으로 읽힌다. 자리만 잡아 두고 도착하면 채운다
   const surveyPending = lastSurveyQuery.isPending && p !== null
@@ -210,20 +214,26 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
           <span className="min-w-0 truncate text-[13.5px] font-semibold text-ink">{p.name}</span>
           <span className="shrink-0 text-[11px] text-ink-3">{p.type}</span>
         </h2>
-        <button type="button" onClick={() => props.onEdit(p)} title="수정" aria-label="기준점 수정" className={ICON_BTN}>
-          <svg viewBox="0 0 24 24" className="size-full" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M12 20h9" />
-            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-          </svg>
-        </button>
-        <button type="button" onClick={() => props.onDelete(p)} title="삭제" aria-label="기준점 삭제" className={ICON_BTN_DANGER}>
-          <svg viewBox="0 0 24 24" className="size-full" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M4 7h16" />
-            <path d="M10 11v6M14 11v6" />
-            <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
-            <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-          </svg>
-        </button>
+        {props.guest ? (
+          <span className="rounded-chip bg-teal-wash px-2 py-1 text-[10px] font-semibold tracking-[.08em] text-teal-text">GUEST</span>
+        ) : (
+          <>
+            <button type="button" onClick={() => props.onEdit(p)} title="수정" aria-label="기준점 수정" className={ICON_BTN}>
+              <svg viewBox="0 0 24 24" className="size-full" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+              </svg>
+            </button>
+            <button type="button" onClick={() => props.onDelete(p)} title="삭제" aria-label="기준점 삭제" className={ICON_BTN_DANGER}>
+              <svg viewBox="0 0 24 24" className="size-full" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M4 7h16" />
+                <path d="M10 11v6M14 11v6" />
+                <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
+                <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+              </svg>
+            </button>
+          </>
+        )}
         <button type="button" onClick={props.onClose} title="닫기" aria-label="닫기" className={ICON_BTN_DANGER}>
           <svg viewBox="0 0 24 24" className="size-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             <path d="M18 6 6 18M6 6l12 12" />
@@ -236,6 +246,31 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
           높이를 위쪽이 다 먹고 조사 상태는 시트 바닥에 눌린 채로 남는다.
           손잡이와 머리말은 이 바깥이라 내용을 굴려도 자리를 지킨다 */}
       <div ref={props.sheet?.scrollRef} className="max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-y-auto max-lg:overscroll-contain">
+      {props.guest && publicPoint !== null ? (
+        <div className="px-3.5 pb-[15px] pt-3">
+          <div className="mb-3 flex items-center gap-[9px] rounded-chip border border-line-pill bg-field py-[7px] pl-2.5 pr-2">
+            <span className="shrink-0 text-[11px] text-ink-3">관리번호</span>
+            <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{publicPoint.pointNo}</span>
+            <CopyButton value={publicPoint.pointNo} label="관리번호 복사" onCopied={props.onCopied} />
+          </div>
+
+          <dl className="grid grid-cols-[64px_1fr] gap-x-2.5 gap-y-[9px] text-[12.5px] [&_dd]:text-ink-2 [&_dt]:text-ink-3">
+            <dt>법정동명</dt>
+            <dd>{noneOr(publicPoint.regionName)}</dd>
+            <dt>소재지</dt>
+            <dd className="break-keep leading-[1.55] wrap-anywhere">{noneOr(publicPoint.address)}</dd>
+            <dt>위도</dt>
+            <dd>{publicPoint.lat.toFixed(7)}</dd>
+            <dt>경도</dt>
+            <dd>{publicPoint.lng.toFixed(7)}</dd>
+          </dl>
+
+          <p className="mt-4 rounded-ctl border border-line-soft bg-soft px-3 py-2 text-[11.5px] leading-5 text-ink-3">
+            게스트에게 공개된 기준점 기본 정보만 표시합니다.
+          </p>
+        </div>
+      ) : (
+      <>
       <div className="px-3.5 pb-[13px] pt-3">
         {/* 이름은 표시용이고 점을 가리키는 값은 관리번호라 좌표보다 먼저 둔다 */}
         <div className="mb-3 flex items-center gap-[9px] rounded-chip border border-line-pill bg-field py-[7px] pl-2.5 pr-2">
@@ -369,6 +404,8 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
             />
           )}
         </div>
+      )}
+      </>
       )}
       </div>
     </aside>

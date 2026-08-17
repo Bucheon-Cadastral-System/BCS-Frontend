@@ -18,6 +18,8 @@ export interface HeaderTab {
   onClick: () => void
 }
 
+type ReservedHeaderTab = Pick<HeaderTab, 'key' | 'label' | 'icon'>
+
 /**
  * 화면 위에 떠 있는 헤더.
  * 좌측은 브랜드와 지금 보고 있는 자리(지도 화면은 패널 전환 탭, 그 밖의 화면은 화면 이름),
@@ -29,10 +31,14 @@ export function AppHeader(props: {
   onHome?: () => void
   /** 브랜드 옆 탭 — 지도는 패널 전환, 관리자 화면은 자리 전환에 쓴다 */
   tabs?: HeaderTab[]
+  /** 보이지 않지만 폭은 보존할 탭 — 권한에 따라 탭을 숨겨도 헤더·패널 크기를 같게 유지한다 */
+  reservedTabs?: ReservedHeaderTab[]
   /** 우측 알약 왼쪽 자리 — 무엇을 검색할지는 화면이 정한다 */
   search?: ReactNode
   /** 지금 로그인한 사용자 — 아직 받아오지 못했으면 자리만 지킨다 */
   user: UserProfile | null
+  /** 공개 기준점만 보는 비로그인 상태 */
+  guest?: boolean
   /** 주지 않으면 사용자 메뉴에 그 항목을 두지 않는다(이미 그 화면인 경우) */
   onOpenUserManagement?: () => void
   /** 좌측 알약의 폭 — 그 아래 서는 칩·패널이 같은 너비를 쓰도록 알린다 */
@@ -45,6 +51,7 @@ export function AppHeader(props: {
   useDismiss({ enabled: menuOpen, onDismiss: () => setMenuOpen(false), ref: userRef })
 
   const user = props.user
+  const guest = props.guest === true
 
   // 켜진 탭 밑을 따라 미끄러지는 면 — 탭마다 면을 따로 켜고 끄면 자리가 옮겨 간다는 것이 보이지 않는다
   const [tabsRow, setTabsRow] = useState<HTMLDivElement | null>(null)
@@ -123,7 +130,7 @@ export function AppHeader(props: {
           <span className="flex items-center gap-2">{brand}</span>
         )}
 
-        {props.tabs && props.tabs.length > 0 && (
+        {((props.tabs?.length ?? 0) > 0 || (props.reservedTabs?.length ?? 0) > 0) && (
           <>
             <span className="mx-[3px] h-[22px] w-px bg-line-field max-lg:hidden" aria-hidden />
             <div ref={setTabsRow} className="relative flex touch-none items-center gap-1 max-lg:hidden">
@@ -137,7 +144,17 @@ export function AppHeader(props: {
                   } ${shownKey === null ? 'opacity-0' : 'opacity-100'}`}
                 />
               )}
-              {props.tabs.map(({ key, ...tab }) => (
+              {props.reservedTabs?.map((tab) => (
+                <span
+                  key={tab.key}
+                  aria-hidden="true"
+                  className="invisible relative z-10 flex h-[34px] items-center gap-[7px] rounded-ctl px-3 text-[12px] font-semibold"
+                >
+                  {tab.icon}
+                  {tab.label}
+                </span>
+              ))}
+              {props.tabs?.map(({ key, ...tab }) => (
                 <Tab key={key} tabKey={key} {...tab} />
               ))}
             </div>
@@ -158,13 +175,19 @@ export function AppHeader(props: {
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
             aria-expanded={menuOpen}
-            aria-label="내 정보"
+            aria-label={guest ? '게스트 메뉴' : '내 정보'}
             // 오른쪽 화살표는 제 상자 안에서 이미 3px 가까이 비워 두므로 왼쪽보다 적게 준다 — 값이 아니라 보이는 여백을 맞춘다.
             // 좁은 화면에서는 판 안의 아바타 하나로 줄어든다. 과녁은 아바타(30)보다 크게 34 로 잡고,
             // 판이 오른쪽에 남긴 9px 까지 더해 손가락이 닿는 자리를 넓힌다
             className={`flex h-11 items-center gap-2 py-0 pl-[7px] pr-2 transition-colors hover:border-line-field max-lg:size-[34px] max-lg:shrink-0 max-lg:justify-center max-lg:border-0 max-lg:bg-transparent max-lg:px-0 max-lg:shadow-none ${PILL}`}
           >
-            {user ? <UserAvatar name={user.name} className="size-[30px] text-[11.5px]" /> : <Skeleton className="size-[30px] shrink-0 rounded-full" />}
+            {user ? (
+              <UserAvatar name={user.name} className="size-[30px] text-[11.5px]" />
+            ) : guest ? (
+              <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-teal-wash text-[11px] font-bold text-teal-text" aria-hidden="true">G</span>
+            ) : (
+              <Skeleton className="size-[30px] shrink-0 rounded-full" />
+            )}
             {/* 브랜드 알약과 같은 규칙 — 윗줄은 크고 굵게, 아랫줄은 작고 흐리게.
                 폭은 고정한다. 이름·소속 길이를 따라 알약이 늘고 줄면 그 폭을 쓰는 대화 패널까지 흔들리고,
                 프로필을 받아오는 순간에도 자리가 튄다. 94px 는 가장 긴 소속(부동산관리팀 주무관 90.9px)이 들어가는 값. */}
@@ -173,6 +196,11 @@ export function AppHeader(props: {
                 <>
                   <span className="block truncate text-[14px] font-bold tracking-[-.02em] text-ink">{user.name}</span>
                   <span className="block truncate text-[11px] text-ink-3">{`${user.team} ${user.position}`}</span>
+                </>
+              ) : guest ? (
+                <>
+                  <span className="block truncate text-[14px] font-bold tracking-[-.02em] text-ink">게스트</span>
+                  <span className="block truncate text-[11px] text-ink-3">공개 정보만 보기</span>
                 </>
               ) : (
                 <span className="flex flex-col gap-1 py-[3px]">
@@ -190,7 +218,7 @@ export function AppHeader(props: {
             // 좁은 화면에서는 아바타가 아니라 판 아래 8px 에 선다 — 판 안의 자리를 기준으로 띄우면
             // 그 자리 높이(34)만큼만 내려와 판에 물린다
             <div className={`panel-in absolute right-0 top-[50px] z-40 w-56 overflow-hidden max-lg:top-[54px] ${POPOVER}`}>
-              <UserMenu user={user} onOpenUserManagement={props.onOpenUserManagement} onDone={() => setMenuOpen(false)} />
+              <UserMenu user={user} guest={guest} onOpenUserManagement={props.onOpenUserManagement} onDone={() => setMenuOpen(false)} />
             </div>
           )}
         </div>
@@ -264,4 +292,3 @@ export function UsersIcon({ className }: { className?: string }) {
     </svg>
   )
 }
-
