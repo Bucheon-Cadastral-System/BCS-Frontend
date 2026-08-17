@@ -198,10 +198,7 @@ export function AppHeader(props: {
                   <span className="block truncate text-[11px] text-ink-3">{`${user.team} ${user.position}`}</span>
                 </>
               ) : guest ? (
-                <>
-                  <span className="block truncate text-[14px] font-bold tracking-[-.02em] text-ink">게스트</span>
-                  <span className="block truncate text-[11px] text-ink-3">공개 정보만 보기</span>
-                </>
+                <span className="block truncate text-[14px] font-bold tracking-[-.02em] text-ink">게스트</span>
               ) : (
                 <span className="flex flex-col gap-1 py-[3px]">
                   <Skeleton className="h-3 w-12" />
