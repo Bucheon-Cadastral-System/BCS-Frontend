@@ -20,6 +20,11 @@ import { Spinner } from '@/shared/ui/Spinner'
 
 type AuthState = { loading: boolean; profile: UserProfile | null }
 
+/** 전역 권한 오류 화면은 인증이 필요한 최상위 화면에서만 사용한다. */
+function supportsFullPageForbidden(pathname: string) {
+  return pathname === '/' || pathname === '/admin' || pathname.startsWith('/admin/')
+}
+
 function LoadingPage() {
   return (
     <main className="app-bg grid h-full place-items-center">
@@ -217,9 +222,14 @@ function AppRoutes() {
     navigate('/guest?notice=authentication-required', { replace: true })
   }), [applyAuth, navigate])
 
-  useEffect(() => subscribeAuthorizationForbidden(() => setForbidden(true)), [])
+  useEffect(() => subscribeAuthorizationForbidden(() => {
+    if (supportsFullPageForbidden(location.pathname)) setForbidden(true)
+  }), [location.pathname])
 
-  if (forbidden) {
+  // 권한 오류가 발생한 화면을 떠나면 새 경로가 정상적으로 렌더되게 한다.
+  useEffect(() => setForbidden(false), [location.pathname])
+
+  if (forbidden && supportsFullPageForbidden(location.pathname)) {
     return (
       <PermissionDeniedPage
         onBack={() => {
