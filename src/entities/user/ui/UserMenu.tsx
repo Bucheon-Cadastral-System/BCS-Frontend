@@ -21,13 +21,13 @@ export function UserMenu(props: {
   const guest = props.guest === true
   const isAdmin = props.user?.role === 'ADMIN'
 
-  // 서버 호출이 실패해도 이 브라우저의 인증은 이미 끊어진 상태이므로 로그인 화면으로 이동한다.
+  // 서버 호출이 실패해도 이 브라우저의 인증은 이미 끊어진 상태이므로 게스트 화면으로 이동한다.
   async function handleLogout() {
     props.onDone?.()
     try {
       await logout()
     } catch {
-      // 실패해도 아래에서 로그인 화면으로 이동한다.
+      // 실패해도 아래에서 게스트 화면으로 이동한다.
     }
     navigate('/guest', { replace: true })
   }
