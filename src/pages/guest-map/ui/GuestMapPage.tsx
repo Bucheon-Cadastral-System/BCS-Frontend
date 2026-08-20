@@ -28,7 +28,7 @@ import { useViewportHeight } from '@/shared/lib/useViewportHeight'
 import { useFileDrop } from '@/shared/lib/useFileDrop'
 import { VWORLD_KEY } from '@/shared/config/map'
 import { FileDropOverlay } from '@/shared/ui/FileDropOverlay'
-import { PANEL_MARGIN, PANEL_MIN_WIDTH } from '@/shared/ui/layout'
+import { PANEL_MARGIN, PANEL_WIDTH } from '@/shared/ui/layout'
 import { MapBanner } from '@/shared/ui/MapBanner'
 import { Spinner } from '@/shared/ui/Spinner'
 import { ThemeToggleButton } from '@/shared/ui/ThemeToggleButton'
@@ -60,7 +60,6 @@ export function GuestMapPage() {
 
   const [panel, setPanel] = useState<{ minimized: boolean } | null>({ minimized: false })
   const openPanel = panel !== null && !panel.minimized ? 'points' : null
-  const [headerWidth, setHeaderWidth] = useState(0)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = points.find((point) => point.id === selectedId) ?? null
   const detailQuery = usePublicControlPointQuery(selected?.pointNo ?? null)
@@ -164,7 +163,6 @@ export function GuestMapPage() {
             },
           ]}
           search={<PointSearchBar points={points} onSelect={(point) => focusPoint(point)} />}
-          onBrandWidthChange={setHeaderWidth}
         />
 
         <div className="absolute inset-0">
@@ -218,8 +216,9 @@ export function GuestMapPage() {
             </div>
           </div>
 
+          {/* 접힌 칩은 펼친 패널이 서던 자리를 그대로 물려받는다 */}
           {panel?.minimized && (
-            <div className="panel-in absolute left-4 top-[76px] z-[15] max-lg:hidden" style={{ width: headerWidth || undefined }}>
+            <div className="panel-in absolute left-4 top-[76px] z-[15] max-lg:hidden" style={{ width: PANEL_WIDTH }}>
               <MinimizedPanelChip
                 label="기준점"
                 value="지도에 표시 중"
@@ -301,8 +300,8 @@ export function GuestMapPage() {
           minimized={panel?.minimized === true}
           onMinimize={() => setPanel({ minimized: true })}
           onClose={() => narrow ? panelSheet.requestClose() : closePoints()}
-          // 헤더 알약은 탭이 하나라 짧다 — 목록이 밀리지 않게 패널만 제 폭을 지킨다
-          width={Math.max(headerWidth, PANEL_MIN_WIDTH)}
+          // 헤더 알약은 탭이 하나라 짧지만, 목록이 담는 것은 회원 지도와 같으므로 폭도 같이 간다
+          width={PANEL_WIDTH}
           sheet={narrow ? panelSheet.sheet : undefined}
         />
 
