@@ -1,16 +1,17 @@
 import { Modal } from '@/shared/ui/Modal'
 import { BTN_SM_SECONDARY } from '@/shared/ui/classes'
 import { Skeleton } from '@/shared/ui/Skeleton'
+import { formatPhone } from '../model/phone'
 import { useMemberIdentityQuery } from '../api/queries'
 import { ProfileRow, ProfileValue } from './ProfileFields'
 import { UserAvatar } from './UserAvatar'
 
 /**
- * 정보 줄 — 이 사람이 누구인지까지다.
+ * 정보 줄 — 이 사람이 누구인지와 연락할 자리까지다.
  *
- * <p>연락처와 권한은 세우지 않는다. 서버가 이 경로로 그 값을 내려 주지 않는다.
+ * <p>권한은 세우지 않는다. 서버가 이 경로로 그 값을 내려 주지 않는다.
  */
-const LABELS = ['소속 구청', '소속 과', '소속 팀', '직위'] as const
+const LABELS = ['소속 구청', '소속 과', '소속 팀', '직위', '전화번호', '이메일'] as const
 
 /**
  * 다른 회원의 신원 — 작성자·조사원 이름을 눌렀을 때 선다.
@@ -31,7 +32,10 @@ export function MemberProfileDialog(props: { memberId: string; onClose: () => vo
         </button>
       }
     >
-      <div className="flex items-center gap-3">
+      {/* 창 본문의 위아래 여백(14·16)에 줄 안쪽 여백이 겹치지 않게 맞춘다 —
+          신원과 목록 사이도 첫 줄 위 여백까지 더해 같은 14가 되게 둔다 */}
+      <div>
+      <div className="flex items-center gap-3 border-b border-line-row pb-3">
         {isPending ? (
           <Skeleton className="size-[42px] rounded-full" />
         ) : (
@@ -55,7 +59,7 @@ export function MemberProfileDialog(props: { memberId: string; onClose: () => vo
       {isError ? (
         <p className="py-6 text-center text-[12.5px] text-ink-3">회원 정보를 불러오지 못했습니다.</p>
       ) : (
-        <dl>
+        <dl className="-mb-2 pt-1.5">
           {isPending
             ? LABELS.map((label) => (
                 <ProfileRow key={label} label={label}>
@@ -76,10 +80,29 @@ export function MemberProfileDialog(props: { memberId: string; onClose: () => vo
                   <ProfileRow label="직위">
                     <ProfileValue value={data.position} />
                   </ProfileRow>
+                  <ProfileRow label="전화번호">
+                    <ContactLink href={`tel:${data.phone}`} text={formatPhone(data.phone)} />
+                  </ProfileRow>
+                  <ProfileRow label="이메일">
+                    <ContactLink href={`mailto:${data.email}`} text={data.email} />
+                  </ProfileRow>
                 </>
               )}
         </dl>
       )}
+      </div>
     </Modal>
+  )
+}
+
+/** 눌러서 바로 연락하는 자리 — 값이 없으면 누를 것도 없어 글자로만 세운다 */
+function ContactLink(props: { href: string; text: string }) {
+  if (props.text === '') {
+    return <ProfileValue value="" />
+  }
+  return (
+    <a href={props.href} className="block truncate text-[13px] text-teal-text underline-offset-2 hover:underline">
+      {props.text}
+    </a>
   )
 }

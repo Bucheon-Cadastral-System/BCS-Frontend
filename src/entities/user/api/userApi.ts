@@ -20,8 +20,8 @@ const positionFromApi: Record<ApiPosition, Position> = { TEAM_LEADER: '팀장', 
  * 카카오 로그인만 하고 회원 정보 입력을 마치지 않은 계정은 이름부터 직위까지가 비어 있다 —
  * 승인 대기 목록에는 그 계정도 함께 서므로 빈 값을 받을 수 있어야 한다.
  */
-/** 남의 신원을 읽는 경로가 받는 모양 — 연락처·권한·가입 상태가 빠져 있다 */
-type ApiMemberIdentity = Omit<ApiMember, 'status' | 'phone' | 'email' | 'role'>
+/** 남의 신원을 읽는 경로가 받는 모양 — 권한과 가입 상태가 빠져 있다 */
+type ApiMemberIdentity = Omit<ApiMember, 'status' | 'role'>
 
 interface ApiMember {
   id: number
@@ -62,15 +62,12 @@ function mapMember(member: ApiMember): ManagedUser {
 }
 
 function mapMemberProfile(member: ApiMember): MemberProfile {
-  return {
-    ...mapMemberIdentity(member),
-    phone: member.phone ?? '', email: member.email ?? '', role: member.role,
-  }
+  return { ...mapMemberIdentity(member), role: member.role }
 }
 
 function mapMemberIdentity(member: ApiMemberIdentity): MemberIdentity {
   return {
-    id: String(member.id), name: member.name ?? '',
+    id: String(member.id), name: member.name ?? '', phone: member.phone ?? '', email: member.email ?? '',
     district: enumDisplayValue(districtFromApi, member.district), department: member.department ?? '',
     team: enumDisplayValue(teamFromApi, member.team), position: enumDisplayValue(positionFromApi, member.position),
   }
