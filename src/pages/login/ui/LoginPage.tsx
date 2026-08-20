@@ -1,5 +1,5 @@
 import { BrandLockup } from '@/shared/ui/BrandLockup'
-import { MODAL_SHELL } from '@/shared/ui/classes'
+import { BTN_SECONDARY, MODAL_SHELL } from '@/shared/ui/classes'
 
 interface LoginPageProps {
   onKakaoLogin: () => void
@@ -42,17 +42,14 @@ export function LoginPage({ onKakaoLogin, onGuest, failure = null }: LoginPagePr
             </span>
             카카오로 로그인
           </button>
-          <button
-            type="button"
-            className="h-[46px] w-full rounded-ctl border border-line-field bg-field text-[13px] font-semibold text-ink-2 transition-colors hover:border-teal-edge hover:bg-hover hover:text-teal-text"
-            onClick={onGuest}
-          >
-            게스트로 둘러보기
+          {/* 위 카카오 버튼은 브랜드 색·높이를 지켜야 해서 전용 스타일이다. 이쪽은 공용 보조 버튼에 높이만 맞춘다 */}
+          <button type="button" className={`${BTN_SECONDARY} h-[46px] w-full`} onClick={onGuest}>
+            게스트로 보기
           </button>
         </div>
 
         <p className="mt-7 text-[11px] leading-6 text-ink-3">
-          게스트는 공개 기준점의 위치와 소재지만 확인할 수 있습니다.
+          게스트는 공개 기준점의 기본 정보만 확인할 수 있습니다.
           <br />
           최초 로그인 시 회원가입 신청 화면으로 이동합니다.
         </p>

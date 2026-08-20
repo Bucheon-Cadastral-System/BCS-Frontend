@@ -12,7 +12,7 @@ import { percent } from '@/shared/lib/percent'
 import { formatDate } from '@/shared/lib/date'
 import type { SheetHandle } from '@/shared/lib/useBottomSheet'
 import { SURVEY_ONGOING_LABEL, isProjectComplete, type SurveyProject } from '@/entities/survey-project'
-import type { ControlPoint, PointType } from '@/entities/control-point'
+import type { MappableControlPoint, PointType } from '@/entities/control-point'
 import { POINT_TYPES, PointTypeIcon, StatusMark } from '@/entities/control-point'
 
 /** 좌측 레일에서 열 수 있는 패널 종류 */
@@ -49,12 +49,12 @@ interface MapSidebarProps {
   onEditProject: (project: SurveyProject) => void
   onDeleteProject: (project: SurveyProject) => void
   // 기준점 목록
-  points: ControlPoint[]
+  points: MappableControlPoint[]
   /** 고른 조사의 대상 점 — 조사를 고르지 않았으면 points 와 같다 */
-  targetPoints: ControlPoint[]
+  targetPoints: MappableControlPoint[]
   /** 점 id별 조사 결과. 맵에 없으면 미조사 */
   resultById: ReadonlyMap<string, SurveyResult>
-  onFocusPoint: (cp: ControlPoint) => void
+  onFocusPoint: (cp: MappableControlPoint) => void
   /**
    * 지금 고른 점 — 그 줄에 강조가 선다.
    *
@@ -79,7 +79,7 @@ interface MapSidebarProps {
   onStartAddPoint: () => void
   /** 기준점 파일 등록 시작 — 파일 고르기부터 페이지의 모달이 받는다 */
   onImportPoints: () => void
-  /** 게스트처럼 조회만 가능한 화면 — 등록 입구를 내리지 않는다 */
+  /** 게스트처럼 조회만 가능한 화면 — 등록·수정·삭제 입구를 모두 내린다 */
   readOnly?: boolean
   // 사용자 관리 (어드민)
   isAdmin: boolean
@@ -324,20 +324,22 @@ function ProjectPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHandl
           />
         </span>
         {/* 입구에서 의도를 가른다 — 직접 만들기(대상 지정)와 파일로 만들기는 다른 창이 맡는다 */}
-        <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={handleNew} className={PANEL_ADD_BTN}>
-            <span className="mr-1.5 flex size-4 items-center justify-center text-teal-text">
-              <IconPlus />
-            </span>
-            직접 추가
-          </button>
-          <button type="button" onClick={props.onImportProjects} className={PANEL_ADD_BTN}>
-            <span className="mr-1.5 flex size-4 items-center justify-center text-teal-text">
-              <IconUpload />
-            </span>
-            파일 업로드
-          </button>
-        </div>
+        {!props.readOnly && (
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={handleNew} className={PANEL_ADD_BTN}>
+              <span className="mr-1.5 flex size-4 items-center justify-center text-teal-text">
+                <IconPlus />
+              </span>
+              직접 추가
+            </button>
+            <button type="button" onClick={props.onImportProjects} className={PANEL_ADD_BTN}>
+              <span className="mr-1.5 flex size-4 items-center justify-center text-teal-text">
+                <IconUpload />
+              </span>
+              파일 업로드
+            </button>
+          </div>
+        )}
       </div>
 
       <ul ref={props.sheet?.scrollRef} className="min-h-0 flex-1 overflow-y-auto border-t-2 border-t-teal">
@@ -413,6 +415,7 @@ function ProjectPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHandl
             onFocusPoint={props.onFocusPoint}
             onEdit={props.onEditProject}
             onDelete={props.onDeleteProject}
+            readOnly={props.readOnly}
           />
         )}
       </div>
@@ -427,7 +430,7 @@ function ProjectPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHandl
  */
 function ProjectDetail(props: {
   project: SurveyProject
-  targetPoints: ControlPoint[]
+  targetPoints: MappableControlPoint[]
   resultById: ReadonlyMap<string, SurveyResult>
   recordsLoading?: boolean
   targetsLoading?: boolean
@@ -435,9 +438,10 @@ function ProjectDetail(props: {
   selectedPointId: string | null
   onDeselectPoint: () => void
   onBack: () => void
-  onFocusPoint: (cp: ControlPoint) => void
+  onFocusPoint: (cp: MappableControlPoint) => void
   onEdit: (project: SurveyProject) => void
   onDelete: (project: SurveyProject) => void
+  readOnly?: boolean
 }) {
   const p = props.project
   const total = props.targetPoints.length
@@ -510,18 +514,20 @@ function ProjectDetail(props: {
         <ProjectNote note={p.note ?? ''} />
       </div>
 
-      <div className="flex shrink-0 gap-2 px-3.5 pt-2.5">
-        <button type="button" onClick={() => props.onEdit(p)} className={`${CHIP_BTN} flex-1 py-1.5 text-[12px]`}>
-          수정
-        </button>
-        <button
-          type="button"
-          onClick={() => props.onDelete(p)}
-          className={`${CHIP_BTN_DANGER} flex-1 py-1.5 text-[12px]`}
-        >
-          삭제
-        </button>
-      </div>
+      {!props.readOnly && (
+        <div className="flex shrink-0 gap-2 px-3.5 pt-2.5">
+          <button type="button" onClick={() => props.onEdit(p)} className={`${CHIP_BTN} flex-1 py-1.5 text-[12px]`}>
+            수정
+          </button>
+          <button
+            type="button"
+            onClick={() => props.onDelete(p)}
+            className={`${CHIP_BTN_DANGER} flex-1 py-1.5 text-[12px]`}
+          >
+            삭제
+          </button>
+        </div>
+      )}
 
       <div className="mt-3 flex min-h-0 flex-1 flex-col border-t border-line-soft pt-2">
         <p className="flex shrink-0 items-baseline gap-1.5 px-3.5 pb-1 text-[11px] font-medium tracking-[.08em] text-ink-3">
@@ -613,7 +619,7 @@ function PointListPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHan
   }, [source, query])
   // 종류별 묶음 — 수천 점을 한 줄로 늘어놓는 대신 종류 드로어로 갈라 보고 싶은 갈래만 편다
   const byType = useMemo(() => {
-    const map = new Map<PointType, ControlPoint[]>()
+    const map = new Map<PointType, MappableControlPoint[]>()
     for (const t of POINT_TYPES) map.set(t, [])
     for (const p of list) map.get(p.type)?.push(p)
     return map
@@ -728,8 +734,8 @@ function PointListPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHan
  * survey 를 주면 상태마크가 함께 서고(프로젝트 드로어), 없으면 이름·종류만 선다(기준점 탭).
  */
 function PointRowList(props: {
-  points: ControlPoint[]
-  onFocus: (cp: ControlPoint) => void
+  points: MappableControlPoint[]
+  onFocus: (cp: MappableControlPoint) => void
   /** 지금 고른 점 — 그 줄에 강조가 선다 */
   selectedId: string | null
   /** 강조된 줄을 다시 눌렀다 */
@@ -838,7 +844,7 @@ function PointRowList(props: {
  * 점 한 줄. 좌측에 종류 도식(⊕/●/○)은 항상, status 있으면(프로젝트 드로어) 그 앞에 V/X 조사표시를 함께 표시.
  */
 function PointRow(props: {
-  cp: ControlPoint
+  cp: MappableControlPoint
   status?: SurveyStatus
   onClick: () => void
   /** 지금 고른 점의 줄 — 지도의 마커와 오른쪽 상세가 가리키는 그 점이다 */

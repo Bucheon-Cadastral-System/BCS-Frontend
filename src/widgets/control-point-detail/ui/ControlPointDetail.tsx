@@ -141,11 +141,23 @@ function CopyButton(props: { value: string; label: string; onCopied: (ok: boolea
 }
 
 
+/** 회원 모델인지 — 성과 좌표는 공개 응답에 담기지 않는다 */
+function isMemberPoint(point: ControlPoint | PublicControlPoint | null): point is ControlPoint {
+  return point !== null && 'northing' in point
+}
+
+/** 공개 모델인지 — 소재지는 회원 응답에 담기지 않는다 */
+function isPublicPoint(point: ControlPoint | PublicControlPoint | null): point is PublicControlPoint {
+  return point !== null && 'address' in point
+}
+
 /** 고른 기준점의 성과와 조사 상태. 지도 위 우측에 떠 있는 카드다. */
 export function ControlPointDetail(props: ControlPointDetailProps) {
   // 회원 화면의 기존 계약은 그대로 두고, 게스트일 때만 공개 모델을 같은 껍데기에 넣는다.
-  const p = props.point as ControlPoint | null
-  const publicPoint = props.point as PublicControlPoint | null
+  // 두 모델은 겹치지 않는 필드로 갈라 읽으므로 단정하지 않는다 — 단정하면 없는 필드를 읽어도 형이 통과한다.
+  const point = props.point
+  const p = isMemberPoint(point) ? point : null
+  const publicPoint = isPublicPoint(point) ? point : null
   // 최종조사 요약은 점을 고른 뒤에만 필요해서 목록과 따로 읽는다
   const lastSurveyQuery = useLastSurveyQuery(props.guest ? null : (p?.id ?? null))
   const lastSurvey = lastSurveyQuery.data
@@ -181,7 +193,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
     if (pending === null || pending === 'ETC') return
     if (pending === 'NONE' ? props.surveyResult === null : props.surveyResult === pending) setPending(null)
   }, [props.surveyResult, pending])
-  if (!p) return null
+  if (point === null) return null
 
   // 아직 저장하지 않았어도 고른 값을 따른다. 머리말 칩만 이전 값으로 남으면 화면이 어긋난다
   const shownResult = pending === 'NONE' ? null : (pending ?? props.surveyResult)
@@ -208,13 +220,13 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
       {/* 이름과 종류를 한 줄에 나란히 — 좌측 패널 머리말(제목 + 총 N개)과 같은 규격이다 */}
       <div className={`${PANEL_HEADER} ${PANEL_HEADER_RULE}`}>
         <span className="flex shrink-0 text-teal-text">
-          <PointTypeIcon type={p.type} className="size-[18px]" />
+          <PointTypeIcon type={point.type} className="size-[18px]" />
         </span>
         <h2 className="flex min-w-0 flex-1 items-baseline gap-[7px]">
-          <span className="min-w-0 truncate text-[13.5px] font-semibold text-ink">{p.name}</span>
-          <span className="shrink-0 text-[11px] text-ink-3">{p.type}</span>
+          <span className="min-w-0 truncate text-[13.5px] font-semibold text-ink">{point.name}</span>
+          <span className="shrink-0 text-[11px] text-ink-3">{point.type}</span>
         </h2>
-        {props.guest ? (
+        {p === null ? (
           <span className="rounded-chip bg-teal-wash px-2 py-1 text-[10px] font-semibold tracking-[.08em] text-teal-text">GUEST</span>
         ) : (
           <>
@@ -246,7 +258,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
           높이를 위쪽이 다 먹고 조사 상태는 시트 바닥에 눌린 채로 남는다.
           손잡이와 머리말은 이 바깥이라 내용을 굴려도 자리를 지킨다 */}
       <div ref={props.sheet?.scrollRef} className="max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-y-auto max-lg:overscroll-contain">
-      {props.guest && publicPoint !== null ? (
+      {publicPoint !== null ? (
         <div className="px-3.5 pb-[15px] pt-3">
           <div className="mb-3 flex items-center gap-[9px] rounded-chip border border-line-pill bg-field py-[7px] pl-2.5 pr-2">
             <span className="shrink-0 text-[11px] text-ink-3">관리번호</span>
@@ -266,10 +278,10 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
           </dl>
 
           <p className="mt-4 rounded-ctl border border-line-soft bg-soft px-3 py-2 text-[11.5px] leading-5 text-ink-3">
-            게스트에게 공개된 기준점 기본 정보만 표시합니다.
+            공개된 기본 정보만 표시합니다.
           </p>
         </div>
-      ) : (
+      ) : p !== null ? (
       <>
       <div className="px-3.5 pb-[13px] pt-3">
         {/* 이름은 표시용이고 점을 가리키는 값은 관리번호라 좌표보다 먼저 둔다 */}
@@ -406,7 +418,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
         </div>
       )}
       </>
-      )}
+      ) : null}
       </div>
     </aside>
   )
