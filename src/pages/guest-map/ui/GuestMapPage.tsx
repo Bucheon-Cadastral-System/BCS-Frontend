@@ -28,22 +28,23 @@ import { useViewportHeight } from '@/shared/lib/useViewportHeight'
 import { useFileDrop } from '@/shared/lib/useFileDrop'
 import { VWORLD_KEY } from '@/shared/config/map'
 import { FileDropOverlay } from '@/shared/ui/FileDropOverlay'
+import { PANEL_MARGIN } from '@/shared/ui/layout'
 import { MapBanner } from '@/shared/ui/MapBanner'
 import { Spinner } from '@/shared/ui/Spinner'
 import { ThemeToggleButton } from '@/shared/ui/ThemeToggleButton'
 import { Toast } from '@/shared/ui/Toast'
+import type { ToastTone } from '@/shared/ui/Toast'
 
 const EMPTY_RESULTS: ReadonlyMap<string, SurveyResult> = new Map()
 const EMPTY_PROJECTS: SurveyProject[] = []
 const EMPTY_IDS: ReadonlySet<string> = new Set()
-const PANEL_MARGIN = 16
 
 
 /**
  * 공개 API만 사용하는 게스트 지도.
  *
- * 회원 화면과 지도·기준점 목록·상세 패널을 공유하지만 프로젝트·파일 드롭·조사·사진·챗봇은
- * 이 트리에 마운트하지 않는다. 따라서 게스트 화면에서 보호 API가 우발적으로 실행될 길도 없다.
+ * 회원 화면과 지도·기준점 목록·상세 패널을 공유하지만 프로젝트·조사·사진·챗봇은 이 트리에 마운트하지 않는다.
+ * 파일은 드롭을 받되 등록하지 않고 받을 수 없다는 사실만 알린다. 따라서 게스트 화면에서 보호 API가 우발적으로 실행될 길도 없다.
  */
 export function GuestMapPage() {
   const location = useLocation()
@@ -71,7 +72,7 @@ export function GuestMapPage() {
   const [showCadastral, setShowCadastral] = useState(true)
   const [showDistrict, setShowDistrict] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ message: string; tone: ToastTone } | null>(null)
   const notice = new URLSearchParams(location.search).get('notice')
 
   useEffect(() => {
@@ -91,7 +92,7 @@ export function GuestMapPage() {
   }
 
   // 게스트는 파일을 받지 않는다 — 끌어 오는 동안 받을 수 없음을 덮어 알리고 놓으면 그 사실만 남긴다
-  const fileDrop = useFileDrop(() => setToast('게스트 모드에서는 파일을 업로드할 수 없습니다.'), { reject: true })
+  const fileDrop = useFileDrop(() => setToast({ message: '게스트 모드에서는 파일을 업로드할 수 없습니다.', tone: 'error' }), { reject: true })
 
   async function refreshPoints() {
     if (refreshing) return
@@ -99,7 +100,8 @@ export function GuestMapPage() {
     try {
       await queryClient.invalidateQueries({ queryKey: PUBLIC_CONTROL_POINTS_KEY })
       const failed = queryClient.getQueryState(PUBLIC_CONTROL_POINTS_KEY)?.status === 'error'
-      setToast(failed ? '공개 기준점을 다시 불러오지 못했습니다.' : '공개 기준점을 다시 불러왔습니다.')
+      if (failed) setToast({ message: '공개 기준점을 다시 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.', tone: 'error' })
+      else setToast({ message: '공개 기준점을 다시 불러왔습니다.', tone: 'success' })
     } finally {
       setRefreshing(false)
     }
@@ -124,6 +126,16 @@ export function GuestMapPage() {
     contentKey: selectedId,
     minHeight: 300,
   })
+
+  /**
+   * 지도에 보일 점 — 패널을 닫으면 아무것도 보이지 않는다.
+   *
+   * <p>고른 점만은 예외다. 헤더 검색은 패널을 열지 않고 점을 지목하므로, 빼면 지목한 자리에 아무것도 나타나지 않는다.
+   */
+  const visibleIds = useMemo<ReadonlySet<string> | null>(() => {
+    if (panel !== null) return null
+    return selectedId === null ? EMPTY_IDS : new Set([selectedId])
+  }, [panel, selectedId])
 
   const layers = [
     { key: 'cadastral', label: '지적도', note: `~1:${CADASTRAL_MIN_SCALE.toLocaleString('ko-KR')}`, on: showCadastral, onToggle: () => setShowCadastral((value) => !value), swatch: CADASTRAL_SWATCH },
@@ -159,7 +171,7 @@ export function GuestMapPage() {
         <div className="absolute inset-0">
           <ControlPointMap
             points={points}
-            visibleIds={panel === null ? EMPTY_IDS : null}
+            visibleIds={visibleIds}
             addMode={false}
             showCadastral={showCadastral}
             showDistrict={showDistrict}
@@ -241,7 +253,6 @@ export function GuestMapPage() {
             style={{ '--detail-right': `${PANEL_MARGIN}px`, ...detailSheet.sheet.style } as CSSProperties}
           >
             <ControlPointDetail
-              guest
               point={shownPoint}
               activeProjectName={null}
               activeProjectId={null}
@@ -256,7 +267,7 @@ export function GuestMapPage() {
               onClose={() => narrow ? detailSheet.requestClose() : setSelectedId(null)}
               onEdit={() => undefined}
               onDelete={() => undefined}
-              onCopied={(ok) => setToast(ok ? '클립보드로 복사되었습니다.' : '클립보드로 복사하지 못했습니다.')}
+              onCopied={(ok) => setToast(ok ? { message: '클립보드로 복사되었습니다.', tone: 'success' } : { message: '클립보드로 복사하지 못했습니다.', tone: 'error' })}
               sheet={narrow ? detailSheet.sheet : undefined}
             />
           </div>
@@ -311,7 +322,7 @@ export function GuestMapPage() {
         </div>
       </div>
 
-      {toast !== null && <Toast message={toast} onDismiss={() => setToast(null)} />}
+      {toast !== null && <Toast message={toast.message} tone={toast.tone} onDismiss={() => setToast(null)} />}
     </div>
   )
 }
