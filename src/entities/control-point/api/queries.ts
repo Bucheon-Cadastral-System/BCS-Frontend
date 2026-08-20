@@ -25,12 +25,13 @@ export function usePublicControlPointsQuery() {
   })
 }
 
+/** 공개 기준점 한 점 — 회원 상세와 같이 열 때마다 다시 받는다(위 useLastSurveyQuery 참고). */
 export function usePublicControlPointQuery(pointNo: string | null) {
   return useQuery({
     queryKey: [...PUBLIC_CONTROL_POINTS_KEY, pointNo],
     queryFn: () => fetchPublicControlPoint(pointNo as string),
     enabled: pointNo !== null,
-    staleTime: 60_000,
+    staleTime: 0,
   })
 }
 
