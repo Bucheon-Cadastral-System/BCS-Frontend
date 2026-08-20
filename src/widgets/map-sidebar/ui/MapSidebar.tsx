@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { PanelKey } from '@/shared/model/panel'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -23,6 +23,13 @@ import { POINT_TYPES, PointTypeIcon, StatusMark } from '@/entities/control-point
  * 둘이 어긋나면 굴리는 동안 전체 높이가 계속 고쳐져 막대와 손 위치가 밀린다.
  */
 const ROW_HEIGHT = 34
+
+/**
+ * 기준점 목록에 서는 줄의 높이(px). 아래 각 줄이 실제로 그리는 높이와 반드시 같아야 한다 —
+ * 가상 스크롤이 이 값으로 전체 높이와 자리를 잡으므로, 어긋나면 굴리는 동안 줄이 밀린다.
+ * head=TypeHead 의 h-[48px], point=PointRow 의 h-[34px], empty=빈 문구(py-6), loading=자리표시 6줄+py-1.
+ */
+const POINT_LIST_HEIGHTS = { head: 48, point: ROW_HEIGHT, empty: 68, loading: 6 * ROW_HEIGHT + 8 } as const
 
 /** 패널 상단 검색창 — 프로젝트·기준점 두 패널이 같은 모양을 쓴다 */
 const PANEL_SEARCH_INPUT =
@@ -605,29 +612,33 @@ function ProjectNote(props: { note: string }) {
   )
 }
 
-/** 기준점 목록: 종류별 드로어 안에 도식 아이콘 + 이름 (조사여부 표시 안 함), 클릭 시 포커스 */
+/**
+ * 기준점 목록 — 종류 머리말과 점 줄이 한 줄기로 이어진다. 굴림도 이 목록 하나뿐이다.
+ *
+ * <p>종류마다 굴림을 따로 두면 손이 어디에 닿았는지에 따라 움직이는 것이 달라지고, '맨 위로'도 종류 수만큼 생긴다.
+ * 그래서 머리말·점·빈 문구를 한 배열로 펴서 통째로 가상 스크롤한다 — 점이 수천 개라 그리는 줄은 보이는 만큼뿐이다.
+ */
 function PointListPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHandleProps }) {
   const [q, setQ] = useState('')
   const query = q.trim()
   const source = props.points
-  // 검색 결과도 메모 → 팬 리렌더 중 새 배열을 만들지 않아 PointRowList 메모가 유지됨.
+  // 검색 결과도 메모 → 팬 리렌더 중 새 배열을 만들지 않아 아래 줄 배열 메모가 유지됨.
   // 관리번호에 영문이 섞인다 — 대상 고르기와 같은 규칙으로 대소문자를 가리지 않는다
   const list = useMemo(() => {
     if (!query) return source
     const q = query.toLowerCase()
     return source.filter((p) => p.name.toLowerCase().includes(q) || p.pointNo.toLowerCase().includes(q))
   }, [source, query])
-  // 종류별 묶음 — 수천 점을 한 줄로 늘어놓는 대신 종류 드로어로 갈라 보고 싶은 갈래만 편다
+  // 종류별 묶음 — 수천 점을 한 줄기로 늘어놓는 대신 종류로 갈라 보고 싶은 종류만 편다
   const byType = useMemo(() => {
     const map = new Map<PointType, MappableControlPoint[]>()
     for (const t of POINT_TYPES) map.set(t, [])
     for (const p of list) map.get(p.type)?.push(p)
     return map
   }, [list])
-  // 종류마다 따로 여닫는다 — 한 갈래를 열었다고 보던 갈래가 닫히면, 종류를 오갈 때마다 자리를 다시 찾아야 한다.
-  // 편 드로어가 남는 높이를 나눠 가지므로 여럿을 펴면 목록마다 안에서 굴린다
+  // 종류마다 따로 여닫는다 — 한 종류를 폈다고 보던 종류가 닫히면, 종류를 오갈 때마다 자리를 다시 찾아야 한다
   const [openTypes, setOpenTypes] = useState<ReadonlySet<PointType>>(() => new Set([POINT_TYPES[0]]))
-  // 검색 결과가 접힌 드로어에 숨지 않게, 편 종류 어디에도 결과가 없으면 결과가 있는 첫 종류를 편다
+  // 검색 결과가 접힌 종류에 숨지 않게, 편 종류 어디에도 결과가 없으면 결과가 있는 첫 종류를 편다
   useEffect(() => {
     if (query === '') return
     setOpenTypes((cur) => {
@@ -636,6 +647,50 @@ function PointListPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHan
       return found === undefined ? cur : new Set([...cur, found])
     })
   }, [query, byType])
+
+  const loading = props.pointsLoading === true
+  // 머리말과 점을 한 배열로 편다 — 이 차례가 곧 화면에 서는 차례다
+  const rows = useMemo<PointListRow[]>(() => {
+    const out: PointListRow[] = []
+    for (const type of POINT_TYPES) {
+      const pts = byType.get(type) ?? []
+      out.push({ kind: 'head', type, count: pts.length })
+      if (!openTypes.has(type)) continue
+      if (pts.length > 0) for (const point of pts) out.push({ kind: 'point', point })
+      else out.push({ kind: loading ? 'loading' : 'empty', type })
+    }
+    return out
+  }, [byType, openTypes, loading])
+
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [scrolled, setScrolled] = useState(false) // 한참 내려갔을 때만 '맨 위로'를 띄운다
+  // 시트로 설 때도 굴림 영역은 이 자리 하나다 — 시트가 다른 요소를 보면 끌어 내리는 손짓과 굴림이 갈리지 않는다
+  const sheetScrollRef = props.sheet?.scrollRef
+  const setScrollEl = useCallback(
+    (el: HTMLDivElement | null) => {
+      scrollRef.current = el
+      sheetScrollRef?.(el)
+    },
+    [sheetScrollRef],
+  )
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: (index) => POINT_LIST_HEIGHTS[rows[index].kind],
+    overscan: 8,
+    getItemKey: (index) => pointListRowKey(rows[index]),
+  })
+  const totalHeight = virtualizer.getTotalSize()
+
+  function toggle(type: PointType) {
+    setOpenTypes((cur) => {
+      const next = new Set(cur)
+      // delete 는 지웠는지 알려 준다 — 있으면 접고, 없으면 편다
+      if (!next.delete(type)) next.add(type)
+      return next
+    })
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -680,59 +735,102 @@ function PointListPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHan
         )}
       </div>
 
-      {/* 굴림은 종류 드로어마다 따로 일어나지만, 시트가 얼마나 올라와야 하는지는 이 묶음의 높이가 정한다 */}
-      <div ref={props.sheet?.scrollRef} className="flex min-h-0 flex-1 flex-col border-t-2 border-t-teal">
-        {POINT_TYPES.map((t) => {
-          const pts = byType.get(t) ?? []
-          const open = openTypes.has(t)
-          // 펼침 높이는 행 높이의 정수배다 — 남는 자리를 두면 마지막 행과 다음 드로어 사이에 틈이 생긴다.
-          // 남은 높이보다 크면 flex 축소로 줄어들어 안에서 굴린다(가상 스크롤 유지).
-          // 빈 문구(py-6)와 자리표시(6줄+py-1)만 실제 렌더 높이를 따로 잡는다
-          const fitHeight =
-            pts.length > 0 ? pts.length * ROW_HEIGHT : props.pointsLoading === true ? 6 * ROW_HEIGHT + 8 : 68
-          return (
-            <Fragment key={t}>
-              <button
-                type="button"
-                onClick={() =>
-                  setOpenTypes((cur) => {
-                    const next = new Set(cur)
-                    // delete 는 지웠는지 알려 준다 — 있으면 접고, 없으면 편다
-                    if (!next.delete(t)) next.add(t)
-                    return next
-                  })
-                }
-                aria-expanded={open}
-                className="flex shrink-0 items-center gap-2 border-b border-line-row px-3.5 py-3.5 text-left transition-colors hover:bg-hover"
-              >
-                <PointTypeIcon type={t} className="size-4 shrink-0 text-teal-text" />
-                <span className={`flex-1 text-[13px] font-semibold ${open ? 'text-ink' : 'text-ink-2'}`}>{t}</span>
-                <span className="text-[11px] text-ink-3">{pts.length}개</span>
-                <span className={`size-[15px] shrink-0 text-ink-4 transition-transform ${open ? 'rotate-180' : ''}`}>
-                  <IconChevronDown />
-                </span>
-              </button>
-              {/* 늘 마운트해 두고 높이만 움직인다 — 프로젝트 드로어처럼 여닫는 결을 맞춘다 */}
-              <div
-                className={`flex min-h-0 flex-col overflow-hidden transition-[height] ease-out ${
-                  open ? 'duration-200' : 'duration-[120ms]'
-                } ${open ? 'border-b border-line-row' : ''}`}
-                style={{ height: open ? fitHeight : 0 }}
-              >
-                <PointRowList
-                  points={pts}
-                  onFocus={props.onFocusPoint}
-                  selectedId={props.selectedPointId}
-                  onDeselect={props.onDeselectPoint}
-                  emptyText={query === '' ? '기준점 없음' : '검색 결과 없음'}
-                  loading={props.pointsLoading}
-                />
-              </div>
-            </Fragment>
-          )
-        })}
+      <div className="relative flex min-h-0 flex-1 flex-col border-t-2 border-t-teal">
+        <div
+          ref={setScrollEl}
+          onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 240)}
+          className="min-h-0 flex-1 overflow-y-auto"
+        >
+          {/* 전체 높이만큼 자리를 잡아 스크롤 막대가 실제 목록 길이를 나타내게 하고, 보이는 줄만 그 안에 띄운다 */}
+          <div className="relative w-full" style={{ height: totalHeight }}>
+            {virtualizer.getVirtualItems().map((item) => {
+              const row = rows[item.index]
+              return (
+                <div
+                  key={item.key}
+                  className="absolute inset-x-0 top-0"
+                  style={{ height: item.size, transform: `translateY(${item.start}px)` }}
+                >
+                  {row.kind === 'head' ? (
+                    <TypeHead type={row.type} count={row.count} open={openTypes.has(row.type)} onToggle={() => toggle(row.type)} />
+                  ) : row.kind === 'point' ? (
+                    <PointRow
+                      cp={row.point}
+                      selected={props.selectedPointId === row.point.id}
+                      // 같은 줄을 다시 누르면 놓는다 — 강조를 끄는 것과 고름을 놓는 것은 한 가지 일이다
+                      onClick={() =>
+                        props.selectedPointId === row.point.id ? props.onDeselectPoint() : props.onFocusPoint(row.point)
+                      }
+                    />
+                  ) : row.kind === 'loading' ? (
+                    <SkeletonRows rows={6} className="py-1" />
+                  ) : (
+                    <p className="px-4 py-6 text-center text-[12.5px] text-ink-3">
+                      {query === '' ? '기준점 없음' : '검색 결과 없음'}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          {/* 맨 아래까지 내렸을 때 '맨 위로' 버튼이 마지막 줄을 가리지 않도록 띄워 둔다 —
+              버튼이 뜰 일 없는 짧은 목록에는 붙이지 않는다 */}
+          {totalHeight > 480 && <div className="h-12" aria-hidden="true" />}
+        </div>
+        <ScrollTopButton scrollRef={scrollRef} shown={scrolled} />
       </div>
     </div>
+  )
+}
+
+/** 목록에 서는 줄 — 종류 머리말, 점, 그리고 편 종류가 비었을 때의 한 줄 */
+type PointListRow =
+  | { kind: 'head'; type: PointType; count: number }
+  | { kind: 'point'; point: MappableControlPoint }
+  | { kind: 'empty' | 'loading'; type: PointType }
+
+/** 줄의 신원 — 종류를 여닫아 줄 차례가 바뀌어도 잰 높이가 다른 줄에 붙지 않는다 */
+function pointListRowKey(row: PointListRow): string {
+  return row.kind === 'point' ? row.point.id : `${row.kind}-${row.type}`
+}
+
+/** 종류 머리말 — 누르면 그 종류의 점 줄이 아래로 따라 붙거나 걷힌다 */
+function TypeHead(props: { type: PointType; count: number; open: boolean; onToggle: () => void }) {
+  // 높이는 POINT_LIST_HEIGHTS.head 와 같아야 한다 — 가상 스크롤이 그 값으로 자리를 잡는다
+  return (
+    <button
+      type="button"
+      onClick={props.onToggle}
+      aria-expanded={props.open}
+      className="flex h-[48px] w-full items-center gap-2 border-b border-line-row px-3.5 text-left transition-colors hover:bg-hover"
+    >
+      <PointTypeIcon type={props.type} className="size-4 shrink-0 text-teal-text" />
+      <span className={`flex-1 text-[13px] font-semibold ${props.open ? 'text-ink' : 'text-ink-2'}`}>{props.type}</span>
+      <span className="text-[11px] text-ink-3">{props.count}개</span>
+      <span className={`size-[15px] shrink-0 text-ink-4 transition-transform ${props.open ? 'rotate-180' : ''}`}>
+        <IconChevronDown />
+      </span>
+    </button>
+  )
+}
+
+/** 목록이 길어 한참 내려간 뒤에만 아래에서 올라오는 '맨 위로' */
+function ScrollTopButton(props: { scrollRef: React.RefObject<HTMLDivElement | null>; shown: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={() => props.scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+      aria-hidden={!props.shown}
+      tabIndex={props.shown ? 0 : -1}
+      className={`absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 py-1.5 pl-2.5 pr-3 text-[12px] font-medium text-ink-2 transition-all duration-200 hover:text-ink ${PILL} ${
+        props.shown ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-3 opacity-0'
+      }`}
+    >
+      <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="m18 15-6-6-6 6" />
+      </svg>
+      맨 위로
+    </button>
   )
 }
 
@@ -828,21 +926,7 @@ function PointRowList(props: {
       {points.length * ROW_HEIGHT > 480 && <div className="h-12" aria-hidden="true" />}
     </div>
 
-      {/* 목록이 길어 한참 내려간 뒤에만 아래에서 올라온다 */}
-      <button
-        type="button"
-        onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
-        aria-hidden={!scrolled}
-        tabIndex={scrolled ? 0 : -1}
-        className={`absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 py-1.5 pl-2.5 pr-3 text-[12px] font-medium text-ink-2 transition-all duration-200 hover:text-ink ${PILL} ${
-          scrolled ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-3 opacity-0'
-        }`}
-      >
-        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="m18 15-6-6-6 6" />
-        </svg>
-        맨 위로
-      </button>
+      <ScrollTopButton scrollRef={scrollRef} shown={scrolled} />
     </div>
   )
 }
