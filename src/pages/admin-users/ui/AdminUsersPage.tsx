@@ -10,7 +10,7 @@ import {
   useUpdateAdminMemberMutation,
 } from '@/entities/user'
 import type { AdminActivity, AdminActivityType, AdminMemberAction, AdminMemberSortBy, ManagedUser, SortDirection, UserProfile, UserStatus } from '@/entities/user'
-import { UserAvatar, ProfileField, ProfileLockedField, ProfileSelectField, ROLE_LABEL, formatPhone } from '@/entities/user'
+import { MemberName, UserAvatar, ProfileField, ProfileLockedField, ProfileSelectField, ROLE_LABEL, formatPhone } from '@/entities/user'
 import { ActivityIcon, AppHeader, UsersIcon } from '@/widgets/app-header'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { SkeletonRows } from '@/shared/ui/Skeleton'
@@ -770,7 +770,7 @@ function ActivityCell({ column, activity }: { column: ActivityColumnKey; activit
 function ActivityWho({ name, id }: { name: string | null | undefined; id: number }) {
   return (
     <span className="flex min-w-0 items-baseline gap-1 text-[11.5px]" title={`${name ?? ''} #${id}`.trim()}>
-      {name !== null && name !== undefined && name !== '' && <span className="truncate text-ink-2">{name}</span>}
+      {name !== null && name !== undefined && name !== '' && <MemberName id={String(id)} name={name} />}
       <span className="shrink-0 text-ink-4">#{id}</span>
     </span>
   )

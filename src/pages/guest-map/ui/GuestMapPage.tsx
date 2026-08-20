@@ -254,6 +254,7 @@ export function GuestMapPage() {
               point={shownPoint}
               activeProjectName={null}
               activeProjectId={null}
+              surveyorId={null}
               surveyorName={null}
               surveyedAt={null}
               surveyResult={null}

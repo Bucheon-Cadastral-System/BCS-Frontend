@@ -6,6 +6,7 @@ import { FIELD_AREA, ICON_BTN, ICON_BTN_DANGER, PANEL, PANEL_HEADER, PANEL_HEADE
 import { Skeleton } from '@/shared/ui/Skeleton'
 import { FormActions } from '@/shared/ui/FormActions'
 import type { ControlPoint, MappableControlPoint, PublicControlPoint } from '@/entities/control-point'
+import { MemberName } from '@/entities/user'
 import { PointTypeIcon, useLastSurveyQuery } from '@/entities/control-point'
 import { SURVEY_STATUS_LABEL, SURVEY_STATUS_TONE, SurveyResultPicker, deriveSurveyStatus } from '@/entities/survey-record'
 import type { SurveyResult } from '@/entities/survey-record'
@@ -20,6 +21,8 @@ interface ControlPointDetailProps {
   onImageUploaded: () => void
   /** 사진 쪽에서 창 밖으로 알려야 할 실패 */
   onImageFailed: (message: string) => void
+  /** 이 회차의 조사원 회원 id. 이름이 없으면 함께 null */
+  surveyorId: string | null
   /** 이 점을 마지막으로 판정한 조사원 표시명. 기록이 없거나 인증 없이 남긴 기록이면 null */
   surveyorName: string | null
   /** 이 회차에서 판정한 시각. 기록이 없으면 null */
@@ -333,7 +336,13 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
             )}
           </dd>
           <dt>최종조사원</dt>
-          <dd>{surveyPending ? <Skeleton className="h-3 w-16" /> : noneOr(lastSurvey?.surveyorName)}</dd>
+          <dd className="min-w-0">
+            {surveyPending ? (
+              <Skeleton className="h-3 w-16" />
+            ) : (
+              <MemberName id={lastSurvey?.surveyorId ?? null} name={lastSurvey?.surveyorName ?? null} />
+            )}
+          </dd>
         </dl>
       </div>
 
@@ -405,7 +414,9 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
               <dt>조사일</dt>
               <dd>{noneOr(props.surveyedAt === null ? null : formatKstDate(props.surveyedAt))}</dd>
               <dt>조사원</dt>
-              <dd className="truncate">{noneOr(props.surveyorName)}</dd>
+              <dd className="min-w-0 truncate">
+                <MemberName id={props.surveyorId} name={props.surveyorName} />
+              </dd>
             </dl>
           )}
 

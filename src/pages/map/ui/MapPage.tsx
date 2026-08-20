@@ -1072,6 +1072,11 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
             <ControlPointDetail
               point={selected}
               activeProjectName={surveyVisible && selectedIsTarget ? (activeProject?.name ?? null) : null}
+              surveyorId={
+                surveyVisible && selectedIsTarget && selected !== null
+                  ? (records.find((r) => r.pointId === selected.id)?.surveyorId ?? null)
+                  : null
+              }
               surveyorName={
                 surveyVisible && selectedIsTarget && selected !== null
                   ? (records.find((r) => r.pointId === selected.id)?.surveyorName ?? null)
