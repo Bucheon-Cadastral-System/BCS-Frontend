@@ -10,7 +10,7 @@ import {
   useUpdateAdminMemberMutation,
 } from '@/entities/user'
 import type { AdminActivity, AdminActivityType, AdminMemberAction, AdminMemberSortBy, ManagedUser, SortDirection, UserProfile, UserStatus } from '@/entities/user'
-import { UserAvatar, ProfileField, ProfileRow, ProfileSelectField, ROLE_LABEL, formatPhone } from '@/entities/user'
+import { UserAvatar, ProfileField, ProfileLockedField, ProfileSelectField, ROLE_LABEL, formatPhone } from '@/entities/user'
 import { ActivityIcon, AppHeader, UsersIcon } from '@/widgets/app-header'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { SkeletonRows } from '@/shared/ui/Skeleton'
@@ -514,9 +514,7 @@ export function AdminUsersPage({ profile, onBack, onProfileUpdated }: AdminUsers
 
                   <dl className="mt-5 flex-1">
                     {/* 로그인 계정(카카오)이 아니라 이 시스템이 회원에게 매긴 번호다 */}
-                    <ProfileRow label="회원 번호">
-                      <span className="block truncate text-[13px] text-ink-3">#{detail.id}</span>
-                    </ProfileRow>
+                    <ProfileLockedField label="회원 번호" editing={editing} value={`#${detail.id}`} />
                     <ProfileField label="이름" editing={editing} value={detail.name} onChange={(v) => setDraft({ ...detail, name: v })} />
                     <ProfileField
                       label="전화번호"
@@ -533,9 +531,7 @@ export function AdminUsersPage({ profile, onBack, onProfileUpdated }: AdminUsers
                       onChange={(v) => setDraft({ ...detail, district: v as ManagedUser['district'] })}
                     />
                     {/* 소속 과는 고칠 수 없다 — 지금 이 시스템은 민원지적과 하나만 받는다 */}
-                    <ProfileRow label="소속 과">
-                      <span className="block truncate text-[12.5px] text-ink-2">{detail.department || <span className="text-ink-4">정보 없음</span>}</span>
-                    </ProfileRow>
+                    <ProfileLockedField label="소속 과" editing={editing} value={detail.department} />
                     <ProfileSelectField
                       label="소속 팀"
                       editing={editing}

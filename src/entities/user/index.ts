@@ -1,5 +1,5 @@
 export { UserAvatar } from './ui/UserAvatar'
-export { ProfileField, ProfileRow, ProfileSelectField, ProfileValue } from './ui/ProfileFields'
+export { ProfileField, ProfileLockedField, ProfileRow, ProfileSelectField, ProfileValue } from './ui/ProfileFields'
 export { UserMenu } from './ui/UserMenu'
 export { avatarColor } from './model/avatarColor'
 export { formatPhone } from './model/phone'
