@@ -1,9 +1,13 @@
 import type { ReactNode } from 'react'
 
+/**
+ * 갈래는 테두리와 글자색으로만 말한다 — 물들이는 색(*-wash)은 불투명도가 0.1 안팎이라
+ * 패널 위에서는 옅은 색이지만 지도 위에서는 배경이 그대로 비쳐 글자가 묻힌다.
+ */
 const BANNER_TONE = {
-  warn: 'border-amber/40 bg-amber-wash text-amber',
-  danger: 'border-danger-edge bg-danger-wash text-danger',
-  muted: 'border-line bg-panel text-ink-3',
+  warn: 'border-amber/40 text-amber',
+  danger: 'border-danger-edge text-danger',
+  muted: 'border-line text-ink-3',
 } as const
 
 /**
@@ -16,7 +20,7 @@ export function MapBanner(props: { tone: keyof typeof BANNER_TONE; children: Rea
   return (
     <p
       role={props.tone === 'danger' ? 'alert' : undefined}
-      className={`pointer-events-auto rounded-pop border px-3.5 py-1.5 text-[12px] shadow-pill [&_code]:rounded [&_code]:bg-soft [&_code]:px-1 ${BANNER_TONE[props.tone]}`}
+      className={`pointer-events-auto rounded-pop border bg-panel px-3.5 py-1.5 text-[12px] shadow-pill [&_code]:rounded [&_code]:bg-soft [&_code]:px-1 ${BANNER_TONE[props.tone]}`}
     >
       {props.children}
     </p>
