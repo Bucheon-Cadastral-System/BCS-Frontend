@@ -40,19 +40,15 @@ export function LoginPage({ onKakaoLogin, onGuest, failure = null }: LoginPagePr
                 <path d="M12 3C6.48 3 2 6.5 2 10.82c0 2.76 1.83 5.18 4.59 6.57l-1.17 4.3a.47.47 0 0 0 .72.5l5.1-3.36c.25.02.5.03.76.03 5.52 0 10-3.5 10-7.82S17.52 3 12 3Z" />
               </svg>
             </span>
-            카카오로 로그인
+            카카오 로그인
           </button>
           {/* 위 카카오 버튼은 브랜드 색·높이를 지켜야 해서 전용 스타일이다. 이쪽은 공용 보조 버튼에 높이만 맞춘다 */}
           <button type="button" className={`${BTN_SECONDARY} h-[46px] w-full`} onClick={onGuest}>
-            게스트로 보기
+            게스트 로그인
           </button>
         </div>
 
-        <p className="mt-7 text-[11px] leading-6 text-ink-3">
-          게스트는 공개 기준점의 기본 정보만 확인할 수 있습니다.
-          <br />
-          최초 로그인 시 회원가입 신청 화면으로 이동합니다.
-        </p>
+        <p className="mt-7 text-[11px] leading-6 text-ink-3">최초 로그인 시 회원가입 신청 화면으로 이동합니다.</p>
       </section>
 
       <footer className="shrink-0 pt-10 text-center text-[11px] leading-5 text-ink-3">
