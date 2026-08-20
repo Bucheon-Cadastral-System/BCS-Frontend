@@ -47,6 +47,7 @@ import { wgs84ToTm } from '@/shared/lib/crs'
 import type { TmEpsg } from '@/shared/lib/crs'
 import { VWORLD_KEY } from '@/shared/config/map'
 import { CONTROL_POINTS_KEY, LAST_SURVEYS_KEY, SURVEY_PROJECTS_KEY, SURVEY_TARGETS_KEY, surveyRecordsKey } from '@/shared/api/queryKeys'
+import { PANEL_MARGIN } from '@/shared/ui/layout'
 import { MapBanner } from '@/shared/ui/MapBanner'
 import { Spinner } from '@/shared/ui/Spinner'
 import { ThemeToggleButton } from '@/shared/ui/ThemeToggleButton'
@@ -64,16 +65,9 @@ const EMPTY_POINTS: ControlPoint[] = []
 const EMPTY_ID_SET: ReadonlySet<string> = new Set()
 /** 조사 표시를 걷을 때 지도에 넘기는 고정 빈 맵(기준점 탭. 선택은 유지하되 뱃지는 숨긴다) */
 const EMPTY_RESULT_MAP: ReadonlyMap<string, SurveyResult> = new Map()
-/**
- * 패널이 화면 가장자리에서 떨어진 거리 — 상세 카드가 대화 패널 옆으로 비켜 서는 계산에 쓴다.
- * 패널·헤더·커맨드 바는 이 값을 유틸리티(`left-4`·`right-4`·`inset-x-4` = 16px)로 두므로 함께 움직여야 한다.
- * 클래스 이름은 문자열이라 이 상수에서 만들 수 없어 값을 두 벌로 둔다.
- */
-const PANEL_MARGIN = 16
+
 /** 커맨드 바의 대표 폭(축척이 보통 길이일 때) — 바의 왼쪽 끝을 붙여 둘 기준 자리다. 좁은 화면 값은 글자를 접은 폭 */
 const COMMAND_BAR_NOMINAL = 'w-[676px] max-lg:w-[592px]'
-
-
 
 /** 새로고침을 마쳤을 때의 알림 — 무엇을 받았는지 자리마다 말한다 */
 const REFRESH_DONE = {

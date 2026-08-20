@@ -184,7 +184,7 @@ export function AppHeader(props: {
             {user ? (
               <UserAvatar name={user.name} className="size-[30px] text-[11.5px]" />
             ) : guest ? (
-              <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-teal-wash text-[11px] font-bold text-teal-text" aria-hidden="true">G</span>
+              <UserAvatar name="" guest className="size-[30px] text-[11px]" />
             ) : (
               <Skeleton className="size-[30px] shrink-0 rounded-full" />
             )}

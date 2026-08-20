@@ -38,29 +38,38 @@ function LoadingPage() {
 }
 
 /** 로그인 길목에서 막혔을 때 — 이 화면들은 다른 화면과 같은 껍데기를 쓴다 */
-function AuthErrorPage({ message, onBack }: { message: string; onBack: () => void }) {
+function GateCard({ children, actionLabel, onAction }: { children: ReactNode; actionLabel: string; onAction: () => void }) {
   return (
     <main className="app-bg grid h-full place-items-center px-5 text-ink">
       <div className={`panel-in w-full max-w-[400px] px-7 py-9 text-center ${MODAL_SHELL}`}>
-        <p className="text-[13px] leading-7 text-danger">{message}</p>
-        <button type="button" className={`${BTN_SECONDARY} mt-6 w-full`} onClick={onBack}>
-          로그인으로 돌아가기
+        {children}
+        <button type="button" className={`${BTN_SECONDARY} mt-6 w-full`} onClick={onAction}>
+          {actionLabel}
         </button>
       </div>
     </main>
   )
 }
 
+function AuthErrorPage({ message, onBack }: { message: string; onBack: () => void }) {
+  return (
+    <GateCard actionLabel="로그인으로 돌아가기" onAction={onBack}>
+      <p className="text-[13px] leading-7 text-danger">{message}</p>
+    </GateCard>
+  )
+}
+
 function PermissionDeniedPage({ onBack }: { onBack: () => void }) {
   return (
-    <main className="app-bg grid h-full place-items-center px-5 text-ink">
-      <div className={`panel-in w-full max-w-[400px] px-7 py-9 text-center ${MODAL_SHELL}`}>
-        <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-danger-wash text-[20px] font-bold text-danger" aria-hidden="true">!</div>
-        <h1 className="mt-5 text-[18px] font-semibold">접근 권한이 없습니다</h1>
-        <p className="mt-3 text-[13px] leading-7 text-ink-3">현재 계정으로는 이 기능을 사용할 수 없습니다.</p>
-        <button type="button" className={`${BTN_SECONDARY} mt-6 w-full`} onClick={onBack}>지도로 돌아가기</button>
+    <GateCard actionLabel="지도로 돌아가기" onAction={onBack}>
+      <div className="mx-auto grid size-11 place-items-center rounded-full bg-danger-wash text-danger" aria-hidden="true">
+        <svg className="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.3 3.8 2.6 17.1A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.9L13.7 3.8a2 2 0 0 0-3.4 0Z" />
+        </svg>
       </div>
-    </main>
+      <h1 className="mt-5 text-[18px] font-semibold">접근 권한이 없습니다</h1>
+      <p className="mt-3 text-[13px] leading-7 text-ink-3">현재 계정으로는 이 기능을 사용할 수 없습니다.</p>
+    </GateCard>
   )
 }
 

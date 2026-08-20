@@ -5,7 +5,7 @@ import { formatDate, formatKstDate } from '@/shared/lib/date'
 import { FIELD_AREA, ICON_BTN, ICON_BTN_DANGER, PANEL, PANEL_HEADER, PANEL_HEADER_RULE } from '@/shared/ui/classes'
 import { Skeleton } from '@/shared/ui/Skeleton'
 import { FormActions } from '@/shared/ui/FormActions'
-import type { ControlPoint, PublicControlPoint } from '@/entities/control-point'
+import type { ControlPoint, MappableControlPoint, PublicControlPoint } from '@/entities/control-point'
 import { PointTypeIcon, useLastSurveyQuery } from '@/entities/control-point'
 import { SURVEY_STATUS_LABEL, SURVEY_STATUS_TONE, SurveyResultPicker, deriveSurveyStatus } from '@/entities/survey-record'
 import type { SurveyResult } from '@/entities/survey-record'
@@ -13,8 +13,6 @@ import { ControlPointImageUpload } from '@/features/upload-control-point-image'
 
 interface ControlPointDetailProps {
   point: ControlPoint | PublicControlPoint | null
-  /** 공개 필드만 표시하는 게스트 상세 */
-  guest?: boolean
   activeProjectName: string | null
   /** 사진은 회차에 매달리므로 어느 회차인지 알아야 한다. 조사 대상이 아니면 null */
   activeProjectId: string | null
@@ -141,6 +139,29 @@ function CopyButton(props: { value: string; label: string; onCopied: (ok: boolea
 }
 
 
+/** 관리번호 칩 — 점을 가리키는 값이라 회원·공개 두 갈래가 같은 모양으로 맨 위에 세운다 */
+function PointNoChip(props: { pointNo: string; onCopied: (ok: boolean) => void }) {
+  return (
+    <div className="mb-3 flex items-center gap-[9px] rounded-chip border border-line-pill bg-field py-[7px] pl-2.5 pr-2">
+      <span className="shrink-0 text-[11px] text-ink-3">관리번호</span>
+      <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{props.pointNo}</span>
+      <CopyButton value={props.pointNo} label="관리번호 복사" onCopied={props.onCopied} />
+    </div>
+  )
+}
+
+/** 위경도 두 줄 — 자릿수는 한 곳에서 정한다. 담는 dl 의 격자를 그대로 쓰므로 감싸지 않는다 */
+function LatLngRows({ point }: { point: MappableControlPoint }) {
+  return (
+    <>
+      <dt>위도</dt>
+      <dd>{point.lat.toFixed(7)}</dd>
+      <dt>경도</dt>
+      <dd>{point.lng.toFixed(7)}</dd>
+    </>
+  )
+}
+
 /** 회원 모델인지 — 성과 좌표는 공개 응답에 담기지 않는다 */
 function isMemberPoint(point: ControlPoint | PublicControlPoint | null): point is ControlPoint {
   return point !== null && 'northing' in point
@@ -159,7 +180,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
   const p = isMemberPoint(point) ? point : null
   const publicPoint = isPublicPoint(point) ? point : null
   // 최종조사 요약은 점을 고른 뒤에만 필요해서 목록과 따로 읽는다
-  const lastSurveyQuery = useLastSurveyQuery(props.guest ? null : (p?.id ?? null))
+  const lastSurveyQuery = useLastSurveyQuery(p?.id ?? null)
   const lastSurvey = lastSurveyQuery.data
   // 아직 받지 못한 값을 '정보 없음'으로 세우면 없는 것으로 읽힌다. 자리만 잡아 두고 도착하면 채운다
   const surveyPending = lastSurveyQuery.isPending && p !== null
@@ -260,21 +281,14 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
       <div ref={props.sheet?.scrollRef} className="max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-y-auto max-lg:overscroll-contain">
       {publicPoint !== null ? (
         <div className="px-3.5 pb-[15px] pt-3">
-          <div className="mb-3 flex items-center gap-[9px] rounded-chip border border-line-pill bg-field py-[7px] pl-2.5 pr-2">
-            <span className="shrink-0 text-[11px] text-ink-3">관리번호</span>
-            <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{publicPoint.pointNo}</span>
-            <CopyButton value={publicPoint.pointNo} label="관리번호 복사" onCopied={props.onCopied} />
-          </div>
+          <PointNoChip pointNo={publicPoint.pointNo} onCopied={props.onCopied} />
 
           <dl className="grid grid-cols-[64px_1fr] gap-x-2.5 gap-y-[9px] text-[12.5px] [&_dd]:text-ink-2 [&_dt]:text-ink-3">
             <dt>법정동명</dt>
             <dd>{noneOr(publicPoint.regionName)}</dd>
             <dt>소재지</dt>
             <dd className="break-keep leading-[1.55] wrap-anywhere">{noneOr(publicPoint.address)}</dd>
-            <dt>위도</dt>
-            <dd>{publicPoint.lat.toFixed(7)}</dd>
-            <dt>경도</dt>
-            <dd>{publicPoint.lng.toFixed(7)}</dd>
+            <LatLngRows point={publicPoint} />
           </dl>
 
           <p className="mt-4 rounded-ctl border border-line-soft bg-soft px-3 py-2 text-[11.5px] leading-5 text-ink-3">
@@ -285,17 +299,10 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
       <>
       <div className="px-3.5 pb-[13px] pt-3">
         {/* 이름은 표시용이고 점을 가리키는 값은 관리번호라 좌표보다 먼저 둔다 */}
-        <div className="mb-3 flex items-center gap-[9px] rounded-chip border border-line-pill bg-field py-[7px] pl-2.5 pr-2">
-          <span className="shrink-0 text-[11px] text-ink-3">관리번호</span>
-          <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{p.pointNo}</span>
-          <CopyButton value={p.pointNo} label="관리번호 복사" onCopied={props.onCopied} />
-        </div>
+        <PointNoChip pointNo={p.pointNo} onCopied={props.onCopied} />
 
         <dl className="grid grid-cols-[64px_1fr] gap-x-2.5 gap-y-[7px] text-[12.5px] [&_dd]:text-ink-2 [&_dt]:text-ink-3">
-          <dt>위도</dt>
-          <dd>{p.lat.toFixed(7)}</dd>
-          <dt>경도</dt>
-          <dd>{p.lng.toFixed(7)}</dd>
+          <LatLngRows point={p} />
           <dt>TM 원점</dt>
           {/* dd 에 건 고정폭이 이 요소의 클래스보다 앞서므로(같은 요소를 두 규칙이 다툼) 안쪽 글자에 걸어 물려받게 한다 */}
           <dd className="whitespace-nowrap text-[12px]">
