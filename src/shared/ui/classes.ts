@@ -80,22 +80,29 @@ export const PANEL_HEADER = 'flex shrink-0 items-center gap-[7px] pb-[11px] pl-3
 /** 머리말과 본문의 경계 — 머리말에 걸거나, 아래 칸에 border-t-2 border-t-teal 로 건다 */
 export const PANEL_HEADER_RULE = 'border-b-2 border-b-teal'
 
+/**
+ * 입력칸 한 줄 높이.
+ * 칸을 씌우지 않는 값(고칠 수 없는 줄)이 옆줄 입력칸과 높이만 맞출 때도 이 값을 쓴다 — 두 곳에 따로 적으면
+ * 한쪽만 고쳐도 표는 그대로 서고 줄만 어긋난다.
+ */
+export const FIELD_HEIGHT = 'h-[38px]'
+
 /** 입력칸 */
 export const FIELD =
-  'h-[38px] w-full rounded-ctl border border-line-field bg-field px-3 text-[13px] text-ink placeholder:text-ink-4 outline-none transition-colors focus:border-teal-edge'
+  `${FIELD_HEIGHT} w-full rounded-ctl border border-line-field bg-field px-3 text-[13px] text-ink placeholder:text-ink-4 outline-none transition-colors focus:border-teal-edge`
 /** 여러 줄 입력칸 */
 export const FIELD_AREA =
   'w-full resize-none rounded-ctl border border-line-field bg-field px-3 py-2 text-[13px] leading-relaxed text-ink placeholder:text-ink-4 outline-none transition-colors focus:border-teal-edge'
 /** 고르는 칸 — 화살표는 select-chevron 이 그린다(오른쪽 여백 확보) */
 export const FIELD_SELECT =
-  'select-chevron h-[38px] w-full rounded-ctl border border-line-field bg-field pl-3 pr-9 text-[13px] text-ink outline-none transition-colors focus:border-teal-edge'
+  `select-chevron ${FIELD_HEIGHT} w-full rounded-ctl border border-line-field bg-field pl-3 pr-9 text-[13px] text-ink outline-none transition-colors focus:border-teal-edge`
 /**
  * 고쳐 쓸 수 없는 입력칸.
  * FIELD 에 색만 덧대지 않고 따로 적는다 — 같은 속성을 두 번 지정하면 어느 쪽이 이길지는 클래스를 적은 순서가 아니라
  * 만들어진 스타일시트의 순서가 정하므로, 토큰 이름이 바뀌면 조용히 뒤집힌다.
  */
 export const FIELD_READONLY =
-  'h-[38px] w-full cursor-default rounded-ctl border border-line-soft bg-soft px-3 text-[13px] text-ink-3 outline-none'
+  `${FIELD_HEIGHT} w-full cursor-default rounded-ctl border border-line-soft bg-soft px-3 text-[13px] text-ink-3 outline-none`
 
 /** 목록 위에 얹는 작은 입력칸(검색·거르기) — 목록이 주인공이라 한 단계 낮춰 세운다. 너비는 쓰는 자리가 정한다 */
 export const FIELD_SM =
