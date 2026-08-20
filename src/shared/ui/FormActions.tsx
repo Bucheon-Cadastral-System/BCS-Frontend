@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ReactNode, RefObject } from 'react'
 import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY } from './classes'
 import { Spinner } from './Spinner'
 
@@ -24,10 +24,16 @@ export function FormActions(props: {
   onSubmit?: () => void
   onCancel: () => void
   /**
-   * 버리는 쪽의 색. 적은 것을 버리면 discard(빨강), 이미 벌어진 일을 두고 나가기만 하면 neutral(중립)이다.
-   * 확인 대화상자의 '아니오'처럼 버릴 것이 없는 자리도 중립이다.
+   * 버리는 쪽의 색. 기본은 빨강이다.
+   *
+   * <p>중립으로 내리는 자리는 하나뿐이다 — 확정하는 쪽이 이미 빨강일 때. 둘 다 빨가면 되돌릴 수 없는 쪽이 묻힌다.
    */
   cancelTone?: 'discard' | 'neutral'
+  /** 확정하는 쪽의 색 — 되돌릴 수 없는 일(삭제·거절)이면 danger */
+  submitTone?: 'primary' | 'danger'
+  /** 열릴 때 포커스를 주려는 쪽이 잡아 두는 손잡이 */
+  cancelRef?: RefObject<HTMLButtonElement | null>
+  submitRef?: RefObject<HTMLButtonElement | null>
   /** 확정 버튼 옆에 세우는 안내 — 못 채운 칸이 있다는 한 줄 등 */
   notice?: ReactNode
   /** 창 아래가 아니라 카드 안에 놓을 때 — 두 버튼이 자리를 반씩 나눈다 */
@@ -38,6 +44,7 @@ export function FormActions(props: {
 
   const cancel = (
     <button
+      ref={props.cancelRef}
       type="button"
       onClick={props.onCancel}
       disabled={busy}
@@ -49,10 +56,11 @@ export function FormActions(props: {
 
   const submit = (
     <button
+      ref={props.submitRef}
       type={props.submitType ?? 'button'}
       onClick={props.submitType === 'submit' ? undefined : props.onSubmit}
       disabled={busy || props.submitDisabled === true}
-      className={`${BTN_SM_PRIMARY} ${props.fill === true ? 'flex-1' : ''} ${props.submitDisabled === true ? 'disabled:cursor-not-allowed' : 'disabled:cursor-wait'}`}
+      className={`${props.submitTone === 'danger' ? BTN_SM_DANGER : BTN_SM_PRIMARY} ${props.fill === true ? 'flex-1' : ''} ${props.submitDisabled === true ? 'disabled:cursor-not-allowed' : 'disabled:cursor-wait'}`}
     >
       {busy ? (
         <span className="flex items-center gap-1.5">

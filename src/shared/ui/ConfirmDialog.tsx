@@ -2,8 +2,8 @@ import { useId, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { useDialogBehavior } from '@/shared/lib/useDialogBehavior'
 import { useFileDrop } from '@/shared/lib/useFileDrop'
-import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY, MODAL_SHELL } from './classes'
-import { Spinner } from './Spinner'
+import { MODAL_SHELL } from './classes'
+import { FormActions } from './FormActions'
 
 /**
  * 실행 전 한 번 묻는 확인 대화상자. Esc·배경클릭=취소.
@@ -48,26 +48,22 @@ export function ConfirmDialog(props: {
           </p>
           {/* div — 임의의 노드(변경 요약)를 받으므로 p 안에 블록이 중첩되지 않게 한다. 여러 줄 문자열은 pre-line 이 갈라 준다 */}
           {props.detail && <div className="mt-1.5 whitespace-pre-line break-keep text-center text-[12px] leading-5 text-ink-3">{props.detail}</div>}
-          <div className="mt-4 flex gap-2">
-            <button
-              ref={cancelRef}
-              type="button"
-              disabled={busy}
-              className={`${BTN_SM_SECONDARY} flex-1 disabled:cursor-not-allowed`}
-              onClick={props.onCancel}
-            >
-              {props.cancelLabel ?? '아니오'}
-            </button>
-            <button
-              ref={confirmRef}
-              type="button"
-              disabled={busy || props.confirmDisabled}
-              className={`${danger ? BTN_SM_DANGER : BTN_SM_PRIMARY} flex-1 ${props.confirmDisabled ? 'disabled:cursor-not-allowed' : 'disabled:cursor-wait'}`}
-              onClick={props.onConfirm}
-            >
-              {busy && <Spinner className="size-3.5" current />}
-              {busy ? (props.busyLabel ?? '처리 중') : (props.confirmLabel ?? '예')}
-            </button>
+          {/* 두 버튼의 자리와 색은 앱 전체가 한 규칙이다 — 창이라고 따로 짜면 그 규칙에서 조용히 빠진다 */}
+          <div className="mt-4">
+            <FormActions
+              fill
+              cancelRef={cancelRef}
+              submitRef={confirmRef}
+              cancelLabel={props.cancelLabel ?? '아니오'}
+              submitLabel={props.confirmLabel ?? '예'}
+              busyLabel={props.busyLabel ?? '처리 중'}
+              submitTone={danger ? 'danger' : 'primary'}
+              cancelTone={danger ? 'neutral' : 'discard'}
+              busy={busy}
+              submitDisabled={props.confirmDisabled}
+              onSubmit={props.onConfirm}
+              onCancel={props.onCancel}
+            />
           </div>
         </div>
       </div>
