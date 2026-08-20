@@ -11,7 +11,7 @@ import {
 } from '@/entities/control-point'
 import type { SurveyResult } from '@/entities/survey-record'
 import type { SurveyProject } from '@/entities/survey-project'
-import { AppHeader, PointIcon, ProjectIcon } from '@/widgets/app-header'
+import { AppHeader, PointIcon } from '@/widgets/app-header'
 import { ControlPointMap } from '@/widgets/control-point-map'
 import { ControlPointDetail } from '@/widgets/control-point-detail'
 import { MapSidebar, MinimizedPanelChip } from '@/widgets/map-sidebar'
@@ -154,7 +154,6 @@ export function GuestMapPage() {
         <AppHeader
           guest
           user={null}
-          reservedTabs={[{ key: 'project-space', label: '프로젝트', icon: <ProjectIcon /> }]}
           tabs={[
             {
               key: 'points',

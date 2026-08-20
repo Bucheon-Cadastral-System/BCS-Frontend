@@ -18,8 +18,6 @@ export interface HeaderTab {
   onClick: () => void
 }
 
-type ReservedHeaderTab = Pick<HeaderTab, 'key' | 'label' | 'icon'>
-
 /**
  * 화면 위에 떠 있는 헤더.
  * 좌측은 브랜드와 지금 보고 있는 자리(지도 화면은 패널 전환 탭, 그 밖의 화면은 화면 이름),
@@ -31,8 +29,6 @@ export function AppHeader(props: {
   onHome?: () => void
   /** 브랜드 옆 탭 — 지도는 패널 전환, 관리자 화면은 자리 전환에 쓴다 */
   tabs?: HeaderTab[]
-  /** 보이지 않지만 폭은 보존할 탭 — 권한에 따라 탭을 숨겨도 헤더·패널 크기를 같게 유지한다 */
-  reservedTabs?: ReservedHeaderTab[]
   /** 우측 알약 왼쪽 자리 — 무엇을 검색할지는 화면이 정한다 */
   search?: ReactNode
   /** 지금 로그인한 사용자 — 아직 받아오지 못했으면 자리만 지킨다 */
@@ -130,7 +126,7 @@ export function AppHeader(props: {
           <span className="flex items-center gap-2">{brand}</span>
         )}
 
-        {((props.tabs?.length ?? 0) > 0 || (props.reservedTabs?.length ?? 0) > 0) && (
+        {(props.tabs?.length ?? 0) > 0 && (
           <>
             <span className="mx-[3px] h-[22px] w-px bg-line-field max-lg:hidden" aria-hidden />
             <div ref={setTabsRow} className="relative flex touch-none items-center gap-1 max-lg:hidden">
@@ -144,16 +140,6 @@ export function AppHeader(props: {
                   } ${shownKey === null ? 'opacity-0' : 'opacity-100'}`}
                 />
               )}
-              {props.reservedTabs?.map((tab) => (
-                <span
-                  key={tab.key}
-                  aria-hidden="true"
-                  className="invisible relative z-10 flex h-[34px] items-center gap-[7px] rounded-ctl px-3 text-[12px] font-semibold"
-                >
-                  {tab.icon}
-                  {tab.label}
-                </span>
-              ))}
               {props.tabs?.map(({ key, ...tab }) => (
                 <Tab key={key} tabKey={key} {...tab} />
               ))}
