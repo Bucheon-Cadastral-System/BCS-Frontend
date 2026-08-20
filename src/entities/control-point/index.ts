@@ -1,5 +1,5 @@
-export type { ControlPoint, PointType } from './model/types'
-export type { PublicControlPoint, PublicControlPointResponse } from './model/publicControlPoint'
+export type { ControlPoint, MappableControlPoint, PointType } from './model/types'
+export type { PublicControlPoint } from './model/publicControlPoint'
 export { PUBLIC_CONTROL_POINTS_PATH, publicControlPointPath, toPublicControlPoint } from './model/publicControlPoint'
 export { POINT_TYPES, compareControlPoints } from './model/types'
 export { controlPointStyle, controlPointLabelStyle, markerAtlasUrl, markerSymbolIndex, MARKER_ATLAS_CELL } from './ui/markerStyle'

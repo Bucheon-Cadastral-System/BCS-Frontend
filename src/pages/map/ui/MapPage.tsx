@@ -11,7 +11,7 @@ import type { RefreshScope } from '@/widgets/map-sidebar'
 import type { PanelKey } from '@/shared/model/panel'
 import { PointSearchBar } from '@/widgets/point-search'
 import { MapCommandBar } from '@/widgets/map-command-bar'
-import { MapLayerPicker } from '@/widgets/map-layer-picker'
+import { MapLayerPicker, CADASTRAL_MIN_SCALE, CADASTRAL_SWATCH, DISTRICT_SWATCH } from '@/widgets/map-layer-picker'
 import { MapCompass } from '@/widgets/map-compass'
 import { MobileBottomNav } from '@/widgets/mobile-bottom-nav'
 import { MobileSummaryChip } from '@/widgets/mobile-summary-chip'
@@ -20,7 +20,7 @@ import type OlMap from 'ol/Map'
 import { ChatDockLayout } from '@/widgets/chatbot'
 import type { ChatAction } from '@/widgets/chatbot'
 import { POINT_TYPES, fetchControlPointUsage, useControlPointsQuery, useDeleteControlPointMutation, useLastSurveyQuery, useLastSurveysQuery, useRegisterControlPointMutation, useUpdateControlPointMutation } from '@/entities/control-point'
-import type { ControlPoint } from '@/entities/control-point'
+import type { ControlPoint, MappableControlPoint } from '@/entities/control-point'
 import { selectActiveProjectId, setActiveProject, useCreateSurveyProjectMutation, useDeleteSurveyProjectMutation, useSurveyProjectsQuery, useSurveyTargetsQuery, useUpdateSurveyProjectMutation } from '@/entities/survey-project'
 import type { SurveyProject, SurveyProjectDraft } from '@/entities/survey-project'
 import { clearStatusFilter, deriveSurveyStatus, selectAllStatus, selectStatusFilter, surveyStatusFromLabel, toggleStatusFilter, useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
@@ -47,7 +47,9 @@ import { wgs84ToTm } from '@/shared/lib/crs'
 import type { TmEpsg } from '@/shared/lib/crs'
 import { VWORLD_KEY } from '@/shared/config/map'
 import { CONTROL_POINTS_KEY, LAST_SURVEYS_KEY, SURVEY_PROJECTS_KEY, SURVEY_TARGETS_KEY, surveyRecordsKey } from '@/shared/api/queryKeys'
+import { MapBanner } from '@/shared/ui/MapBanner'
 import { Spinner } from '@/shared/ui/Spinner'
+import { ThemeToggleButton } from '@/shared/ui/ThemeToggleButton'
 import type { UserProfile } from '@/entities/user'
 
 interface MapPageProps {
@@ -71,41 +73,7 @@ const PANEL_MARGIN = 16
 /** 커맨드 바의 대표 폭(축척이 보통 길이일 때) — 바의 왼쪽 끝을 붙여 둘 기준 자리다. 좁은 화면 값은 글자를 접은 폭 */
 const COMMAND_BAR_NOMINAL = 'w-[676px] max-lg:w-[592px]'
 
-/**
- * 레이어 견본 — 20×14 상자로 지도에 그려지는 선을 그대로 줄여 보인다.
- *
- * <p>지적도는 필지가 갈린 모양이라 상자에 가로선 하나와 세로선 둘을 넣는다.
- * 테두리를 1~19 × 1~13 에 두면 가로 18·세로 12 라 칸이 6씩 정확히 갈린다(세로선 7·13, 가로선 7).
- *
- * <p>법정동 경계는 파선 한 줄이다. 파선을 네모로 두르면 주기가 모서리에서 끊겨 한쪽으로 쏠려 보인다.
- * 길이 18 은 주기 6(칠 4·빈 2)이 세 번 들어가 양끝이 모두 칠로 맺힌다.
- *
- * <p>색은 줄의 글자색을 따르지 않는다. 지도에 그려질 선의 색을 그대로 보이는 것이 견본이 하는 일이다.
- */
-const CADASTRAL_SWATCH = (
-  <svg viewBox="0 0 20 14" className="h-[14px] w-5 shrink-0" fill="none" stroke="var(--color-teal-btn-edge)" strokeWidth="1" aria-hidden="true">
-    <rect x="1" y="1" width="18" height="12" rx="1.5" />
-    <path d="M1 7h18M7 1v12M13 1v12" />
-  </svg>
-)
-const DISTRICT_SWATCH = (
-  <svg viewBox="0 0 20 14" className="h-[14px] w-5 shrink-0" fill="none" stroke="var(--color-ink-3)" strokeWidth="1.4" strokeDasharray="4 2" aria-hidden="true">
-    <path d="M1 7h18" />
-  </svg>
-)
 
-/**
- * 지적도가 그려지기 시작하는 축척 — 이보다 멀리서는 켜 두어도 빈 이미지가 온다.
- * 서버가 정한 값이라 화면이 바꿀 수 없고, 줌 단계는 사용자가 모르는 값이라 하단 바와 같은 축척으로 적는다.
- * 값은 실측이다. 같은 자리를 축척만 바꿔 요청하면 1:2,550 까지는 빈 이미지(6,727바이트)가 오고 1:2,500 부터 필지가 실린다.
- */
-const CADASTRAL_MIN_SCALE = 2500
-
-const BANNER_TONE = {
-  warn: 'border-amber/40 bg-amber-wash text-amber',
-  danger: 'border-danger-edge bg-danger-wash text-danger',
-  muted: 'border-line bg-panel text-ink-3',
-} as const
 
 /** 새로고침을 마쳤을 때의 알림 — 무엇을 받았는지 자리마다 말한다 */
 const REFRESH_DONE = {
@@ -119,16 +87,6 @@ const REFRESH_DONE = {
 function withinProject(project: SurveyProject | null, surveyedOn: string | null) {
   if (project === null || surveyedOn === null) return false
   return surveyedOn >= project.startedOn && (project.endedOn === null || surveyedOn <= project.endedOn)
-}
-
-function Banner(props: { tone: keyof typeof BANNER_TONE; children: React.ReactNode }) {
-  return (
-    <p
-      className={`pointer-events-auto rounded-pop border px-3.5 py-1.5 text-[12px] shadow-pill [&_code]:rounded [&_code]:bg-soft [&_code]:px-1 ${BANNER_TONE[props.tone]}`}
-    >
-      {props.children}
-    </p>
-  )
 }
 
 export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
@@ -774,7 +732,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
     setPendingFiles(null)
   }
 
-  function focusPoint(cp: ControlPoint, from: 'list' | 'map' = 'map') {
+  function focusPoint(cp: MappableControlPoint, from: 'list' | 'map' = 'map') {
     // 목록이 실제로 서 있을 때 그 목록에서 고른 것만 되돌아갈 자리로 친다
     restorePanel.current = from === 'list' && narrow && panel !== null && !panel.minimized ? panel.key : null
     setSelectedId(cp.id)
@@ -927,26 +885,26 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
         {/* 알림 띠 — 지도를 밀지 않고 헤더 아래에 겹쳐 둔다 */}
         <div className="pointer-events-none absolute inset-x-0 top-[76px] z-10 flex flex-col items-center gap-1.5 px-4 max-lg:top-[110px] max-lg:px-3">
           {!VWORLD_KEY && (
-            <Banner tone="warn">
+            <MapBanner tone="warn">
               VWorld 배경지도 설정이 없어 OSM 배경지도로 표시합니다. 지적도와 법정동 경계는 표시되지 않습니다.
-            </Banner>
+            </MapBanner>
           )}
           {pointsQuery.isPending && (
-            <Banner tone="muted">
+            <MapBanner tone="muted">
               <span className="flex items-center gap-1.5">
                 <Spinner className="size-3" current />
                 기준점을 불러오는 중
               </span>
-            </Banner>
+            </MapBanner>
           )}
-          {pointsQuery.isError && <Banner tone="danger">기준점을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.</Banner>}
+          {pointsQuery.isError && <MapBanner tone="danger">기준점을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.</MapBanner>}
           {/* 대상을 못 읽으면 전체를 대신 그리지 않는다 — 대상이 아닌 점에 조사·망실을 기록할 수 있게 되기 때문 */}
           {targetsQuery.isError && (
-            <Banner tone="danger">대상 기준점을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.</Banner>
+            <MapBanner tone="danger">대상 기준점을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.</MapBanner>
           )}
           {/* 상태 표를 못 읽으면 지도가 판정 없이 그려진다 — 켜 두었는데 색이 없는 화면을 설명 없이 두지 않는다 */}
           {lastSurveysQuery.isError && (
-            <Banner tone="danger">기준점 상태를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.</Banner>
+            <MapBanner tone="danger">기준점 상태를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.</MapBanner>
           )}
         </div>
 
@@ -1044,29 +1002,12 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
               </div>
             )}
 
-            {/* 배경 밝기 — 지도에 무엇을 얹는 값이 아니라 화면 자체의 값이라 아래 독에 두지 않고 로고 아래에 작게 둔다.
-                요약 판이 서면 그만큼(38 + 8) 내려앉아 그 아래에 선다 */}
-            <button
-              type="button"
-              onClick={() => withoutTransition(() => dispatch(toggleTheme()))}
-              aria-pressed={theme === 'dark'}
-              title="배경 밝기"
-              aria-label="배경 밝기"
-              className={`absolute left-[12px] z-[30] flex size-[30px] items-center justify-center rounded-full border border-line-pill bg-pill text-ink-2 shadow-pill transition-[top] duration-200 lg:hidden ${
-                viewing === null ? 'top-[64px]' : 'top-[110px]'
-              }`}
-            >
-              {theme === 'dark' ? (
-                <svg viewBox="0 0 24 24" className="size-[14px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M20 13.5A8 8 0 1 1 10.5 4a6.5 6.5 0 0 0 9.5 9.5Z" />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" className="size-[14px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="4" />
-                  <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-                </svg>
-              )}
-            </button>
+            {/* 요약 판이 서면 그만큼(38 + 8) 내려앉아 그 아래에 선다 */}
+            <ThemeToggleButton
+              dark={theme === 'dark'}
+              onToggle={() => withoutTransition(() => dispatch(toggleTheme()))}
+              className={`absolute left-[12px] z-[30] transition-[top] duration-200 lg:hidden ${viewing === null ? 'top-[64px]' : 'top-[110px]'}`}
+            />
 
             {/* 접어 둔 패널을 대신하는 칩 — 무엇을 보고 있는지 알리고, 누르면 패널이 다시 펼쳐진다.
                 패널이 칩 자리로 말려 올라오는 동안 칩은 panel-in 으로 내려앉아 접히는 흐름이 이어진다 */}

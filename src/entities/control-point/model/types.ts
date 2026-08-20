@@ -4,6 +4,16 @@ import type { TmEpsg } from '@/shared/lib/crs'
 export const POINT_TYPES = ['지적삼각점', '지적삼각보조점', '지적도근점'] as const
 export type PointType = (typeof POINT_TYPES)[number]
 
+/** 지도·검색·목록이 실제로 읽는 최소 필드 — 공개 모델도 이 모양을 함께 쓴다 */
+export interface MappableControlPoint {
+  id: string
+  pointNo: string
+  type: PointType
+  name: string
+  lng: number
+  lat: number
+}
+
 // 이름의 숫자는 자릿수가 아니라 값으로 견준다 — "도근 2"가 "도근 10" 앞에 온다
 const nameCollator = new Intl.Collator('ko', { numeric: true, sensitivity: 'base' })
 
@@ -11,7 +21,7 @@ const nameCollator = new Intl.Collator('ko', { numeric: true, sensitivity: 'base
  * 기준점 목록의 기본 정렬 = 종류 순 → 이름 순.
  * 서버는 등록 순서대로 내리므로(임포트 파일 순) 화면마다 제각각 늘어놓지 않게 여기 한 곳에서 못박는다.
  */
-export function compareControlPoints(a: ControlPoint, b: ControlPoint): number {
+export function compareControlPoints(a: MappableControlPoint, b: MappableControlPoint): number {
   if (a.type !== b.type) return POINT_TYPES.indexOf(a.type) - POINT_TYPES.indexOf(b.type)
   return nameCollator.compare(a.name, b.name)
 }
@@ -22,13 +32,7 @@ export function compareControlPoints(a: ControlPoint, b: ControlPoint): number {
  * 축은 이름으로 못박는다 — 지적 성과 표기는 측량 관례(X=북, Y=동)라 GIS 축 순서(x=동)와 반대이므로
  * x·y 로 부르면 어느 쪽인지 코드만 봐서는 알 수 없다.
  */
-export interface ControlPoint {
-  id: string
-  pointNo: string
-  type: PointType
-  name: string
-  lng: number
-  lat: number
+export interface ControlPoint extends MappableControlPoint {
   northing: number
   easting: number
   tmEpsg: TmEpsg

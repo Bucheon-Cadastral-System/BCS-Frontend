@@ -4,6 +4,36 @@ import { MAP_BAR_BTN, POPOVER_FLAT } from '@/shared/ui/classes'
 import { CheckMark } from '@/shared/ui/CheckMark'
 import { useDismiss } from '@/shared/lib/useDismiss'
 
+/**
+ * 레이어 견본 — 20×14 상자로 지도에 그려지는 선을 그대로 줄여 보인다.
+ *
+ * <p>지적도는 필지가 갈린 모양이라 상자에 가로선 하나와 세로선 둘을 넣는다.
+ * 테두리를 1~19 × 1~13 에 두면 가로 18·세로 12 라 칸이 6씩 정확히 갈린다(세로선 7·13, 가로선 7).
+ *
+ * <p>법정동 경계는 파선 한 줄이다. 파선을 네모로 두르면 주기가 모서리에서 끊겨 한쪽으로 쏠려 보인다.
+ * 길이 18 은 주기 6(칠 4·빈 2)이 세 번 들어가 양끝이 모두 칠로 맺힌다.
+ *
+ * <p>색은 줄의 글자색을 따르지 않는다. 지도에 그려질 선의 색을 그대로 보이는 것이 견본이 하는 일이다.
+ */
+export const CADASTRAL_SWATCH = (
+  <svg viewBox="0 0 20 14" className="h-[14px] w-5 shrink-0" fill="none" stroke="var(--color-teal-btn-edge)" strokeWidth="1" aria-hidden="true">
+    <rect x="1" y="1" width="18" height="12" rx="1.5" />
+    <path d="M1 7h18M7 1v12M13 1v12" />
+  </svg>
+)
+export const DISTRICT_SWATCH = (
+  <svg viewBox="0 0 20 14" className="h-[14px] w-5 shrink-0" fill="none" stroke="var(--color-ink-3)" strokeWidth="1.4" strokeDasharray="4 2" aria-hidden="true">
+    <path d="M1 7h18" />
+  </svg>
+)
+
+/**
+ * 지적도가 그려지기 시작하는 축척 — 이보다 멀리서는 켜 두어도 빈 이미지가 온다.
+ * 서버가 정한 값이라 화면이 바꿀 수 없고, 줌 단계는 사용자가 모르는 값이라 하단 바와 같은 축척으로 적는다.
+ * 값은 실측이다. 같은 자리를 축척만 바꿔 요청하면 1:2,550 까지는 빈 이미지(6,727바이트)가 오고 1:2,500 부터 필지가 실린다.
+ */
+export const CADASTRAL_MIN_SCALE = 2500
+
 /** 지도에 얹고 걷을 수 있는 겹 하나 */
 export interface MapLayerItem {
   key: string

@@ -2,24 +2,12 @@ import { http } from '@/shared/api/http'
 // 조사 결과 어휘는 조사기록 엔티티가 소유한다 — 형만 들여오므로 빌드 뒤에는 두 엔티티 사이에 연결이 남지 않는다
 import type { SurveyResult } from '@/entities/survey-record'
 import type { TmEpsg } from '@/shared/lib/crs'
+import { POINT_TYPE_FROM_SERVER, POINT_TYPE_TO_SERVER, type ServerPointType } from '../model/serverPointType'
 import type { ControlPoint, PointType } from '../model/types'
 import { compareControlPoints } from '../model/types'
 
 /** 서버 enum 표기 ↔ 프론트 표기 매핑 */
-type ServerPointType = 'TRIANGULATION' | 'TRIANGULATION_AUX' | 'DOGEUN'
 type ServerCrs = 'GRS80_WEST' | 'GRS80_CENTRAL' | 'GRS80_EAST' | 'GRS80_EAST_SEA' | 'BESSEL_CENTRAL'
-
-const TYPE_FROM_SERVER: Record<ServerPointType, PointType> = {
-  TRIANGULATION: '지적삼각점',
-  TRIANGULATION_AUX: '지적삼각보조점',
-  DOGEUN: '지적도근점',
-}
-
-const TYPE_TO_SERVER: Record<PointType, ServerPointType> = {
-  지적삼각점: 'TRIANGULATION',
-  지적삼각보조점: 'TRIANGULATION_AUX',
-  지적도근점: 'DOGEUN',
-}
 
 const EPSG_FROM_CRS: Record<ServerCrs, TmEpsg> = {
   GRS80_WEST: 'EPSG:5185',
@@ -56,7 +44,7 @@ function toControlPoint(server: ServerControlPoint): ControlPoint {
   return {
     id: String(server.id),
     pointNo: server.pointNo,
-    type: TYPE_FROM_SERVER[server.type],
+    type: POINT_TYPE_FROM_SERVER[server.type],
     name: server.name,
     lng: server.longitude,
     lat: server.latitude,
@@ -180,7 +168,7 @@ export async function fetchControlPointUsage(id: string): Promise<boolean> {
 function toPayload(args: RegisterControlPointArgs) {
   return {
     pointNo: args.pointNo,
-    type: TYPE_TO_SERVER[args.type],
+    type: POINT_TYPE_TO_SERVER[args.type],
     name: args.name,
     crs: CRS_FROM_EPSG[args.tmEpsg],
     northing: args.northing,

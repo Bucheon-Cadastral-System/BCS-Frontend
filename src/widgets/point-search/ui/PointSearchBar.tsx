@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import type { ControlPoint } from '@/entities/control-point'
+import type { MappableControlPoint } from '@/entities/control-point'
 import { PointTypeIcon } from '@/entities/control-point'
 import { useDismiss } from '@/shared/lib/useDismiss'
 import { PILL, POPOVER } from '@/shared/ui/classes'
@@ -13,7 +13,7 @@ const ROW_HEIGHT = 48
  * 기준점 검색 (헤더 우측). 이름·관리번호로 찾고 고르면 그 점으로 지도를 이동한다.
  * 목록은 전부 로드돼 있어 입력 즉시 걸러지고, 결과는 개수 제한 없이 보여주되 보이는 줄만 그린다.
  */
-export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: ControlPoint) => void }) {
+export function PointSearchBar(props: { points: MappableControlPoint[]; onSelect: (cp: MappableControlPoint) => void }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
@@ -49,7 +49,7 @@ export function PointSearchBar(props: { points: ControlPoint[]; onSelect: (cp: C
     if (showList && results.length > 0) virtualizer.scrollToIndex(active)
   }, [active, showList, results.length, virtualizer])
 
-  function choose(cp: ControlPoint) {
+  function choose(cp: MappableControlPoint) {
     props.onSelect(cp)
     setOpen(false)
     setQuery('')
