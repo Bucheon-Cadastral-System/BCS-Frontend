@@ -1,4 +1,5 @@
 import { ApiError, http } from '@/shared/api/http'
+import { fileNameFromDisposition, saveBlob } from '@/shared/lib/download'
 import type { SurveyResult } from '@/entities/survey-record'
 
 export interface ControlPointImage {
@@ -45,34 +46,11 @@ export async function fetchControlPointImageFile(imageId: number): Promise<Blob>
 
 export async function downloadControlPointImage(image: ControlPointImage): Promise<void> {
   const response = await http.get<Blob>(`/api/control-point-images/${image.id}/download`, { responseType: 'blob' })
-  const url = URL.createObjectURL(response.data)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  // 서버가 저장 파일명에서 UUID를 제거해 Content-Disposition으로 내려준다.
-  // 인증 요청을 Blob으로 받은 뒤 직접 저장하므로 브라우저가 헤더를 자동 적용하지 않아 여기서 복원한다.
-  anchor.download = downloadFileName(response.headers['content-disposition'], image.originalFileName)
-  document.body.append(anchor)
-  anchor.click()
-  anchor.remove()
-  // 같은 틱에서 해제하면 브라우저가 저장을 시작하기 전에 주소가 사라져 다운로드가 취소되는 경우가 있다
-  setTimeout(() => URL.revokeObjectURL(url), 0)
-}
-
-function downloadFileName(contentDisposition: string | undefined, fallback: string): string {
-  const encoded = contentDisposition?.match(/filename\*=UTF-8''([^;]+)/i)?.[1]
-  const plain = contentDisposition?.match(/filename="([^"]+)"/i)?.[1]
-  let value = fallback
-  try {
-    if (encoded !== undefined) value = decodeURIComponent(encoded)
-    else if (plain !== undefined) value = plain
-  } catch {
-    value = fallback
-  }
-
-  // 구버전 서버나 프록시가 UUID 포함 이름을 넘겨도 사용자 저장명에서는 제거한다.
-  return value
+  // 서버가 저장 파일명에서 UUID 를 제거해 Content-Disposition 으로 내려준다.
+  // 구버전 서버나 프록시가 UUID 를 포함한 이름을 넘겨도 사용자 저장명에서는 지운다
+  const fileName = fileNameFromDisposition(response.headers['content-disposition'], image.originalFileName)
     .replace(/_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?=\.webp$)/i, '')
-    .normalize('NFC')
+  saveBlob(response.data, fileName)
 }
 
 /**
