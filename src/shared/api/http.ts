@@ -41,7 +41,8 @@ interface ProblemDetail {
  */
 const MESSAGE_BY_CODE: Record<string, string> = {
   COMMON_INTERNAL_ERROR: '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
-  COMMON_BAD_REQUEST: '요청을 처리하지 못했습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.',
+  // 어느 요청이 왜 거절됐는지 가리지 못하는 자리라 할 일을 일러 주지 않는다 — 새로고침으로 풀리지 않는 실패가 여기로 온다
+  COMMON_BAD_REQUEST: '요청을 처리하지 못했습니다.',
   PAGE_REQUEST_INVALID: '목록을 불러올 수 없습니다. 화면을 새로고침해 주세요.',
   CURSOR_INVALID: '목록을 이어 불러올 수 없습니다. 화면을 새로고침해 주세요.',
   AUTH_UNAUTHORIZED: '로그인이 필요합니다. 다시 로그인해 주세요.',
@@ -87,10 +88,26 @@ http.interceptors.response.use(undefined, async (error: AxiosError) => {
 })
 
 // 모든 실패를 ApiError로 정규화 — 네트워크 오류(응답 없음)는 status 0
-function throwApiError(error: AxiosError<ProblemDetail>): never {
+async function throwApiError(error: AxiosError<ProblemDetail>): Promise<never> {
   const status = error.response?.status ?? 0
-  const problem = error.response?.data
+  const problem = await problemOf(error.response?.data)
   throw new ApiError(problem?.code ?? 'UNKNOWN', status, messageOf(problem, status), problem?.errors ?? [])
+}
+
+/**
+ * 실패 본문을 읽는다.
+ *
+ * <p>파일을 받는 요청은 응답을 Blob 으로 받겠다고 미리 정해 두므로, 서버가 실패를 JSON 으로 내려도
+ * 그 JSON 이 Blob 에 담겨 온다. 풀어 읽지 않으면 사유를 아는 응답을 두고도 일반 문구만 띄우게 된다.
+ */
+async function problemOf(data: unknown): Promise<ProblemDetail | undefined> {
+  if (!(data instanceof Blob)) return data as ProblemDetail | undefined
+  try {
+    return JSON.parse(await data.text()) as ProblemDetail
+  } catch {
+    // 파일이 아니라 실패라는 것만 아는 응답 — 문구는 상태 코드로 고른다
+    return undefined
+  }
 }
 
 http.interceptors.response.use((response) => response, throwApiError)

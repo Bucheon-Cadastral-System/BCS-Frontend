@@ -55,6 +55,10 @@ interface MapSidebarProps {
   onImportProjects: () => void
   onEditProject: (project: SurveyProject) => void
   onDeleteProject: (project: SurveyProject) => void
+  /** 대상 기준점을 파일로 내보낸다 */
+  onExportProject: (project: SurveyProject) => void
+  /** 파일을 만드는 중 — 그동안 내보내기 버튼이 잠긴다 */
+  exporting?: boolean
   // 기준점 목록
   points: MappableControlPoint[]
   /** 고른 조사의 대상 점 — 조사를 고르지 않았으면 points 와 같다 */
@@ -422,6 +426,8 @@ function ProjectPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHandl
             onFocusPoint={props.onFocusPoint}
             onEdit={props.onEditProject}
             onDelete={props.onDeleteProject}
+            onExport={props.onExportProject}
+            exporting={props.exporting}
             readOnly={props.readOnly}
           />
         )}
@@ -448,6 +454,8 @@ function ProjectDetail(props: {
   onFocusPoint: (cp: MappableControlPoint) => void
   onEdit: (project: SurveyProject) => void
   onDelete: (project: SurveyProject) => void
+  onExport: (project: SurveyProject) => void
+  exporting?: boolean
   readOnly?: boolean
 }) {
   const p = props.project
@@ -467,7 +475,7 @@ function ProjectDetail(props: {
   return (
     <>
       {/* 머리줄 — 어느 조사에 들어와 있는지와 나가는 길. 패널 머리말(PanelHeader)과 같은 크기로 세워 한 겹의 제목임을 말한다 */}
-      <div className="flex shrink-0 items-center gap-1.5 border-t-2 border-t-teal py-2.5 pl-2 pr-3.5">
+      <div className="flex shrink-0 items-center gap-1.5 border-t-2 border-t-teal py-2.5 pl-2 pr-2.5">
         <button
           type="button"
           onClick={props.onBack}
@@ -479,7 +487,20 @@ function ProjectDetail(props: {
             <IconChevronLeft />
           </span>
         </button>
+        {/* 제목이 길면 줄여 세운다 — 오른쪽 버튼은 자리를 내주지 않는다 */}
         <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">{p.name}</span>
+        {!props.readOnly && (
+          <button
+            type="button"
+            onClick={() => props.onExport(p)}
+            disabled={props.exporting === true}
+            title="내보내기"
+            aria-label="내보내기"
+            className={`${ICON_BTN} disabled:cursor-wait`}
+          >
+            {props.exporting === true ? <Spinner className="size-full" current /> : <IconDownload />}
+          </button>
+        )}
       </div>
       <div className="flex shrink-0 items-baseline justify-between gap-2 px-3.5 text-[11.5px] text-ink-3">
         <span className="shrink-0">
@@ -980,6 +1001,17 @@ function IconUpload() {
     <svg viewBox="0 0 24 24" className="h-full w-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M12 16V4" />
       <path d="m7 9 5-5 5 5" />
+      <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+    </svg>
+  )
+}
+
+/** 내보내기 — 파일 업로드(IconUpload)의 반대 방향이다 */
+function IconDownload() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-full w-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 4v12" />
+      <path d="m7 11 5 5 5-5" />
       <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
     </svg>
   )
