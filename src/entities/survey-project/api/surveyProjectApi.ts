@@ -1,4 +1,5 @@
 import { http } from '@/shared/api/http'
+import { fileNameFromDisposition, saveBlob } from '@/shared/lib/download'
 import type { SurveyProject, SurveyProjectDraft } from '../model/types'
 
 interface ServerSurveyProject {
@@ -81,6 +82,17 @@ export async function deleteSurveyProjectApi(id: string): Promise<void> {
 }
 
 /** 그 조사의 대상 점 id — 지도·목록을 조사 대상으로만 좁히고 진행률의 분모로 쓴다. */
+/**
+ * 대상 기준점 내보내기 — 서버가 만든 파일을 받아 그대로 저장한다.
+ *
+ * <p>저장 이름은 서버가 조사명으로 지어 헤더에 실어 보낸다. 인증 요청이라 브라우저가 그 헤더를 스스로
+ * 적용하지 않으므로 여기서 되읽어 붙인다.
+ */
+export async function exportSurveyProjectApi(project: SurveyProject): Promise<void> {
+  const res = await http.get<Blob>(`/api/survey-projects/${project.id}/export`, { responseType: 'blob' })
+  saveBlob(res.data, fileNameFromDisposition(res.headers['content-disposition'], `${project.name}.xlsx`))
+}
+
 export async function fetchSurveyTargets(projectId: string): Promise<string[]> {
   const res = await http.get<{ content: number[] }>(`/api/survey-projects/${projectId}/targets`)
   return res.data.content.map(String)

@@ -279,6 +279,7 @@ export function GuestMapPage() {
           onImportProjects={() => undefined}
           onEditProject={() => undefined}
           onDeleteProject={() => undefined}
+          onExportProject={() => undefined}
           points={points}
           targetPoints={points}
           resultById={EMPTY_RESULTS}

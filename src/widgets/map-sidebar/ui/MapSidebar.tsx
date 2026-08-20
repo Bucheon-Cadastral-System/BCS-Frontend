@@ -55,6 +55,10 @@ interface MapSidebarProps {
   onImportProjects: () => void
   onEditProject: (project: SurveyProject) => void
   onDeleteProject: (project: SurveyProject) => void
+  /** 대상 기준점을 파일로 내보낸다 */
+  onExportProject: (project: SurveyProject) => void
+  /** 파일을 만드는 중 — 그동안 내보내기 버튼이 잠긴다 */
+  exporting?: boolean
   // 기준점 목록
   points: MappableControlPoint[]
   /** 고른 조사의 대상 점 — 조사를 고르지 않았으면 points 와 같다 */
@@ -422,6 +426,8 @@ function ProjectPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHandl
             onFocusPoint={props.onFocusPoint}
             onEdit={props.onEditProject}
             onDelete={props.onDeleteProject}
+            onExport={props.onExportProject}
+            exporting={props.exporting}
             readOnly={props.readOnly}
           />
         )}
@@ -448,6 +454,8 @@ function ProjectDetail(props: {
   onFocusPoint: (cp: MappableControlPoint) => void
   onEdit: (project: SurveyProject) => void
   onDelete: (project: SurveyProject) => void
+  onExport: (project: SurveyProject) => void
+  exporting?: boolean
   readOnly?: boolean
 }) {
   const p = props.project
@@ -523,6 +531,15 @@ function ProjectDetail(props: {
 
       {!props.readOnly && (
         <div className="flex shrink-0 gap-2 px-3.5 pt-2.5">
+          <button
+            type="button"
+            onClick={() => props.onExport(p)}
+            disabled={props.exporting === true}
+            className={`${CHIP_BTN} flex flex-1 items-center justify-center gap-1.5 py-1.5 text-[12px] disabled:cursor-wait`}
+          >
+            {props.exporting === true && <Spinner className="size-3" current />}
+            {props.exporting === true ? '내보내기 중' : '내보내기'}
+          </button>
           <button type="button" onClick={() => props.onEdit(p)} className={`${CHIP_BTN} flex-1 py-1.5 text-[12px]`}>
             수정
           </button>

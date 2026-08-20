@@ -21,7 +21,7 @@ import { ChatDockLayout } from '@/widgets/chatbot'
 import type { ChatAction } from '@/widgets/chatbot'
 import { POINT_TYPES, fetchControlPointUsage, useControlPointsQuery, useDeleteControlPointMutation, useLastSurveyQuery, useLastSurveysQuery, useRegisterControlPointMutation, useUpdateControlPointMutation } from '@/entities/control-point'
 import type { ControlPoint, MappableControlPoint } from '@/entities/control-point'
-import { selectActiveProjectId, setActiveProject, useCreateSurveyProjectMutation, useDeleteSurveyProjectMutation, useSurveyProjectsQuery, useSurveyTargetsQuery, useUpdateSurveyProjectMutation } from '@/entities/survey-project'
+import { exportSurveyProjectApi, selectActiveProjectId, setActiveProject, useCreateSurveyProjectMutation, useDeleteSurveyProjectMutation, useSurveyProjectsQuery, useSurveyTargetsQuery, useUpdateSurveyProjectMutation } from '@/entities/survey-project'
 import type { SurveyProject, SurveyProjectDraft } from '@/entities/survey-project'
 import { clearStatusFilter, deriveSurveyStatus, selectAllStatus, selectStatusFilter, surveyStatusFromLabel, toggleStatusFilter, useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
 import type { SurveyResult } from '@/entities/survey-record'
@@ -205,6 +205,8 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
   // 수정·삭제할 프로젝트 — 값이 있으면 그 창이 떠 있다
   const [editingProject, setEditingProject] = useState<SurveyProject | null>(null)
   const [deletingProject, setDeletingProject] = useState<SurveyProject | null>(null)
+  // 파일을 만드는 동안 버튼을 잠근다 — 점이 수천이면 서버가 표를 짓는 데 잠깐 걸린다
+  const [exporting, setExporting] = useState(false)
 
   // 수정 창의 시작값(현재 대상)과 기록 있는 점 — 수정은 드로어(펼침=활성)에서 열려 보통 캐시가 이미 데워져 있지만,
   // 활성 프로젝트와 같다는 가정에 기대지 않고 수정 대상의 id 로 따로 묻는다(키가 같으면 재요청 없이 캐시를 쓴다)
@@ -676,6 +678,18 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
   }
 
   /** 삭제 확정 — 대상 지정·조사 기록이 함께 지워지므로 확인 창을 거쳐서만 온다. */
+  /** 대상 기준점 내보내기 — 만든 파일은 브라우저가 바로 저장한다. 남는 것이 없어 캐시를 건드리지 않는다 */
+  async function exportProject(project: SurveyProject) {
+    setExporting(true)
+    try {
+      await exportSurveyProjectApi(project)
+    } catch (e) {
+      showToast(e instanceof ApiError ? e.message : '파일을 내보내지 못했습니다. 잠시 후 다시 시도해 주세요.', 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   function confirmDeleteProject() {
     if (deletingProject === null) return
     const target = deletingProject
@@ -840,6 +854,8 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
             closePointFlow()
             setDeletingProject(p)
           }}
+          onExportProject={(p) => void exportProject(p)}
+          exporting={exporting}
           points={points}
           targetPoints={targetPoints}
           resultById={resultById}
