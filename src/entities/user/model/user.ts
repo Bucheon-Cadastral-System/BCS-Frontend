@@ -10,19 +10,24 @@ export type Position = (typeof POSITIONS)[number]
 export type UnknownEnumValue = `알 수 없음 (${string})`
 
 /**
- * 회원 한 명의 신원 — 이름을 눌러 보는 자리와 관리 화면이 함께 쓴다.
- * 카카오 로그인만 하고 회원 정보 입력을 마치지 않은 계정은 이름부터 직위까지가 빈 문자열이다 —
- * 그런 계정도 승인 대기 목록에 서므로 빈 값을 담을 수 있어야 한다.
+ * 다른 회원의 신원 — 이름을 눌러 보는 자리가 받는 값이다.
+ *
+ * <p>연락처와 권한은 담지 않는다. 서버가 그 값을 이 경로로 내려 주지 않는다.
+ * 카카오 로그인만 하고 회원 정보 입력을 마치지 않은 계정은 이름부터 직위까지가 빈 문자열이다.
  */
-export interface MemberProfile {
+export interface MemberIdentity {
   id: string
   name: string
-  phone: string
-  email: string
   district: District | UnknownEnumValue | ''
   department: string
   team: Team | UnknownEnumValue | ''
   position: Position | UnknownEnumValue | ''
+}
+
+/** 관리 화면이 다루는 회원 한 명의 신원 — 신원에 연락처와 권한이 붙는다 */
+export interface MemberProfile extends MemberIdentity {
+  phone: string
+  email: string
   role: UserRole
 }
 

@@ -1,14 +1,16 @@
 import { Modal } from '@/shared/ui/Modal'
 import { BTN_SM_SECONDARY } from '@/shared/ui/classes'
 import { Skeleton } from '@/shared/ui/Skeleton'
-import { useMemberProfileQuery } from '../api/queries'
-import { formatPhone } from '../model/phone'
-import { ROLE_LABEL } from '../model/user'
+import { useMemberIdentityQuery } from '../api/queries'
 import { ProfileRow, ProfileValue } from './ProfileFields'
 import { UserAvatar } from './UserAvatar'
 
-/** 정보 줄 — 프로필 패널이 세우는 항목에서 이 사람에게 물을 수 없는 것만 뺀 나머지다 */
-const LABELS = ['소속 구청', '소속 과', '소속 팀', '직위', '전화번호', '이메일'] as const
+/**
+ * 정보 줄 — 이 사람이 누구인지까지다.
+ *
+ * <p>연락처와 권한은 세우지 않는다. 서버가 이 경로로 그 값을 내려 주지 않는다.
+ */
+const LABELS = ['소속 구청', '소속 과', '소속 팀', '직위'] as const
 
 /**
  * 다른 회원의 신원 — 작성자·조사원 이름을 눌렀을 때 선다.
@@ -17,7 +19,7 @@ const LABELS = ['소속 구청', '소속 과', '소속 팀', '직위', '전화�
  * 붙여 세우면 그 상자에 잘린다.
  */
 export function MemberProfileDialog(props: { memberId: string; onClose: () => void }) {
-  const { data, isPending, isError } = useMemberProfileQuery(props.memberId)
+  const { data, isPending, isError } = useMemberIdentityQuery(props.memberId)
 
   return (
     <Modal
@@ -48,11 +50,6 @@ export function MemberProfileDialog(props: { memberId: string; onClose: () => vo
             </>
           )}
         </span>
-        {data?.role === 'ADMIN' && (
-          <span className="shrink-0 rounded-chip bg-teal-wash-strong px-[7px] py-[3px] text-[10.5px] font-semibold text-teal-text">
-            {ROLE_LABEL.ADMIN}
-          </span>
-        )}
       </div>
 
       {isError ? (
@@ -78,12 +75,6 @@ export function MemberProfileDialog(props: { memberId: string; onClose: () => vo
                   </ProfileRow>
                   <ProfileRow label="직위">
                     <ProfileValue value={data.position} />
-                  </ProfileRow>
-                  <ProfileRow label="전화번호">
-                    <ProfileValue value={formatPhone(data.phone)} />
-                  </ProfileRow>
-                  <ProfileRow label="이메일">
-                    <ProfileValue value={data.email} />
                   </ProfileRow>
                 </>
               )}
