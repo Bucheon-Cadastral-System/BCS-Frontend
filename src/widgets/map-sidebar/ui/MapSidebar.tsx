@@ -7,13 +7,14 @@ import type { SurveyResult, SurveyStatus } from '@/entities/survey-record'
 import { RefreshIcon } from '@/shared/ui/RefreshIcon'
 import { Skeleton, SkeletonRows } from '@/shared/ui/Skeleton'
 import { Spinner } from '@/shared/ui/Spinner'
-import { CHIP_BTN, CHIP_BTN_DANGER, ICON_BTN, ICON_BTN_DANGER, PANEL, PANEL_HEADER, PILL, ROW_ACCENT } from '@/shared/ui/classes'
+import { CHIP_BTN, CHIP_BTN_DANGER, ICON_BTN, ICON_BTN_DANGER, ICON_BTN_TEAL, PANEL, PANEL_HEADER, PILL, ROW_ACCENT } from '@/shared/ui/classes'
 import { percent } from '@/shared/lib/percent'
 import { formatDate } from '@/shared/lib/date'
 import type { SheetHandle } from '@/shared/lib/useBottomSheet'
 import { SURVEY_ONGOING_LABEL, isProjectComplete, type SurveyProject } from '@/entities/survey-project'
 import type { MappableControlPoint, PointType } from '@/entities/control-point'
 import { POINT_TYPES, PointTypeIcon, StatusMark } from '@/entities/control-point'
+import { MemberName } from '@/entities/user'
 
 /** 좌측 레일에서 열 수 있는 패널 종류 */
 
@@ -496,7 +497,7 @@ function ProjectDetail(props: {
             disabled={props.exporting === true}
             title="내보내기"
             aria-label="내보내기"
-            className={`${ICON_BTN} disabled:cursor-wait`}
+            className={`${ICON_BTN_TEAL} disabled:cursor-wait`}
           >
             {props.exporting === true ? <Spinner className="size-full" current /> : <IconDownload />}
           </button>
@@ -508,7 +509,12 @@ function ProjectDetail(props: {
           {p.endedOn === null ? <span className="text-teal-text">{SURVEY_ONGOING_LABEL}</span> : formatDate(p.endedOn)}
         </span>
         {/* 작성자 — 기간과 한 줄(우측). 인증 없이 만든 프로젝트는 기록이 없어 세우지 않는다 */}
-        {p.authorName != null && <span className="min-w-0 truncate">작성자 {p.authorName}</span>}
+        {p.authorName != null && (
+          <span className="flex min-w-0 items-baseline gap-1">
+            작성자
+            <MemberName id={p.authorId ?? null} name={p.authorName} />
+          </span>
+        )}
       </div>
 
       <div className="shrink-0 px-3.5 pt-3">

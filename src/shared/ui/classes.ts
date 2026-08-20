@@ -66,6 +66,8 @@ export const CHIP_BTN_DANGER =
 const ICON_BTN_BASE =
   'flex size-[26px] shrink-0 items-center justify-center rounded-chip p-[5px] text-ink-3 transition-colors'
 export const ICON_BTN = `${ICON_BTN_BASE} hover:bg-hover hover:text-ink-2`
+/** 눈에 띄어야 하는 아이콘 버튼 — 평소에도 강조색으로 서 있는다 */
+export const ICON_BTN_TEAL = `${ICON_BTN_BASE} text-teal-text hover:bg-teal-wash`
 export const ICON_BTN_DANGER = `${ICON_BTN_BASE} hover:bg-danger-wash hover:text-danger`
 
 /**
