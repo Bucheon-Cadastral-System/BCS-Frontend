@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
 import {
   DISTRICTS,
   POSITIONS,
@@ -11,18 +10,21 @@ import {
   useUpdateAdminMemberMutation,
 } from '@/entities/user'
 import type { AdminActivity, AdminActivityType, AdminMemberAction, AdminMemberSortBy, ManagedUser, SortDirection, UserProfile, UserStatus } from '@/entities/user'
-import { UserAvatar } from '@/entities/user'
+import { UserAvatar, ProfileField, ProfileRow, ProfileSelectField, ROLE_LABEL, formatPhone } from '@/entities/user'
 import { ActivityIcon, AppHeader, UsersIcon } from '@/widgets/app-header'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { SkeletonRows } from '@/shared/ui/Skeleton'
 import { Spinner } from '@/shared/ui/Spinner'
 import { Toast } from '@/shared/ui/Toast'
-import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY, FIELD, FIELD_SELECT, FIELD_SM, FIELD_SM_SELECT, ICON_BTN_DANGER, ROW_ACCENT } from '@/shared/ui/classes'
+import { FormActions } from '@/shared/ui/FormActions'
+import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY, FIELD_SM, FIELD_SM_SELECT, ICON_BTN_DANGER, ROW_ACCENT } from '@/shared/ui/classes'
 
 interface AdminUsersPageProps {
   /** 지금 로그인한 관리자 — 헤더 표시에 쓴다 */
   profile: UserProfile | null
   onBack: () => void
+  /** 내 정보를 고친 뒤 — 프로필을 다시 받는다 */
+  onProfileUpdated: () => void
 }
 
 const STATUS_LABEL: Record<UserStatus, string> = {
@@ -128,9 +130,6 @@ function validateMemberDraft(member: ManagedUser): string | null {
   return null
 }
 
-function isKnownValue(values: readonly string[], value: string): boolean {
-  return values.includes(value)
-}
 
 function normalizeMemberDraft(member: ManagedUser): ManagedUser {
   return {
@@ -157,7 +156,7 @@ function BusyLabel({ label }: { label: string }) {
   )
 }
 
-export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
+export function AdminUsersPage({ profile, onBack, onProfileUpdated }: AdminUsersPageProps) {
   const [filter, setFilter] = useState<'ALL' | UserStatus>('ALL')
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
@@ -357,6 +356,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
           { key: 'activities', label: '활동 로그', icon: <ActivityIcon />, active: tab === 'activities', onClick: () => setTab('activities') },
         ]}
         user={profile}
+        onProfileUpdated={onProfileUpdated}
       />
 
       {/* 머리띠를 두지 않는다 — 바탕은 화면 전체가 하나이고 헤더는 그 위에 떠 있다.
@@ -514,19 +514,18 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
 
                   <dl className="mt-5 flex-1">
                     {/* 로그인 계정(카카오)이 아니라 이 시스템이 회원에게 매긴 번호다 */}
-                    <ValueRow label="회원 번호">
+                    <ProfileRow label="회원 번호">
                       <span className="block truncate text-[13px] text-ink-3">#{detail.id}</span>
-                    </ValueRow>
-                    <Field label="이름" editing={editing} value={detail.name} onChange={(v) => setDraft({ ...detail, name: v })} />
-                    <Field
+                    </ProfileRow>
+                    <ProfileField label="이름" editing={editing} value={detail.name} onChange={(v) => setDraft({ ...detail, name: v })} />
+                    <ProfileField
                       label="전화번호"
                       editing={editing}
-                      mono
-                      value={detail.phone}
+                      value={editing ? detail.phone : formatPhone(detail.phone)}
                       onChange={(v) => setDraft({ ...detail, phone: v.replace(/\D/g, '').slice(0, 11) })}
                     />
-                    <Field label="이메일" editing={editing} value={detail.email} onChange={(v) => setDraft({ ...detail, email: v })} />
-                    <SelectField
+                    <ProfileField label="이메일" editing={editing} value={detail.email} onChange={(v) => setDraft({ ...detail, email: v })} />
+                    <ProfileSelectField
                       label="소속 구청"
                       editing={editing}
                       value={detail.district}
@@ -534,17 +533,17 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
                       onChange={(v) => setDraft({ ...detail, district: v as ManagedUser['district'] })}
                     />
                     {/* 소속 과는 고칠 수 없다 — 지금 이 시스템은 민원지적과 하나만 받는다 */}
-                    <ValueRow label="소속 과">
+                    <ProfileRow label="소속 과">
                       <span className="block truncate text-[12.5px] text-ink-2">{detail.department || <span className="text-ink-4">정보 없음</span>}</span>
-                    </ValueRow>
-                    <SelectField
+                    </ProfileRow>
+                    <ProfileSelectField
                       label="소속 팀"
                       editing={editing}
                       value={detail.team}
                       options={TEAMS}
                       onChange={(v) => setDraft({ ...detail, team: v as ManagedUser['team'] })}
                     />
-                    <SelectField
+                    <ProfileSelectField
                       label="직위"
                       editing={editing}
                       value={detail.position}
@@ -555,15 +554,7 @@ export function AdminUsersPage({ profile, onBack }: AdminUsersPageProps) {
 
                   <div className="mt-5 flex flex-wrap justify-end gap-2">
                     {editing ? (
-                      <>
-                        {/* 고치던 값을 버리는 취소 — 앱 전역 규격대로 빨강 */}
-                        <button type="button" disabled={updateMemberMutation.isPending} className={BTN_SM_DANGER} onClick={() => setDraft(null)}>
-                          취소
-                        </button>
-                        <button type="button" disabled={updateMemberMutation.isPending} className={BTN_SM_PRIMARY} onClick={saveEditing}>
-                          {updateMemberMutation.isPending ? <BusyLabel label="저장 중" /> : '변경사항 저장'}
-                        </button>
-                      </>
+                      <FormActions submitLabel="저장" busy={updateMemberMutation.isPending} onSubmit={saveEditing} onCancel={() => setDraft(null)} />
                     ) : (
                       <>
                         <button type="button" className={BTN_SM_SECONDARY} onClick={() => startEditing(detail)}>
@@ -744,7 +735,7 @@ function Cell({ column, user }: { column: ColumnKey; user: ManagedUser }) {
   }
   if (column === 'email') return <span className="block truncate text-[11.5px] text-ink-3">{user.email}</span>
   if (column === 'role') {
-    return <span className="block truncate text-[11px] font-semibold tracking-[.06em] text-ink-3">{user.role}</span>
+    return <span className="block truncate text-[11px] font-semibold text-ink-3">{ROLE_LABEL[user.role]}</span>
   }
   if (column === 'status') {
     return (
@@ -821,54 +812,7 @@ function SortHeader(props: {
 }
 
 /** 상세 한 줄 — 라벨과 값의 자리. 고칠 수 없는 값(아이디)은 이것만 쓴다. */
-function ValueRow({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 border-b border-line-row py-2">
-      <dt className="w-[78px] shrink-0 text-[11.5px] text-ink-3">{label}</dt>
-      <dd className="min-w-0 flex-1">{children}</dd>
-    </div>
-  )
-}
 
 /** 읽을 때는 값만 보이고 고칠 때만 입력칸이 된다 — 상자가 늘 서 있으면 읽기가 어렵다 */
-function Field(props: { label: string; value: string; editing: boolean; mono?: boolean; onChange: (v: string) => void }) {
-  return (
-    <ValueRow label={props.label}>
-      {props.editing ? (
-        // 라벨은 dt 에 있어 입력칸과 이어지지 않는다 — 화면 낭독기가 이름을 읽도록 같은 문구를 붙인다
-        <input aria-label={props.label} value={props.value} onChange={(e) => props.onChange(e.target.value)} className={FIELD} />
-      ) : (
-        <span className={`block truncate text-[13px] text-ink-2 ${props.mono ? '' : ''}`}>{props.value}</span>
-      )}
-    </ValueRow>
-  )
-}
 
 /** 값이 목록에 없을 수 있다(백엔드에 새 값이 생긴 경우) — 그 값도 고를 수 있게 함께 세운다 */
-function SelectField(props: {
-  label: string
-  value: string
-  options: readonly string[]
-  editing: boolean
-  onChange: (v: string) => void
-}) {
-  return (
-    <ValueRow label={props.label}>
-      {props.editing ? (
-        <select
-          aria-label={props.label}
-          value={props.value}
-          onChange={(e) => props.onChange(e.target.value)}
-          className={FIELD_SELECT}
-        >
-          {!isKnownValue(props.options, props.value) && <option value={props.value} disabled>{props.value}</option>}
-          {props.options.map((value) => (
-            <option key={value}>{value}</option>
-          ))}
-        </select>
-      ) : (
-        <span className="block truncate text-[13px] text-ink-2">{props.value}</span>
-      )}
-    </ValueRow>
-  )
-}

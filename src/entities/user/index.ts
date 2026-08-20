@@ -1,7 +1,9 @@
 export { UserAvatar } from './ui/UserAvatar'
+export { ProfileField, ProfileRow, ProfileSelectField, ProfileValue } from './ui/ProfileFields'
 export { UserMenu } from './ui/UserMenu'
 export { avatarColor } from './model/avatarColor'
-export { DISTRICTS, TEAMS, POSITIONS } from './model/user'
+export { formatPhone } from './model/phone'
+export { DISTRICTS, TEAMS, POSITIONS, ROLE_LABEL } from './model/user'
 export type { District, ManagedUser, Position, Team, UnknownEnumValue, UserProfile, UserRole, UserStatus } from './model/user'
 // 슬라이스 밖에서 실제로 쓰는 것만 연다 — getCsrfToken 같은 내부용은 안쪽에 둔다
 export {
@@ -26,6 +28,7 @@ export type {
   SortDirection,
 } from './api/userApi'
 export {
+  useUpdateMyProfileMutation,
   useAdminMembersQuery,
   useAdminMemberCountsQuery,
   useAdminActivitiesQuery,

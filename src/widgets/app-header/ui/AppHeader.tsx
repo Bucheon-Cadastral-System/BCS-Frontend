@@ -2,7 +2,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { UserAvatar, UserMenu } from '@/entities/user'
 import type { UserProfile } from '@/entities/user'
+import { useBottomSheet } from '@/shared/lib/useBottomSheet'
 import { useDismiss } from '@/shared/lib/useDismiss'
+import { useNarrowScreen } from '@/shared/lib/useNarrowScreen'
+import { useViewportHeight } from '@/shared/lib/useViewportHeight'
 import { useTabSlide } from '@/shared/lib/useTabSlide'
 import { useElementWidth } from '@/shared/lib/useElementWidth'
 import { BrandMark } from '@/shared/ui/BrandMark'
@@ -41,10 +44,21 @@ export function AppHeader(props: {
   onBrandWidthChange?: (px: number) => void
   /** 우측 묶음(검색+사용자)의 폭 — 그 아래 서는 대화 패널이 같은 너비를 쓰도록 알린다 */
   onUtilityWidthChange?: (px: number) => void
+  /** 내 정보를 고친 뒤 — 화면이 쥔 프로필을 다시 받도록 알린다 */
+  onProfileUpdated?: () => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const userRef = useRef<HTMLDivElement>(null)
-  useDismiss({ enabled: menuOpen, onDismiss: () => setMenuOpen(false), ref: userRef })
+  const narrow = useNarrowScreen()
+  const viewportHeight = useViewportHeight()
+  // 바깥 클릭·Esc 로 닫는 것은 말풍선만이다 — 시트는 제 손잡이와 뒤 덮개가 닫는다
+  useDismiss({ enabled: menuOpen && !narrow, onDismiss: () => setMenuOpen(false), ref: userRef })
+  const profileSheet = useBottomSheet({
+    open: menuOpen && narrow,
+    onClosed: () => setMenuOpen(false),
+    viewportHeight,
+    minHeight: 320,
+  })
 
   const user = props.user
   const guest = props.guest === true
@@ -197,15 +211,52 @@ export function AppHeader(props: {
             </svg>
           </button>
 
-          {menuOpen && (
-            // 좁은 화면에서는 아바타가 아니라 판 아래 8px 에 선다 — 판 안의 자리를 기준으로 띄우면
-            // 그 자리 높이(34)만큼만 내려와 판에 물린다
-            <div className={`panel-in absolute right-0 top-[50px] z-40 w-56 overflow-hidden max-lg:top-[54px] ${POPOVER}`}>
-              <UserMenu user={user} guest={guest} onOpenUserManagement={props.onOpenUserManagement} onDone={() => setMenuOpen(false)} />
+          {/* 넓은 화면은 알약 아래 말풍선. 좁은 화면은 손이 닿는 아래에서 시트로 올라온다(이 판 밖) */}
+          {menuOpen && !narrow && (
+            <div className={`panel-in absolute right-0 top-[50px] z-40 w-[300px] overflow-hidden ${POPOVER}`}>
+              <UserMenu
+                variant="popover"
+                user={user}
+                guest={guest}
+                onOpenUserManagement={props.onOpenUserManagement}
+                onProfileUpdated={props.onProfileUpdated}
+                onDone={() => setMenuOpen(false)}
+              />
             </div>
           )}
         </div>
       </div>
+
+      {/* 마치고 나와야 하는 일이라 뒤를 덮는다 — 지도 패널 시트와 달리 뒤를 만질 일이 없다 */}
+      {menuOpen && narrow && (
+        <>
+          <button
+            type="button"
+            aria-label="닫기"
+            onClick={() => profileSheet.requestClose()}
+            className="fixed inset-0 z-[60] bg-[rgba(9,26,24,.34)]"
+          />
+          <aside
+            ref={profileSheet.sheet.rootRef}
+            style={profileSheet.sheet.style}
+            className={`fixed inset-x-0 bottom-0 z-[61] flex flex-col overflow-hidden rounded-t-pill border-x border-t border-line bg-sheet shadow-[0_-22px_50px_rgba(0,0,0,.55)] ${profileSheet.sheet.className}`}
+          >
+            <div className="flex shrink-0 justify-center py-2" {...profileSheet.sheet.handleProps}>
+              <span className="h-1 w-[38px] rounded-chip bg-line-pill" />
+            </div>
+            <div ref={profileSheet.sheet.scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              <UserMenu
+                variant="sheet"
+                user={user}
+                guest={guest}
+                onOpenUserManagement={props.onOpenUserManagement}
+                onProfileUpdated={props.onProfileUpdated}
+                onDone={() => setMenuOpen(false)}
+              />
+            </div>
+          </aside>
+        </>
+      )}
     </div>
   )
 }

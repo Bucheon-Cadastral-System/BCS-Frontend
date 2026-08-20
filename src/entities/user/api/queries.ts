@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { changeAdminMember, getAdminActivities, getAdminMemberCounts, getAdminMembers, updateAdminMember } from './userApi'
+import { changeAdminMember, getAdminActivities, getAdminMemberCounts, getAdminMembers, updateAdminMember, updateMyProfile } from './userApi'
 import type { AdminActivityType, AdminMemberAction, AdminMemberQuery } from './userApi'
 
 export const ADMIN_MEMBERS_KEY = ['admin-members'] as const
@@ -31,6 +31,23 @@ export function useAdminActivitiesQuery(cursor?: string, activityType?: AdminAct
     queryKey: [...ADMIN_ACTIVITIES_KEY, cursor, activityType],
     queryFn: () => getAdminActivities(cursor, activityType),
     staleTime: 30_000,
+  })
+}
+
+/**
+ * 내 정보 수정 — 서버가 받는 것은 전화번호·소속 구청·팀·직위 넷이다.
+ *
+ * <p>이름과 이메일은 이 길로 고칠 수 없다. 화면은 그 둘을 읽는 줄로만 세운다.
+ */
+export function useUpdateMyProfileMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: updateMyProfile,
+    // 관리자 화면이 열려 있으면 그 목록의 내 줄도 함께 낡는다
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ADMIN_MEMBERS_KEY })
+      void queryClient.invalidateQueries({ queryKey: ADMIN_ACTIVITIES_KEY })
+    },
   })
 }
 

@@ -57,6 +57,8 @@ interface MapPageProps {
   /** 지금 로그인한 사용자 — 헤더 표시와 권한 판정에 함께 쓴다 */
   profile: UserProfile | null
   onOpenUserManagement: () => void
+  /** 내 정보를 고친 뒤 — 프로필을 다시 받는다 */
+  onProfileUpdated: () => void
 }
 
 /** 아무것도 그리지 않을 때 쓰는 고정 배열 — 렌더마다 새 배열을 만들면 지도 소스가 매번 재구성된다 */
@@ -83,7 +85,7 @@ function withinProject(project: SurveyProject | null, surveyedOn: string | null)
   return surveyedOn >= project.startedOn && (project.endedOn === null || surveyedOn <= project.endedOn)
 }
 
-export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
+export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: MapPageProps) {
   const isAdmin = profile?.role === 'ADMIN'
   const dispatch = useAppDispatch()
   const theme = useAppSelector(selectTheme)
@@ -814,6 +816,7 @@ export function MapPage({ profile, onOpenUserManagement }: MapPageProps) {
           search={<PointSearchBar points={points} onSelect={focusPoint} />}
           user={profile}
           onOpenUserManagement={onOpenUserManagement}
+          onProfileUpdated={onProfileUpdated}
         />
 
         <MapSidebar

@@ -28,3 +28,6 @@ export interface ManagedUser {
 }
 
 export interface UserProfile extends ManagedUser {}
+
+/** 권한을 사람이 읽는 말로 — 서버 표기(ADMIN·USER)는 화면에 세우지 않는다 */
+export const ROLE_LABEL: Record<UserRole, string> = { ADMIN: '관리자', USER: '사용자' }
