@@ -968,7 +968,7 @@ export function ControlPointMap(props: ControlPointMapProps) {
       fails += 1
       if (!located && !told && fails >= LOCATE_RETRY_MS.length) {
         told = true
-        onLocationErrorRef.current?.('기기가 현재 위치를 내주지 않습니다. 위치 서비스와 Wi-Fi 를 확인해 주세요.')
+        onLocationErrorRef.current?.('현재 위치를 확인할 수 없습니다. 위치 서비스와 Wi-Fi 를 확인해 주세요.')
       }
       drop()
       retryId = window.setTimeout(start, LOCATE_RETRY_MS[Math.min(fails - 1, LOCATE_RETRY_MS.length - 1)])
