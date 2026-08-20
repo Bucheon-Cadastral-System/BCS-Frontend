@@ -624,14 +624,16 @@ function PointListPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHan
     for (const p of list) map.get(p.type)?.push(p)
     return map
   }, [list])
-  // 드로어는 하나만 편다(프로젝트 목록과 같은 규칙) — 여럿을 펴면 남은 높이를 나눠 목록마다 스크롤이 생긴다
-  const [openType, setOpenType] = useState<PointType | null>(POINT_TYPES[0])
-  // 검색 결과가 접힌 드로어에 숨지 않게, 펴 둔 종류에 결과가 없으면 결과가 있는 첫 종류를 편다
+  // 종류마다 따로 여닫는다 — 한 갈래를 열었다고 보던 갈래가 닫히면, 종류를 오갈 때마다 자리를 다시 찾아야 한다.
+  // 편 드로어가 남는 높이를 나눠 가지므로 여럿을 펴면 목록마다 안에서 굴린다
+  const [openTypes, setOpenTypes] = useState<ReadonlySet<PointType>>(() => new Set([POINT_TYPES[0]]))
+  // 검색 결과가 접힌 드로어에 숨지 않게, 편 종류 어디에도 결과가 없으면 결과가 있는 첫 종류를 편다
   useEffect(() => {
     if (query === '') return
-    setOpenType((cur) => {
-      if (cur !== null && (byType.get(cur)?.length ?? 0) > 0) return cur
-      return POINT_TYPES.find((t) => (byType.get(t)?.length ?? 0) > 0) ?? cur
+    setOpenTypes((cur) => {
+      if (POINT_TYPES.some((t) => cur.has(t) && (byType.get(t)?.length ?? 0) > 0)) return cur
+      const found = POINT_TYPES.find((t) => (byType.get(t)?.length ?? 0) > 0)
+      return found === undefined ? cur : new Set([...cur, found])
     })
   }, [query, byType])
 
@@ -682,7 +684,7 @@ function PointListPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHan
       <div ref={props.sheet?.scrollRef} className="flex min-h-0 flex-1 flex-col border-t-2 border-t-teal">
         {POINT_TYPES.map((t) => {
           const pts = byType.get(t) ?? []
-          const open = openType === t
+          const open = openTypes.has(t)
           // 펼침 높이는 행 높이의 정수배다 — 남는 자리를 두면 마지막 행과 다음 드로어 사이에 틈이 생긴다.
           // 남은 높이보다 크면 flex 축소로 줄어들어 안에서 굴린다(가상 스크롤 유지).
           // 빈 문구(py-6)와 자리표시(6줄+py-1)만 실제 렌더 높이를 따로 잡는다
@@ -692,7 +694,14 @@ function PointListPanel(props: MapSidebarProps & { dragHandleProps: SheetDragHan
             <Fragment key={t}>
               <button
                 type="button"
-                onClick={() => setOpenType(open ? null : t)}
+                onClick={() =>
+                  setOpenTypes((cur) => {
+                    const next = new Set(cur)
+                    // delete 는 지웠는지 알려 준다 — 있으면 접고, 없으면 편다
+                    if (!next.delete(t)) next.add(t)
+                    return next
+                  })
+                }
                 aria-expanded={open}
                 className="flex shrink-0 items-center gap-2 border-b border-line-row px-3.5 py-3.5 text-left transition-colors hover:bg-hover"
               >
