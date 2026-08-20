@@ -163,9 +163,9 @@ function LatLngRows({ point }: { point: MappableControlPoint }) {
 }
 
 /**
- * 회원 모델인지 — 판 번호로 가른다.
+ * 회원 모델인지 — 버전으로 가른다.
  *
- * <p>공개 모델은 성과(TM 좌표)까지 담으므로 좌표로는 갈리지 않는다. 판 번호는 고쳐 쓰는 쪽에만 있는 값이고,
+ * <p>공개 모델은 성과(TM 좌표)까지 담으므로 좌표로는 갈리지 않는다. 버전은 고쳐 쓰는 쪽에만 있는 값이고,
  * 공개 응답이 그것을 담게 되는 일은 곧 공개 화면에서 고칠 수 있다는 뜻이라 그때는 이 갈래 자체가 바뀐다.
  */
 function isMemberPoint(point: ControlPoint | PublicControlPoint | null): point is ControlPoint {

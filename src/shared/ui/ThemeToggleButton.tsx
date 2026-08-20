@@ -2,7 +2,7 @@ import { ThemeIcon } from './ThemeIcon'
 
 /**
  * 배경 밝기 — 지도에 무엇을 얹는 값이 아니라 화면 자체의 값이라 아래 독에 두지 않고 로고 아래에 작게 둔다.
- * 그 자리는 화면마다 판이 서는 높이가 달라 부르는 쪽이 정한다.
+ * 그 자리는 화면마다 헤더가 서는 높이가 달라 부르는 쪽이 정한다.
  */
 export function ThemeToggleButton(props: { dark: boolean; onToggle: () => void; className?: string }) {
   return (

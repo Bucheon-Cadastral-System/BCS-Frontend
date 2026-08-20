@@ -116,15 +116,15 @@ export function AppHeader(props: {
   )
 
   return (
-    // 좁은 화면에서는 브랜드·검색·프로필이 판 하나에 담긴다. 넓은 화면에서는 이 상자가 사라지고(contents)
-    // 안의 둘이 지금처럼 좌우로 떨어져 각자 알약으로 선다 — 판의 면·테두리·그늘도 상자와 함께 사라진다.
-    // 자리는 전부 px 로 못박는다. 글자 크기 설정이 기본이 아닌 기기에서 판 안의 자리가 어긋나지 않게 한다
+    // 좁은 화면에서는 브랜드·검색·프로필이 상자 하나에 담긴다. 넓은 화면에서는 이 상자가 사라지고(contents)
+    // 안의 둘이 지금처럼 좌우로 떨어져 각자 알약으로 선다 — 상자의 면·테두리·그늘도 함께 사라진다.
+    // 자리는 전부 px 로 못박는다. 글자 크기 설정이 기본이 아닌 기기에서 상자 안의 자리가 어긋나지 않게 한다
     <div
       className={`lg:contents max-lg:absolute max-lg:inset-x-[12px] max-lg:top-[10px] max-lg:z-[45] max-lg:flex max-lg:h-[46px] max-lg:items-center max-lg:gap-[10px] max-lg:pl-[12px] max-lg:pr-[9px] ${PILL}`}
     >
       <div
         ref={brandRef}
-        // 좁은 화면에서는 판 안의 기호 하나로 줄어든다 — 제 알약(면·테두리·그늘·자리)을 모두 내려놓는다
+        // 좁은 화면에서는 상자 안의 기호 하나로 줄어든다 — 제 알약(면·테두리·그늘·자리)을 모두 내려놓는다
         className={`absolute left-4 top-4 z-20 flex h-11 items-center gap-2 py-0 pl-3.5 pr-2 max-lg:static max-lg:h-auto max-lg:border-0 max-lg:bg-transparent max-lg:p-0 max-lg:shadow-none ${PILL}`}
       >
         {props.onHome ? (
@@ -162,8 +162,8 @@ export function AppHeader(props: {
         )}
       </div>
 
-      {/* 좁은 화면에서는 이 묶음도 판 안의 한 자리로 선다 — 검색이 남은 폭을 채우고 그 오른쪽에 프로필이 붙는다.
-          기호와 검색 사이의 구분선은 판이 세운다(넓은 화면에는 없다) */}
+      {/* 좁은 화면에서는 이 묶음도 상자 안의 한 자리로 선다 — 검색이 남은 폭을 채우고 그 오른쪽에 프로필이 붙는다.
+          기호와 검색 사이의 구분선은 상자가 세운다(넓은 화면에는 없다) */}
       <span className="h-[22px] w-px shrink-0 bg-line-field lg:hidden" aria-hidden />
       <div
         ref={utilityRef}
@@ -177,8 +177,8 @@ export function AppHeader(props: {
             aria-expanded={menuOpen}
             aria-label={guest ? '게스트 메뉴' : '내 정보'}
             // 오른쪽 화살표는 제 상자 안에서 이미 3px 가까이 비워 두므로 왼쪽보다 적게 준다 — 값이 아니라 보이는 여백을 맞춘다.
-            // 좁은 화면에서는 판 안의 아바타 하나로 줄어든다. 과녁은 아바타(30)보다 크게 34 로 잡고,
-            // 판이 오른쪽에 남긴 9px 까지 더해 손가락이 닿는 자리를 넓힌다
+            // 좁은 화면에서는 상자 안의 아바타 하나로 줄어든다. 과녁은 아바타(30)보다 크게 34 로 잡고,
+            // 상자가 오른쪽에 남긴 9px 까지 더해 손가락이 닿는 자리를 넓힌다
             className={`flex h-11 items-center gap-2 py-0 pl-[7px] pr-2 transition-colors hover:border-line-field max-lg:size-[34px] max-lg:shrink-0 max-lg:justify-center max-lg:border-0 max-lg:bg-transparent max-lg:px-0 max-lg:shadow-none ${PILL}`}
           >
             {user ? (
@@ -211,7 +211,7 @@ export function AppHeader(props: {
             </svg>
           </button>
 
-          {/* 넓은 화면은 알약 아래 말풍선. 좁은 화면은 손이 닿는 아래에서 시트로 올라온다(이 판 밖) */}
+          {/* 넓은 화면은 알약 아래 말풍선. 좁은 화면은 손이 닿는 아래에서 시트로 올라온다(이 상자 밖) */}
           {menuOpen && !narrow && (
             <div className={`panel-in absolute right-0 top-[50px] z-40 w-[300px] overflow-hidden ${POPOVER}`}>
               <UserMenu

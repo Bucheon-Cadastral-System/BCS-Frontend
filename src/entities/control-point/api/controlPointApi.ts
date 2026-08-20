@@ -89,7 +89,7 @@ export interface UpdateControlPointOutcome {
 
 /**
  * 수정 — 식별·성과만 보낸다. 소재지·설치·최종조사 항목은 서버가 기존 값을 유지한다.
- * 화면이 읽을 때 받은 판 번호를 함께 보낸다. 그사이 누가 먼저 저장했으면 서버가 409로 거절한다.
+ * 화면이 읽을 때 받은 버전을 함께 보낸다. 그사이 누가 먼저 저장했으면 서버가 409로 거절한다.
  */
 export async function updateControlPoint(
   args: RegisterControlPointArgs & { id: string; version: number },

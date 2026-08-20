@@ -975,7 +975,7 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
             {/* 요약 칩 — 좁은 화면에서는 헤더에 이름을 세울 자리가 없어 지도 위에 띄워 둔다.
                 넓은 화면에서 접힌 패널을 대신하는 칩과 같은 자리다. 시트를 내리거나 줄여도 남아, 지금 무엇을
                 깔고 보는지 알린다. 누르면 그 시트가 다시 올라온다.
-                자리는 상단 판(10px + 46px) 아래 8px 이다.
+                자리는 상단 헤더(10px + 46px) 아래 8px 이다.
 
                 기준점 탭을 보는 동안에는 기준점 칩이 그 자리를 쓴다 — 그 탭에서는 조사 판정을 지도에서
                 걷으므로(surveyVisible), 진행률을 그대로 두면 지도에 없는 값을 칩만 계속 말하게 된다 */}
@@ -999,7 +999,7 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
               </div>
             )}
 
-            {/* 요약 판이 서면 그만큼(38 + 8) 내려앉아 그 아래에 선다 */}
+            {/* 요약 칩이 서면 그만큼(38 + 8) 내려앉아 그 아래에 선다 */}
             <ThemeToggleButton
               dark={theme === 'dark'}
               onToggle={() => withoutTransition(() => dispatch(toggleTheme()))}

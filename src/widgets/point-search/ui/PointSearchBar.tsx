@@ -92,9 +92,9 @@ export function PointSearchBar(props: { points: MappableControlPoint[]; onSelect
         aria-autocomplete="list"
         aria-activedescendant={results.length > 0 ? `point-search-option-${active}` : undefined}
         autoComplete="off"
-        // 좁은 화면에서는 상단 판 안의 한 자리라 제 알약(면·테두리·그늘)을 내려놓고 판의 높이를 그대로 채운다.
+        // 좁은 화면에서는 헤더 안의 한 자리라 제 알약(면·테두리·그늘)을 내려놓고 헤더의 높이를 그대로 채운다.
         // 왼쪽 여백 22px = 돋보기 15 + 그 뒤 7.
-        // 포커스 테두리도 세우지 않는다 — 판 안에 든 자리라 테두리를 두르면 판 안에 또 하나의 상자가 생긴다.
+        // 포커스 테두리도 세우지 않는다 — 헤더 안에 든 자리라 테두리를 두르면 그 안에 또 하나의 상자가 생긴다.
         // 손으로 짚는 화면에서는 글자 깜빡임과 올라온 자판이 이미 어디를 치는지 알려 준다(넓은 화면은 그대로 둔다)
         className={`h-11 w-full pl-10 pr-3 text-[13px] text-ink outline-none transition-colors placeholder:text-ink-4 focus:border-teal-edge max-lg:h-full max-lg:border-0 max-lg:bg-transparent max-lg:pl-[22px] max-lg:pr-0 max-lg:shadow-none ${PILL}`}
       />
@@ -113,8 +113,8 @@ export function PointSearchBar(props: { points: MappableControlPoint[]; onSelect
       </svg>
 
       {showList && (
-        // 좁은 화면에서는 검색 칸이 아니라 그것을 담은 상단 판을 기준으로 뜬다 — 판의 좌우 변(12px)에 맞추고
-        // 판 아래 8px 에 선다. 검색 칸 기준으로 두면 판 안쪽 폭만큼만 좁게 떠 판과 어긋난 두 겹으로 보인다
+        // 좁은 화면에서는 검색 칸이 아니라 그것을 담은 헤더를 기준으로 뜬다 — 헤더의 좌우 변(12px)에 맞추고
+        // 헤더 아래 8px 에 선다. 검색 칸 기준으로 두면 헤더 안쪽 폭만큼만 좁게 떠 어긋난 두 겹으로 보인다
         <div className={`panel-in absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden max-lg:fixed max-lg:inset-x-[12px] max-lg:top-[64px] max-lg:mt-0 ${POPOVER}`}>
           {results.length === 0 ? (
             <p className="px-3 py-3 text-center text-[12px] text-ink-3">검색 결과 없음</p>

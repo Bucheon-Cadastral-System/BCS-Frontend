@@ -8,7 +8,7 @@ import type { TmEpsg } from '@/shared/lib/crs'
  *
  * <p>회원 화면이 세우는 것보다 많이 담지 않는다. 성과(TM 좌표)까지가 회원 상세가 보여 주는 값이고,
  * 소재지·법정동은 파일이 들고 왔을 뿐 로그인해도 볼 수 없는 값이라 여기에도 두지 않는다.
- * 설치일자·판 번호·조사 이력은 관리하는 쪽의 값이라 역시 담지 않는다.
+ * 설치일자·버전·조사 이력은 관리하는 쪽의 값이라 역시 담지 않는다.
  */
 export interface PublicControlPoint extends MappableControlPoint {
   tmEpsg: TmEpsg
