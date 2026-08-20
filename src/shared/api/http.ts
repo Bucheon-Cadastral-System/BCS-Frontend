@@ -87,10 +87,26 @@ http.interceptors.response.use(undefined, async (error: AxiosError) => {
 })
 
 // 모든 실패를 ApiError로 정규화 — 네트워크 오류(응답 없음)는 status 0
-function throwApiError(error: AxiosError<ProblemDetail>): never {
+async function throwApiError(error: AxiosError<ProblemDetail>): Promise<never> {
   const status = error.response?.status ?? 0
-  const problem = error.response?.data
+  const problem = await problemOf(error.response?.data)
   throw new ApiError(problem?.code ?? 'UNKNOWN', status, messageOf(problem, status), problem?.errors ?? [])
+}
+
+/**
+ * 실패 본문을 읽는다.
+ *
+ * <p>파일을 받는 요청은 응답을 Blob 으로 받겠다고 미리 정해 두므로, 서버가 실패를 JSON 으로 내려도
+ * 그 JSON 이 Blob 에 담겨 온다. 풀어 읽지 않으면 사유를 아는 응답을 두고도 일반 문구만 띄우게 된다.
+ */
+async function problemOf(data: unknown): Promise<ProblemDetail | undefined> {
+  if (!(data instanceof Blob)) return data as ProblemDetail | undefined
+  try {
+    return JSON.parse(await data.text()) as ProblemDetail
+  } catch {
+    // 파일이 아니라 실패라는 것만 아는 응답 — 문구는 상태 코드로 고른다
+    return undefined
+  }
 }
 
 http.interceptors.response.use((response) => response, throwApiError)
