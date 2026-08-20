@@ -239,7 +239,7 @@ export function AppHeader(props: {
           <aside
             ref={profileSheet.sheet.rootRef}
             style={profileSheet.sheet.style}
-            className={`fixed inset-x-0 bottom-0 z-[61] flex flex-col overflow-hidden rounded-t-pill border-x border-t border-line bg-sheet shadow-[0_-22px_50px_rgba(0,0,0,.55)] ${profileSheet.sheet.className}`}
+            className={`fixed inset-x-0 bottom-0 z-[61] flex flex-col overflow-hidden rounded-t-pill border-x border-t border-line bg-sheet shadow-sheet ${profileSheet.sheet.className}`}
           >
             <div className="flex shrink-0 justify-center py-2" {...profileSheet.sheet.handleProps}>
               <span className="h-1 w-[38px] rounded-chip bg-line-pill" />

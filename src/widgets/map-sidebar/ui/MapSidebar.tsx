@@ -162,9 +162,9 @@ export function MapSidebar(props: MapSidebarProps) {
           bottom: props.sheet === undefined && !open && props.minimized ? 'calc(100% - 120px)' : undefined,
           ...props.sheet?.style,
         } as CSSProperties}
-        // 그림자는 위로 진다 — 값(0 -22px 50px rgba(0,0,0,.55))은 디자인이 확정한 임의값이라 토큰화하지 않는다.
+        // 시트 그림자는 위로 진다 — 테마마다 짙기가 달라 shadow-sheet 토큰이 값을 쥔다.
         // 좁은 화면에서는 아래 변을 화면에 붙인 채 높이만 오르내린다(높이는 sheet.className 이 그린다)
-        className={`absolute bottom-bar-clear left-4 top-[76px] z-20 flex flex-col overflow-hidden text-ink transition-[opacity,transform,bottom] duration-200 ease-out ${PANEL} lg:w-[var(--sidebar-width)] max-lg:inset-x-0 max-lg:bottom-0 max-lg:top-auto max-lg:z-[46] max-lg:w-auto max-lg:rounded-b-none max-lg:bg-sheet max-lg:shadow-[0_-22px_50px_rgba(0,0,0,.55)] ${
+        className={`absolute bottom-bar-clear left-4 top-[76px] z-20 flex flex-col overflow-hidden text-ink transition-[opacity,transform,bottom] duration-200 ease-out ${PANEL} lg:w-[var(--sidebar-width)] max-lg:inset-x-0 max-lg:bottom-0 max-lg:top-auto max-lg:z-[46] max-lg:w-auto max-lg:rounded-b-none max-lg:bg-sheet max-lg:shadow-sheet ${
           props.sheet?.className ?? ''
         } ${
           open
