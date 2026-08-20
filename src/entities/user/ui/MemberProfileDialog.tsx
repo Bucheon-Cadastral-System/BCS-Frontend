@@ -7,11 +7,11 @@ import { ProfileRow, ProfileValue } from './ProfileFields'
 import { UserAvatar } from './UserAvatar'
 
 /**
- * 정보 줄 — 이 사람이 누구인지와 연락할 자리까지다.
+ * 정보 줄 — 차례는 내 프로필 패널과 같다. 같은 값을 두 자리에서 다른 차례로 세우면 눈이 매번 다시 찾는다.
  *
  * <p>권한은 세우지 않는다. 서버가 이 경로로 그 값을 내려 주지 않는다.
  */
-const LABELS = ['소속 구청', '소속 과', '소속 팀', '직위', '전화번호', '이메일'] as const
+const LABELS = ['전화번호', '이메일', '소속 구청', '소속 과', '소속 팀', '직위'] as const
 
 /**
  * 다른 회원의 신원 — 작성자·조사원 이름을 눌렀을 때 선다.
@@ -68,6 +68,12 @@ export function MemberProfileDialog(props: { memberId: string; onClose: () => vo
               ))
             : data && (
                 <>
+                  <ProfileRow label="전화번호">
+                    <ContactLink href={`tel:${data.phone}`} text={formatPhone(data.phone)} />
+                  </ProfileRow>
+                  <ProfileRow label="이메일">
+                    <ContactLink href={`mailto:${data.email}`} text={data.email} />
+                  </ProfileRow>
                   <ProfileRow label="소속 구청">
                     <ProfileValue value={data.district} />
                   </ProfileRow>
@@ -79,12 +85,6 @@ export function MemberProfileDialog(props: { memberId: string; onClose: () => vo
                   </ProfileRow>
                   <ProfileRow label="직위">
                     <ProfileValue value={data.position} />
-                  </ProfileRow>
-                  <ProfileRow label="전화번호">
-                    <ContactLink href={`tel:${data.phone}`} text={formatPhone(data.phone)} />
-                  </ProfileRow>
-                  <ProfileRow label="이메일">
-                    <ContactLink href={`mailto:${data.email}`} text={data.email} />
                   </ProfileRow>
                 </>
               )}
