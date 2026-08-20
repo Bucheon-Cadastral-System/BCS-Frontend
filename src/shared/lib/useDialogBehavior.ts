@@ -36,9 +36,16 @@ export function useDialogBehavior(options: {
       e.preventDefault()
       requestClose()
     }
+    // Esc 는 이 창이 삼킨다 — 위로 흘려보내면 이 창을 띄운 말풍선·시트까지 함께 닫혀,
+    // 물음에 답하려던 손짓이 고치던 값을 통째로 버린다
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') e.stopPropagation()
+    }
     dialog.addEventListener('cancel', onCancel)
+    dialog.addEventListener('keydown', onKeyDown)
     return () => {
       dialog.removeEventListener('cancel', onCancel)
+      dialog.removeEventListener('keydown', onKeyDown)
       // close 는 열 때 기억해 둔 이전 포커스로 자동으로 되돌린다
       if (dialog.open) dialog.close()
     }
