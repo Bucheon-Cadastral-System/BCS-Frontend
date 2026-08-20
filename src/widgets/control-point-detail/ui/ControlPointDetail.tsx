@@ -172,18 +172,13 @@ function isMemberPoint(point: ControlPoint | PublicControlPoint | null): point i
   return point !== null && 'version' in point
 }
 
-/** 공개 모델인지 — 소재지는 회원 응답에 담기지 않는다 */
-function isPublicPoint(point: ControlPoint | PublicControlPoint | null): point is PublicControlPoint {
-  return point !== null && 'address' in point
-}
-
 /** 고른 기준점의 성과와 조사 상태. 지도 위 우측에 떠 있는 카드다. */
 export function ControlPointDetail(props: ControlPointDetailProps) {
   // 회원 화면의 기존 계약은 그대로 두고, 게스트일 때만 공개 모델을 같은 껍데기에 넣는다.
   // 두 모델은 겹치지 않는 필드로 갈라 읽으므로 단정하지 않는다 — 단정하면 없는 필드를 읽어도 형이 통과한다.
   const point = props.point
   const p = isMemberPoint(point) ? point : null
-  const publicPoint = isPublicPoint(point) ? point : null
+  const publicPoint = isMemberPoint(point) ? null : point
   // 최종조사 요약은 점을 고른 뒤에만 필요해서 목록과 따로 읽는다
   const lastSurveyQuery = useLastSurveyQuery(p?.id ?? null)
   const lastSurvey = lastSurveyQuery.data
@@ -285,8 +280,6 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
       {publicPoint !== null ? (
         <div className="px-3.5 pb-[15px] pt-3">
           <dl className="grid grid-cols-[64px_1fr] gap-x-2.5 gap-y-[9px] text-[12.5px] [&_dd]:text-ink-2 [&_dt]:text-ink-3">
-            <dt>소재지</dt>
-            <dd className="break-keep leading-[1.55] wrap-anywhere">{noneOr(publicPoint.address)}</dd>
             <LatLngRows point={publicPoint} />
             <dt>TM 원점</dt>
             <dd className="whitespace-nowrap text-[12px]">

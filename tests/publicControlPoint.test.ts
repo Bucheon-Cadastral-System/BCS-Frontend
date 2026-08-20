@@ -17,9 +17,6 @@ test('공개 기준점 응답은 게스트 허용 필드만 담는다', () => {
     easting: 183771.4437,
     longitude: 126.794623,
     latitude: 37.506423,
-    regionCode: '10300',
-    regionName: '춘의동',
-    address: '경기도 부천시 춘의동 102-16',
   })
 
   assert.deepEqual(point, {
@@ -32,10 +29,9 @@ test('공개 기준점 응답은 게스트 허용 필드만 담는다', () => {
     easting: 183771.4437,
     lng: 126.794623,
     lat: 37.506423,
-    regionCode: '10300',
-    regionName: '춘의동',
-    address: '경기도 부천시 춘의동 102-16',
   })
+  assert.equal('address' in point, false)
+  assert.equal('regionName' in point, false)
   assert.equal('version' in point, false)
   assert.equal('installedDate' in point, false)
   assert.equal('lastSurvey' in point, false)
