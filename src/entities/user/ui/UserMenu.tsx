@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { logout } from '@/shared/api/auth'
 import { BTN_DANGER, BTN_PRIMARY, CHIP_BTN } from '@/shared/ui/classes'
+import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { FormActions } from '@/shared/ui/FormActions'
 import { Skeleton } from '@/shared/ui/Skeleton'
 import { useUpdateMyProfileMutation } from '../api/queries'
 import { formatPhone } from '../model/phone'
 import { DISTRICTS, POSITIONS, ROLE_LABEL, TEAMS } from '../model/user'
 import type { District, Position, Team, UserProfile } from '../model/user'
-import { ProfileField, ProfileRow, ProfileSelectField, ProfileValue } from './ProfileFields'
+import { ProfileField, ProfileLockedField, ProfileRow, ProfileSelectField } from './ProfileFields'
 import { UserAvatar } from './UserAvatar'
 
 /** 고칠 수 있는 값만 뽑아 둔 초안 — 이름·이메일은 이 길로 고칠 수 없어 담지 않는다 */
@@ -26,15 +27,13 @@ const draftOf = (user: UserProfile): Draft => ({
   position: user.position,
 })
 
-/** 소속 한 줄 — 구청과 과는 늘 함께 읽히므로 한 값으로 세운다 */
-function affiliationOf(user: UserProfile): string {
-  return [user.district, user.department].filter(Boolean).join(' · ')
-}
-
-/** 팀·직위 한 줄 — 머리말의 아랫줄과 정보 줄이 같은 문구를 쓴다 */
+/** 머리말 아랫줄에 세우는 신원 한 줄 — 이름 아래에 붙는 소개라 정보 줄과 달리 붙여 읽는다 */
 function dutyOf(user: UserProfile): string {
   return [user.team, user.position].filter(Boolean).join(' ')
 }
+
+/** 정보 줄 — 읽는 상태와 고치는 상태가 같은 라벨을 같은 차례로 세운다 */
+const INFO_LABELS = ['전화번호', '이메일', '소속 구청', '소속 과', '소속 팀', '직위'] as const
 
 /**
  * 프로필 패널의 내용 — 신원 머리말, 정보 줄, 들어가는 길, 로그아웃.
@@ -63,6 +62,8 @@ export function UserMenu(props: {
   const guest = props.guest === true
   const sheet = props.variant === 'sheet'
   const [draft, setDraft] = useState<Draft | null>(null)
+  // 저장은 다른 사람도 보는 값을 바꾸는 일이라 한 번 묻는다
+  const [confirming, setConfirming] = useState(false)
   const updateProfile = useUpdateMyProfileMutation()
 
   // 화면을 옮기는 일은 하지 않는다 — 토큰이 풀리는 순간 울타리가 사유대로 옮기므로,
@@ -87,9 +88,12 @@ export function UserMenu(props: {
       },
       {
         onSuccess: () => {
+          setConfirming(false)
           setDraft(null)
           props.onProfileUpdated?.()
         },
+        // 실패 안내는 버튼 곁에 선다 — 묻는 창을 덮어 둔 채로는 그 안내가 가려진다
+        onError: () => setConfirming(false),
       },
     )
   }
@@ -120,7 +124,7 @@ export function UserMenu(props: {
       <>
         <PanelHead sheet={sheet} avatar={<Skeleton className={`${AVATAR[sheet ? 'sheet' : 'popover']} rounded-full`} />} name={null} />
         <dl className="px-4 py-1">
-          {['소속', '팀 · 직위', '전화번호', '이메일'].map((label) => (
+          {INFO_LABELS.map((label) => (
             <ProfileRow key={label} label={label}>
               <Skeleton className="h-3 w-32" />
             </ProfileRow>
@@ -166,45 +170,39 @@ export function UserMenu(props: {
         )}
       </PanelHead>
 
+      {/* 두 상태가 같은 줄을 같은 차례로 세운다 — 고치기로 들어갈 때 줄이 늘거나 자리를 바꾸지 않는다.
+          이름은 머리말이 이미 세우므로 줄로 두지 않는다 */}
       <dl className="px-4 py-1">
-        {editing ? (
-          <>
-            <ProfileRow label="이름">
-              <ProfileValue value={user.name} />
-            </ProfileRow>
-            <ProfileField
-              label="전화번호"
-              editing
-              value={draft.phone}
-              onChange={(v) => setDraft({ ...draft, phone: v.replace(/\D/g, '').slice(0, 11) })}
-            />
-            <ProfileRow label="이메일">
-              <ProfileValue value={user.email} />
-            </ProfileRow>
-            <ProfileSelectField label="소속 구청" editing value={draft.district} options={DISTRICTS} onChange={(v) => setDraft({ ...draft, district: v })} />
-            {/* 소속 과는 고칠 수 없다 — 지금 이 시스템은 민원지적과 하나만 받는다 */}
-            <ProfileRow label="소속 과">
-              <ProfileValue value={user.department} />
-            </ProfileRow>
-            <ProfileSelectField label="소속 팀" editing value={draft.team} options={TEAMS} onChange={(v) => setDraft({ ...draft, team: v })} />
-            <ProfileSelectField label="직위" editing value={draft.position} options={POSITIONS} onChange={(v) => setDraft({ ...draft, position: v })} />
-          </>
-        ) : (
-          <>
-            <ProfileRow label="소속">
-              <ProfileValue value={affiliationOf(user)} />
-            </ProfileRow>
-            <ProfileRow label="팀 · 직위">
-              <ProfileValue value={dutyOf(user)} />
-            </ProfileRow>
-            <ProfileRow label="전화번호">
-              <ProfileValue value={formatPhone(user.phone)} />
-            </ProfileRow>
-            <ProfileRow label="이메일">
-              <ProfileValue value={user.email} />
-            </ProfileRow>
-          </>
-        )}
+        <ProfileField
+          label="전화번호"
+          editing={editing}
+          value={draft === null ? formatPhone(user.phone) : draft.phone}
+          onChange={(v) => setDraft((cur) => (cur === null ? cur : { ...cur, phone: v.replace(/\D/g, '').slice(0, 11) }))}
+        />
+        <ProfileLockedField label="이메일" editing={editing} value={user.email} />
+        <ProfileSelectField
+          label="소속 구청"
+          editing={editing}
+          value={draft?.district ?? user.district}
+          options={DISTRICTS}
+          onChange={(v) => setDraft((cur) => (cur === null ? cur : { ...cur, district: v }))}
+        />
+        {/* 소속 과는 고칠 수 없다 — 지금 이 시스템은 민원지적과 하나만 받는다 */}
+        <ProfileLockedField label="소속 과" editing={editing} value={user.department} />
+        <ProfileSelectField
+          label="소속 팀"
+          editing={editing}
+          value={draft?.team ?? user.team}
+          options={TEAMS}
+          onChange={(v) => setDraft((cur) => (cur === null ? cur : { ...cur, team: v }))}
+        />
+        <ProfileSelectField
+          label="직위"
+          editing={editing}
+          value={draft?.position ?? user.position}
+          options={POSITIONS}
+          onChange={(v) => setDraft((cur) => (cur === null ? cur : { ...cur, position: v }))}
+        />
       </dl>
 
       {editing ? (
@@ -213,7 +211,7 @@ export function UserMenu(props: {
             fill
             submitLabel="저장"
             busy={updateProfile.isPending}
-            onSubmit={save}
+            onSubmit={() => setConfirming(true)}
             onCancel={() => setDraft(null)}
             notice={updateProfile.isError ? <span className="text-[11.5px] text-danger">저장하지 못했습니다. 잠시 후 다시 시도해 주세요.</span> : undefined}
           />
@@ -236,6 +234,18 @@ export function UserMenu(props: {
           <IconLogout />
           로그아웃
         </button>
+      )}
+
+      {confirming && (
+        <ConfirmDialog
+          message="변경 내용을 저장할까요?"
+          confirmLabel="저장"
+          cancelLabel="취소"
+          busy={updateProfile.isPending}
+          busyLabel="저장 중"
+          onConfirm={save}
+          onCancel={() => setConfirming(false)}
+        />
       )}
     </>
   )
