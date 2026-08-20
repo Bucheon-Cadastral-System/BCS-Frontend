@@ -33,6 +33,6 @@ export function exchangeOAuthCode(code: string): Promise<void> {
 }
 
 export async function logout() {
-  invalidateAuthentication()
+  invalidateAuthentication('signed-out')
   await http.post('/api/auth/logout')
 }

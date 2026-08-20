@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios'
 import { API_BASE_URL, API_TIMEOUT_MS } from './config'
-import { getAccessToken, notifyAuthorizationForbidden } from './tokenStore'
+import { getAccessToken } from './tokenStore'
 import { refreshAccessToken } from './refreshToken'
 
 /** API 기본 주소 — 기본은 동일 오리진(개발=Vite 프록시, 배포=Caddy 프록시). 별도 오리진이 필요할 때만 지정. */
@@ -87,21 +87,11 @@ http.interceptors.response.use(undefined, async (error: AxiosError) => {
 })
 
 // 모든 실패를 ApiError로 정규화 — 네트워크 오류(응답 없음)는 status 0
-http.interceptors.response.use(
-  (response) => response,
-  (error: AxiosError<ProblemDetail>) => {
-    const status = error.response?.status ?? 0
-    const problem = error.response?.data
-    if (status === 403) notifyAuthorizationForbidden()
-    throw new ApiError(problem?.code ?? 'UNKNOWN', status, messageOf(problem, status), problem?.errors ?? [])
-  },
-)
+function throwApiError(error: AxiosError<ProblemDetail>): never {
+  const status = error.response?.status ?? 0
+  const problem = error.response?.data
+  throw new ApiError(problem?.code ?? 'UNKNOWN', status, messageOf(problem, status), problem?.errors ?? [])
+}
 
-publicHttp.interceptors.response.use(
-  (response) => response,
-  (error: AxiosError<ProblemDetail>) => {
-    const status = error.response?.status ?? 0
-    const problem = error.response?.data
-    throw new ApiError(problem?.code ?? 'UNKNOWN', status, messageOf(problem, status), problem?.errors ?? [])
-  },
-)
+http.interceptors.response.use((response) => response, throwApiError)
+publicHttp.interceptors.response.use((response) => response, throwApiError)

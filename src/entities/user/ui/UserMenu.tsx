@@ -21,15 +21,15 @@ export function UserMenu(props: {
   const guest = props.guest === true
   const isAdmin = props.user?.role === 'ADMIN'
 
-  // 서버 호출이 실패해도 이 브라우저의 인증은 이미 끊어진 상태이므로 게스트 화면으로 이동한다.
+  // 화면을 옮기는 일은 하지 않는다 — 토큰이 풀리는 순간 울타리가 사유대로 옮기므로,
+  // 여기서 또 옮기면 그 사유가 주소에서 지워진다. 서버 호출이 실패해도 이 브라우저의 인증은 이미 끊긴 상태다.
   async function handleLogout() {
     props.onDone?.()
     try {
       await logout()
     } catch {
-      // 실패해도 아래에서 게스트 화면으로 이동한다.
+      // 인증은 이미 끊겼으므로 알릴 것이 없다
     }
-    navigate('/guest', { replace: true })
   }
 
   return (
@@ -63,7 +63,7 @@ export function UserMenu(props: {
           }}
           className="flex w-full items-center justify-center gap-[7px] border-t border-line-soft px-[13px] py-2.5 text-[12.5px] font-semibold text-teal-text transition-colors hover:bg-teal-wash"
         >
-          로그인하기
+          로그인
         </button>
       ) : (
         <button
