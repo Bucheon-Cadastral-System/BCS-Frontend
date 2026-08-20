@@ -1,6 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { changeAdminMember, getAdminActivities, getAdminMemberCounts, getAdminMembers, updateAdminMember, updateMyProfile } from './userApi'
+import { changeAdminMember, getAdminActivities, getAdminMemberCounts, getAdminMembers, getMemberProfile, updateAdminMember, updateMyProfile } from './userApi'
 import type { AdminActivityType, AdminMemberAction, AdminMemberQuery } from './userApi'
+
+export const MEMBER_PROFILE_KEY = ['member-profile'] as const
+
+/**
+ * 회원 한 명의 신원 — 이름을 누른 뒤에만 읽는다.
+ *
+ * <p>소속·직위는 자주 바뀌지 않고 같은 사람의 이름이 여러 자리에 서므로 낡는 시간을 길게 둔다.
+ */
+export function useMemberProfileQuery(memberId: string | null) {
+  return useQuery({
+    queryKey: [...MEMBER_PROFILE_KEY, memberId],
+    queryFn: () => getMemberProfile(memberId as string),
+    enabled: memberId !== null,
+    staleTime: 10 * 60_000,
+  })
+}
 
 export const ADMIN_MEMBERS_KEY = ['admin-members'] as const
 

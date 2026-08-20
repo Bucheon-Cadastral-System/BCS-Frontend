@@ -112,17 +112,24 @@ export interface LastSurvey {
   result: string | null
   /** 최종조사일(ISO 날짜). 없으면 null */
   surveyedOn: string | null
+  /** 최종조사원 회원 id — 이름을 눌러 신원을 물을 때 쓴다. 이름이 없으면 함께 null */
+  surveyorId: string | null
   /** 최종조사원 표시명. 시드 조사와 인증 전에 남긴 기록은 null */
   surveyorName: string | null
   /** 판정에 딸린 비고. 기타가 아니거나 시드 조사면 null */
   note: string | null
 }
 
+interface ServerLastSurvey extends Omit<LastSurvey, 'surveyorId'> {
+  surveyorId: number | null
+}
+
 export async function fetchLastSurvey(id: string): Promise<LastSurvey> {
-  const res = await http.get<LastSurvey>(`/api/control-points/${id}/last-survey`)
+  const res = await http.get<ServerLastSurvey>(`/api/control-points/${id}/last-survey`)
   return {
     result: res.data.result ?? null,
     surveyedOn: res.data.surveyedOn ?? null,
+    surveyorId: res.data.surveyorId === null || res.data.surveyorId === undefined ? null : String(res.data.surveyorId),
     surveyorName: res.data.surveyorName ?? null,
     note: res.data.note ?? null,
   }

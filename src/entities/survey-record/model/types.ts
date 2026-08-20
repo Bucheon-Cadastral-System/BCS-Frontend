@@ -12,6 +12,8 @@ export interface SurveyRecord {
   result: SurveyResult
   /** 망실 여부 — 지도 표시가 정상·망실 두 갈래라 결과에서 미리 갈라 둔다 */
   lost: boolean
+  /** 조사원 회원 id — 이름을 눌러 신원을 물을 때 쓴다. 이름이 없으면 함께 null */
+  surveyorId: string | null
   /** 마지막으로 판정한 조사원 표시명 — 인증 없이 남긴 기록·파일로 들어온 기록은 null */
   surveyorName: string | null
   /** 판정에 덧붙인 비고 — 적지 않았으면 null */

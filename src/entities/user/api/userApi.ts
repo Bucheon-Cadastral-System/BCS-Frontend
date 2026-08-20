@@ -1,5 +1,5 @@
 import { http } from '@/shared/api/http'
-import type { District, ManagedUser, Position, Team, UnknownEnumValue, UserProfile, UserRole, UserStatus } from '../model/user'
+import type { District, ManagedUser, MemberProfile, Position, Team, UnknownEnumValue, UserProfile, UserRole, UserStatus } from '../model/user'
 
 type ApiDistrict = 'WONMI' | 'SOSA' | 'OJEONG'
 type ApiTeam = 'CIVIL_ADMINISTRATION' | 'FAMILY_RELATION' | 'CADASTRAL_INFORMATION' | 'CADASTRAL_MANAGEMENT' | 'REAL_ESTATE_MANAGEMENT'
@@ -20,6 +20,9 @@ const positionFromApi: Record<ApiPosition, Position> = { TEAM_LEADER: '팀장', 
  * 카카오 로그인만 하고 회원 정보 입력을 마치지 않은 계정은 이름부터 직위까지가 비어 있다 —
  * 승인 대기 목록에는 그 계정도 함께 서므로 빈 값을 받을 수 있어야 한다.
  */
+/** 가입 상태가 빠진 응답 — 남의 신원을 읽는 경로가 받는 모양이다 */
+type ApiMemberProfile = Omit<ApiMember, 'status'>
+
 interface ApiMember {
   id: number
   name: string | null
@@ -55,11 +58,15 @@ export interface PageResponse<T> {
 export interface MemberState { status: UserStatus; profileCompleted: boolean }
 
 function mapMember(member: ApiMember): ManagedUser {
+  return { ...mapMemberProfile(member), status: member.status }
+}
+
+function mapMemberProfile(member: ApiMemberProfile): MemberProfile {
   return {
     id: String(member.id), name: member.name ?? '', phone: member.phone ?? '', email: member.email ?? '',
     district: enumDisplayValue(districtFromApi, member.district), department: member.department ?? '',
     team: enumDisplayValue(teamFromApi, member.team), position: enumDisplayValue(positionFromApi, member.position),
-    status: member.status, role: member.role,
+    role: member.role,
   }
 }
 
@@ -103,6 +110,12 @@ export async function getMemberState(): Promise<MemberState> {
 export async function getMyProfile(): Promise<UserProfile> {
   const { data } = await http.get<ApiMember>('/api/members/me')
   return mapMember(data) as UserProfile
+}
+
+/** 다른 회원의 신원 — 화면이 작성자·조사원 이름을 눌렀을 때 그 사람이 누구인지 읽는다 */
+export async function getMemberProfile(memberId: string): Promise<MemberProfile> {
+  const { data } = await http.get<ApiMemberProfile>(`/api/members/${memberId}`)
+  return mapMemberProfile(data)
 }
 
 export async function updateMyProfile(input: Pick<RegistrationInput, 'phone' | 'district' | 'team' | 'position'>): Promise<void> {

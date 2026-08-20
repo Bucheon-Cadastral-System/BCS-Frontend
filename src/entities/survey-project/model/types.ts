@@ -9,6 +9,8 @@ export interface SurveyProject {
   /** 대상·조사 수 — 목록 응답(요약)에만 실려 온다. 완료 여부는 이 둘로 판정한다 */
   targetCount?: number
   surveyedCount?: number
+  /** 작성자 회원 id — 이름을 눌러 신원을 물을 때 쓴다. 목록(요약) 응답에만 실려 온다 */
+  authorId?: string | null
   /** 작성자 표시명 — 인증이 붙기 전에는 기록이 없어 null 이다 */
   authorName?: string | null
 }

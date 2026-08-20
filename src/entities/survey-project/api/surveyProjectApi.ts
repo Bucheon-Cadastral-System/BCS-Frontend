@@ -11,6 +11,7 @@ interface ServerSurveyProject {
   /** 목록(요약) 응답에만 실려 온다 — 생성·수정 응답에는 없다 */
   targetCount?: number
   surveyedCount?: number
+  authorId?: number | null
   authorName?: string | null
 }
 
@@ -23,6 +24,7 @@ function toSurveyProject(server: ServerSurveyProject): SurveyProject {
     note: server.note,
     targetCount: server.targetCount,
     surveyedCount: server.surveyedCount,
+    authorId: server.authorId === null || server.authorId === undefined ? null : String(server.authorId),
     authorName: server.authorName,
   }
 }

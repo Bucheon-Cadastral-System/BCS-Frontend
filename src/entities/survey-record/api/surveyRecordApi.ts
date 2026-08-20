@@ -10,6 +10,7 @@ interface ServerSurveyRecord {
   result: SurveyResult
   surveyedAt: string
   note: string | null
+  surveyorId: number | null
   surveyorName: string | null
 }
 
@@ -20,6 +21,7 @@ function toSurveyRecord(server: ServerSurveyRecord): SurveyRecord {
     surveyedAt: server.surveyedAt,
     result: server.result,
     lost: server.result === 'LOST',
+    surveyorId: server.surveyorId === null ? null : String(server.surveyorId),
     surveyorName: server.surveyorName,
     note: server.note,
   }
