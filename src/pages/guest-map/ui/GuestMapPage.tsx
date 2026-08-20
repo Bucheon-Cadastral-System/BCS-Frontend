@@ -28,7 +28,7 @@ import { useViewportHeight } from '@/shared/lib/useViewportHeight'
 import { useFileDrop } from '@/shared/lib/useFileDrop'
 import { VWORLD_KEY } from '@/shared/config/map'
 import { FileDropOverlay } from '@/shared/ui/FileDropOverlay'
-import { PANEL_MARGIN } from '@/shared/ui/layout'
+import { PANEL_MARGIN, PANEL_MIN_WIDTH } from '@/shared/ui/layout'
 import { MapBanner } from '@/shared/ui/MapBanner'
 import { Spinner } from '@/shared/ui/Spinner'
 import { ThemeToggleButton } from '@/shared/ui/ThemeToggleButton'
@@ -301,7 +301,8 @@ export function GuestMapPage() {
           minimized={panel?.minimized === true}
           onMinimize={() => setPanel({ minimized: true })}
           onClose={() => narrow ? panelSheet.requestClose() : closePoints()}
-          width={headerWidth}
+          // 헤더 알약은 탭이 하나라 짧다 — 목록이 밀리지 않게 패널만 제 폭을 지킨다
+          width={Math.max(headerWidth, PANEL_MIN_WIDTH)}
           sheet={narrow ? panelSheet.sheet : undefined}
         />
 
