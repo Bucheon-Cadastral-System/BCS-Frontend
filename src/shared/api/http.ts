@@ -41,7 +41,8 @@ interface ProblemDetail {
  */
 const MESSAGE_BY_CODE: Record<string, string> = {
   COMMON_INTERNAL_ERROR: '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
-  COMMON_BAD_REQUEST: '요청을 처리하지 못했습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.',
+  // 어느 요청이 왜 거절됐는지 가리지 못하는 자리라 할 일을 일러 주지 않는다 — 새로고침으로 풀리지 않는 실패가 여기로 온다
+  COMMON_BAD_REQUEST: '요청을 처리하지 못했습니다.',
   PAGE_REQUEST_INVALID: '목록을 불러올 수 없습니다. 화면을 새로고침해 주세요.',
   CURSOR_INVALID: '목록을 이어 불러올 수 없습니다. 화면을 새로고침해 주세요.',
   AUTH_UNAUTHORIZED: '로그인이 필요합니다. 다시 로그인해 주세요.',
