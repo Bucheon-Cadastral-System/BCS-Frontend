@@ -3,27 +3,11 @@ import { http } from '@/shared/api/http'
 import type { SurveyResult } from '@/entities/survey-record'
 import type { TmEpsg } from '@/shared/lib/crs'
 import { POINT_TYPE_FROM_SERVER, POINT_TYPE_TO_SERVER, type ServerPointType } from '../model/serverPointType'
+import { CRS_FROM_EPSG, EPSG_FROM_CRS, type ServerCrs } from '../model/serverCrs'
 import type { ControlPoint, PointType } from '../model/types'
 import { compareControlPoints } from '../model/types'
 
 /** 서버 enum 표기 ↔ 프론트 표기 매핑 */
-type ServerCrs = 'GRS80_WEST' | 'GRS80_CENTRAL' | 'GRS80_EAST' | 'GRS80_EAST_SEA' | 'BESSEL_CENTRAL'
-
-const EPSG_FROM_CRS: Record<ServerCrs, TmEpsg> = {
-  GRS80_WEST: 'EPSG:5185',
-  GRS80_CENTRAL: 'EPSG:5186',
-  GRS80_EAST: 'EPSG:5187',
-  GRS80_EAST_SEA: 'EPSG:5188',
-  BESSEL_CENTRAL: 'EPSG:5174',
-}
-
-const CRS_FROM_EPSG: Record<TmEpsg, ServerCrs> = {
-  'EPSG:5185': 'GRS80_WEST',
-  'EPSG:5186': 'GRS80_CENTRAL',
-  'EPSG:5187': 'GRS80_EAST',
-  'EPSG:5188': 'GRS80_EAST_SEA',
-  'EPSG:5174': 'BESSEL_CENTRAL',
-}
 
 interface ServerControlPoint {
   id: number

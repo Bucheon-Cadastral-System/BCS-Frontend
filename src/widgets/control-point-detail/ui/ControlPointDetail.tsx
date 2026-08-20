@@ -162,9 +162,14 @@ function LatLngRows({ point }: { point: MappableControlPoint }) {
   )
 }
 
-/** 회원 모델인지 — 성과 좌표는 공개 응답에 담기지 않는다 */
+/**
+ * 회원 모델인지 — 판 번호로 가른다.
+ *
+ * <p>공개 모델은 성과(TM 좌표)까지 담으므로 좌표로는 갈리지 않는다. 판 번호는 고쳐 쓰는 쪽에만 있는 값이고,
+ * 공개 응답이 그것을 담게 되는 일은 곧 공개 화면에서 고칠 수 있다는 뜻이라 그때는 이 갈래 자체가 바뀐다.
+ */
 function isMemberPoint(point: ControlPoint | PublicControlPoint | null): point is ControlPoint {
-  return point !== null && 'northing' in point
+  return point !== null && 'version' in point
 }
 
 /** 공개 모델인지 — 소재지는 회원 응답에 담기지 않는다 */
@@ -247,9 +252,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
           <span className="min-w-0 truncate text-[13.5px] font-semibold text-ink">{point.name}</span>
           <span className="shrink-0 text-[11px] text-ink-3">{point.type}</span>
         </h2>
-        {p === null ? (
-          <span className="rounded-chip bg-teal-wash px-2 py-1 text-[10px] font-semibold tracking-[.08em] text-teal-text">GUEST</span>
-        ) : (
+        {p !== null && (
           <>
             <button type="button" onClick={() => props.onEdit(p)} title="수정" aria-label="기준점 수정" className={ICON_BTN}>
               <svg viewBox="0 0 24 24" className="size-full" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -281,19 +284,20 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
       <div ref={props.sheet?.scrollRef} className="max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-y-auto max-lg:overscroll-contain">
       {publicPoint !== null ? (
         <div className="px-3.5 pb-[15px] pt-3">
-          <PointNoChip pointNo={publicPoint.pointNo} onCopied={props.onCopied} />
-
           <dl className="grid grid-cols-[64px_1fr] gap-x-2.5 gap-y-[9px] text-[12.5px] [&_dd]:text-ink-2 [&_dt]:text-ink-3">
-            <dt>법정동명</dt>
-            <dd>{noneOr(publicPoint.regionName)}</dd>
             <dt>소재지</dt>
             <dd className="break-keep leading-[1.55] wrap-anywhere">{noneOr(publicPoint.address)}</dd>
             <LatLngRows point={publicPoint} />
+            <dt>TM 원점</dt>
+            <dd className="whitespace-nowrap text-[12px]">
+              <span className="font-sans">{epsgLabel(publicPoint.tmEpsg)}</span> <span className="text-ink-3">({publicPoint.tmEpsg})</span>
+            </dd>
+            {/* 성과 표기는 측량 관례를 따른다. X 가 북(northing), Y 가 동(easting)이다 */}
+            <dt>TM X</dt>
+            <dd>{publicPoint.northing.toFixed(3)} m</dd>
+            <dt>TM Y</dt>
+            <dd>{publicPoint.easting.toFixed(3)} m</dd>
           </dl>
-
-          <p className="mt-4 rounded-ctl border border-line-soft bg-soft px-3 py-2 text-[11.5px] leading-5 text-ink-3">
-            공개된 기본 정보만 표시합니다.
-          </p>
         </div>
       ) : p !== null ? (
       <>
