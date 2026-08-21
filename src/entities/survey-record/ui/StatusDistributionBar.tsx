@@ -23,7 +23,8 @@ export function StatusDistributionBar(props: { countByStatus: Record<SurveyStatu
   ).join(', ')
 
   return (
-    <div className="flex h-1.5 overflow-hidden rounded-full bg-track" role="img" aria-label={label}>
+    /* span 으로 세운다 — 접힌 칩에서는 이 막대가 버튼 안에 들어가는데 버튼은 div 를 품지 못한다 */
+    <span className="flex h-1.5 overflow-hidden rounded-full bg-track" role="img" aria-label={label}>
       {total === 0
         ? null
         : SURVEY_STATUS_ORDER.map((status) =>
@@ -37,6 +38,6 @@ export function StatusDistributionBar(props: { countByStatus: Record<SurveyStatu
               />
             ),
           )}
-    </div>
+    </span>
   )
 }

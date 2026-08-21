@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import type { CSSProperties } from 'react'
 import type { PanelKey } from '@/shared/model/panel'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { StatusDistributionBar, SURVEY_STATUS_DOT, SURVEY_STATUS_LABEL, SURVEY_STATUS_ORDER, deriveSurveyStatus } from '@/entities/survey-record'
+import { StatusDistributionBar, SURVEY_STATUS_DOT, SURVEY_STATUS_LABEL, SURVEY_STATUS_ORDER, countSurveyStatus, deriveSurveyStatus } from '@/entities/survey-record'
 import type { SurveyResult, SurveyStatus } from '@/entities/survey-record'
 import { RefreshIcon } from '@/shared/ui/RefreshIcon'
 import { Skeleton, SkeletonRows } from '@/shared/ui/Skeleton'
@@ -465,13 +465,7 @@ function ProjectDetail(props: {
   const progressLoading = props.recordsLoading === true || props.targetsLoading === true
   const surveyed = props.resultById.size
   const pct = percent(surveyed, total)
-  // 망실도 조사불가도 기타도 '조사됨'이라 진행률에는 함께 세고, 내역에서는 결과별로 갈라 보여 준다.
-  // 넷을 뭉뚱그리면 정상 건수가 부풀고 조사불가·기타는 화면 어디에도 드러나지 않는다
-  const byStatus: Record<SurveyStatus, number> = { done: 0, lost: 0, unavailable: 0, etc: 0, todo: 0 }
-  for (const result of props.resultById.values()) {
-    byStatus[deriveSurveyStatus(result)]++
-  }
-  byStatus.todo = Math.max(0, total - surveyed)
+  const byStatus = countSurveyStatus(props.resultById.values(), total)
 
   return (
     <>

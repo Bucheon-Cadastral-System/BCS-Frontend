@@ -23,7 +23,7 @@ import { POINT_TYPES, fetchControlPointUsage, useControlPointsQuery, useDeleteCo
 import type { ControlPoint, MappableControlPoint } from '@/entities/control-point'
 import { exportSurveyProjectApi, selectActiveProjectId, setActiveProject, useCreateSurveyProjectMutation, useDeleteSurveyProjectMutation, useSurveyProjectsQuery, useSurveyTargetsQuery, useUpdateSurveyProjectMutation } from '@/entities/survey-project'
 import type { SurveyProject, SurveyProjectDraft } from '@/entities/survey-project'
-import { clearStatusFilter, deriveSurveyStatus, selectAllStatus, selectStatusFilter, surveyStatusFromLabel, toggleStatusFilter, useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
+import { clearStatusFilter, countSurveyStatus, deriveSurveyStatus, selectAllStatus, selectStatusFilter, surveyStatusFromLabel, toggleStatusFilter, useCancelSurveyMutation, useRecordSurveyMutation, useSurveyRecordsQuery } from '@/entities/survey-record'
 import type { SurveyResult } from '@/entities/survey-record'
 import { useImportControlPoints, useImportSurveyCsv } from '@/features/import-file'
 import { ControlPointFileModal, ControlPointFormModal } from '@/widgets/add-control-point'
@@ -361,6 +361,11 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
 
   // 활성 프로젝트의 조사기록만 조회하므로 맵에 있으면 조사됨이고, 값이 그 점의 조사 결과다
   const resultById = useMemo(() => new Map(records.map((r) => [r.pointId, r.result])), [records])
+  /** 접힌 칩의 분포 막대 — 패널 내역과 같은 셈을 써야 접었다 폈을 때 값이 흔들리지 않는다 */
+  const byStatus = useMemo(
+    () => countSurveyStatus(resultById.values(), targetPoints.length),
+    [resultById, targetPoints],
+  )
   // 기타 비고는 상세 카드가 이어서 고칠 수 있어야 해서 결과와 함께 들고 있는다
   const noteById = useMemo(() => new Map(records.map((r) => [r.pointId, r.note])), [records])
   // 기준점 탭에서는 조사 표시를 걷는다 — 선택은 유지하되 상세 카드의 조사 상태는 선택 해제와 같은 모습이어야 한다
@@ -1030,7 +1035,7 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
                   <MinimizedPanelChip
                     label="프로젝트"
                     value={activeProject?.name ?? '선택 중인 프로젝트 없음'}
-                    trailing={activeProject ? { surveyed: resultById.size, total: targetPoints.length } : undefined}
+                    trailing={activeProject ? { countByStatus: byStatus, surveyed: resultById.size, total: targetPoints.length } : undefined}
                     onOpen={() => setPanel({ key: 'project', minimized: false })}
                     onClose={closePanel}
                   />

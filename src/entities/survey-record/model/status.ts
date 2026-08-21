@@ -83,6 +83,28 @@ export function deriveSurveyStatus(result: SurveyResult | undefined): SurveyStat
   return result === undefined ? 'todo' : STATUS_BY_RESULT[result]
 }
 
+/**
+ * 대상 전체와 조사 기록으로 갈래별 개수를 센다.
+ *
+ * <p>망실도 조사불가도 기타도 '조사됨'이라 진행률에는 함께 세고, 내역에서는 결과별로 갈라 보여 준다.
+ * 넷을 뭉뚱그리면 정상 건수가 부풀고 조사불가·기타는 화면 어디에도 드러나지 않는다.
+ *
+ * <p>좌측 패널의 내역과 접힌 칩의 분포 막대가 같은 셈을 써야 접었다 폈을 때 값이 흔들리지 않는다.
+ */
+export function countSurveyStatus(
+  results: Iterable<SurveyResult>,
+  total: number,
+): Record<SurveyStatus, number> {
+  const counts: Record<SurveyStatus, number> = { done: 0, lost: 0, unavailable: 0, etc: 0, todo: 0 }
+  let surveyed = 0
+  for (const result of results) {
+    counts[deriveSurveyStatus(result)]++
+    surveyed++
+  }
+  counts.todo = Math.max(0, total - surveyed)
+  return counts
+}
+
 const STATUS_BY_LABEL = new Map<string, SurveyStatus>(
   Object.entries(SURVEY_STATUS_LABEL).map(([status, label]) => [label, status as SurveyStatus]),
 )
