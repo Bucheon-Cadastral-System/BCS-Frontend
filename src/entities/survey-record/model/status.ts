@@ -84,6 +84,16 @@ export function deriveSurveyStatus(result: SurveyResult | undefined): SurveyStat
 }
 
 /**
+ * 화면이 함께 쓰는 진행 상황 한 벌 — 갈래별 개수와 조사·전체 수.
+ * 좁은 화면의 요약 칩과 접힌 패널 칩이 같은 값을 같은 그림으로 세운다.
+ */
+export type SurveyProgress = {
+  countByStatus: Record<SurveyStatus, number>
+  surveyed: number
+  total: number
+}
+
+/**
  * 대상 전체와 조사 기록으로 갈래별 개수를 센다.
  *
  * <p>망실도 조사불가도 기타도 '조사됨'이라 진행률에는 함께 세고, 내역에서는 결과별로 갈라 보여 준다.

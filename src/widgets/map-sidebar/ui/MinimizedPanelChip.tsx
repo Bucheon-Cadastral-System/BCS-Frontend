@@ -3,15 +3,14 @@ import {
   SURVEY_STATUS_LABEL,
   SURVEY_STATUS_ORDER,
   SURVEY_STATUS_TEXT_COLOR,
+  type SurveyProgress,
   type SurveyStatus,
 } from '@/entities/survey-record'
 import { MapChip } from '@/shared/ui/MapChip'
 import { percent } from '@/shared/lib/percent'
 
 /** 조사는 진행률과 갈래별 개수를, 기준점은 지도에 깔린 개수를 싣는다 */
-type ChipDetail =
-  | { countByStatus: Record<SurveyStatus, number>; surveyed: number; total: number }
-  | { count: number }
+type ChipDetail = SurveyProgress | { count: number }
 
 /**
  * 접어 둔 패널을 대신하는 칩. 배치(지도 좌상단)는 부모가 정하고 여기선 내용만 채운다.

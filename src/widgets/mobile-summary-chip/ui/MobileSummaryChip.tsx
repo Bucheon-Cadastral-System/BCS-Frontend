@@ -1,4 +1,5 @@
-import { PILL, PROGRESS_FILL } from '@/shared/ui/classes'
+import { StatusDistributionBar, type SurveyProgress } from '@/entities/survey-record'
+import { PILL } from '@/shared/ui/classes'
 import { percent } from '@/shared/lib/percent'
 
 /**
@@ -11,11 +12,11 @@ import { percent } from '@/shared/lib/percent'
  * 값(value), 오른쪽 수치까지 규격이 같고 모양만 좁은 화면의 알약을 따른다.
  */
 export function MobileSummaryChip(props: {
-  /** 왼쪽 이름 — 「조사」·「기준점」 */
+  /** 왼쪽 이름 — 「프로젝트」·「기준점」 */
   label: string
   value: string
-  /** 오른쪽 수치 — 조사는 진행률, 기준점은 개수 */
-  trailing?: { surveyed: number; total: number } | { count: number }
+  /** 오른쪽 수치 — 조사는 진행 상황, 기준점은 개수 */
+  trailing?: SurveyProgress | { count: number }
   onOpen: () => void
 }) {
   const trailing = props.trailing
@@ -32,21 +33,23 @@ export function MobileSummaryChip(props: {
         ('count' in trailing ? (
           <span className="shrink-0 text-[11.5px] font-semibold text-teal-text">{trailing.count}개</span>
         ) : (
-          <Progress surveyed={trailing.surveyed} total={trailing.total} />
+          <Progress {...trailing} />
         ))}
     </button>
   )
 }
 
-function Progress(props: { surveyed: number; total: number }) {
-  const done = percent(props.surveyed, props.total)
+function Progress(props: SurveyProgress) {
   return (
     <>
-      {/* 진행률은 좌측 패널의 막대와 같은 규격이다 — 같은 값을 두 화면이 다르게 그리면 어느 쪽이 맞는지 의심하게 된다 */}
-      <span className="h-1 w-16 shrink-0 overflow-hidden rounded-[2px] bg-track" aria-hidden>
-        <span className={`block h-full rounded-[2px] ${PROGRESS_FILL}`} style={{ width: `${done}%` }} />
+      {/* 좌측 패널·접힌 칩과 같은 막대를 쓴다 — 같은 값을 화면마다 다르게 그리면 어느 쪽이 맞는지 의심하게 된다.
+          칠한 길이가 곧 조사한 만큼이라 진행률로 읽히면서 무엇이 정상이고 무엇이 망실인지까지 드러난다 */}
+      <span className="block w-16 shrink-0">
+        <StatusDistributionBar countByStatus={props.countByStatus} />
       </span>
-      <span className="shrink-0 text-[11.5px] font-semibold text-teal-text">{done}%</span>
+      <span className="shrink-0 text-[11.5px] font-semibold tabular-nums text-teal-text">
+        {percent(props.surveyed, props.total)}%
+      </span>
     </>
   )
 }

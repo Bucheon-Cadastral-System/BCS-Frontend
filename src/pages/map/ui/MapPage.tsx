@@ -1013,7 +1013,7 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
                   <MobileSummaryChip
                     label="프로젝트"
                     value={activeProject?.name ?? '선택 중인 프로젝트 없음'}
-                    trailing={activeProject === null ? undefined : { surveyed: resultById.size, total: targetPoints.length }}
+                    trailing={activeProject === null ? undefined : { countByStatus: byStatus, surveyed: resultById.size, total: targetPoints.length }}
                     onOpen={() => setPanel({ key: 'project', minimized: false })}
                   />
                 )}
