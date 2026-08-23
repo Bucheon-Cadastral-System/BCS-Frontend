@@ -88,7 +88,7 @@ export async function deleteSurveyProjectApi(id: string): Promise<void> {
  * 대상 기준점 내보내기 — 서버가 만든 파일을 받아 그대로 저장한다.
  *
  * <p>저장 이름은 서버가 조사명으로 지어 헤더에 실어 보낸다. 인증 요청이라 브라우저가 그 헤더를 스스로
- * 적용하지 않으므로 여기서 되읽어 붙인다.
+ * 적용하지 않으므로 여기서 다시 읽어 붙인다.
  */
 export async function exportSurveyProjectApi(project: SurveyProject): Promise<void> {
   const res = await http.get<Blob>(`/api/survey-projects/${project.id}/export`, { responseType: 'blob' })

@@ -17,7 +17,7 @@ export function saveBlob(content: Blob, fileName: string): void {
 }
 
 /**
- * 응답 헤더에 적힌 저장 이름 — 위처럼 직접 저장하면 브라우저가 이 헤더를 적용하지 않아 여기서 되읽는다.
+ * 응답 헤더에 적힌 저장 이름 — 위처럼 직접 저장하면 브라우저가 이 헤더를 적용하지 않아 여기서 다시 읽는다.
  * 한글 이름은 UTF-8 로 감싸 오고, 그 표기가 없는 응답만 따옴표 표기를 본다.
  */
 export function fileNameFromDisposition(contentDisposition: string | undefined, fallback: string): string {
