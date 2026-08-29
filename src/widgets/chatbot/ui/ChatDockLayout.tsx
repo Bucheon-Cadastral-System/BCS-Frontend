@@ -3,12 +3,18 @@ import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { ChatPanel } from './ChatPanel'
 import { ChatBubbleIcon, CloseIcon } from './icons'
 import { useQueryClient } from '@tanstack/react-query'
-import { CHAT_MESSAGES_KEY, useChatHistoryQuery, useClearChatMutation, useSendChatMutation } from '../api/chat'
+import { CHAT_MESSAGES_KEY, serverMayStillAnswer, useChatHistoryQuery, useClearChatMutation, useSendChatMutation } from '../api/chat'
+import { waitForAnswer } from '../lib/waitForAnswer'
 import type { ChatAction, ChatMessage, ChatMode, Size } from '../model/types'
 import { clearLegacyChatMessages, loadChatUi, saveChatUi } from '../model/storage'
 import { useDismiss } from '@/shared/lib/useDismiss'
 import { useNarrowScreen } from '@/shared/lib/useNarrowScreen'
 import { PANEL } from '@/shared/ui/classes'
+
+/** 끝내 답을 받지 못했을 때 대화에 남기는 말 */
+function failedMessage(): ChatMessage {
+  return { role: 'assistant', text: '답변을 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.' }
+}
 
 /** 우측 패널 기본 폭 — 헤더 우측 묶음을 아직 재지 못했을 때만 쓴다 */
 const DOCK_WIDTH = 420
@@ -46,6 +52,10 @@ export function ChatDockLayout({
   const chatMutation = useSendChatMutation()
   const clearMutation = useClearChatMutation()
   const pending = chatMutation.isPending
+  /** 요청은 끊겼지만 서버가 아직 만들고 있어 이력을 지켜보는 중 */
+  const [waiting, setWaiting] = useState(false)
+  /** 질문이 나간 시각 — 기다리는 동안 초를 세고, 답이 오면 소요 시간으로 적는다 */
+  const [askedAt, setAskedAt] = useState<number | null>(null)
 
   const queryClient = useQueryClient()
   // 좁은 화면에서는 창도 버블도 서지 않는다 — 열 수 없는 대화의 이력은 받지도, 받아 둔 것을 꺼내지도 않는다.
@@ -94,8 +104,23 @@ export function ChatDockLayout({
   // 진행 중 요청의 응답이 '새 대화'로 초기화된 뒤 섞이지 않게 세션을 센다
   const sessionRef = useRef(0)
   const clearing = clearMutation.isPending
-  /** 질문이 나가 있는 동안 눌린 '새 대화' — 그 요청이 끝난 뒤에 지운다 */
+  /** 서버가 아직 이 질문의 답을 만들고 있는지 — 요청이 끊긴 뒤 이력을 지켜보는 동안에도 참이다 */
+  const serverWorkingRef = useRef(false)
+  /** 서버가 답을 만드는 동안 눌린 '새 대화' — 그 답이 이력에 실린 뒤에 지운다 */
   const clearAfterSendRef = useRef(false)
+
+  /**
+   * 서버 쪽 일이 끝났다.
+   *
+   * <p>기다리는 사이에 '새 대화'를 눌렀으면 여기서 지운다. 먼저 지우면 서버가 그 뒤에 답을 저장해,
+   * 비운 대화에 지난 질문과 답이 되살아난다.
+   */
+  function finishServerWork() {
+    serverWorkingRef.current = false
+    if (!clearAfterSendRef.current) return
+    clearAfterSendRef.current = false
+    clearOnServer()
+  }
 
   /** 서버 기록을 비운다. 실패하면 서버가 진짜 값이므로 화면을 그쪽으로 되돌린다. */
   function clearOnServer() {
@@ -109,25 +134,39 @@ export function ChatDockLayout({
   }
 
   function send(text: string) {
-    if (pending || clearing) return // 응답 대기 중과 비우는 중에는 모든 전송 경로를 막는다
+    if (pending || waiting || clearing) return // 응답 대기 중과 비우는 중에는 모든 전송 경로를 막는다
     const session = sessionRef.current
+    const startedAt = Date.now()
+    const current = () => sessionRef.current === session
+    setAskedAt(startedAt)
+    serverWorkingRef.current = true
     setMessages((prev) => [...prev, { role: 'user', text }])
     chatMutation.mutate(text, {
       onSuccess: (answer) => {
-        if (sessionRef.current !== session) return // 새 대화로 초기화됐으면 이전 응답을 버린다
-        setMessages((prev) => [...prev, { role: 'assistant', text: answer }])
+        finishServerWork()
+        if (!current()) return // 새 대화로 초기화됐으면 이전 응답을 버린다
+        setAskedAt(null)
+        // 소요 시간은 화면이 잰 값 하나로 적는다. 사용자가 실제로 기다린 시간이고, 늦게 회수한 답과도 같은 기준이다
+        setMessages((prev) => [...prev, { role: 'assistant', text: answer, elapsedMs: Date.now() - startedAt }])
       },
-      onError: () => {
-        if (sessionRef.current !== session) return
-        setMessages((prev) => [
-          ...prev,
-          { role: 'assistant', text: '답변을 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.' },
-        ])
-      },
-      onSettled: () => {
-        if (!clearAfterSendRef.current) return
-        clearAfterSendRef.current = false
-        clearOnServer()
+      onError: (error) => {
+        // 시간 제한으로 끊긴 것뿐이면 서버는 답을 마저 만들어 이력에 남긴다 — 그 답을 기다린다.
+        // 그 사이 '새 대화'를 눌렀더라도 기다림은 끝까지 간다. 지우는 시점을 답이 실린 뒤로 미루기 위해서다
+        if (serverMayStillAnswer(error)) {
+          if (current()) setWaiting(true)
+          void waitForAnswer(text, () => true).then((answer) => {
+            finishServerWork()
+            if (!current()) return
+            setWaiting(false)
+            setAskedAt(null)
+            setMessages((prev) => [...prev, answer === null ? failedMessage() : { role: 'assistant', text: answer, elapsedMs: Date.now() - startedAt }])
+          })
+          return
+        }
+        finishServerWork()
+        if (!current()) return
+        setAskedAt(null)
+        setMessages((prev) => [...prev, failedMessage()])
       },
     })
   }
@@ -135,13 +174,16 @@ export function ChatDockLayout({
   function newChat() {
     if (clearing) return
     sessionRef.current += 1
+    // 기다리던 답은 지운 대화의 것이라 화면에서는 끝낸다. 지우기는 그 답이 이력에 실린 뒤로 미룬다
+    setWaiting(false)
+    setAskedAt(null)
     // 이제부터 화면이 대화의 주인이다 — 먼저 나가 있던 첫 조회를 끊어 지운 이력이 캐시로 돌아오지 않게 한다
     discarded.current = true
     restored.current = true
     void queryClient.cancelQueries({ queryKey: CHAT_MESSAGES_KEY })
     setMessages([])
-    // 질문이 나가 있는 동안 지우면 서버가 그 답을 뒤늦게 적어 빈 대화에 남는다. 그 요청이 끝난 뒤에 지운다
-    if (pending) {
+    // 질문이 나가 있는 동안 지우면 서버가 그 답을 뒤늦게 적어 빈 대화에 남는다. 그 답이 실린 뒤에 지운다
+    if (serverWorkingRef.current) {
       clearAfterSendRef.current = true
       return
     }
@@ -174,6 +216,8 @@ export function ChatDockLayout({
     <ChatPanel
       messages={messages}
       pending={pending}
+      waiting={waiting}
+      askedAt={askedAt}
       clearing={clearing}
       expanded={mode === 'right'}
       onSend={send}

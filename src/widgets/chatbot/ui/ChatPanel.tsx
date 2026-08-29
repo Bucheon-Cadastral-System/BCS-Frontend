@@ -5,10 +5,23 @@ import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { MessageContent } from './MessageContent'
 import { QuickActions } from './QuickActions'
 import { FIELD_AREA, ICON_BTN, ICON_BTN_DANGER, PANEL_HEADER, PANEL_HEADER_RULE } from '@/shared/ui/classes'
+import { formatElapsed, formatSeconds, waitingLabel } from '../lib/elapsed'
 import { RefreshIcon } from '@/shared/ui/RefreshIcon'
 
 // 대화 시작 전부터 맨 위에 두는 웰컴 안내(어시스턴트 말풍선). 메시지 배열 밖이라 저장·전송되지 않는다.
 const WELCOME_MESSAGE = ['안녕하세요! BCS 어시스턴트입니다.', '무엇을 도와드릴까요?'].join('\n')
+
+/** 기다리는 동안 흐르는 초 — 1초마다 다시 그린다. 멈춰 있으면 답이 없는 것으로 읽힌다. */
+function useElapsedSeconds(active: boolean, askedAt: number | null): number {
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    if (!active || askedAt === null) return
+    setNow(Date.now())
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [active, askedAt])
+  return askedAt === null ? 0 : Math.max(0, Math.floor((now - askedAt) / 1000))
+}
 
 /** 어시스턴트 말풍선 좌측 아바타. */
 function AssistantAvatar() {
@@ -25,6 +38,10 @@ function AssistantAvatar() {
 interface ChatPanelProps {
   messages: ChatMessage[]
   pending: boolean
+  /** 요청은 끊겼지만 서버가 아직 만들고 있어 이력을 지켜보는 중 */
+  waiting?: boolean
+  /** 질문이 나간 시각 — 기다리는 동안 초를 센다 */
+  askedAt?: number | null
   /** 서버 기록을 비우는 중 — 그 사이 보낸 말은 지워질 대화에 붙으므로 전송 자체를 막는다 */
   clearing?: boolean
   expanded: boolean
@@ -42,7 +59,9 @@ interface ChatPanelProps {
  */
 export function ChatPanel(props: ChatPanelProps) {
   // 답을 기다리는 것과 비우는 것은 이유가 다르지만 화면이 할 일은 같다 — 입력을 받지 않는다
-  const busy = props.pending || props.clearing === true
+  const answering = props.pending || props.waiting === true
+  const busy = answering || props.clearing === true
+  const elapsed = useElapsedSeconds(answering, props.askedAt ?? null)
   const [input, setInput] = useState('')
   const composingRef = useRef(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -100,19 +119,35 @@ export function ChatPanel(props: ChatPanelProps) {
                 {m.role === 'assistant' ? <MessageContent text={m.text} onAction={props.onAction} /> : m.text}
               </div>
             </div>
-            {/* 어시스턴트 답변 아래마다 빠른 질의 버튼 노출 */}
-            {m.role === 'assistant' && <QuickActions onQuery={props.onSend} disabled={busy} />}
+            {/* 이번 화면에서 받은 답에만 소요 시간이 있다 — 새로고침해 이력으로 다시 받으면 사라진다 */}
+            {m.role === 'assistant' && m.elapsedMs !== undefined && (
+              <p className="-mt-1 pl-8 text-[11px] tabular-nums text-ink-4">{formatElapsed(m.elapsedMs)}</p>
+            )}
+            {/* 마지막 답변 아래에만 빠른 질의 버튼을 둔다 — 지난 답변마다 붙으면 대화가 버튼으로 덮인다 */}
+            {m.role === 'assistant' && i === props.messages.length - 1 && (
+              <QuickActions onQuery={props.onSend} disabled={busy} />
+            )}
           </div>
         ))}
 
-        {props.pending && (
-          <div className="chat-msg-in flex justify-start gap-2">
-            <AssistantAvatar />
-            <div className="flex items-center gap-1 rounded-pop rounded-tl-[2px] border border-line-soft bg-soft px-3 py-2.5">
-              <span className="size-1.5 animate-bounce rounded-full bg-ink-4 [animation-delay:-0.3s]" />
-              <span className="size-1.5 animate-bounce rounded-full bg-ink-4 [animation-delay:-0.15s]" />
-              <span className="size-1.5 animate-bounce rounded-full bg-ink-4" />
+        {answering && (
+          <div className="chat-msg-in space-y-1">
+            <div className="flex justify-start gap-2">
+              <AssistantAvatar />
+              <div className="flex items-center gap-1 rounded-pop rounded-tl-[2px] border border-line-soft bg-soft px-3 py-2.5">
+                <span className="size-1.5 animate-bounce rounded-full bg-ink-4 [animation-delay:-0.3s]" />
+                <span className="size-1.5 animate-bounce rounded-full bg-ink-4 [animation-delay:-0.15s]" />
+                <span className="size-1.5 animate-bounce rounded-full bg-ink-4" />
+              </div>
             </div>
+            {/* 말풍선 밖에 둔다 — 답변 아래 소요 시간과 같은 자리라 기다림과 결과가 한 줄에서 이어진다.
+                답이 늦을수록 무엇을 기다리는지 달리 적는다. 아무 말도 없으면 멈춘 것으로 읽힌다 */}
+            <p className="pl-8 text-[11px] tabular-nums text-ink-4">
+              {/* 읽어 주는 자리에는 단계 문구만 둔다. 초까지 넣으면 보조 기술이 매초 같은 줄을 다시 읽는다 */}
+              <span role="status" aria-live="polite">{waitingLabel(elapsed, props.waiting === true)}</span>
+              {waitingLabel(elapsed, props.waiting === true) === '' ? null : ' · '}
+              <span>{formatSeconds(elapsed)}</span>
+            </p>
           </div>
         )}
       </div>
