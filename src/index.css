@@ -513,10 +513,28 @@ button {
   border: 1px solid var(--color-line-soft);
   padding: 0.25rem 0.5rem;
   text-align: left;
+  /* 관리번호처럼 끊을 자리가 없는 값이 열을 밀어 표를 넘치게 한다. 줄을 바꿔 폭 안에 들인다 —
+     넘치면 어느 열이든 잘려 나가고, 잘린 열은 옆으로 밀어 봐야 고정된 마지막 열에 다시 가린다 */
+  overflow-wrap: anywhere;
 }
 .chat-md th {
   background: var(--color-soft);
   font-weight: 600;
+  /* 좁은 대화 창에서 머리글이 두 줄로 접히면 표가 무슨 열인지부터 읽기 어려워진다 */
+  white-space: nowrap;
+}
+/* 표가 옆으로 넘칠 때 마지막 열(바로가기)은 오른쪽에 붙여 둔다.
+   누를 것이 화면 밖에 있으면 표가 옆으로 굴러간다는 것조차 알아채지 못한다. */
+.chat-md th:last-child,
+.chat-md td:last-child {
+  position: sticky;
+  right: 0;
+  background: var(--color-soft);
+}
+/* 그늘은 실제로 넘칠 때만 — 다 보이는 표에 그늘을 두면 없는 열이 있다고 알리는 셈이다 */
+.chat-md table[data-overflow='true'] th:last-child,
+.chat-md table[data-overflow='true'] td:last-child {
+  box-shadow: -6px 0 6px -6px rgb(0 0 0 / 0.18);
 }
 .chat-md h1,
 .chat-md h2,
