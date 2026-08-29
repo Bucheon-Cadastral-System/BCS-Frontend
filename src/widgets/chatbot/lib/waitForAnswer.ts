@@ -22,8 +22,9 @@ export async function waitForAnswer(question: string, alive: () => boolean): Pro
   const until = Date.now() + LIMIT_MS
   let failures = 0
   while (Date.now() < until) {
-    await sleep(INTERVAL_MS)
-    if (!alive()) return null
+    // 남은 시간보다 오래 자지 않는다. 제한 직전에 잠들면 제한을 넘긴 뒤에 조회가 나간다
+    await sleep(Math.min(INTERVAL_MS, until - Date.now()))
+    if (!alive() || Date.now() >= until) return null
     const found = await answerFor(question)
     if (found.error) {
       failures += 1
@@ -31,7 +32,7 @@ export async function waitForAnswer(question: string, alive: () => boolean): Pro
       continue
     }
     failures = 0
-    if (found.answer !== null) return found.answer
+    if (found.answer !== null) return Date.now() < until ? found.answer : null
   }
   return null
 }

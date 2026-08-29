@@ -128,7 +128,8 @@ export function ChatDockLayout({
       onSuccess: (answer) => {
         if (sessionRef.current !== session) return // 새 대화로 초기화됐으면 이전 응답을 버린다
         setAskedAt(null)
-        setMessages((prev) => [...prev, { role: 'assistant', text: answer.text, elapsedMs: answer.elapsedMs }])
+        // 소요 시간은 화면이 잰 값 하나로 적는다. 사용자가 실제로 기다린 시간이고, 늦게 회수한 답과도 같은 기준이다
+        setMessages((prev) => [...prev, { role: 'assistant', text: answer, elapsedMs: Date.now() - startedAt }])
       },
       onError: (error) => {
         if (sessionRef.current !== session) return

@@ -20,12 +20,17 @@ export function CopyableTable({ children, node: _node, ...props }: ComponentProp
   const [copied, setCopied] = useState(false)
   /** 옆으로 넘치는 표인지 — 넘칠 때만 마지막 열에 그늘을 둬 뒤에 열이 더 있음을 알린다 */
   const [overflow, setOverflow] = useState(false)
+  /** 마지막 열이 바로가기인 표인지 — 자료가 든 열을 붙들면 그 열이 다른 열을 가린다 */
+  const [actionColumn, setActionColumn] = useState(false)
 
   useEffect(() => {
     const table = tableRef.current
     if (table === null) return
     const measure = () => setOverflow(table.scrollWidth > table.clientWidth)
     measure()
+    setActionColumn(
+      [...table.querySelectorAll('tr')].some((row) => row.lastElementChild?.querySelector('button[data-action-link]') != null),
+    )
     const observer = new ResizeObserver(measure)
     observer.observe(table)
     return () => observer.disconnect()
@@ -65,7 +70,12 @@ export function CopyableTable({ children, node: _node, ...props }: ComponentProp
       >
         {copied ? '복사됨' : '복사'}
       </button>
-      <table ref={tableRef} data-overflow={overflow ? 'true' : undefined} {...props}>
+      <table
+        ref={tableRef}
+        data-overflow={overflow ? 'true' : undefined}
+        data-action-column={actionColumn ? 'true' : undefined}
+        {...props}
+      >
         {children}
       </table>
     </div>

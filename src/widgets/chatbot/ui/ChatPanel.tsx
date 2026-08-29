@@ -142,10 +142,11 @@ export function ChatPanel(props: ChatPanelProps) {
             </div>
             {/* 말풍선 밖에 둔다 — 답변 아래 소요 시간과 같은 자리라 기다림과 결과가 한 줄에서 이어진다.
                 답이 늦을수록 무엇을 기다리는지 달리 적는다. 아무 말도 없으면 멈춘 것으로 읽힌다 */}
-            <p className="pl-8 text-[11px] tabular-nums text-ink-4" role="status" aria-live="polite">
-              {waitingLabel(elapsed, props.waiting === true) === ''
-                ? formatSeconds(elapsed)
-                : `${waitingLabel(elapsed, props.waiting === true)} · ${formatSeconds(elapsed)}`}
+            <p className="pl-8 text-[11px] tabular-nums text-ink-4">
+              {/* 읽어 주는 자리에는 단계 문구만 둔다. 초까지 넣으면 보조 기술이 매초 같은 줄을 다시 읽는다 */}
+              <span role="status" aria-live="polite">{waitingLabel(elapsed, props.waiting === true)}</span>
+              {waitingLabel(elapsed, props.waiting === true) === '' ? null : ' · '}
+              <span>{formatSeconds(elapsed)}</span>
             </p>
           </div>
         )}

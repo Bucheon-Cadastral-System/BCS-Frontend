@@ -36,6 +36,7 @@ export function ActionLink({
     <button
       type="button"
       onClick={() => onAction?.(action)}
+      data-action-link="true"
       className="inline-flex items-center gap-1 whitespace-nowrap rounded-chip border border-teal-edge bg-teal-wash px-2 py-1 text-[12px] font-medium leading-none text-teal-text transition-colors hover:bg-teal-wash-strong"
     >
       {children}

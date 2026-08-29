@@ -4,14 +4,6 @@ import type { ChatMessage } from '../model/types'
 
 interface ChatResponse {
   answer: string
-  /** 서버가 잰 생성 시간 — 옛 서버는 담지 않으므로 없을 수 있다 */
-  elapsedMs?: number
-}
-
-/** 답변과 그것을 받기까지 걸린 시간 */
-export interface ChatAnswer {
-  text: string
-  elapsedMs: number
 }
 
 /**
@@ -26,10 +18,9 @@ const SEND_TIMEOUT_MS = 120_000
 export const CHAT_MESSAGES_KEY = ['chat', 'messages'] as const
 
 /** 챗봇 질문 전송 — POST /api/chat. 서버가 질문과 답변을 그 계정의 대화로 남긴다. */
-export async function sendChat(message: string): Promise<ChatAnswer> {
-  const startedAt = Date.now()
+export async function sendChat(message: string): Promise<string> {
   const { data } = await http.post<ChatResponse>('/api/chat', { message }, { timeout: SEND_TIMEOUT_MS })
-  return { text: data.answer, elapsedMs: data.elapsedMs ?? Date.now() - startedAt }
+  return data.answer
 }
 
 /**
