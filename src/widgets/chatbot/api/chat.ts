@@ -1,19 +1,45 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { http } from '@/shared/api/http'
+import { ApiError, http } from '@/shared/api/http'
 import type { ChatMessage } from '../model/types'
 
 interface ChatResponse {
   answer: string
+  /** 서버가 잰 생성 시간 — 옛 서버는 담지 않으므로 없을 수 있다 */
+  elapsedMs?: number
 }
+
+/** 답변과 그것을 받기까지 걸린 시간 */
+export interface ChatAnswer {
+  text: string
+  elapsedMs: number
+}
+
+/**
+ * 요청을 끊는 시간.
+ *
+ * <p>모델이 도구를 여러 번 부르면 1분을 넘기도 한다. 여기서 끊더라도 서버는 답을 마저 만들어 이력에 남기므로,
+ * 화면은 실패로 단정하지 않고 그 이력을 기다린다(waitForAnswer).
+ */
+const SEND_TIMEOUT_MS = 120_000
 
 /** 대화는 계정에 딸린 서버 데이터다 — 브라우저에 남기지 않으므로 캐시가 화면과 서버를 잇는 유일한 자리다. */
 export const CHAT_MESSAGES_KEY = ['chat', 'messages'] as const
 
-/** 챗봇 질문 전송 — POST /api/chat, 응답 answer 텍스트를 돌려준다. 서버가 질문과 답변을 그 계정의 대화로 남긴다. */
-export async function sendChat(message: string): Promise<string> {
-  // 응답이 오래 걸리면 무한 로딩 대신 실패로 끊는다. 서버 read-timeout(20s)보다 살짝 크게 잡아 정상 응답은 안 자른다
-  const { data } = await http.post<ChatResponse>('/api/chat', { message }, { timeout: 25_000 })
-  return data.answer
+/** 챗봇 질문 전송 — POST /api/chat. 서버가 질문과 답변을 그 계정의 대화로 남긴다. */
+export async function sendChat(message: string): Promise<ChatAnswer> {
+  const startedAt = Date.now()
+  const { data } = await http.post<ChatResponse>('/api/chat', { message }, { timeout: SEND_TIMEOUT_MS })
+  return { text: data.answer, elapsedMs: data.elapsedMs ?? Date.now() - startedAt }
+}
+
+/**
+ * 답을 못 받은 것이 서버의 거절 때문인지 가린다.
+ *
+ * <p>응답이 아예 없는 실패(status 0)는 시간 제한이나 연결 끊김이고, 그때 서버는 답을 마저 만들고 있다.
+ * 서버가 상태 코드를 돌려준 실패는 답이 없다는 뜻이라 기다릴 이유가 없다.
+ */
+export function serverMayStillAnswer(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 0
 }
 
 export function useSendChatMutation() {
