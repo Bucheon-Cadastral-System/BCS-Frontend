@@ -86,12 +86,16 @@ const LOGIN_FAILURE: Record<string, string> = {
   oauth2_authentication_failed: '로그인을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.',
 }
 
-function LoginRoute() {
+function LoginRoute({ auth }: { auth: AuthState }) {
   const location = useLocation()
   const navigate = useNavigate()
   const error = new URLSearchParams(location.search).get('error')
 
-  if (error === 'inactive') return <InactivePage onBackToLogin={() => navigate('/login', { replace: true })} />
+  if (auth.loading) return <LoadingPage />
+  if (auth.profile && auth.profile.status !== 'INACTIVE') return <Navigate to="/" replace />
+  if (auth.profile?.status === 'INACTIVE' || error === 'inactive') {
+    return <InactivePage onBackToLogin={() => navigate('/login', { replace: true })} />
+  }
   return (
     <LoginPage
       onKakaoLogin={startKakaoLogin}
@@ -238,7 +242,7 @@ function AppRoutes() {
   return (
     <ErrorBoundary resetKey={location.pathname}>
       <Routes>
-        <Route path="/login" element={<LoginRoute />} />
+        <Route path="/login" element={<LoginRoute auth={auth} />} />
         <Route path="/oauth/success" element={<OAuthSuccessRoute reloadProfile={reloadProfile} />} />
         <Route path="/signup" element={<SignupRoute />} />
         <Route path="/register" element={<Navigate to="/signup" replace />} />
