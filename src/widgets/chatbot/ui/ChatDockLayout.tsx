@@ -104,8 +104,23 @@ export function ChatDockLayout({
   // 진행 중 요청의 응답이 '새 대화'로 초기화된 뒤 섞이지 않게 세션을 센다
   const sessionRef = useRef(0)
   const clearing = clearMutation.isPending
-  /** 질문이 나가 있는 동안 눌린 '새 대화' — 그 요청이 끝난 뒤에 지운다 */
+  /** 서버가 아직 이 질문의 답을 만들고 있는지 — 요청이 끊긴 뒤 이력을 지켜보는 동안에도 참이다 */
+  const serverWorkingRef = useRef(false)
+  /** 서버가 답을 만드는 동안 눌린 '새 대화' — 그 답이 이력에 실린 뒤에 지운다 */
   const clearAfterSendRef = useRef(false)
+
+  /**
+   * 서버 쪽 일이 끝났다.
+   *
+   * <p>기다리는 사이에 '새 대화'를 눌렀으면 여기서 지운다. 먼저 지우면 서버가 그 뒤에 답을 저장해,
+   * 비운 대화에 지난 질문과 답이 되살아난다.
+   */
+  function finishServerWork() {
+    serverWorkingRef.current = false
+    if (!clearAfterSendRef.current) return
+    clearAfterSendRef.current = false
+    clearOnServer()
+  }
 
   /** 서버 기록을 비운다. 실패하면 서버가 진짜 값이므로 화면을 그쪽으로 되돌린다. */
   function clearOnServer() {
@@ -122,35 +137,36 @@ export function ChatDockLayout({
     if (pending || waiting || clearing) return // 응답 대기 중과 비우는 중에는 모든 전송 경로를 막는다
     const session = sessionRef.current
     const startedAt = Date.now()
+    const current = () => sessionRef.current === session
     setAskedAt(startedAt)
+    serverWorkingRef.current = true
     setMessages((prev) => [...prev, { role: 'user', text }])
     chatMutation.mutate(text, {
       onSuccess: (answer) => {
-        if (sessionRef.current !== session) return // 새 대화로 초기화됐으면 이전 응답을 버린다
+        finishServerWork()
+        if (!current()) return // 새 대화로 초기화됐으면 이전 응답을 버린다
         setAskedAt(null)
         // 소요 시간은 화면이 잰 값 하나로 적는다. 사용자가 실제로 기다린 시간이고, 늦게 회수한 답과도 같은 기준이다
         setMessages((prev) => [...prev, { role: 'assistant', text: answer, elapsedMs: Date.now() - startedAt }])
       },
       onError: (error) => {
-        if (sessionRef.current !== session) return
-        // 시간 제한으로 끊긴 것뿐이면 서버는 답을 마저 만들어 이력에 남긴다 — 그 답을 기다린다
+        // 시간 제한으로 끊긴 것뿐이면 서버는 답을 마저 만들어 이력에 남긴다 — 그 답을 기다린다.
+        // 그 사이 '새 대화'를 눌렀더라도 기다림은 끝까지 간다. 지우는 시점을 답이 실린 뒤로 미루기 위해서다
         if (serverMayStillAnswer(error)) {
-          setWaiting(true)
-          void waitForAnswer(text, () => sessionRef.current === session).then((answer) => {
-            if (sessionRef.current !== session) return
+          if (current()) setWaiting(true)
+          void waitForAnswer(text, () => true).then((answer) => {
+            finishServerWork()
+            if (!current()) return
             setWaiting(false)
             setAskedAt(null)
             setMessages((prev) => [...prev, answer === null ? failedMessage() : { role: 'assistant', text: answer, elapsedMs: Date.now() - startedAt }])
           })
           return
         }
+        finishServerWork()
+        if (!current()) return
         setAskedAt(null)
         setMessages((prev) => [...prev, failedMessage()])
-      },
-      onSettled: () => {
-        if (!clearAfterSendRef.current) return
-        clearAfterSendRef.current = false
-        clearOnServer()
       },
     })
   }
@@ -158,7 +174,7 @@ export function ChatDockLayout({
   function newChat() {
     if (clearing) return
     sessionRef.current += 1
-    // 기다리던 답은 지운 대화의 것이다 — 세션이 바뀌면 기다림도 함께 끝난다
+    // 기다리던 답은 지운 대화의 것이라 화면에서는 끝낸다. 지우기는 그 답이 이력에 실린 뒤로 미룬다
     setWaiting(false)
     setAskedAt(null)
     // 이제부터 화면이 대화의 주인이다 — 먼저 나가 있던 첫 조회를 끊어 지운 이력이 캐시로 돌아오지 않게 한다
@@ -166,8 +182,8 @@ export function ChatDockLayout({
     restored.current = true
     void queryClient.cancelQueries({ queryKey: CHAT_MESSAGES_KEY })
     setMessages([])
-    // 질문이 나가 있는 동안 지우면 서버가 그 답을 뒤늦게 적어 빈 대화에 남는다. 그 요청이 끝난 뒤에 지운다
-    if (pending) {
+    // 질문이 나가 있는 동안 지우면 서버가 그 답을 뒤늦게 적어 빈 대화에 남는다. 그 답이 실린 뒤에 지운다
+    if (serverWorkingRef.current) {
       clearAfterSendRef.current = true
       return
     }
