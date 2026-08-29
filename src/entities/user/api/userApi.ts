@@ -34,6 +34,10 @@ interface ApiMember {
   position: string | null
   status: UserStatus
   role: UserRole
+  /** 현재 내 정보 응답. 이미지가 없으면 null이다. */
+  profileImageUrl?: string | null
+  /** 이미지 존재 여부만 내리는 응답과도 호환한다. */
+  profileImageRegistered?: boolean
 }
 
 export interface RegistrationInput {
@@ -112,7 +116,28 @@ export async function getMemberState(): Promise<MemberState> {
 
 export async function getMyProfile(): Promise<UserProfile> {
   const { data } = await http.get<ApiMember>('/api/members/me')
-  return mapMember(data) as UserProfile
+  const profileImageUrl = data.profileImageUrl ?? (data.profileImageRegistered === true ? memberProfileImageUrl(data.id) : null)
+  return { ...mapMember(data), profileImageUrl }
+}
+
+export function memberProfileImageUrl(memberId: string | number): string {
+  return `/api/members/${memberId}/profile-image`
+}
+
+/** 인증 헤더가 필요한 이미지라 img src에 경로를 바로 꽂지 않고 공용 HTTP 클라이언트로 받는다. */
+export async function getProfileImage(profileImageUrl: string): Promise<Blob> {
+  const { data } = await http.get<Blob>(profileImageUrl, { responseType: 'blob' })
+  return data
+}
+
+export async function uploadMyProfileImage(image: File): Promise<void> {
+  const body = new FormData()
+  body.append('image', image)
+  await http.put('/api/members/me/profile-image', body)
+}
+
+export async function deleteMyProfileImage(): Promise<void> {
+  await http.delete('/api/members/me/profile-image')
 }
 
 /** 다른 회원의 신원 — 화면이 작성자·조사원 이름을 눌렀을 때 그 사람이 누구인지 읽는다 */

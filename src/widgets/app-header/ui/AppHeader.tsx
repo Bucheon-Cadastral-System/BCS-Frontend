@@ -45,7 +45,7 @@ export function AppHeader(props: {
   /** 우측 묶음(검색+사용자)의 폭 — 그 아래 서는 대화 패널이 같은 너비를 쓰도록 알린다 */
   onUtilityWidthChange?: (px: number) => void
   /** 내 정보를 고친 뒤 — 화면이 쥔 프로필을 다시 받도록 알린다 */
-  onProfileUpdated?: () => void
+  onProfileUpdated?: () => void | Promise<unknown>
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const userRef = useRef<HTMLDivElement>(null)
@@ -182,7 +182,7 @@ export function AppHeader(props: {
             className={`flex h-11 items-center gap-2 py-0 pl-[7px] pr-2 transition-colors hover:border-line-field max-lg:size-[34px] max-lg:shrink-0 max-lg:justify-center max-lg:border-0 max-lg:bg-transparent max-lg:px-0 max-lg:shadow-none ${PILL}`}
           >
             {user ? (
-              <UserAvatar name={user.name} className="size-[30px] text-[11.5px]" />
+              <UserAvatar name={user.name} profileImageUrl={user.profileImageUrl} className="size-[30px] text-[11.5px]" />
             ) : guest ? (
               <UserAvatar name="" guest className="size-[30px] text-[11px]" />
             ) : (

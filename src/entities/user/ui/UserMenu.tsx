@@ -1,11 +1,13 @@
 import { useState } from 'react'
+import type { ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { logout } from '@/shared/api/auth'
+import { IMAGE_PICKER_ACCEPT, prepareWebpImage } from '@/shared/lib/controlPointImage'
 import { BTN_DANGER, BTN_PRIMARY, CHIP_BTN } from '@/shared/ui/classes'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { FormActions } from '@/shared/ui/FormActions'
 import { Skeleton } from '@/shared/ui/Skeleton'
-import { useUpdateMyProfileMutation } from '../api/queries'
+import { useDeleteMyProfileImageMutation, useUpdateMyProfileMutation, useUploadMyProfileImageMutation } from '../api/queries'
 import { formatPhone } from '../model/phone'
 import { DISTRICTS, POSITIONS, ROLE_LABEL, TEAMS } from '../model/user'
 import type { District, Position, Team, UserProfile } from '../model/user'
@@ -53,7 +55,7 @@ export function UserMenu(props: {
   /** 사용자 관리로 들어가는 길 — 관리자에게만 보인다 */
   onOpenUserManagement?: () => void
   /** 내 정보를 고친 뒤 — 헤더가 쥔 프로필을 다시 받도록 알린다 */
-  onProfileUpdated?: () => void
+  onProfileUpdated?: () => void | Promise<unknown>
   /** 항목을 고른 뒤 부르는 쪽이 패널을 접도록 알린다 */
   onDone?: () => void
 }) {
@@ -64,7 +66,13 @@ export function UserMenu(props: {
   const [draft, setDraft] = useState<Draft | null>(null)
   // 저장은 다른 사람도 보는 값을 바꾸는 일이라 한 번 묻는다
   const [confirming, setConfirming] = useState(false)
+  const [confirmingImageDelete, setConfirmingImageDelete] = useState(false)
+  const [imageNotice, setImageNotice] = useState<{ message: string; error: boolean } | null>(null)
+  const [preparingImage, setPreparingImage] = useState(false)
   const updateProfile = useUpdateMyProfileMutation()
+  const uploadImage = useUploadMyProfileImageMutation()
+  const deleteImage = useDeleteMyProfileImageMutation()
+  const imageBusy = preparingImage || uploadImage.isPending || deleteImage.isPending
 
   // 화면을 옮기는 일은 하지 않는다 — 토큰이 풀리는 순간 울타리가 사유대로 옮기므로,
   // 여기서 또 옮기면 그 사유가 주소에서 지워진다. 서버 호출이 실패해도 이 브라우저의 인증은 이미 끊긴 상태다.
@@ -96,6 +104,43 @@ export function UserMenu(props: {
         onError: () => setConfirming(false),
       },
     )
+  }
+
+  async function chooseImage(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0]
+    // 같은 파일을 실패 후 다시 고를 수 있게 선택값은 바로 비운다.
+    event.currentTarget.value = ''
+    if (file === undefined) return
+    setImageNotice(null)
+    setPreparingImage(true)
+    try {
+      // 기준점 사진과 같은 길로 최대 800px·품질 85% WebP를 만든 뒤 그 결과만 서버에 보낸다.
+      const prepared = await prepareWebpImage(file)
+      await uploadImage.mutateAsync(prepared)
+      setImageNotice({ message: '프로필 이미지가 변경되었습니다.', error: false })
+      await props.onProfileUpdated?.()
+    } catch (error) {
+      setImageNotice({
+        message: error instanceof Error ? error.message : '사진을 처리하지 못했습니다. 다른 사진으로 다시 시도해 주세요.',
+        error: true,
+      })
+    } finally {
+      setPreparingImage(false)
+    }
+  }
+
+  function removeImage() {
+    deleteImage.mutate(undefined, {
+      onSuccess: async () => {
+        setConfirmingImageDelete(false)
+        setImageNotice(null)
+        await props.onProfileUpdated?.()
+      },
+      onError: (error) => {
+        setConfirmingImageDelete(false)
+        setImageNotice({ message: error.message, error: true })
+      },
+    })
   }
 
   if (guest) {
@@ -141,30 +186,57 @@ export function UserMenu(props: {
     <>
       <PanelHead
         sheet={sheet}
-        avatar={<UserAvatar name={user.name} className={AVATAR[sheet ? 'sheet' : 'popover']} />}
+        avatar={<UserAvatar name={user.name} profileImageUrl={user.profileImageUrl} className={AVATAR[sheet ? 'sheet' : 'popover']} />}
         name={user.name}
         duty={dutyOf(user)}
         admin={user.role === 'ADMIN'}
       >
         {/* 고치는 동안에는 나가는 길을 걷는다 */}
         {!editing && (
-          <div className="mt-3 flex gap-2">
-            <button type="button" onClick={() => setDraft(draftOf(user))} className={`${CHIP_BTN} flex flex-1 items-center justify-center gap-1.5 text-[12.5px] ${sheet ? 'h-11' : 'h-9'}`}>
-              <IconPencil />
-              정보 수정
-            </button>
-            {showUserManagement && (
-              <button
-                type="button"
-                onClick={() => {
-                  props.onDone?.()
-                  props.onOpenUserManagement?.()
-                }}
-                className={`${CHIP_BTN} flex flex-1 items-center justify-center gap-1.5 text-[12.5px] ${sheet ? 'h-11' : 'h-9'}`}
+          <div className="mt-3 space-y-2">
+            <div className="flex gap-2">
+              <label
+                className={`${CHIP_BTN} flex flex-1 items-center justify-center gap-1.5 text-[12.5px] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-teal-edge ${
+                  imageBusy ? 'pointer-events-none opacity-40' : 'cursor-pointer'
+                } ${sheet ? 'h-11' : 'h-9'}`}
               >
-                <IconUsers />
-                사용자 관리
+                <input type="file" accept={IMAGE_PICKER_ACCEPT} className="sr-only" disabled={imageBusy} onChange={(event) => void chooseImage(event)} />
+                <IconImage />
+                {preparingImage || uploadImage.isPending ? '처리 중' : user.profileImageUrl === null ? '사진 등록' : '사진 변경'}
+              </label>
+              {user.profileImageUrl !== null && (
+                <button
+                  type="button"
+                  disabled={imageBusy}
+                  onClick={() => setConfirmingImageDelete(true)}
+                  className={`${CHIP_BTN} flex flex-1 items-center justify-center gap-1.5 text-[12.5px] text-danger disabled:cursor-not-allowed disabled:opacity-40 ${sheet ? 'h-11' : 'h-9'}`}
+                >
+                  <IconTrash />
+                  사진 삭제
+                </button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setDraft(draftOf(user))} className={`${CHIP_BTN} flex flex-1 items-center justify-center gap-1.5 text-[12.5px] ${sheet ? 'h-11' : 'h-9'}`}>
+                <IconPencil />
+                정보 수정
               </button>
+              {showUserManagement && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    props.onDone?.()
+                    props.onOpenUserManagement?.()
+                  }}
+                  className={`${CHIP_BTN} flex flex-1 items-center justify-center gap-1.5 text-[12.5px] ${sheet ? 'h-11' : 'h-9'}`}
+                >
+                  <IconUsers />
+                  사용자 관리
+                </button>
+              )}
+            </div>
+            {imageNotice !== null && (
+              <p className={`text-[11px] ${imageNotice.error ? 'text-danger' : 'text-ink-3'}`} role="status">{imageNotice.message}</p>
             )}
           </div>
         )}
@@ -247,6 +319,19 @@ export function UserMenu(props: {
           onCancel={() => setConfirming(false)}
         />
       )}
+
+      {confirmingImageDelete && (
+        <ConfirmDialog
+          message="프로필 이미지를 삭제할까요?"
+          confirmLabel="삭제"
+          cancelLabel="취소"
+          busy={deleteImage.isPending}
+          busyLabel="삭제 중"
+          danger
+          onConfirm={removeImage}
+          onCancel={() => setConfirmingImageDelete(false)}
+        />
+      )}
     </>
   )
 }
@@ -300,6 +385,24 @@ function IconPencil() {
     <svg viewBox="0 0 24 24" className="size-[14px] shrink-0 text-ink-3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  )
+}
+
+function IconImage() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-[14px] shrink-0 text-ink-3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="8.5" cy="9" r="1.5" />
+      <path d="m21 15-5-5L5 20" />
+    </svg>
+  )
+}
+
+function IconTrash() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-[14px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v5M14 11v5" />
     </svg>
   )
 }

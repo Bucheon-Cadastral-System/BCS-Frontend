@@ -11,6 +11,7 @@ export {
   completeRegistration,
   getMemberState,
   getMyProfile,
+  memberProfileImageUrl,
   getMemberIdentity,
   updateMyProfile,
   getAdminMembers,

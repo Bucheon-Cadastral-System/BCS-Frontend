@@ -11,6 +11,7 @@ import { ApiError } from '@/shared/api/http'
 import {
   currentLocalDateTime,
   extractCapturedAt,
+  IMAGE_PICKER_ACCEPT,
   localDateTimeToOffset,
   prepareControlPointImage,
 } from '@/shared/lib/controlPointImage'
@@ -22,21 +23,6 @@ import { FormActions } from '@/shared/ui/FormActions'
 import { Modal, ModalField } from '@/shared/ui/Modal'
 
 const PREVIEW_BOX = 'flex h-[132px] w-full items-center justify-center'
-
-/**
- * 고를 형식을 브라우저에 미리 알릴지.
- *
- * <p>이 값은 거르는 규칙이 아니라 어느 앱으로 고를지를 정하는 힌트다. 브라우저는 이것을 안드로이드의
- * 인텐트 형식으로 옮기는데, 삼성 인터넷은 `image/*` 를 그대로 실어 보내면서 목록에 카메라와 파일 관리자만
- * 남기고 갤러리를 뺀다. 사진을 고르러 들어간 사람에게 사진 앱이 없는 목록이 뜨는 셈이다.
- *
- * <p>그 브라우저에서만 비운다. 비우면 목록이 모든 앱으로 넓어져 갤러리가 다시 선다. 무엇을 골랐든
- * 형식은 고른 뒤 우리가 다시 보므로(assertSupportedImage), 이 힌트가 없다고 잘못된 파일이 올라가지는 않는다.
- *
- * <p>다른 브라우저는 그대로 둔다. 아이폰 사파리는 이 값이 있어야 사진 보관함을 열고, 크롬은 이 값으로
- * 안드로이드의 사진 선택기를 띄운다 — 둘 다 비우면 오히려 나빠진다.
- */
-const PICKER_ACCEPT = /SamsungBrowser/i.test(navigator.userAgent) ? undefined : 'image/*'
 
 interface ControlPointImageUploadProps {
   projectId: string
@@ -251,7 +237,7 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
 
         받는 형식은 image/* 하나로 둔다. 확장자(.heic 같은)를 섞어 적으면 아이폰 사진 보관함이 그 목록에 맞는
         항목이 없다고 보아 사진을 전부 고를 수 없게 만든다. 형식 판정은 고른 뒤 파일 이름으로 우리가 한다
-        (브라우저에 따라 이 값을 비우는 이유는 PICKER_ACCEPT 참고)
+        (브라우저에 따라 이 값을 비우는 이유는 IMAGE_PICKER_ACCEPT 참고)
       */}
       <label
         // 라벨은 기본이 인라인이라 높이가 먹지 않는다 — 버튼과 같은 상자로 세운다.
@@ -264,7 +250,7 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
         <input
           ref={inputRef}
           type="file"
-          accept={PICKER_ACCEPT}
+          accept={IMAGE_PICKER_ACCEPT}
           className="sr-only"
           disabled={preparing}
           onChange={(event) => void select(event.target.files?.[0])}

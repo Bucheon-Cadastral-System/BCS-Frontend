@@ -1,8 +1,36 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { changeAdminMember, getAdminActivities, getAdminMemberCounts, getAdminMembers, getMemberIdentity, updateAdminMember, updateMyProfile } from './userApi'
+import { changeAdminMember, deleteMyProfileImage, getAdminActivities, getAdminMemberCounts, getAdminMembers, getMemberIdentity, getProfileImage, updateAdminMember, updateMyProfile, uploadMyProfileImage } from './userApi'
 import type { AdminActivityType, AdminMemberAction, AdminMemberQuery } from './userApi'
 
 export const MEMBER_PROFILE_KEY = ['member-profile'] as const
+export const PROFILE_IMAGE_KEY = ['profile-image'] as const
+
+/**
+ * 프로필 이미지 경로가 있을 때만 파일을 받는다. 같은 사용자를 헤더와 메뉴가 함께 그려도
+ * React Query가 한 요청을 공유하므로 이미지 API를 중복 호출하지 않는다.
+ */
+export function useProfileImageQuery(profileImageUrl: string | null) {
+  return useQuery({
+    queryKey: [...PROFILE_IMAGE_KEY, profileImageUrl],
+    queryFn: () => getProfileImage(profileImageUrl as string),
+    enabled: profileImageUrl !== null,
+    staleTime: Infinity,
+    retry: false,
+  })
+}
+
+export function useUploadMyProfileImageMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: uploadMyProfileImage,
+    // 교체 전과 같은 URL을 쓰므로 파일 캐시만 명시적으로 낡게 만든다.
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: PROFILE_IMAGE_KEY }),
+  })
+}
+
+export function useDeleteMyProfileImageMutation() {
+  return useMutation({ mutationFn: deleteMyProfileImage })
+}
 
 /**
  * 회원 한 명의 신원 — 이름을 누른 뒤에만 읽는다.

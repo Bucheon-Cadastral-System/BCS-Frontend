@@ -18,6 +18,14 @@ const KST_ZONE = 'Asia/Seoul'
 export const SUPPORTED_LABEL = 'JPG · PNG · WebP · HEIC'
 
 /**
+ * 사진 선택기를 여는 형식 힌트. 삼성 인터넷은 image/*를 안드로이드 인텐트에 그대로 넘겨
+ * 갤러리를 숨기는 경우가 있어 그 브라우저에서만 비운다. 실제 형식 검증은 고른 뒤 수행한다.
+ */
+export const IMAGE_PICKER_ACCEPT = typeof navigator !== 'undefined' && /SamsungBrowser/i.test(navigator.userAgent)
+  ? undefined
+  : 'image/*'
+
+/**
  * 브라우저가 낡아 캔버스나 WebP 인코딩을 못 할 때. 두 갈래를 가르지 않는 이유는
  * 사용자가 할 일이 어느 쪽이든 같기 때문이다 — 원인을 나눠 봐야 고르는 행동이 달라지지 않는다.
  */
@@ -51,8 +59,8 @@ export async function extractCapturedAt(file: File): Promise<string | null> {
   }
 }
 
-/** HEIC/HEIF를 포함한 지원 이미지를 디코딩하고 800px WebP로 만든다. */
-export async function prepareControlPointImage(file: File, capturedAt: string): Promise<PreparedControlPointImage> {
+/** HEIC/HEIF를 포함한 지원 이미지를 디코딩하고 800px WebP 파일로 만든다. */
+export async function prepareWebpImage(file: File): Promise<File> {
   assertSupportedImage(file)
   const decoded = isHeic(file) ? await decodeHeic(file) : file
   const bitmap = await decodeImage(decoded)
@@ -69,15 +77,17 @@ export async function prepareControlPointImage(file: File, capturedAt: string): 
 
     const blob = await encodeWebp(canvas, width, height)
     const baseName = file.name.replace(/\.[^.]*$/, '') || 'image'
-    return {
-      image: new File([blob], `${baseName}.webp`, { type: 'image/webp' }),
-      capturedAt,
-    }
+    return new File([blob], `${baseName}.webp`, { type: 'image/webp' })
   } catch (error) {
     throw error instanceof Error ? error : new Error('사진을 변환하지 못했습니다. 다른 사진으로 다시 시도해 주세요.')
   } finally {
     bitmap.release()
   }
+}
+
+/** 기준점 사진은 공용 WebP 변환 결과에 조사 촬영 시각을 함께 묶는다. */
+export async function prepareControlPointImage(file: File, capturedAt: string): Promise<PreparedControlPointImage> {
+  return { image: await prepareWebpImage(file), capturedAt }
 }
 
 /**
