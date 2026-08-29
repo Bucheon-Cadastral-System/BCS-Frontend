@@ -12,7 +12,7 @@ import { MapPage } from '@/pages/map'
 import { GuestMapPage } from '@/pages/guest-map'
 import { clearChatStorage } from '@/widgets/chatbot'
 import { WaitingPage } from '@/pages/waiting'
-import { exchangeOAuthCode, refreshAccessToken, startKakaoLogin } from '@/shared/api/auth'
+import { completeKakaoPopupLogin, exchangeOAuthCode, refreshAccessToken, startKakaoLogin } from '@/shared/api/auth'
 import { subscribeAuthenticationLost } from '@/shared/api/tokenStore'
 import type { AuthenticationLostReason } from '@/shared/api/tokenStore'
 import { BTN_SECONDARY, MODAL_SHELL } from '@/shared/ui/classes'
@@ -133,6 +133,8 @@ function OAuthSuccessRoute({ reloadProfile }: { reloadProfile: () => Promise<Use
     if (!code) { setError('로그인을 완료하지 못했습니다. 다시 시도해 주세요.'); return }
     exchangeOAuthCode(code)
       .then(async () => {
+        if (completeKakaoPopupLogin()) return
+
         const [profile, memberState] = await Promise.all([reloadProfile(), getMemberState()])
         const status = memberState.status ?? profile?.status
 
