@@ -8,7 +8,6 @@ import {
   useAdminMembersQuery,
   useChangeAdminMemberMutation,
   useUpdateAdminMemberMutation,
-  memberProfileImageUrl,
 } from '@/entities/user'
 import type { AdminActivity, AdminActivityType, AdminMemberAction, AdminMemberSortBy, ManagedUser, SortDirection, UserProfile, UserStatus } from '@/entities/user'
 import { MemberName, UserAvatar, ProfileField, ProfileLockedField, ProfileSelectField, ROLE_LABEL, formatPhone } from '@/entities/user'
@@ -497,7 +496,7 @@ export function AdminUsersPage({ profile, onBack, onProfileUpdated }: AdminUsers
 
                   <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-[18px]">
                   <div className="flex items-center gap-3 pr-8">
-                    <UserAvatar name={detail.name} profileImageUrl={memberProfileImageUrl(detail.id)} className="size-11 text-[15px]" />
+                    <UserAvatar name={detail.name} profileImageUrl={detail.profileImageUrl} className="size-11 text-[15px]" />
                     <span className="min-w-0 flex-1">
                       <span className={`block truncate text-[17px] ${detail.name ? 'font-semibold text-ink' : 'text-ink-4'}`}>
                         {detail.name || NO_PROFILE}
@@ -723,7 +722,7 @@ function Cell({ column, user }: { column: ColumnKey; user: ManagedUser }) {
   if (column === 'name') {
     return (
       <span className="flex items-center gap-2.5">
-        <UserAvatar name={user.name} profileImageUrl={memberProfileImageUrl(user.id)} className="size-[30px] text-[11.5px]" />
+        <UserAvatar name={user.name} profileImageUrl={user.profileImageUrl} className="size-[30px] text-[11.5px]" />
         <span className={`truncate text-[13px] ${user.name ? 'font-semibold text-ink' : 'text-ink-4'}`}>
           {user.name || NO_PROFILE}
         </span>

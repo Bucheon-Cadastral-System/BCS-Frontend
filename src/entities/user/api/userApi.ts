@@ -62,7 +62,8 @@ export interface PageResponse<T> {
 export interface MemberState { status: UserStatus; profileCompleted: boolean }
 
 function mapMember(member: ApiMember): ManagedUser {
-  return { ...mapMemberProfile(member), status: member.status }
+  const profileImageUrl = member.profileImageUrl ?? (member.profileImageRegistered === true ? memberProfileImageUrl(member.id) : null)
+  return { ...mapMemberProfile(member), status: member.status, profileImageUrl }
 }
 
 function mapMemberProfile(member: ApiMember): MemberProfile {
@@ -116,8 +117,7 @@ export async function getMemberState(): Promise<MemberState> {
 
 export async function getMyProfile(): Promise<UserProfile> {
   const { data } = await http.get<ApiMember>('/api/members/me')
-  const profileImageUrl = data.profileImageUrl ?? (data.profileImageRegistered === true ? memberProfileImageUrl(data.id) : null)
-  return { ...mapMember(data), profileImageUrl }
+  return mapMember(data)
 }
 
 export function memberProfileImageUrl(memberId: string | number): string {

@@ -31,15 +31,14 @@ export interface MemberProfile extends MemberIdentity {
   role: UserRole
 }
 
-/** 관리 화면이 다루는 회원 한 명 — 신원에 가입 상태가 붙는다 */
+/** 관리 화면이 다루는 회원 한 명 — 신원에 가입 상태와 조회 가능한 프로필 이미지 경로가 붙는다 */
 export interface ManagedUser extends MemberProfile {
   status: UserStatus
-}
-
-/** 내 프로필에는 프로필 이미지 조회 경로가 함께 온다. 다른 회원·관리자 목록 응답에는 이 값이 없다. */
-export interface UserProfile extends ManagedUser {
   profileImageUrl: string | null
 }
+
+/** 내 프로필과 관리자 회원 정보는 화면에서 같은 회원 모양을 사용한다. */
+export type UserProfile = ManagedUser
 
 /** 권한을 사람이 읽는 말로 — 서버 표기(ADMIN·USER)는 화면에 세우지 않는다 */
 export const ROLE_LABEL: Record<UserRole, string> = { ADMIN: '관리자', USER: '사용자' }
