@@ -6,10 +6,11 @@ export interface Size {
   height: number
 }
 
-/** 대화 메시지 — 역할과 본문만. */
+/** 대화 메시지 — 역할과 본문. 소요 시간은 이번 화면에서 받은 답에만 있다(서버 이력에는 없다). */
 export interface ChatMessage {
   role: 'user' | 'assistant'
   text: string
+  elapsedMs?: number
 }
 
 /** localStorage에 저장하는 창 배치 상태(대화 내용은 별도 키). */
