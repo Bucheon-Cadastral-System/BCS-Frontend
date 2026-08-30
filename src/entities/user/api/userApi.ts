@@ -38,6 +38,8 @@ interface ApiMember {
   profileImageUrl?: string | null
   /** 이미지 존재 여부만 내리는 응답과도 호환한다. */
   profileImageRegistered?: boolean
+  /** 관리자 회원 응답은 저장 경로의 존재 여부로 이미지 등록 상태를 알린다. */
+  profileImagePath?: string | null
 }
 
 export interface RegistrationInput {
@@ -62,7 +64,8 @@ export interface PageResponse<T> {
 export interface MemberState { status: UserStatus; profileCompleted: boolean }
 
 function mapMember(member: ApiMember): ManagedUser {
-  const profileImageUrl = member.profileImageUrl ?? (member.profileImageRegistered === true ? memberProfileImageUrl(member.id) : null)
+  const hasProfileImage = member.profileImageRegistered === true || Boolean(member.profileImagePath)
+  const profileImageUrl = member.profileImageUrl ?? (hasProfileImage ? memberProfileImageUrl(member.id) : null)
   return { ...mapMemberProfile(member), status: member.status, profileImageUrl }
 }
 
