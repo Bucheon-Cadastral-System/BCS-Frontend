@@ -836,6 +836,7 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
           user={profile}
           onOpenUserManagement={onOpenUserManagement}
           onProfileUpdated={onProfileUpdated}
+          onNotify={showToast}
         />
 
         <MapSidebar

@@ -39,7 +39,7 @@ export function MemberProfileDialog(props: { memberId: string; onClose: () => vo
         {isPending ? (
           <Skeleton className="size-[42px] rounded-full" />
         ) : (
-          <UserAvatar name={data?.name ?? ''} className="size-[42px] text-[15px]" />
+          <UserAvatar name={data?.name ?? ''} profileImageUrl={data?.profileImageUrl ?? null} className="size-[42px] text-[15px]" />
         )}
         <span className="min-w-0 flex-1">
           {isPending ? (

@@ -16,6 +16,7 @@ import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { SkeletonRows } from '@/shared/ui/Skeleton'
 import { Spinner } from '@/shared/ui/Spinner'
 import { Toast } from '@/shared/ui/Toast'
+import type { ToastTone } from '@/shared/ui/Toast'
 import { FormActions } from '@/shared/ui/FormActions'
 import { BTN_SM_DANGER, BTN_SM_PRIMARY, BTN_SM_SECONDARY, FIELD_SM, FIELD_SM_SELECT, ICON_BTN_DANGER, ROW_ACCENT } from '@/shared/ui/classes'
 
@@ -233,7 +234,11 @@ export function AdminUsersPage({ profile, onBack, onProfileUpdated }: AdminUsers
    * <p>조회 오류를 읽어 그리면 다시 시도해 성공하거나 창을 닫는 순간 문구가 비어, 떠 있던 토스트가 빈 알림이 된다.
    * 회차(id)는 같은 실패가 이어질 때도 토스트를 새로 띄우기 위한 값이다.
    */
-  const [failure, setFailure] = useState<{ id: number; message: string } | null>(null)
+  const [notice, setNotice] = useState<{ id: number; message: string; tone: ToastTone } | null>(null)
+
+  function notify(message: string, tone: ToastTone) {
+    setNotice((prev) => ({ id: (prev?.id ?? 0) + 1, message, tone }))
+  }
   const activitiesErrorMessage = errorMessageOf(activitiesQuery.error, '관리자 활동 로그를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.')
 
   /** 상세를 닫는다 — 고르던 사람과 고치던 값을 함께 놓는다 */
@@ -270,7 +275,7 @@ export function AdminUsersPage({ profile, onBack, onProfileUpdated }: AdminUsers
       // 실패는 토스트로 알린다 — 창 안에 세우면 뜰 때마다 버튼 줄이 밀린다.
       // 창은 열어 둔 채라 그대로 다시 시도할 수 있다
       const message = errorMessageOf(e, '회원 상태를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.')
-      setFailure((prev) => ({ id: (prev?.id ?? 0) + 1, message }))
+      notify(message, 'error')
     }
   }
 
@@ -357,6 +362,7 @@ export function AdminUsersPage({ profile, onBack, onProfileUpdated }: AdminUsers
         ]}
         user={profile}
         onProfileUpdated={onProfileUpdated}
+        onNotify={notify}
       />
 
       {/* 머리띠를 두지 않는다 — 바탕은 화면 전체가 하나이고 헤더는 그 위에 떠 있다.
@@ -710,8 +716,8 @@ export function AdminUsersPage({ profile, onBack, onProfileUpdated }: AdminUsers
         />
       )}
 
-      {failure !== null && (
-        <Toast key={`change-${failure.id}`} message={failure.message} tone="error" onDismiss={() => setFailure(null)} />
+      {notice !== null && (
+        <Toast key={`notice-${notice.id}`} message={notice.message} tone={notice.tone} onDismiss={() => setNotice(null)} />
       )}
     </main>
   )

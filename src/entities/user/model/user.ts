@@ -24,6 +24,8 @@ export interface MemberIdentity {
   department: string
   team: Team | UnknownEnumValue | ''
   position: Position | UnknownEnumValue | ''
+  /** 조회할 프로필 이미지 경로 — 등록한 이미지가 없으면 null */
+  profileImageUrl: string | null
 }
 
 /** 관리 화면이 다루는 회원 한 명의 신원 — 신원에 권한이 붙는다 */
@@ -31,10 +33,9 @@ export interface MemberProfile extends MemberIdentity {
   role: UserRole
 }
 
-/** 관리 화면이 다루는 회원 한 명 — 신원에 가입 상태와 조회 가능한 프로필 이미지 경로가 붙는다 */
+/** 관리 화면이 다루는 회원 한 명 — 신원에 가입 상태가 붙는다 */
 export interface ManagedUser extends MemberProfile {
   status: UserStatus
-  profileImageUrl: string | null
 }
 
 /** 내 프로필과 관리자 회원 정보는 화면에서 같은 회원 모양을 사용한다. */

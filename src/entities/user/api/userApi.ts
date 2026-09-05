@@ -64,9 +64,7 @@ export interface PageResponse<T> {
 export interface MemberState { status: UserStatus; profileCompleted: boolean }
 
 function mapMember(member: ApiMember): ManagedUser {
-  const hasProfileImage = member.profileImageRegistered === true || Boolean(member.profileImagePath)
-  const profileImageUrl = member.profileImageUrl ?? (hasProfileImage ? memberProfileImageUrl(member.id) : null)
-  return { ...mapMemberProfile(member), status: member.status, profileImageUrl }
+  return { ...mapMemberProfile(member), status: member.status }
 }
 
 function mapMemberProfile(member: ApiMember): MemberProfile {
@@ -78,7 +76,14 @@ function mapMemberIdentity(member: ApiMemberIdentity): MemberIdentity {
     id: String(member.id), name: member.name ?? '', phone: member.phone ?? '', email: member.email ?? '',
     district: enumDisplayValue(districtFromApi, member.district), department: member.department ?? '',
     team: enumDisplayValue(teamFromApi, member.team), position: enumDisplayValue(positionFromApi, member.position),
+    profileImageUrl: profileImageUrlOf(member),
   }
+}
+
+/** 이미지 등록을 알리는 칸이 응답마다 달라 셋을 함께 본다 — 등록한 이미지가 없으면 조회를 걸지 않는다 */
+function profileImageUrlOf(member: ApiMemberIdentity): string | null {
+  const registered = member.profileImageRegistered === true || Boolean(member.profileImagePath)
+  return member.profileImageUrl ?? (registered ? memberProfileImageUrl(member.id) : null)
 }
 
 /** 아직 고르지 않은 값(회원 정보 입력 전)은 빈 칸으로 두고, 우리가 모르는 값이 왔을 때만 원문을 드러낸다 */
