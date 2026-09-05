@@ -11,6 +11,7 @@ import { useElementWidth } from '@/shared/lib/useElementWidth'
 import { BrandMark } from '@/shared/ui/BrandMark'
 import { Skeleton } from '@/shared/ui/Skeleton'
 import { PILL, POPOVER } from '@/shared/ui/classes'
+import type { ToastTone } from '@/shared/ui/Toast'
 
 /** 헤더 탭 한 칸 — 화면이 무엇을 세울지 정한다(지도의 패널 전환, 관리자 화면의 자리 전환) */
 export interface HeaderTab {
@@ -46,6 +47,8 @@ export function AppHeader(props: {
   onUtilityWidthChange?: (px: number) => void
   /** 내 정보를 고친 뒤 — 화면이 쥔 프로필을 다시 받도록 알린다 */
   onProfileUpdated?: () => void | Promise<unknown>
+  /** 사용자 메뉴의 알림 문구 — 토스트는 화면이 세운다 */
+  onNotify?: (message: string, tone: ToastTone) => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const userRef = useRef<HTMLDivElement>(null)
@@ -220,6 +223,7 @@ export function AppHeader(props: {
                 guest={guest}
                 onOpenUserManagement={props.onOpenUserManagement}
                 onProfileUpdated={props.onProfileUpdated}
+                onNotify={props.onNotify}
                 onDone={() => setMenuOpen(false)}
               />
             </div>
@@ -251,6 +255,7 @@ export function AppHeader(props: {
                 guest={guest}
                 onOpenUserManagement={props.onOpenUserManagement}
                 onProfileUpdated={props.onProfileUpdated}
+                onNotify={props.onNotify}
                 onDone={() => setMenuOpen(false)}
               />
             </div>
