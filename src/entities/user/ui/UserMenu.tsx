@@ -114,17 +114,24 @@ export function UserMenu(props: {
     // 같은 파일을 실패 후 다시 고를 수 있게 선택값은 바로 비운다.
     event.currentTarget.value = ''
     if (file === undefined) return
+    const had = user?.profileImageUrl != null
     setPreparingImage(true)
     try {
       // 기준점 사진과 같은 길로 최대 800px·품질 85% WebP를 만든 뒤 그 결과만 서버에 보낸다.
       const prepared = await prepareWebpImage(file)
       await uploadImage.mutateAsync(prepared)
-      props.onNotify?.(user?.profileImageUrl === null ? '프로필 사진을 등록했습니다.' : '프로필 사진을 변경했습니다.', 'success')
-      await props.onProfileUpdated?.()
     } catch (error) {
       props.onNotify?.(error instanceof Error ? error.message : '사진을 처리하지 못했습니다. 다른 사진으로 다시 시도해 주세요.', 'error')
+      return
     } finally {
       setPreparingImage(false)
+    }
+    props.onNotify?.(had ? '프로필 사진을 변경했습니다.' : '프로필 사진을 등록했습니다.', 'success')
+    // 사진은 이미 저장됐다. 프로필을 다시 받는 일이 실패해도 사진 처리 실패로 알리지 않는다
+    try {
+      await props.onProfileUpdated?.()
+    } catch {
+      // 다음 조회가 같은 값을 가져온다
     }
   }
 
@@ -377,7 +384,7 @@ function ProfileAvatarEditor(props: {
 }) {
   const reveal = props.busy
     ? 'opacity-100'
-    : 'opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100'
+    : 'opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(any-pointer:coarse)]:opacity-100'
   const bubble = 'flex items-center justify-center rounded-full border border-line-soft bg-panel shadow-pill'
   return (
     <span className="group relative shrink-0">
@@ -395,10 +402,10 @@ function ProfileAvatarEditor(props: {
           onChange={props.onPick}
         />
         <UserAvatar name={props.user.name} profileImageUrl={props.user.profileImageUrl} className={props.size} />
-        <span aria-hidden="true" className={`absolute inset-0 flex items-center justify-center rounded-full bg-black/40 text-on-teal [@media(hover:none)]:hidden ${reveal}`}>
+        <span aria-hidden="true" className={`absolute inset-0 flex items-center justify-center rounded-full bg-black/40 text-on-teal [@media(any-pointer:coarse)]:hidden ${reveal}`}>
           {props.busy ? <Spinner className="size-[38%]" current /> : <IconImage className="size-[42%]" />}
         </span>
-        <span aria-hidden="true" className={`pointer-events-none absolute -bottom-1 -right-1 hidden size-[26px] ${bubble} text-ink-3 [@media(hover:none)]:flex`}>
+        <span aria-hidden="true" className={`pointer-events-none absolute -bottom-1 -right-1 hidden size-[26px] ${bubble} text-ink-3 [@media(any-pointer:coarse)]:flex`}>
           {props.busy ? <Spinner className="size-[14px]" current /> : <IconImage className="size-[14px]" />}
         </span>
       </label>
@@ -410,9 +417,9 @@ function ProfileAvatarEditor(props: {
           aria-label="프로필 사진 삭제"
           title="프로필 사진 삭제"
           // 호버 색은 바탕색이 아니라 그림으로 얹는다 — 씻은 색으로 바탕을 갈면 알파가 그대로 남아 사진이 비친다
-          className={`absolute -right-1 -top-1 size-[20px] ${bubble} text-danger transition-[background-image] hover:bg-[linear-gradient(var(--color-danger-wash-strong),var(--color-danger-wash-strong))] disabled:opacity-40 [@media(hover:none)]:-right-1.5 [@media(hover:none)]:-top-1.5 [@media(hover:none)]:size-[26px] ${reveal}`}
+          className={`absolute -right-1 -top-1 size-[20px] ${bubble} text-danger transition-[background-image] hover:bg-[linear-gradient(var(--color-danger-wash-strong),var(--color-danger-wash-strong))] disabled:opacity-40 [@media(any-pointer:coarse)]:-right-1.5 [@media(any-pointer:coarse)]:-top-1.5 [@media(any-pointer:coarse)]:size-[26px] ${reveal}`}
         >
-          <IconTrash className="size-[11px] [@media(hover:none)]:size-[13px]" />
+          <IconTrash className="size-[11px] [@media(any-pointer:coarse)]:size-[13px]" />
         </button>
       )}
     </span>
