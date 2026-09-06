@@ -44,6 +44,8 @@ interface ChatPanelProps {
   askedAt?: number | null
   /** 서버 기록을 비우는 중 — 그 사이 보낸 말은 지워질 대화에 붙으므로 전송 자체를 막는다 */
   clearing?: boolean
+  /** 대화 이력만 보여 주고 질문 전송·기록 삭제는 숨긴다 */
+  readOnly?: boolean
   expanded: boolean
   onSend: (text: string) => void
   onNewChat: () => void
@@ -85,7 +87,7 @@ export function ChatPanel(props: ChatPanelProps) {
   function send() {
     const text = input.trim()
     // 막을 때 입력을 비우지 않는다 — 비우면 보내지지도 않은 말이 사라져 되찾을 수 없다
-    if (!text || busy) return
+    if (!text || busy || props.readOnly) return
     props.onSend(text)
     setInput('')
   }
@@ -103,7 +105,7 @@ export function ChatPanel(props: ChatPanelProps) {
         </div>
 
         {/* 대화 시작 전에만 자주 쓰는 질의 빠른실행 버튼 노출 */}
-        {props.messages.length === 0 && <QuickActions onQuery={props.onSend} disabled={busy} />}
+        {props.messages.length === 0 && !props.readOnly && <QuickActions onQuery={props.onSend} disabled={busy} />}
 
         {props.messages.map((m, i) => (
           <div key={i} className="chat-msg-in space-y-2">
@@ -124,7 +126,7 @@ export function ChatPanel(props: ChatPanelProps) {
               <p className="-mt-1 pl-8 text-[11px] tabular-nums text-ink-4">{formatElapsed(m.elapsedMs)}</p>
             )}
             {/* 마지막 답변 아래에만 빠른 질의 버튼을 둔다 — 지난 답변마다 붙으면 대화가 버튼으로 덮인다 */}
-            {m.role === 'assistant' && i === props.messages.length - 1 && (
+            {m.role === 'assistant' && i === props.messages.length - 1 && !props.readOnly && (
               <QuickActions onQuery={props.onSend} disabled={busy} />
             )}
           </div>
@@ -159,7 +161,7 @@ export function ChatPanel(props: ChatPanelProps) {
         <button type="button" onClick={props.onToggleExpand} aria-label={props.expanded ? '코너로 축소' : '우측으로 확장'} aria-pressed={props.expanded} title={props.expanded ? '코너로 축소' : '우측으로 확장'} className={ICON_BTN}>
           {props.expanded ? <CollapseIcon className="size-full" /> : <ExpandIcon className="size-full" />}
         </button>
-        <button
+        {!props.readOnly && <button
           type="button"
           // 비어 있으면 지울 것이 없으므로 묻지 않는다
           onClick={() => (props.messages.length === 0 ? props.onNewChat() : setConfirmNew(true))}
@@ -169,14 +171,18 @@ export function ChatPanel(props: ChatPanelProps) {
           className={ICON_BTN}
         >
           <RefreshIcon className="size-full" />
-        </button>
+        </button>}
         <button type="button" onClick={props.onClose} aria-label="닫기" title="닫기" className={ICON_BTN_DANGER}>
           <CloseIcon className="size-full" />
         </button>
       </header>
 
       {/* 글래스 입력 — 스크롤 위에 떠 있다 */}
-      <div className="absolute inset-x-0 bottom-0 z-20 flex items-end gap-2 border-t border-line-soft bg-pill px-3 py-2.5">
+      {props.readOnly ? (
+        <div className="absolute inset-x-0 bottom-0 z-20 border-t border-line-soft bg-pill px-3 py-3 text-center text-[12px] text-ink-3">
+          게스트는 대화 내역만 조회할 수 있습니다.
+        </div>
+      ) : <div className="absolute inset-x-0 bottom-0 z-20 flex items-end gap-2 border-t border-line-soft bg-pill px-3 py-2.5">
         <textarea
           ref={inputRef}
           value={input}
@@ -202,7 +208,7 @@ export function ChatPanel(props: ChatPanelProps) {
         >
           <SendIcon className="size-4" />
         </button>
-      </div>
+      </div>}
 
       {confirmNew && (
         <ConfirmDialog

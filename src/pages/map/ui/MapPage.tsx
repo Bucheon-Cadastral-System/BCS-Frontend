@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useLocation } from 'react-router-dom'
 import type { CSSProperties } from 'react'
 import { useAppDispatch, useAppSelector } from '@/shared/store/hooks'
 import { selectTheme, toggleTheme } from '@/shared/model/theme'
@@ -56,6 +57,8 @@ import type { UserProfile } from '@/entities/user'
 interface MapPageProps {
   /** 지금 로그인한 사용자 — 헤더 표시와 권한 판정에 함께 쓴다 */
   profile: UserProfile | null
+  /** 로그인하지 않았지만 대회용 공개 GET API를 사용하는 조회 전용 상태 */
+  guest?: boolean
   onOpenUserManagement: () => void
   /** 내 정보를 고친 뒤 — 프로필을 다시 받는다 */
   onProfileUpdated: () => void | Promise<unknown>
@@ -85,7 +88,10 @@ function withinProject(project: SurveyProject | null, surveyedOn: string | null)
   return surveyedOn >= project.startedOn && (project.endedOn === null || surveyedOn <= project.endedOn)
 }
 
-export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: MapPageProps) {
+export function MapPage({ profile, guest = false, onOpenUserManagement, onProfileUpdated }: MapPageProps) {
+  const readOnly = guest
+  const location = useLocation()
+  const notice = new URLSearchParams(location.search).get('notice')
   const isAdmin = profile?.role === 'ADMIN'
   const dispatch = useAppDispatch()
   const theme = useAppSelector(selectTheme)
@@ -233,7 +239,12 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
     toastIdRef.current += 1
     setToast({ id: toastIdRef.current, message, tone })
   }
-  const fileDrop = useFileDrop((files) => startImport(files))
+  const fileDrop = useFileDrop(
+    readOnly
+      ? () => showToast('게스트 모드에서는 파일을 업로드할 수 없습니다.', 'error')
+      : (files) => startImport(files),
+    { reject: readOnly },
+  )
 
   /**
    * 헤더 탭 — 같은 탭을 다시 누르면 접고(칩), 접힌 탭을 누르면 다시 편다. 닫기(선택 해제)는 패널의 X 가 맡는다.
@@ -820,9 +831,15 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
         좁은 화면은 배치가 아예 달라 그 최소 폭을 풀어야 한다 — 남겨 두면 390px 화면에 1240px 짜리 화면이 담겨
         모든 자리가 화면 밖으로 밀린다 */}
     <div className="app-bg relative flex h-full min-w-app-min flex-col text-ink max-lg:min-w-0" {...fileDrop.dropHandlers}>
-      {fileDrop.dragging && <FileDropOverlay label="프로젝트 파일 등록" hint="CSV · XLSX" />}
+      {fileDrop.dragging && (
+        <FileDropOverlay
+          tone={readOnly ? 'reject' : undefined}
+          label={readOnly ? '게스트 모드에서는 파일을 업로드할 수 없습니다.' : '프로젝트 파일 등록'}
+          hint={readOnly ? '조회 기능만 이용할 수 있습니다.' : 'CSV · XLSX'}
+        />
+      )}
 
-      <ChatDockLayout width={utilityWidth} onDockWidthChange={setChatWidth} onAction={handleChatAction}>
+      <ChatDockLayout readOnly={readOnly} width={utilityWidth} onDockWidthChange={setChatWidth} onAction={handleChatAction}>
       <div className="relative min-h-0 min-w-0 flex-1">
         <AppHeader
           tabs={[
@@ -834,6 +851,7 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
           onUtilityWidthChange={setUtilityWidth}
           search={<PointSearchBar points={points} onSelect={focusPoint} />}
           user={profile}
+          guest={guest}
           onOpenUserManagement={onOpenUserManagement}
           onProfileUpdated={onProfileUpdated}
           onNotify={showToast}
@@ -883,6 +901,7 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
           recordsLoading={activeProjectId !== null && recordsQuery.isPending}
           targetsLoading={activeProjectId !== null && targetsQuery.isPending}
           isAdmin={isAdmin}
+          readOnly={readOnly}
           onOpenUserManagement={onOpenUserManagement}
           open={openPanel}
           minimized={panel?.minimized === true}
@@ -903,6 +922,9 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
 
         {/* 알림 띠 — 지도를 밀지 않고 헤더 아래에 겹쳐 둔다 */}
         <div className="pointer-events-none absolute inset-x-0 top-[76px] z-10 flex flex-col items-center gap-1.5 px-4 max-lg:top-[110px] max-lg:px-3">
+          {readOnly && notice === 'authentication-required' && (
+            <MapBanner tone="warn">로그인 상태가 만료되었습니다. 조회 기능은 계속 이용할 수 있습니다.</MapBanner>
+          )}
           {!VWORLD_KEY && (
             <MapBanner tone="warn">
               VWorld 배경지도 설정이 없어 OSM 배경지도로 표시합니다. 지적도와 법정동 경계는 표시되지 않습니다.
@@ -1110,6 +1132,7 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
                   ? showToast('클립보드로 복사되었습니다.', 'success')
                   : showToast('클립보드로 복사하지 못했습니다.', 'error')
               }
+              readOnly={readOnly}
             />
             </div>
         </div>
@@ -1187,7 +1210,7 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
       </div>
       </ChatDockLayout>
 
-      {pointModal === 'add' && (
+      {!readOnly && pointModal === 'add' && (
         <ControlPointFormModal
           title="기준점 추가"
           submitLabel="등록"
@@ -1203,7 +1226,7 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
         />
       )}
 
-      {editingPoint !== null && (
+      {!readOnly && editingPoint !== null && (
         <ControlPointFormModal
           key={editingPoint.id} // 다른 점으로 바뀌면 입력값도 그 점에서 새로 시작한다
           title="기준점 수정"
@@ -1232,7 +1255,7 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
         />
       )}
 
-      {deletingPoint !== null && (
+      {!readOnly && deletingPoint !== null && (
         <ConfirmDialog
           // 창을 열기 전에 참조 여부를 갈랐다 — 삭제 가능이면 물음, 참조 중이면 확정이 잠긴 '할 수 없음' 안내
           message={
@@ -1252,11 +1275,11 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
         />
       )}
 
-      {pointModal === 'file' && (
+      {!readOnly && pointModal === 'file' && (
         <ControlPointFileModal onImport={importPoints} onCancel={() => setPointModal(null)} />
       )}
 
-      {projectModal === 'file' && (
+      {!readOnly && projectModal === 'file' && (
         <SurveyProjectFileModal
           author={profile ? `${profile.name} · ${profile.team} ${profile.position}` : ''}
           initialFiles={pendingFiles}
@@ -1267,7 +1290,7 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
         />
       )}
 
-      {projectModal === 'create' && (
+      {!readOnly && projectModal === 'create' && (
         <SurveyProjectCreateModal
           author={profile ? `${profile.name} · ${profile.team} ${profile.position}` : ''}
           points={points}
@@ -1279,7 +1302,7 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
 
       {/* 시작값(현재 대상)과 기록이 오기 전에는 열지 않는다 — 빈 선택으로 열리면 저장이 대상 전체 해제가 되고,
           기록 없이 열리면 기록 삭제 경고가 빠진다 */}
-      {editingProject !== null && editTargetsQuery.data !== undefined && editRecordsQuery.data !== undefined && (
+      {!readOnly && editingProject !== null && editTargetsQuery.data !== undefined && editRecordsQuery.data !== undefined && (
         <SurveyProjectEditModal
           key={editingProject.id} // 다른 프로젝트로 바뀌면 입력값도 그 프로젝트에서 새로 시작한다
           project={editingProject}
@@ -1293,7 +1316,7 @@ export function MapPage({ profile, onOpenUserManagement, onProfileUpdated }: Map
         />
       )}
 
-      {deletingProject !== null && (
+      {!readOnly && deletingProject !== null && (
         <ConfirmDialog
           message={`'${deletingProject.name}' 프로젝트를 삭제할까요?`}
           detail="대상 지정과 조사 기록이 함께 삭제되며 되돌릴 수 없습니다."

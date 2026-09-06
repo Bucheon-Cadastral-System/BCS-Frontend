@@ -3,7 +3,7 @@ name: Deploy BCS Frontend
 on:
   push:
     branches:
-      - main
+      - ai-championship
   workflow_dispatch:
 
 permissions:

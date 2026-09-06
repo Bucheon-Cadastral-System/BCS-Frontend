@@ -52,7 +52,7 @@ export function UserMenu(props: {
   /** 어느 껍데기에 담기는지 — 말풍선과 시트는 치수와 로그아웃이 서는 자리가 다르다 */
   variant?: 'popover' | 'sheet'
   user: UserProfile | null
-  /** 공개 기준점만 보는 비로그인 상태 */
+  /** 공개된 조회 기능을 사용하는 비로그인 상태 */
   guest?: boolean
   /** 사용자 관리로 들어가는 길 — 관리자에게만 보인다 */
   onOpenUserManagement?: () => void

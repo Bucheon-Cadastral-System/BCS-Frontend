@@ -30,11 +30,14 @@ const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min)
  */
 export function ChatDockLayout({
   children,
+  readOnly = false,
   width,
   onDockWidthChange,
   onAction,
 }: {
   children: ReactNode
+  /** 서버의 대화 이력만 조회하고 전송·삭제는 허용하지 않는다 */
+  readOnly?: boolean
   /** 우측 패널 폭 — 헤더 우측 묶음(검색+사용자)과 같은 너비로 세운다 */
   width?: number
   /** 우측 패널이 차지한 폭 — 지도 위 다른 요소가 이만큼 비켜 서도록 알린다(닫혀 있으면 0) */
@@ -134,7 +137,7 @@ export function ChatDockLayout({
   }
 
   function send(text: string) {
-    if (pending || waiting || clearing) return // 응답 대기 중과 비우는 중에는 모든 전송 경로를 막는다
+    if (readOnly || pending || waiting || clearing) return // 조회 전용·응답 대기 중·비우는 중에는 모든 전송 경로를 막는다
     const session = sessionRef.current
     const startedAt = Date.now()
     const current = () => sessionRef.current === session
@@ -172,7 +175,7 @@ export function ChatDockLayout({
   }
 
   function newChat() {
-    if (clearing) return
+    if (readOnly || clearing) return
     sessionRef.current += 1
     // 기다리던 답은 지운 대화의 것이라 화면에서는 끝낸다. 지우기는 그 답이 이력에 실린 뒤로 미룬다
     setWaiting(false)
@@ -219,6 +222,7 @@ export function ChatDockLayout({
       waiting={waiting}
       askedAt={askedAt}
       clearing={clearing}
+      readOnly={readOnly}
       expanded={mode === 'right'}
       onSend={send}
       onNewChat={newChat}

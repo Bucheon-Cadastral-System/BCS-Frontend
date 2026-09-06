@@ -33,6 +33,8 @@ interface ControlPointImageUploadProps {
   onSuccess: () => void
   /** 창 밖에서 알려야 할 실패 — 받는 쪽이 토스트로 띄운다 */
   onError: (message: string) => void
+  /** 기존 사진 조회·확대·다운로드만 허용하고 등록·교체는 숨긴다 */
+  readOnly?: boolean
 }
 
 /** 사진을 고른 뒤 등록을 확정하기까지 들고 있는 값. */
@@ -239,7 +241,7 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
         항목이 없다고 보아 사진을 전부 고를 수 없게 만든다. 형식 판정은 고른 뒤 파일 이름으로 우리가 한다
         (브라우저에 따라 이 값을 비우는 이유는 IMAGE_PICKER_ACCEPT 참고)
       */}
-      <label
+      {!props.readOnly && <label
         // 라벨은 기본이 인라인이라 높이가 먹지 않는다 — 버튼과 같은 상자로 세운다.
         // 포커스 링도 라벨이 대신 두른다 — 실제로 포커스를 받는 칸은 눈에서 감춰 두어(sr-only) 제 링을
         // 그려도 보이지 않는다. 키보드로 다니는 사람에게는 이 링이 지금 어디에 서 있는지를 알리는 유일한 표시다
@@ -257,13 +259,13 @@ export function ControlPointImageUpload(props: ControlPointImageUploadProps) {
         />
         {preparing && <Spinner className="size-3.5" current />}
         {preparing ? '처리 중' : image === null ? '사진 등록' : '사진 교체'}
-      </label>
+      </label>}
 
       {viewing && previewUrl !== null && (
         <ImageViewer url={previewUrl} caption={image?.originalFileName ?? null} onClose={() => setViewing(false)} />
       )}
 
-      {draft !== null && (
+      {!props.readOnly && draft !== null && (
         <Modal
           title="기준점 사진 등록"
           busy={saving}

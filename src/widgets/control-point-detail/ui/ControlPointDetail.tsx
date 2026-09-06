@@ -41,6 +41,8 @@ interface ControlPointDetailProps {
   onDelete: (point: ControlPoint) => void
   /** 관리번호를 복사한 결과. 알림은 화면 전체를 아는 쪽이 띄운다 */
   onCopied: (ok: boolean) => void
+  /** 조회 전용 상태에서는 사진·성과를 보여 주되 서버를 변경하는 조작은 숨긴다 */
+  readOnly?: boolean
   /**
    * 좁은 화면에서 아래에서 올라오는 시트로 설 때의 손잡이.
    *
@@ -250,7 +252,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
           <span className="min-w-0 truncate text-[13.5px] font-semibold text-ink">{point.name}</span>
           <span className="shrink-0 text-[11px] text-ink-3">{point.type}</span>
         </h2>
-        {p !== null && (
+        {p !== null && !props.readOnly && (
           <>
             <button type="button" onClick={() => props.onEdit(p)} title="수정" aria-label="기준점 수정" className={ICON_BTN}>
               <svg viewBox="0 0 24 24" className="size-full" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -355,26 +357,28 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
             </span>
           </div>
           {/* 자리를 하나만 쓴다. 칩을 누르면 목록이 펼쳐지고 고르면 접힌다 */}
-          <SurveyResultPicker
-            result={props.surveyResult}
-            pending={shownResult}
-            disabled={saving}
-            onSelect={(choice) => {
-              if (choice === 'NONE') {
-                void applySurvey('NONE', () => props.onCancelSurvey(p.id))
-                return
-              }
-              if (choice === 'ETC') {
-                // 비고는 카드 안에서 이어 받는다. 떠 있는 창을 하나 더 띄우지 않는다
-                setEtcNote(props.surveyResult === 'ETC' ? (props.surveyNote ?? '') : '')
-                setPending('ETC')
-                return
-              }
-              void applySurvey(choice, () => props.onRecordSurvey(p.id, choice, null))
-            }}
-          />
+          {!props.readOnly && (
+            <SurveyResultPicker
+              result={props.surveyResult}
+              pending={shownResult}
+              disabled={saving}
+              onSelect={(choice) => {
+                if (choice === 'NONE') {
+                  void applySurvey('NONE', () => props.onCancelSurvey(p.id))
+                  return
+                }
+                if (choice === 'ETC') {
+                  // 비고는 카드 안에서 이어 받는다. 떠 있는 창을 하나 더 띄우지 않는다
+                  setEtcNote(props.surveyResult === 'ETC' ? (props.surveyNote ?? '') : '')
+                  setPending('ETC')
+                  return
+                }
+                void applySurvey(choice, () => props.onRecordSurvey(p.id, choice, null))
+              }}
+            />
+          )}
 
-          {pendingEtc && (
+          {!props.readOnly && pendingEtc && (
             <div className="mt-1.5 flex flex-col gap-1.5">
               <textarea
                 value={etcNote}
@@ -428,6 +432,7 @@ export function ControlPointDetail(props: ControlPointDetailProps) {
               result={props.surveyResult}
               onSuccess={props.onImageUploaded}
               onError={props.onImageFailed}
+              readOnly={props.readOnly}
             />
           )}
         </div>

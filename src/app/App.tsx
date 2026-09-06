@@ -9,7 +9,6 @@ import { RegistrationPage } from '@/pages/registration'
 import { LoginPage } from '@/pages/login'
 import { InactivePage } from '@/pages/inactive'
 import { MapPage } from '@/pages/map'
-import { GuestMapPage } from '@/pages/guest-map'
 import { clearChatStorage } from '@/widgets/chatbot'
 import { WaitingPage } from '@/pages/waiting'
 import { completeKakaoPopupLogin, exchangeOAuthCode, refreshAccessToken, startKakaoLogin } from '@/shared/api/auth'
@@ -109,7 +108,7 @@ function LoginRoute({ auth }: { auth: AuthState }) {
  * 로그인 울타리 — 못 들어가는 사람을 어디로 보낼지도 여기서만 정한다.
  *
  * <p>인증이 끊기는 자리에서 따로 옮기면 이 울타리의 이동과 겹쳐 두 번 옮겨지고, 둘 중 나중에 닿는 쪽이 남는다.
- * 뜻하지 않게 끊긴 사람은 보던 것을 이어 볼 수 있는 공개 지도로 사유와 함께 보내고,
+ * 뜻하지 않게 끊긴 사람은 보던 조회를 이어 갈 수 있는 게스트 지도로 사유와 함께 보내고,
  * 스스로 나간 사람과 아직 로그인하지 않은 사람은 로그인 화면으로 보낸다.
  */
 function Protected({ auth, admin = false, children }: { auth: AuthState; admin?: boolean; children: ReactNode }) {
@@ -249,7 +248,7 @@ function AppRoutes() {
         <Route path="/signup" element={<SignupRoute />} />
         <Route path="/register" element={<Navigate to="/signup" replace />} />
         <Route path="/waiting" element={<WaitingPage onBackToLogin={() => navigate('/login')} />} />
-        <Route path="/guest" element={<GuestMapPage />} />
+        <Route path="/guest" element={<MapPage profile={null} guest onOpenUserManagement={() => navigate('/admin/users')} onProfileUpdated={reloadProfile} />} />
         <Route path="/" element={<Protected auth={auth}><MapPage profile={auth.profile} onOpenUserManagement={() => navigate('/admin/users')} onProfileUpdated={reloadProfile} /></Protected>} />
         <Route path="/admin/users" element={<Protected auth={auth} admin><AdminUsersPage profile={auth.profile} onBack={() => navigate('/')} onProfileUpdated={reloadProfile} /></Protected>} />
         <Route path="*" element={<Navigate to="/" replace />} />

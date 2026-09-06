@@ -484,18 +484,16 @@ function ProjectDetail(props: {
         </button>
         {/* 제목이 길면 줄여 세운다 — 오른쪽 버튼은 자리를 내주지 않는다 */}
         <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">{p.name}</span>
-        {!props.readOnly && (
-          <button
-            type="button"
-            onClick={() => props.onExport(p)}
-            disabled={props.exporting === true}
-            title="내보내기"
-            aria-label="내보내기"
-            className={`${ICON_BTN_TEAL} disabled:cursor-wait`}
-          >
-            {props.exporting === true ? <Spinner className="size-full" current /> : <IconDownload />}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => props.onExport(p)}
+          disabled={props.exporting === true}
+          title="내보내기"
+          aria-label="내보내기"
+          className={`${ICON_BTN_TEAL} disabled:cursor-wait`}
+        >
+          {props.exporting === true ? <Spinner className="size-full" current /> : <IconDownload />}
+        </button>
       </div>
       <div className="flex shrink-0 items-baseline justify-between gap-2 px-3.5 text-[11.5px] text-ink-3">
         <span className="shrink-0">

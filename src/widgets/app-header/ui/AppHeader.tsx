@@ -37,7 +37,7 @@ export function AppHeader(props: {
   search?: ReactNode
   /** 지금 로그인한 사용자 — 아직 받아오지 못했으면 자리만 지킨다 */
   user: UserProfile | null
-  /** 공개 기준점만 보는 비로그인 상태 */
+  /** 공개된 조회 기능을 사용하는 비로그인 상태 */
   guest?: boolean
   /** 주지 않으면 사용자 메뉴에 그 항목을 두지 않는다(이미 그 화면인 경우) */
   onOpenUserManagement?: () => void
