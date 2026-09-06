@@ -231,6 +231,18 @@ function AppRoutes() {
 
   const handleKakaoLoginComplete = useCallback(async (landingPath?: OAuthPopupLandingPath) => {
     if (landingPath) {
+      // PENDING 회원은 백엔드가 교환 코드를 발급하지 않고 세션으로 /signup에 보낸다.
+      // 토큰이 발급된 경우에는 메인 창의 인증 상태까지 복원하고, 없으면 세션 기반 가입 흐름을 유지한다.
+      const token = await refreshAccessToken()
+      if (token) {
+        try {
+          applyAuth(await getMyProfile())
+        } catch {
+          applyAuth(null)
+        }
+      } else {
+        applyAuth(null)
+      }
       navigate(landingPath, { replace: true })
       return
     }
