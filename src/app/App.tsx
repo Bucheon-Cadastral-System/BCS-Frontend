@@ -13,11 +13,13 @@ import { GuestMapPage } from '@/pages/guest-map'
 import { clearChatStorage } from '@/widgets/chatbot'
 import { WaitingPage } from '@/pages/waiting'
 import { completeKakaoPopupLogin, exchangeOAuthCode, refreshAccessToken, startKakaoLogin } from '@/shared/api/auth'
+import type { OAuthPopupLandingPath } from '@/shared/api/auth'
 import { subscribeAuthenticationLost } from '@/shared/api/tokenStore'
 import type { AuthenticationLostReason } from '@/shared/api/tokenStore'
 import { BTN_SECONDARY, MODAL_SHELL } from '@/shared/ui/classes'
 import { ErrorBoundary } from '@/shared/ui/ErrorBoundary'
 import { Spinner } from '@/shared/ui/Spinner'
+import { getAuthLandingPath } from './authLanding'
 
 type AuthState = {
   loading: boolean
@@ -86,7 +88,7 @@ const LOGIN_FAILURE: Record<string, string> = {
   oauth2_authentication_failed: '로그인을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.',
 }
 
-function LoginRoute({ auth }: { auth: AuthState }) {
+function LoginRoute({ auth, onKakaoLogin }: { auth: AuthState; onKakaoLogin: () => void }) {
   const location = useLocation()
   const navigate = useNavigate()
   const error = new URLSearchParams(location.search).get('error')
@@ -98,7 +100,7 @@ function LoginRoute({ auth }: { auth: AuthState }) {
   }
   return (
     <LoginPage
-      onKakaoLogin={startKakaoLogin}
+      onKakaoLogin={onKakaoLogin}
       onGuest={() => navigate('/guest')}
       failure={error === null ? null : (LOGIN_FAILURE[error] ?? '로그인을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.')}
     />
@@ -138,10 +140,7 @@ function OAuthSuccessRoute({ reloadProfile }: { reloadProfile: () => Promise<Use
         const [profile, memberState] = await Promise.all([reloadProfile(), getMemberState()])
         const status = memberState.status ?? profile?.status
 
-        if (status === 'INACTIVE') navigate('/login?error=inactive', { replace: true })
-        else if (!memberState.profileCompleted) navigate('/signup', { replace: true })
-        else if (status === 'PENDING') navigate('/waiting', { replace: true })
-        else navigate('/', { replace: true })
+        navigate(getAuthLandingPath({ status, profileCompleted: memberState.profileCompleted }), { replace: true })
       })
       .catch((e) => setError(e instanceof Error ? e.message : '로그인을 완료하지 못했습니다.'))
   }, [location.search, navigate, reloadProfile])
@@ -157,6 +156,10 @@ function SignupRoute() {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    // 신규 회원은 백엔드가 OAuth 성공 교환 화면을 거치지 않고 곧바로 /signup으로 보낸다.
+    // 로그인 팝업이라면 폼을 그리지 않고 원래 창에 회원가입 경로를 넘긴 뒤 닫는다.
+    if (completeKakaoPopupLogin('/signup')) return
+
     getMemberState()
       .then((state) => {
         if (state.profileCompleted) navigate('/waiting', { replace: true })
@@ -226,6 +229,33 @@ function AppRoutes() {
     }
   }, [applyAuth])
 
+  const handleKakaoLoginComplete = useCallback(async (landingPath?: OAuthPopupLandingPath) => {
+    if (landingPath) {
+      navigate(landingPath, { replace: true })
+      return
+    }
+
+    const token = await refreshAccessToken()
+    if (!token) {
+      applyAuth(null)
+      navigate('/login?error=oauth2_authentication_failed', { replace: true })
+      return
+    }
+
+    try {
+      const [profile, memberState] = await Promise.all([getMyProfile(), getMemberState()])
+      applyAuth(profile)
+      navigate(getAuthLandingPath(memberState), { replace: true })
+    } catch {
+      applyAuth(null)
+      navigate('/login?error=oauth2_authentication_failed', { replace: true })
+    }
+  }, [applyAuth, navigate])
+
+  const handleKakaoLogin = useCallback(() => {
+    void startKakaoLogin(handleKakaoLoginComplete)
+  }, [handleKakaoLoginComplete])
+
   useEffect(() => {
     // 공개 경로는 토큰 갱신을 묻지 않는다. 다만 아는 계정 상태를 지우지도 않는다 —
     // 여기서 지우면 아래 확인이 이미 끝난 것으로 남아, 이 경로를 지난 뒤 보호 화면으로 돌아올 때
@@ -244,7 +274,7 @@ function AppRoutes() {
   return (
     <ErrorBoundary resetKey={location.pathname}>
       <Routes>
-        <Route path="/login" element={<LoginRoute auth={auth} />} />
+        <Route path="/login" element={<LoginRoute auth={auth} onKakaoLogin={handleKakaoLogin} />} />
         <Route path="/oauth/success" element={<OAuthSuccessRoute reloadProfile={reloadProfile} />} />
         <Route path="/signup" element={<SignupRoute />} />
         <Route path="/register" element={<Navigate to="/signup" replace />} />
