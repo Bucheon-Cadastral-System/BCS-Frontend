@@ -152,19 +152,59 @@ export function UserMenu(props: {
   if (guest) {
     return (
       <>
-        <PanelHead sheet={sheet} avatar={<UserAvatar name="" guest className={AVATAR[sheet ? 'sheet' : 'popover']} />} name="게스트" />
-        <div className="p-3">
+        <PanelHead
+          sheet={sheet}
+          avatar={
+            user === null
+              ? <UserAvatar name="" guest className={AVATAR[sheet ? 'sheet' : 'popover']} />
+              : <UserAvatar name={user.name} profileImageUrl={user.profileImageUrl} className={AVATAR[sheet ? 'sheet' : 'popover']} />
+          }
+          name={user?.name || '게스트'}
+          duty={user === null ? undefined : dutyOf(user)}
+        />
+        {user === null ? (
+          <dl className="px-4 py-1">
+            {INFO_LABELS.map((label) => (
+              <ProfileRow key={label} label={label}>
+                <Skeleton className="h-3 w-32" />
+              </ProfileRow>
+            ))}
+          </dl>
+        ) : (
+          <dl className="px-4 py-1">
+            <ProfileLockedField label="전화번호" editing={false} value={formatPhone(user.phone)} />
+            <ProfileLockedField label="이메일" editing={false} value={user.email} />
+            <ProfileLockedField label="소속 구청" editing={false} value={user.district} />
+            <ProfileLockedField label="소속 과" editing={false} value={user.department} />
+            <ProfileLockedField label="소속 팀" editing={false} value={user.team} />
+            <ProfileLockedField label="직위" editing={false} value={user.position} />
+          </dl>
+        )}
+        {sheet ? <div className="p-3 pb-6">
           <button
             type="button"
             onClick={() => {
               props.onDone?.()
               navigate('/login')
             }}
-            className={`${BTN_PRIMARY} w-full`}
+            className={`${BTN_PRIMARY} w-full gap-[7px]`}
           >
-            로그인
+            <IconLogin />
+            로그인하기
           </button>
-        </div>
+        </div> : (
+          <button
+            type="button"
+            onClick={() => {
+              props.onDone?.()
+              navigate('/login')
+            }}
+            className="flex w-full items-center justify-center gap-[7px] border-t border-line-soft bg-soft px-4 py-2.5 text-[12.5px] text-teal-text transition-colors hover:bg-teal-wash"
+          >
+            <IconLogin />
+            로그인하기
+          </button>
+        )}
       </>
     )
   }
@@ -468,6 +508,15 @@ function IconLogout() {
     <svg viewBox="0 0 24 24" className="size-[15px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
       <path d="m16 17 5-5-5-5M21 12H9" />
+    </svg>
+  )
+}
+
+function IconLogin() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-[15px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+      <path d="m8 7-5 5 5 5M3 12h12" />
     </svg>
   )
 }

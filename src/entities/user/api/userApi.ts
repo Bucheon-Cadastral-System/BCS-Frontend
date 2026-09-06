@@ -1,4 +1,4 @@
-import { http } from '@/shared/api/http'
+import { http, publicHttp } from '@/shared/api/http'
 import type { District, ManagedUser, MemberIdentity, MemberProfile, Position, Team, UnknownEnumValue, UserProfile, UserRole, UserStatus } from '../model/user'
 
 type ApiDistrict = 'WONMI' | 'SOSA' | 'OJEONG'
@@ -125,6 +125,12 @@ export async function getMemberState(): Promise<MemberState> {
 
 export async function getMyProfile(): Promise<UserProfile> {
   const { data } = await http.get<ApiMember>('/api/members/me')
+  return mapMember(data)
+}
+
+/** 대회용 게스트 계정 정보 — 저장된 토큰·세션을 싣지 않아 항상 고정 게스트 회원을 조회한다. */
+export async function getGuestProfile(): Promise<UserProfile> {
+  const { data } = await publicHttp.get<ApiMember>('/api/members/me')
   return mapMember(data)
 }
 

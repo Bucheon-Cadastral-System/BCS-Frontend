@@ -52,7 +52,7 @@ import { PANEL_MARGIN } from '@/shared/ui/layout'
 import { MapBanner } from '@/shared/ui/MapBanner'
 import { Spinner } from '@/shared/ui/Spinner'
 import { ThemeToggleButton } from '@/shared/ui/ThemeToggleButton'
-import type { UserProfile } from '@/entities/user'
+import { useGuestProfileQuery, type UserProfile } from '@/entities/user'
 
 interface MapPageProps {
   /** 지금 로그인한 사용자 — 헤더 표시와 권한 판정에 함께 쓴다 */
@@ -92,7 +92,9 @@ export function MapPage({ profile, guest = false, onOpenUserManagement, onProfil
   const readOnly = guest
   const location = useLocation()
   const notice = new URLSearchParams(location.search).get('notice')
-  const isAdmin = profile?.role === 'ADMIN'
+  const guestProfileQuery = useGuestProfileQuery(guest)
+  const displayedProfile = guest ? (guestProfileQuery.data ?? null) : profile
+  const isAdmin = !guest && profile?.role === 'ADMIN'
   const dispatch = useAppDispatch()
   const theme = useAppSelector(selectTheme)
   const activeProjectId = useAppSelector(selectActiveProjectId)
@@ -850,7 +852,7 @@ export function MapPage({ profile, guest = false, onOpenUserManagement, onProfil
           onBrandWidthChange={setHeaderWidth}
           onUtilityWidthChange={setUtilityWidth}
           search={<PointSearchBar points={points} onSelect={focusPoint} />}
-          user={profile}
+          user={displayedProfile}
           guest={guest}
           onOpenUserManagement={onOpenUserManagement}
           onProfileUpdated={onProfileUpdated}

@@ -1,9 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { changeAdminMember, deleteMyProfileImage, getAdminActivities, getAdminMemberCounts, getAdminMembers, getMemberIdentity, getProfileImage, updateAdminMember, updateMyProfile, uploadMyProfileImage } from './userApi'
+import { changeAdminMember, deleteMyProfileImage, getAdminActivities, getAdminMemberCounts, getAdminMembers, getGuestProfile, getMemberIdentity, getProfileImage, updateAdminMember, updateMyProfile, uploadMyProfileImage } from './userApi'
 import type { AdminActivityType, AdminMemberAction, AdminMemberQuery } from './userApi'
 
 export const MEMBER_PROFILE_KEY = ['member-profile'] as const
 export const PROFILE_IMAGE_KEY = ['profile-image'] as const
+export const GUEST_PROFILE_KEY = ['guest-profile'] as const
+
+/** 대회용 게스트 회원(999)의 읽기 전용 프로필. 게스트 화면에서만 요청한다. */
+export function useGuestProfileQuery(enabled = true) {
+  return useQuery({ queryKey: GUEST_PROFILE_KEY, queryFn: getGuestProfile, enabled, staleTime: 10 * 60_000, retry: false })
+}
 
 /**
  * 프로필 이미지 경로가 있을 때만 파일을 받는다. 같은 사용자를 헤더와 메뉴가 함께 그려도
