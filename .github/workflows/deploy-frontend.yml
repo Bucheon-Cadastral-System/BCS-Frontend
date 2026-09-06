@@ -1,109 +1,109 @@
-name: Deploy BCS Frontend
+# name: Deploy BCS Frontend
 
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+# on:
+#   push:
+#     branches:
+#       - main
+#   workflow_dispatch:
 
-permissions:
-  contents: read
+# permissions:
+#   contents: read
 
-concurrency:
-  group: bcs-frontend-production
-  cancel-in-progress: false
+# concurrency:
+#   group: bcs-frontend-production
+#   cancel-in-progress: false
 
-jobs:
-  deploy-frontend:
-    runs-on: ubuntu-latest
+# jobs:
+#   deploy-frontend:
+#     runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: package-lock.json
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: 24
+#           cache: npm
+#           cache-dependency-path: package-lock.json
 
-      - name: Install Dependencies
-        run: npm ci
+#       - name: Install Dependencies
+#         run: npm ci
 
-      - name: Build Frontend
-        run: npm run build
-        env:
-          VITE_VWORLD_KEY: ${{ secrets.VITE_VWORLD_KEY }}
+#       - name: Build Frontend
+#         run: npm run build
+#         env:
+#           VITE_VWORLD_KEY: ${{ secrets.VITE_VWORLD_KEY }}
 
-      # 대상 서버는 새 SSH 연결을 확률적으로 거부한다. 연결을 하나만 열어 그 위에서 모두 처리하고,
-      # 거부되면 다시 시도한다.
-      - name: Deploy Frontend
-        env:
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
-          SERVER_USER: inwoo
-          BASE_DIR: /home/inwoo/docker/main/bcs/frontend
-        run: |
-          set -euo pipefail
+#       # 대상 서버는 새 SSH 연결을 확률적으로 거부한다. 연결을 하나만 열어 그 위에서 모두 처리하고,
+#       # 거부되면 다시 시도한다.
+#       - name: Deploy Frontend
+#         env:
+#           SERVER_HOST: ${{ secrets.SERVER_HOST }}
+#           SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+#           SERVER_USER: inwoo
+#           BASE_DIR: /home/inwoo/docker/main/bcs/frontend
+#         run: |
+#           set -euo pipefail
 
-          KEY="$RUNNER_TEMP/deploy_key"
-          CTL="$RUNNER_TEMP/deploy_ctl"
-          BUNDLE="$RUNNER_TEMP/dist.tgz"
+#           KEY="$RUNNER_TEMP/deploy_key"
+#           CTL="$RUNNER_TEMP/deploy_ctl"
+#           BUNDLE="$RUNNER_TEMP/dist.tgz"
 
-          printf '%s\n' "$SERVER_SSH_KEY" > "$KEY"
-          chmod 600 "$KEY"
-          tar -czf "$BUNDLE" -C dist .
+#           printf '%s\n' "$SERVER_SSH_KEY" > "$KEY"
+#           chmod 600 "$KEY"
+#           tar -czf "$BUNDLE" -C dist .
 
-          SSH_OPTS=(-i "$KEY"
-            -o StrictHostKeyChecking=no
-            -o UserKnownHostsFile=/dev/null
-            -o LogLevel=ERROR
-            -o ConnectTimeout=20
-            -o ServerAliveInterval=15
-            -o ControlMaster=auto
-            -o ControlPath="$CTL"
-            -o ControlPersist=180)
+#           SSH_OPTS=(-i "$KEY"
+#             -o StrictHostKeyChecking=no
+#             -o UserKnownHostsFile=/dev/null
+#             -o LogLevel=ERROR
+#             -o ConnectTimeout=20
+#             -o ServerAliveInterval=15
+#             -o ControlMaster=auto
+#             -o ControlPath="$CTL"
+#             -o ControlPersist=180)
 
-          TARGET="$SERVER_USER@$SERVER_HOST"
+#           TARGET="$SERVER_USER@$SERVER_HOST"
 
-          close() { ssh "${SSH_OPTS[@]}" -O exit "$TARGET" 2>/dev/null || true; }
+#           close() { ssh "${SSH_OPTS[@]}" -O exit "$TARGET" 2>/dev/null || true; }
 
-          deploy() {
-            ssh "${SSH_OPTS[@]}" "$TARGET" true || return 1
+#           deploy() {
+#             ssh "${SSH_OPTS[@]}" "$TARGET" true || return 1
 
-            ssh "${SSH_OPTS[@]}" "$TARGET" \
-              "set -e; rm -rf '$BASE_DIR/deploy'; mkdir -p '$BASE_DIR/deploy'" || return 1
+#             ssh "${SSH_OPTS[@]}" "$TARGET" \
+#               "set -e; rm -rf '$BASE_DIR/deploy'; mkdir -p '$BASE_DIR/deploy'" || return 1
 
-            scp "${SSH_OPTS[@]}" "$BUNDLE" "$TARGET:$BASE_DIR/deploy/dist.tgz" || return 1
+#             scp "${SSH_OPTS[@]}" "$BUNDLE" "$TARGET:$BASE_DIR/deploy/dist.tgz" || return 1
 
-            ssh "${SSH_OPTS[@]}" "$TARGET" "set -e
-              DEPLOY_DIR='$BASE_DIR/deploy'
-              DIST_DIR='$BASE_DIR/dist'
-              BACKUP_DIR='$BASE_DIR/dist-backup'
+#             ssh "${SSH_OPTS[@]}" "$TARGET" "set -e
+#               DEPLOY_DIR='$BASE_DIR/deploy'
+#               DIST_DIR='$BASE_DIR/dist'
+#               BACKUP_DIR='$BASE_DIR/dist-backup'
 
-              tar -xzf \"\$DEPLOY_DIR/dist.tgz\" -C \"\$DEPLOY_DIR\"
-              rm -f \"\$DEPLOY_DIR/dist.tgz\"
-              test -f \"\$DEPLOY_DIR/index.html\"
+#               tar -xzf \"\$DEPLOY_DIR/dist.tgz\" -C \"\$DEPLOY_DIR\"
+#               rm -f \"\$DEPLOY_DIR/dist.tgz\"
+#               test -f \"\$DEPLOY_DIR/index.html\"
 
-              rm -rf \"\$BACKUP_DIR\"
-              if [ -d \"\$DIST_DIR\" ]; then
-                mv \"\$DIST_DIR\" \"\$BACKUP_DIR\"
-              fi
-              mv \"\$DEPLOY_DIR\" \"\$DIST_DIR\"
-              rm -rf \"\$BACKUP_DIR\"" || return 1
-          }
+#               rm -rf \"\$BACKUP_DIR\"
+#               if [ -d \"\$DIST_DIR\" ]; then
+#                 mv \"\$DIST_DIR\" \"\$BACKUP_DIR\"
+#               fi
+#               mv \"\$DEPLOY_DIR\" \"\$DIST_DIR\"
+#               rm -rf \"\$BACKUP_DIR\"" || return 1
+#           }
 
-          for attempt in 1 2 3 4 5 6; do
-            if deploy; then
-              close
-              exit 0
-            fi
-            close
-            pause=$((attempt * 15))
-            echo "::warning::SSH 연결 실패. ${pause}초 뒤 재시도 ($attempt/6)"
-            sleep "$pause"
-          done
+#           for attempt in 1 2 3 4 5 6; do
+#             if deploy; then
+#               close
+#               exit 0
+#             fi
+#             close
+#             pause=$((attempt * 15))
+#             echo "::warning::SSH 연결 실패. ${pause}초 뒤 재시도 ($attempt/6)"
+#             sleep "$pause"
+#           done
 
-          echo "::error::SSH 연결에 여섯 번 실패했습니다."
-          exit 1
+#           echo "::error::SSH 연결에 여섯 번 실패했습니다."
+#           exit 1
